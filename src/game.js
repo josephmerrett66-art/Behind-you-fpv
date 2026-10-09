@@ -16,7 +16,8 @@ try { Object.assign(SET, JSON.parse(localStorage.getItem('behind-you-fp') || '{}
 const saveSet = () => { try { localStorage.setItem('behind-you-fp', JSON.stringify(SET)); } catch (e) {} };
 
 // ---------------- the world's numbers ----------------
-const EYE = 33, P_R = 8, RUN = 95, RANGE = 330, HALF = 0.38, WORLD_R = 2100, CAMP_R = 170, TREE_K = 1.75;
+const EYE = 35,   // your eyes sit level with a shade's (a person is 38 tall)
+      P_R = 8, RUN = 95, RANGE = 330, HALF = 0.38, WORLD_R = 2100, CAMP_R = 170, TREE_K = 1.75;
 const FOES = {   // from the game: hp, speed, speed while lit, height
   shade:   { hp: 1,   sp: 40, lightSp: 0,    h: 38, bulk: 1,    reach: 23, wind: 0.6,  stop: true,  tint: [118, 128, 168], step: 'small', burnK: 1 },
   stalker: { hp: 0.6, sp: 74, lightSp: 0,    h: 31, bulk: 0.95, reach: 21, wind: 0.45, stop: true,  tint: [150, 112, 176], step: 'small', burnK: 1.2 },

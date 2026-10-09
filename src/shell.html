@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#050505">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Behind You First Person</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  color-scheme: dark;
+  --void: #050505;
+  --ash: #8a8a8a;
+  --bone: #efefea;
+  --blood: #c42a2a;
+  --display: "Major Mono Display", "Courier New", monospace;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--void); color: var(--bone); font-family: var(--mono); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#gl { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; }
+#touch { position: fixed; inset: 0; touch-action: none; }
+#grain { position: fixed; inset: -64px; pointer-events: none; opacity: 0.075; will-change: transform; }
+#vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%); }
+#hurt { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(120,0,0,0) 35%, rgba(150,10,10,0.75) 100%); }
+#heal { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,190,120,0) 40%, rgba(255,170,90,0.45) 100%); }
+#hud { display: none; position: fixed; left: calc(18px + env(safe-area-inset-left, 0px)); top: calc(14px + env(safe-area-inset-top, 0px)); pointer-events: none; gap: 6px; }
+#area { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.14em; color: var(--ash); text-transform: uppercase; }
+#hearts { display: flex; gap: 4px; }
+#hearts svg { width: 17px; height: 15px; }
+#stats { font-size: 0.72rem; letter-spacing: 0.12em; color: var(--ash); text-transform: uppercase; }
+#dot { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: rgba(239,239,234,0.55); pointer-events: none; }
+#banner { position: fixed; left: 0; right: 0; top: 26%; text-align: center; font-size: clamp(1.4rem, 5vw, 2.6rem); letter-spacing: 0.06em; color: var(--bone); opacity: 0; pointer-events: none; transition: opacity 0.8s; text-shadow: 0 0 18px rgba(0,0,0,0.8); }
+#prompt { position: fixed; left: 0; right: 0; top: 60%; text-align: center; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.16em; color: var(--bone); opacity: 0; pointer-events: none; transition: opacity 0.4s; text-transform: uppercase; }
+button { font: 600 0.9rem var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--void); background: var(--bone); border: 0; padding: 0.85rem 1.4rem; cursor: pointer; touch-action: none; }
+button.alt { background: transparent; color: var(--bone); border: 1px solid var(--bone); }
+.rb { position: fixed; padding: 0; border-radius: 50%; letter-spacing: 0.1em; color: var(--bone); background: rgba(5,5,5,0.55); border: 1px solid rgba(239,239,234,0.55); display: none; }
+body.touch.playing .rb { display: block; }
+#bAtk { right: calc(22px + env(safe-area-inset-right, 0px)); bottom: calc(26px + env(safe-area-inset-bottom, 0px)); width: 96px; height: 96px; font-size: 0.66rem; background: rgba(60,30,10,0.55); border-color: rgba(255,190,130,0.7); }
+#bAtk.on { background: rgba(255,190,130,0.35); }
+#bDodge { right: calc(132px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 70px; height: 70px; font-size: 0.56rem; }
+#bDodge.on { background: rgba(239,239,234,0.3); }
+#bFlask { right: calc(36px + env(safe-area-inset-right, 0px)); bottom: calc(138px + env(safe-area-inset-bottom, 0px)); width: 62px; height: 62px; font-size: 0.5rem; color: #f1b77a; border-color: rgba(241,183,122,0.75); }
+#bFlask.empty { opacity: 0.35; }
+#bMenu { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); top: calc(14px + env(safe-area-inset-top, 0px)); padding: 0.5rem 0.75rem; font-size: 0.7rem; letter-spacing: 0.12em; color: var(--ash); background: rgba(5,5,5,0.6); border: 1px solid rgba(138,138,138,0.45); display: none; }
+body.playing #bMenu { display: block; }
+#fps { position: fixed; right: calc(18px + env(safe-area-inset-right, 0px)); top: calc(54px + env(safe-area-inset-top, 0px)); font-size: 0.62rem; letter-spacing: 0.1em; color: rgba(138,138,138,0.85); pointer-events: none; text-align: right; }
+#stick { position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 1px solid rgba(239,239,234,0.28); background: rgba(5,5,5,0.25); pointer-events: none; display: none; }
+#knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(239,239,234,0.32); }
+#padHint { position: fixed; left: 0; right: 0; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.62rem; letter-spacing: 0.14em; color: rgba(138,138,138,0.9); pointer-events: none; display: none; text-transform: uppercase; }
+body.pad.playing #padHint { display: block; }
+body.playing #hud { display: grid; }
+#dot, #fps { display: none; }
+body.playing #dot { display: block; }
+body.playing.showfps #fps { display: block; }
+.screen { position: fixed; inset: 0; display: none; flex-direction: column; justify-content: center; padding: calc(24px + env(safe-area-inset-top, 0px)) calc(24px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(24px + env(safe-area-inset-left, 0px)); background: rgba(5,5,5,0.86); overflow-y: auto; touch-action: pan-y; }
+.screen.show { display: flex; }
+#title { background: radial-gradient(ellipse at 75% 40%, rgba(80,60,35,0.35), rgba(5,5,5,0.97) 60%); }
+.big { font-family: var(--display); font-size: clamp(2.4rem, 10vw, 6.5rem); line-height: 1; letter-spacing: 0.04em; margin: 0; font-weight: 400; }
+.big .dim { color: #8a8a84; }
+.sub { margin: 0.9rem 0 1.6rem; font-size: 0.8rem; letter-spacing: 0.3em; color: var(--ash); text-transform: uppercase; }
+.panel { display: flex; align-items: center; gap: 1.1rem; max-width: 34rem; text-align: left; padding: 1rem 1.3rem; text-transform: none; letter-spacing: 0; }
+.panel .ico { width: 54px; height: 54px; flex: none; display: grid; place-items: center; background: #7b7b77; border: 1px solid #555; }
+.panel b { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(1.3rem, 4vw, 2rem); letter-spacing: 0.1em; }
+.panel span { display: block; font-weight: 400; font-size: 0.8rem; margin-top: 0.3rem; letter-spacing: 0.06em; }
+.how { margin-top: 1.4rem; display: grid; gap: 0.35rem; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--ash); max-width: 40rem; }
+.how b { color: var(--bone); font-weight: 600; }
+.row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
+.set { display: grid; gap: 1rem; max-width: 30rem; width: 100%; margin: 1.2rem 0; }
+.set label { display: grid; gap: 0.4rem; font-size: 0.72rem; letter-spacing: 0.12em; color: var(--ash); text-transform: uppercase; }
+.set input[type=range] { width: 100%; accent-color: #f1b77a; }
+.tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.tab { padding: 0.45rem 0.75rem; font-size: 0.66rem; background: transparent; color: var(--ash); border: 1px solid rgba(138,138,138,0.4); }
+.tab[aria-pressed="true"] { color: var(--void); background: var(--bone); border-color: var(--bone); }
+h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 6vw, 3.2rem); margin: 0; letter-spacing: 0.06em; }
+#deadT { color: var(--bone); }
+.note { font-size: 0.72rem; letter-spacing: 0.08em; color: var(--ash); margin-top: 0.6rem; max-width: 36rem; line-height: 1.5; }
+#loading { position: fixed; left: 0; right: 0; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.7rem; letter-spacing: 0.18em; color: var(--ash); text-transform: uppercase; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="touch"></div>
+<canvas id="grain" width="256" height="256"></canvas>
+<div id="vig"></div>
+<div id="hurt"></div>
+<div id="heal"></div>
+<div id="dot"></div>
+<div id="hud">
+  <div id="area">camp</div>
+  <div id="hearts"></div>
+  <div id="stats"></div>
+</div>
+<div id="banner"></div>
+<div id="prompt"></div>
+<div id="stick"><div id="knob"></div></div>
+<button class="rb" id="bAtk">Attack</button>
+<button class="rb" id="bDodge">Dodge</button>
+<button class="rb" id="bFlask">Flask 3</button>
+<button id="bMenu">Menu</button>
+<div id="fps"></div>
+<div id="padHint">RT / A attack · B dodge · LT flask · Menu pause</div>
+
+<div class="screen show" id="title">
+  <h1 class="big"><span class="dim">behind</span> you</h1>
+  <p class="sub">first person test · you only have a torch.</p>
+  <button class="panel" id="begin">
+    <span class="ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6"><path d="M12 3 3 20h18L12 3Z"/><path d="M12 9v11M9 20l3-5 3 5"/></svg></span>
+    <span><b>begin</b><span>Head into the dark. Don't look back for long.</span></span>
+  </button>
+  <div class="how" id="how"></div>
+  <div id="loading">painting the woods…</div>
+</div>
+
+<div class="screen" id="pause">
+  <h2>paused</h2>
+  <div class="set">
+    <label>Look speed <input type="range" id="sSens" min="0.4" max="2.2" step="0.05"></label>
+    <label>Picture
+      <span class="tabs" id="sQual">
+        <button class="tab" data-q="auto">Auto</button>
+        <button class="tab" data-q="sharp">Sharp</button>
+        <button class="tab" data-q="fast">Fast</button>
+      </span>
+    </label>
+    <label>Options
+      <span class="tabs">
+        <button class="tab" id="sInv">Invert look</button>
+        <button class="tab" id="sFps">Show FPS</button>
+        <button class="tab" id="sSnd">Sound</button>
+      </span>
+    </label>
+  </div>
+  <div class="row"><button id="resume">Resume</button><button class="alt" id="restart">Start over</button></div>
+  <p class="note">Auto keeps the frame rate up by lowering the picture's sharpness a little when the phone is working hard, and raising it again when there's room.</p>
+</div>
+
+<div class="screen" id="dead">
+  <h2 id="deadT">the dark took you</h2>
+  <p class="sub" id="deadS"></p>
+  <div class="row"><button id="again">Again</button></div>
+</div>
+
+<script>/*THREE*/</script>
+<script>/*GAME*/</script>
+</body>
+</html>

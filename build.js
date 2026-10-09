@@ -1,0 +1,15 @@
+const fs = require('fs');
+const out = process.argv[2];
+let three = fs.readFileSync('tools/three.min.js', 'utf8').replace(/^console\.warn\([^\n]*\),\n/, 'void 0,\n');
+let game = fs.readFileSync('src/game.js', 'utf8');
+const rep = (s, k, v) => s.split(k).join(v);
+game = rep(game, '/*ATLAS*/', 'data:image/png;base64,' + fs.readFileSync('assets/atlas.png').toString('base64'));
+game = rep(game, '/*ATLASMETA*/0', fs.readFileSync('assets/atlas.json', 'utf8'));
+game = rep(game, '/*FLOOR*/', 'data:image/jpeg;base64,' + fs.readFileSync('assets/floor.jpg').toString('base64'));
+game = rep(game, '/*SND*/0', fs.readFileSync('assets/snd.json', 'utf8'));
+game = rep(game, '/*AMB*/', fs.readFileSync('assets/ambience.mp3').toString('base64'));
+let html = fs.readFileSync('src/shell.html', 'utf8');
+html = rep(html, '/*THREE*/', three.replace(/<\/script/g, '<\\/script'));
+html = rep(html, '/*GAME*/', game);
+fs.writeFileSync(out, html);
+console.log(out, (html.length / 1e6).toFixed(2) + ' MB');

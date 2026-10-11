@@ -16,58 +16,113 @@
   --ash: #8a8a8a;
   --bone: #efefea;
   --blood: #c42a2a;
+  --smoke: rgba(5,5,5,0.82);
   --display: "Major Mono Display", "Courier New", monospace;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--void); color: var(--bone); font-family: var(--mono); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 #gl { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; }
 #touch { position: fixed; inset: 0; touch-action: none; }
-#grain { position: fixed; inset: -64px; pointer-events: none; opacity: 0.075; will-change: transform; }
-#vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%); }
+#grain { position: fixed; inset: -64px; pointer-events: none; opacity: 0.06; will-change: transform; }
+#vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.5) 100%); }
 #hurt { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(120,0,0,0) 35%, rgba(150,10,10,0.75) 100%); }
 #heal { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,190,120,0) 40%, rgba(255,170,90,0.45) 100%); }
-#hud { display: none; position: fixed; left: calc(18px + env(safe-area-inset-left, 0px)); top: calc(14px + env(safe-area-inset-top, 0px)); pointer-events: none; gap: 6px; }
-#area { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.14em; color: var(--ash); text-transform: uppercase; }
-#hearts { display: flex; gap: 4px; }
+#cold { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(160,200,230,0) 45%, rgba(170,210,240,0.5) 100%); }
+#flashFx { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: #fff; }
+/* the HUD: hearts, the day, your needs */
+#hud { display: none; position: fixed; left: calc(14px + env(safe-area-inset-left, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); pointer-events: none; gap: 5px; width: 168px; }
+#dayLine .clk { overflow: visible; }
+body.playing #hud { display: grid; }
+#hearts { display: flex; gap: 3px; flex-wrap: wrap; align-items: center; }
 #hearts svg { width: 17px; height: 15px; }
-#stats { font-size: 0.72rem; letter-spacing: 0.12em; color: var(--ash); text-transform: uppercase; }
-#dot { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: rgba(239,239,234,0.55); pointer-events: none; }
-#banner { position: fixed; left: 0; right: 0; top: 26%; text-align: center; font-size: clamp(1.4rem, 5vw, 2.6rem); letter-spacing: 0.06em; color: var(--bone); opacity: 0; pointer-events: none; transition: opacity 0.8s; text-shadow: 0 0 18px rgba(0,0,0,0.8); }
-#prompt { position: fixed; left: 0; right: 0; top: 60%; text-align: center; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.16em; color: var(--bone); opacity: 0; pointer-events: none; transition: opacity 0.4s; text-transform: uppercase; }
+#hearts .plate { width: 12px; height: 14px; }
+#dayLine { display: flex; white-space: nowrap; align-items: center; gap: 6px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; color: var(--bone); text-transform: uppercase; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+#dayLine svg { width: 15px; height: 15px; }
+#dayLine .clk { color: rgba(239,239,234,0.72); font-weight: 400; }
+.bars { display: grid; gap: 4px; }
+.bar { position: relative; height: 7px; background: rgba(0,0,0,0.5); border: 1px solid rgba(239,239,234,0.18); border-radius: 4px; overflow: hidden; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transform-origin: left; border-radius: 3px; }
+.bar.low i { animation: lowPulse 0.7s infinite alternate; }
+@keyframes lowPulse { from { opacity: 1; } to { opacity: 0.45; } }
+.barrow { display: grid; grid-template-columns: 14px 1fr; gap: 6px; align-items: center; }
+.barrow svg { width: 14px; height: 14px; opacity: 0.85; }
+#say { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.16em; color: #f0b09a; text-shadow: 0 1px 4px rgba(0,0,0,0.9); min-height: 0.8rem; }
+#info { font-size: 0.56rem; line-height: 1.5; letter-spacing: 0.08em; color: rgba(239,239,234,0.78); text-transform: uppercase; text-shadow: 0 1px 3px #000, 0 0 6px rgba(0,0,0,0.7); }
+#dot { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: rgba(239,239,234,0.6); pointer-events: none; display: none; box-shadow: 0 0 2px rgba(0,0,0,0.8); }
+body.playing #dot { display: block; }
+#dot.hit { background: #fff; transform: scale(2.2); transition: transform 0.12s; }
+#prompt { position: fixed; left: 0; right: 0; top: calc(50% + 26px); text-align: center; pointer-events: none; display: none; }
+body.playing #prompt { display: block; }
+#prompt span { display: inline-block; padding: 3px 9px; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.14em; color: var(--bone); background: rgba(0,0,0,0.5); border-radius: 3px; text-transform: uppercase; }
+#prompt span:empty { display: none; }
+#prompt .sneak { color: rgb(255,214,150); }
+#prompt .hit { color: rgb(200,235,180); }
+#guide { position: fixed; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+#guide svg { position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; }
+#guideT { position: absolute; left: -40px; top: 16px; width: 80px; display: grid; justify-items: center; gap: 2px; }
+#guideT img { width: 22px; height: 22px; padding: 3px; border-radius: 50%; background: rgba(0,0,0,0.5); }
+#guideT span { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.12em; color: #fff0c8; background: rgba(0,0,0,0.5); padding: 1px 4px; }
+#siege { position: fixed; left: 50%; transform: translateX(-50%); top: calc(96px + env(safe-area-inset-top, 0px)); width: min(300px, 60vw); pointer-events: none; text-align: center; }
+#siege .track { height: 5px; background: rgba(239,239,234,0.16); outline: 1px solid rgba(0,0,0,0.5); }
+#siege i { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, rgba(255,138,60,0.95), rgba(255,230,160,0.95)); }
+#siegeT { margin-top: 6px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; color: var(--bone); text-shadow: 0 1px 3px #000; }
+#siegeT.far { color: rgb(240,160,110); animation: pulse 0.9s ease-in-out infinite alternate; }
+@keyframes pulse { from { opacity: 0.6; } to { opacity: 1; } }
+#notes { position: fixed; left: 0; right: 0; top: calc(64px + env(safe-area-inset-top, 0px)); display: grid; justify-items: center; gap: 2px; pointer-events: none; }
+#notes div { font-size: 0.72rem; letter-spacing: 0.1em; color: var(--bone); text-shadow: 0 1px 5px rgba(0,0,0,0.95); transition: opacity 0.3s; }
+#notes div.big { font-size: 0.86rem; font-weight: 600; letter-spacing: 0.14em; }
+#banner { position: fixed; left: 0; right: 0; top: 24%; text-align: center; pointer-events: none; opacity: 0; transition: opacity 0.6s; text-shadow: 0 0 18px rgba(0,0,0,0.9); padding: 0 16px; }
+#banner b { display: block; font: 400 clamp(1.6rem, 6vw, 3rem) var(--display); letter-spacing: 0.06em; text-transform: lowercase; }
+#banner span { display: block; margin-top: 0.5rem; font-size: 0.78rem; letter-spacing: 0.12em; color: #cfcfc8; }
+#fps { position: fixed; right: calc(14px + env(safe-area-inset-right, 0px)); top: calc(54px + env(safe-area-inset-top, 0px)); font-size: 0.62rem; letter-spacing: 0.1em; color: rgba(138,138,138,0.85); pointer-events: none; text-align: right; display: none; }
+body.playing.showfps #fps { display: block; }
+/* buttons */
 button { font: 600 0.9rem var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--void); background: var(--bone); border: 0; padding: 0.85rem 1.4rem; cursor: pointer; touch-action: none; }
 button.alt { background: transparent; color: var(--bone); border: 1px solid var(--bone); }
-.rb { position: fixed; padding: 0; border-radius: 50%; letter-spacing: 0.1em; color: var(--bone); background: rgba(5,5,5,0.55); border: 1px solid rgba(239,239,234,0.55); display: none; }
-body.touch.playing .rb { display: block; }
-#bAtk { right: calc(22px + env(safe-area-inset-right, 0px)); bottom: calc(26px + env(safe-area-inset-bottom, 0px)); width: 96px; height: 96px; font-size: 0.66rem; background: rgba(60,30,10,0.55); border-color: rgba(255,190,130,0.7); }
+.rb { position: fixed; padding: 0; border-radius: 50%; letter-spacing: 0.08em; color: var(--bone); background: rgba(5,5,5,0.5); border: 1px solid rgba(239,239,234,0.5); display: none; font-size: 0.56rem; z-index: 4; }
+body.touch.playing .rb:not([hidden]) { display: block; }
+#bAtk { right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); width: 92px; height: 92px; font-size: 0.66rem; background: rgba(60,30,10,0.5); border-color: rgba(255,190,130,0.7); }
 #bAtk.on { background: rgba(255,190,130,0.35); }
-#bDodge { right: calc(132px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 70px; height: 70px; font-size: 0.56rem; }
+#bDodge { right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; }
 #bDodge.on { background: rgba(239,239,234,0.3); }
-#bFlask { right: calc(36px + env(safe-area-inset-right, 0px)); bottom: calc(138px + env(safe-area-inset-bottom, 0px)); width: 62px; height: 62px; font-size: 0.5rem; color: #f1b77a; border-color: rgba(241,183,122,0.75); }
-#bFlask.empty { opacity: 0.35; }
-#bMenu { position: fixed; right: calc(16px + env(safe-area-inset-right, 0px)); top: calc(14px + env(safe-area-inset-top, 0px)); padding: 0.5rem 0.75rem; font-size: 0.7rem; letter-spacing: 0.12em; color: var(--ash); background: rgba(5,5,5,0.6); border: 1px solid rgba(138,138,138,0.45); display: none; }
-body.playing #bMenu { display: block; }
-#fps { position: fixed; right: calc(18px + env(safe-area-inset-right, 0px)); top: calc(54px + env(safe-area-inset-top, 0px)); font-size: 0.62rem; letter-spacing: 0.1em; color: rgba(138,138,138,0.85); pointer-events: none; text-align: right; }
+#bDodge[data-cool="1"] { opacity: 0.45; }
+#useBtn { right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(94px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; color: #050505; background: rgba(239,239,234,0.85); }
+#sneakBtn { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(128px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; }
+#sneakBtn[aria-pressed="true"] { background: rgba(239,239,234,0.88); color: #050505; }
+#flaskBtn { right: calc(196px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; color: #f1b77a; border-color: rgba(241,183,122,0.75); }
+#flaskBtn.empty { opacity: 0.35; }
+#craftBtn { left: calc(14px + env(safe-area-inset-left, 0px)); top: auto; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; }
+#campBtn { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(194px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; color: rgb(215,185,255); border-color: rgba(185,130,255,0.75); }
+#bSpec { right: calc(196px + env(safe-area-inset-right, 0px)); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; color: #ffd9a0; border-color: rgba(255,217,160,0.6); }
+#bSpec.cool { opacity: 0.4; }
+#bMenu { position: fixed; right: calc(14px + env(safe-area-inset-right, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); padding: 0.5rem 0.75rem; font-size: 0.7rem; letter-spacing: 0.12em; color: var(--ash); background: rgba(5,5,5,0.6); border: 1px solid rgba(138,138,138,0.45); display: none; z-index: 4; }
+body.playing #bMenu:not([hidden]) { display: block; }
+#bPack2 { position: fixed; right: calc(86px + env(safe-area-inset-right, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); padding: 0.5rem 0.75rem; font-size: 0.7rem; letter-spacing: 0.12em; color: var(--ash); background: rgba(5,5,5,0.6); border: 1px solid rgba(138,138,138,0.45); display: none; z-index: 4; }
+body.playing:not(.touch) #bPack2 { display: block; }
 #stick { position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 1px solid rgba(239,239,234,0.28); background: rgba(5,5,5,0.25); pointer-events: none; display: none; }
 #knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(239,239,234,0.32); }
-#padHint { position: fixed; left: 0; right: 0; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.62rem; letter-spacing: 0.14em; color: rgba(138,138,138,0.9); pointer-events: none; display: none; text-transform: uppercase; }
+#padHint { position: fixed; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.6rem; letter-spacing: 0.14em; color: rgba(138,138,138,0.9); pointer-events: none; display: none; text-transform: uppercase; }
 body.pad.playing #padHint { display: block; }
-body.playing #hud { display: grid; }
-#dot, #fps { display: none; }
-body.playing #dot { display: block; }
-body.playing.showfps #fps { display: block; }
-.screen { position: fixed; inset: 0; display: none; flex-direction: column; justify-content: center; padding: calc(24px + env(safe-area-inset-top, 0px)) calc(24px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(24px + env(safe-area-inset-left, 0px)); background: rgba(5,5,5,0.86); overflow-y: auto; touch-action: pan-y; }
+#hotbar, #buildbar { display: none; }
+body.playing #hotbar:not([hidden]), body.playing #buildbar:not([hidden]) { display: flex; }
+body.playing #buildbar:not([hidden]) { display: grid; }
+body:not(.touch) #hotbar .hot { pointer-events: auto; }
+/* menus */
+.screen { position: fixed; inset: 0; display: none; flex-direction: column; justify-content: center; padding: calc(24px + env(safe-area-inset-top, 0px)) calc(24px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(24px + env(safe-area-inset-left, 0px)); background: rgba(5,5,5,0.86); overflow-y: auto; touch-action: pan-y; z-index: 20; }
 .screen.show { display: flex; }
-#title { background: radial-gradient(ellipse at 75% 40%, rgba(80,60,35,0.35), rgba(5,5,5,0.97) 60%); }
+#title { background: radial-gradient(ellipse at 75% 40%, rgba(120,95,50,0.3), rgba(5,5,5,0.94) 62%); }
 .big { font-family: var(--display); font-size: clamp(2.4rem, 10vw, 6.5rem); line-height: 1; letter-spacing: 0.04em; margin: 0; font-weight: 400; }
 .big .dim { color: #8a8a84; }
 .sub { margin: 0.9rem 0 1.6rem; font-size: 0.8rem; letter-spacing: 0.3em; color: var(--ash); text-transform: uppercase; }
-.panel { display: flex; align-items: center; gap: 1.1rem; max-width: 34rem; text-align: left; padding: 1rem 1.3rem; text-transform: none; letter-spacing: 0; }
+.panel { display: flex; align-items: center; gap: 1.1rem; max-width: 34rem; text-align: left; padding: 1rem 1.3rem; text-transform: none; letter-spacing: 0; margin-bottom: 0.7rem; }
 .panel .ico { width: 54px; height: 54px; flex: none; display: grid; place-items: center; background: #7b7b77; border: 1px solid #555; }
 .panel b { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(1.3rem, 4vw, 2rem); letter-spacing: 0.1em; }
 .panel span { display: block; font-weight: 400; font-size: 0.8rem; margin-top: 0.3rem; letter-spacing: 0.06em; }
-.how { margin-top: 1.4rem; display: grid; gap: 0.35rem; font-size: 0.72rem; letter-spacing: 0.1em; color: var(--ash); max-width: 40rem; }
+.panel.alt .ico { background: transparent; }
+.how { margin-top: 1.2rem; display: grid; gap: 0.35rem; font-size: 0.7rem; letter-spacing: 0.08em; color: var(--ash); max-width: 44rem; line-height: 1.45; }
 .how b { color: var(--bone); font-weight: 600; }
 .row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
 .set { display: grid; gap: 1rem; max-width: 30rem; width: 100%; margin: 1.2rem 0; }
@@ -77,9 +132,27 @@ body.playing.showfps #fps { display: block; }
 .tab { padding: 0.45rem 0.75rem; font-size: 0.66rem; background: transparent; color: var(--ash); border: 1px solid rgba(138,138,138,0.4); }
 .tab[aria-pressed="true"] { color: var(--void); background: var(--bone); border-color: var(--bone); }
 h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 6vw, 3.2rem); margin: 0; letter-spacing: 0.06em; }
-#deadT { color: var(--bone); }
 .note { font-size: 0.72rem; letter-spacing: 0.08em; color: var(--ash); margin-top: 0.6rem; max-width: 36rem; line-height: 1.5; }
 #loading { position: fixed; left: 0; right: 0; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.7rem; letter-spacing: 0.18em; color: var(--ash); text-transform: uppercase; }
+/*DAYCSS*/
+#craft, #camp, #stats { z-index: 30; touch-action: pan-y; }
+#craft *, #stats * { touch-action: manipulation; }
+#hotbar { z-index: 5; }
+body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { display: none !important; }
+@media (max-height: 520px) { #info { display: none; } #notes { top: calc(50px + env(safe-area-inset-top, 0px)); } #banner { top: 31%; } #banner b { font-size: 2.2rem; } #banner span { margin-top: 0.3rem; font-size: 0.7rem; } }
+@media (max-width: 560px) and (min-height: 521px) {   /* a phone held upright: the hotbar runs along the bottom, the buttons sit above it */
+  #hotbar { left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  #bAtk { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+  #bDodge { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+  #useBtn { bottom: calc(156px + env(safe-area-inset-bottom, 0px)); }
+  #sneakBtn { bottom: calc(190px + env(safe-area-inset-bottom, 0px)); }
+  #flaskBtn { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); right: auto; left: calc(84px + env(safe-area-inset-left, 0px)); }
+  #craftBtn { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  #campBtn { bottom: calc(256px + env(safe-area-inset-bottom, 0px)); }
+  #bSpec { bottom: calc(152px + env(safe-area-inset-bottom, 0px)); }
+  #buildbar { bottom: calc(254px + env(safe-area-inset-bottom, 0px)) !important; }
+  #notes { top: 31%; } #banner { top: 38%; }
+}
 </style>
 </head>
 <body>
@@ -87,30 +160,77 @@ h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 6vw
 <div id="touch"></div>
 <canvas id="grain" width="256" height="256"></canvas>
 <div id="vig"></div>
+<div id="cold"></div>
 <div id="hurt"></div>
 <div id="heal"></div>
+<div id="flashFx"></div>
 <div id="dot"></div>
+<div id="prompt"><span id="promptT"></span></div>
+<div id="guide" hidden><svg id="guideA" viewBox="-8 -10 20 20"><path d="M11 0-6-9-2 0-6 9Z" fill="rgba(0,0,0,0.45)"/><path d="M9 0-5-7-2 0-5 7Z" fill="#fff0c8"/></svg><div id="guideT"></div></div>
+<div id="siege" hidden><div class="track"><i id="siegeI"></i></div><div id="siegeT"></div></div>
 <div id="hud">
-  <div id="area">camp</div>
   <div id="hearts"></div>
-  <div id="stats"></div>
+  <div id="dayLine"></div>
+  <div class="bars" id="bars"></div>
+  <div id="say"></div>
+  <div id="info"></div>
 </div>
-<div id="banner"></div>
-<div id="prompt"></div>
+<div id="notes"></div>
+<div id="banner"><b id="bannerT"></b><span id="bannerS"></span></div>
 <div id="stick"><div id="knob"></div></div>
 <button class="rb" id="bAtk">Attack</button>
 <button class="rb" id="bDodge">Dodge</button>
-<button class="rb" id="bFlask">Flask 3</button>
+<button class="rb" id="useBtn" hidden>Take</button>
+<button class="rb" id="sneakBtn" hidden aria-pressed="false">Sneak</button>
+<button class="rb" id="flaskBtn" hidden>Flask</button>
+<button class="rb" id="craftBtn" hidden>Pack</button>
+<button class="rb" id="campBtn" hidden>Wisps</button>
+<button class="rb" id="bSpec" hidden>Special</button>
 <button id="bMenu">Menu</button>
+<button id="bPack2">Pack · C</button>
+<div id="hotbar" hidden></div>
+<div id="buildbar" hidden></div>
 <div id="fps"></div>
-<div id="padHint">RT / A attack · B dodge · LT flask · Menu pause</div>
+<div id="padHint">RT attack · B dodge · X use · Y special · LB RB hotbar · L3 sneak · View pack · Menu pause</div>
+
+<div id="deathCard" hidden>
+  <div class="dc">
+    <p class="eyebrow">Daylight</p>
+    <h2>The woods took you</h2>
+    <dl id="dcList"></dl>
+    <button id="dcGo">Try again</button>
+  </div>
+</div>
+<div id="craft" hidden>
+  <div class="pk">
+    <div class="pkhead"><div><p class="eyebrow">Daylight · <span id="pkDay"></span></p><h2>Pack</h2></div><button id="craftGo" class="alt">Close</button></div>
+    <div class="pkneeds" id="pkNeeds"></div>
+    <div class="pktabs"><button class="pktab" data-tab="pack" aria-pressed="true">Pack</button><button class="pktab" data-tab="craft" aria-pressed="false">Craft<span></span></button><button class="pktab" data-tab="book" aria-pressed="false">Book</button><button class="pktab" data-tab="log" aria-pressed="false">Journal</button></div>
+    <div id="pkBody" class="pkbody"></div>
+  </div>
+  <div id="pkCard" hidden></div>
+</div>
+<div id="camp" hidden></div>
+<div id="stats" hidden>
+  <div class="pick">
+    <p class="eyebrow" id="statsEyebrow"></p>
+    <h2>Stats</h2>
+    <p class="small">Burn raiders by night and grab the wisps they leave, then spend them here on upgrades that last.</p>
+    <div id="statsBody"></div>
+    <div class="pickfoot"><button id="statsGo">Done</button></div>
+  </div>
+</div>
 
 <div class="screen show" id="title">
   <h1 class="big"><span class="dim">behind</span> you</h1>
-  <p class="sub">first person test · you only have a torch.</p>
-  <button class="panel" id="begin">
-    <span class="ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6"><path d="M12 3 3 20h18L12 3Z"/><path d="M12 9v11M9 20l3-5 3 5"/></svg></span>
-    <span><b>begin</b><span>Head into the dark. Don't look back for long.</span></span>
+  <p class="sub">daylight · first person</p>
+  <button class="panel" id="begin" disabled>
+    <span class="ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></span>
+    <span><b id="beginT">daylight</b><span id="beginS">No torch. Find food, last the days.</span></span>
+  </button>
+  <button class="panel alt" id="beginNew" hidden>
+    <span class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+    <span><b>new run</b><span>Start again from nothing. Your saved run is lost.</span></span>
   </button>
   <div class="how" id="how"></div>
   <div id="loading">painting the woods…</div>
@@ -132,17 +252,12 @@ h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 6vw
         <button class="tab" id="sInv">Invert look</button>
         <button class="tab" id="sFps">Show FPS</button>
         <button class="tab" id="sSnd">Sound</button>
+        <button class="tab" id="sCol">Colour</button>
       </span>
     </label>
   </div>
-  <div class="row"><button id="resume">Resume</button><button class="alt" id="restart">Start over</button></div>
-  <p class="note">Auto keeps the frame rate up by lowering the picture's sharpness a little when the phone is working hard, and raising it again when there's room.</p>
-</div>
-
-<div class="screen" id="dead">
-  <h2 id="deadT">the dark took you</h2>
-  <p class="sub" id="deadS"></p>
-  <div class="row"><button id="again">Again</button></div>
+  <div class="row"><button id="resume">Resume</button><button class="alt" id="quit">Save and quit</button></div>
+  <p class="note">Your run saves when you open this menu and every so often as you play. Auto keeps the frame rate up by lowering the picture's sharpness a little when the phone is working hard.</p>
 </div>
 
 <script>/*THREE*/</script>

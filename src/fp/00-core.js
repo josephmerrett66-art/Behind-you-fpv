@@ -112,8 +112,11 @@ const SKY = { top: new V3(), hor: new V3() };
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: `varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: LIGHT_GLSL + `uniform sampler2D map; varying vec3 vW;
-      void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb; gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12), vW), 1.0); }`,
+    fragmentShader: LIGHT_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms; varying vec3 vW;
+      void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb;
+        float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
+        t = mix(t, vec3(0.34, 0.42, 0.19) * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm));
+        gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12), vW), 1.0); }`,
   });
   var groundMesh = new THREE.Mesh(g, m); groundMesh.frustumCulled = false; scene.add(groundMesh);
 }

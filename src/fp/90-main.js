@@ -204,6 +204,7 @@ function autoQuality(rawDt, now) {
     if (SET.quality === 'auto' && state === 'play') {
       if (fps < 50) { slowT++; fastT = 0; } else if (fps > 57) { fastT++; slowT = 0; } else { slowT = 0; fastT = 0; }
       if (slowT >= 2 && pixK > 0.55) { pixK = Math.max(0.55, pixK * 0.85); resize(); slowT = 0; lastDrop = now; }
+      else if (slowT >= 4 && grassMesh.geometry.drawRange.count > GR_N * 1.2) { grassMesh.geometry.setDrawRange(0, Math.floor(Math.min(GR_N, grassMesh.geometry.drawRange.count / 3) * 0.7) * 3); slowT = 0; }   // still slow at the lowest sharpness: thin the grass
       if (fastT >= 8 && pixK < QCAP && now - lastDrop > 12) { pixK = Math.min(QCAP, pixK * 1.08); resize(); fastT = 0; }
     }
   }
@@ -242,6 +243,7 @@ function frame(t) {
   envFrame(); weatherFrame(now); weatherLight();
   worldSync(false); thingsSync(false);
   for (const b of [tallB, coverB, nodeB, dropB]) b.m.uniforms.now.value = S.t;
+  grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);
   flagStep(now);
   const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? rdt * 0.06 : rdt) : 0;
   lightsFrame(now, fdt);

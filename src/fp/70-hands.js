@@ -50,7 +50,16 @@ const fist = new THREE.Group(); handG.add(fist);
 vmPart(fist, new THREE.SphereGeometry(1.75, 10, 8), mat(GLOVE), 0, -0.4, 0.2);
 vmPart(fist, capsule(1.1, 4.5), mat(SLEEVE), 0.2, -1.1, 3.9, 1.6, 0, -0.3);
 const ITEM = new Map();
-function iconPlane(id) {   // anything without a shape of its own: its picture from the pack, held up
+const vmIconMat = new THREE.ShaderMaterial({
+  uniforms: { map: { value: iconTex }, vmL: vmLight, colourK: LU.colourK }, side: THREE.DoubleSide,
+  vertexShader: `attribute float sd; varying vec2 vUv; varying vec3 vN; varying float vS; void main() { vUv = uv; vS = sd; vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform sampler2D map; uniform vec3 vmL; uniform float colourK; varying vec2 vUv; varying vec3 vN; varying float vS;
+    void main() { vec4 t = texture2D(map, vUv); if (t.a < 0.5) discard; vec3 n = gl_FrontFacing ? vN : -vN; float l = 0.62 + 0.45 * max(dot(normalize(n), normalize(vec3(0.25, 0.55, 0.8))), 0.0);
+      vec3 c = t.rgb * vS * l * vmL; float g = dot(c, vec3(0.3, 0.55, 0.15)); gl_FragColor = vec4(mix(vec3(g), c, colourK), 1.0); }`,
+});
+function iconPlane(id) {   // anything without a shape of its own: its picture from the pack as a thick cut-out, held up
+  const xg = extrudeIcon(id);
+  if (xg) { const o = new THREE.Mesh(xg, vmIconMat); o.scale.setScalar(0.4); o.position.set(-0.3, 1.5, -0.8); o.rotation.set(0, -0.5, 0); return o; }
   const r = ISHEET.meta[id] && ISHEET.meta[id][0]; const g = new THREE.PlaneGeometry(6.5, 6.5);
   const uv = g.attributes.uv; if (r) for (let i = 0; i < uv.count; i++) uv.setXY(i, (r[0] + uv.getX(i) * r[2]) / ISHEET.W, (r[1] + (1 - uv.getY(i)) * r[3]) / ISHEET.H);
   const m = new THREE.MeshBasicMaterial({ map: iconTex, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide });

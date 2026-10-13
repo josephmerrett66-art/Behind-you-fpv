@@ -3,7 +3,7 @@
 
 // ---------------- item pictures: every item's own icon from the pack, painted once into a sheet ----------------
 // Dropped things lie on the ground as their picture, standing up and bobbing a little, as in the 2D game.
-const ISHEET = { W: 2048, H: 2048, meta: {} };
+const ISHEET = { W: 2048, H: 2048, meta: {}, ok: {} };
 const iconCv = document.createElement('canvas'); iconCv.width = ISHEET.W; iconCv.height = ISHEET.H;
 const iconTex = new THREE.CanvasTexture(iconCv);
 iconTex.flipY = false; iconTex.colorSpace = THREE.NoColorSpace; iconTex.generateMipmaps = true; iconTex.minFilter = THREE.LinearMipmapLinearFilter; iconTex.anisotropy = MAX_ANISO;
@@ -14,9 +14,53 @@ iconTex.flipY = false; iconTex.colorSpace = THREE.NoColorSpace; iconTex.generate
     const x = (i % N) * CELL, y = Math.floor(i / N) * CELL;
     ISHEET.meta[id] = [[x + 1, y + 1, CELL - 2, CELL - 2, 13, 13, 6.5, 12]];   // 13 across, its foot on the ground
     const img = new Image();
-    img.onload = () => { g.drawImage(img, x + 2, y + 2, CELL - 4, CELL - 4); if (++loadedN % 16 === 0 || loadedN === ids.length) iconTex.needsUpdate = true; };
+    img.onload = () => { g.drawImage(img, x + 2, y + 2, CELL - 4, CELL - 4); ISHEET.ok[id] = 1; if (++loadedN % 16 === 0 || loadedN === ids.length) iconTex.needsUpdate = true; };
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${CELL}" height="${CELL}">${ICON[id]}</svg>`);
   });
+}
+// ---------------- items as thick cut-outs: the pack's own picture, given depth ----------------
+// Each icon is traced at 20×20 and pushed out into a slab: the picture on the front and back, its own colours round the edge.
+// It keeps the painted look of the 2D game but turns and catches the light like a solid thing.
+const XNN = 20, XSZ = 13, XTH = 1.3, XGEO = new Map();
+function extrudeIcon(id) {
+  if (XGEO.has(id)) return XGEO.get(id);
+  if (!ISHEET.ok[id] || !ISHEET.meta[id]) return null;
+  const r = ISHEET.meta[id][0], ox = r[0] + 1, oy = r[1] + 1, A = 60, px = iconCv.getContext('2d').getImageData(ox, oy, A, A).data;
+  const on = (i, j) => i >= 0 && j >= 0 && i < XNN && j < XNN && px[((Math.floor((j + 0.5) * A / XNN)) * A + Math.floor((i + 0.5) * A / XNN)) * 4 + 3] > 110;
+  const P = [], Nn = [], U = [], SD = [], c = XSZ / XNN, h = XTH / 2;
+  const uvAt = (fx, fy) => [(ox + fx * A) / ISHEET.W, (oy + fy * A) / ISHEET.H];   // fx, fy: 0..1 across the picture, from its top left
+  const quad = (a, b, cc, d, n, uv, sd) => { for (const v of [a, b, cc, a, cc, d]) { P.push(...v); Nn.push(...n); } for (const q of [uv[0], uv[1], uv[2], uv[0], uv[2], uv[3]]) U.push(...q); for (let k = 0; k < 6; k++) SD.push(sd); };
+  const L = -XSZ / 2, R = XSZ / 2;
+  quad([L, 0, h], [R, 0, h], [R, XSZ, h], [L, XSZ, h], [0, 0, 1], [uvAt(0, 1), uvAt(1, 1), uvAt(1, 0), uvAt(0, 0)], 1);
+  quad([R, 0, -h], [L, 0, -h], [L, XSZ, -h], [R, XSZ, -h], [0, 0, -1], [uvAt(1, 1), uvAt(0, 1), uvAt(0, 0), uvAt(1, 0)], 0.92);
+  let any = false;
+  for (let j = 0; j < XNN; j++) for (let i = 0; i < XNN; i++) {
+    if (!on(i, j)) continue; any = true;
+    const x0 = L + i * c, x1 = x0 + c, y1 = XSZ - j * c, y0 = y1 - c, m = uvAt((i + 0.5) / XNN, (j + 0.5) / XNN), uv = [m, m, m, m];
+    if (!on(i - 1, j)) quad([x0, y0, -h], [x0, y0, h], [x0, y1, h], [x0, y1, -h], [-1, 0, 0], uv, 0.68);
+    if (!on(i + 1, j)) quad([x1, y0, h], [x1, y0, -h], [x1, y1, -h], [x1, y1, h], [1, 0, 0], uv, 0.68);
+    if (!on(i, j - 1)) quad([x0, y1, h], [x1, y1, h], [x1, y1, -h], [x0, y1, -h], [0, 1, 0], uv, 0.8);
+    if (!on(i, j + 1)) quad([x0, y0, -h], [x1, y0, -h], [x1, y0, h], [x0, y0, h], [0, -1, 0], uv, 0.55);
+  }
+  if (!any) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nn, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('sd', new THREE.Float32BufferAttribute(SD, 1));
+  g.computeBoundingSphere(); XGEO.set(id, g); return g;
+}
+const XGLSL_V = `attribute float sd; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
+  void main() { vUv = uv; vS = sd; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`;
+const dropMat = new THREE.ShaderMaterial({
+  uniforms: Object.assign({ map: { value: iconTex } }, LU),
+  vertexShader: XGLSL_V,
+  fragmentShader: LIGHT_GLSL + `uniform sampler2D map; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
+    void main() { vec4 t = texture2D(map, vUv); if (t.a < 0.5) discard; vec3 c = t.rgb * vS * lightAt(vW, normalize(vN), 1.0) * 1.12; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
+});
+const dropPool = [];
+function dropMesh(i, geo) {
+  let m = dropPool[i];
+  if (!m) { m = dropPool[i] = new THREE.Mesh(geo, dropMat); m.frustumCulled = false; scene.add(m); }
+  m.geometry = geo; m.visible = true; return m;
 }
 const dropB = new Board(400, 600, 0, true, iconTex, ISHEET);
 const nodeB = new Board(900, 560, 0, true);   // the grass and berry bushes you gather are the woods' own sprites
@@ -123,7 +167,7 @@ function buildKit(K, o) {
   const box = (f, s, z, l, h, w, col, em = 0) => { const [px, py] = at(f, s); K.add(P_BOX(), px, z + h / 2, py, l, h, w, col, -a, 0, 0, em); };
   if (o.camp === 'wall') { campKit1(K, o); return; }
   if (o.camp === 'stakes') { campKit1(K, o); return; }
-  if (o.kind === 'fire' || B.t === 'fire') { for (let k = 0; k < 8; k++) { const t = k / 8 * 6.283; K.add(P_BALL(), x + Math.cos(t) * 10, 1, y + Math.sin(t) * 10, 6, 4, 6, hex(k % 2 ? '#7a7872' : '#8d8b85')); } K.rod(P_CYL(5), x - 6, 2, y - 3, x + 6, 2, y + 3, 1.6, hex('#5a3e28')); K.rod(P_CYL(5), x - 5, 2, y + 4, x + 5, 2, y - 4, 1.6, hex('#4a3420')); K.add(P_CYL(8), x, 0.2, y, 12, 0.5, 12, hex('#2a2420'), 0, 0, 0, 0.3); return; }
+  if (o.kind === 'fire' || B.t === 'fire') { for (let k = 0; k < 8; k++) { const t = k / 8 * 6.283; K.add(P_ROCK(k % 4), x + Math.cos(t) * 10, 1.4, y + Math.sin(t) * 10, 7, 5, 6.5, hex(k % 2 ? '#7a7872' : '#8d8b85'), t); } logRod(K, x - 6, 2, y - 3, x + 6, 2.6, y + 3, 1.6, hex('#5a3e28')); logRod(K, x - 5, 2.4, y + 4, x + 5, 3.2, y - 4, 1.6, hex('#4a3420')); K.add(P_CYL(8), x, 0.2, y, 12, 0.5, 12, hex('#2a2420'), 0, 0, 0, 0.3); return; }
   switch (o.sub) {
     case 'bench':
       for (const [i, j] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const [lx, ly] = at(13 * i, 6 * j); K.add(P_BOX(), lx, 5.5, ly, 2.4, 11, 2.4, hex('#5a3e28'), -a); }
@@ -131,14 +175,7 @@ function buildKit(K, o) {
       { const [px, py] = at(-8, -1); K.add(P_BALL(), px, 14.6, py, 6, 2.2, 3.6, hex('#8d8b85')); }
       { const [ax, ay] = at(2, -4), [bx, by] = at(11, 4); K.rod(P_CYL(5), ax, 14.6, ay, bx, 14.6, by, 0.7, hex('#7a5a3a')); K.add(P_BOX(), bx, 15, by, 4, 2, 3, hex('#9a9a92'), -a); }
       break;
-    case 'chest': {
-      const open = B.openT > 0 ? Math.min(1, B.openT * 4) : 0;
-      box(0, 0, 0, 24, 10, 15, hex('#9a7448'));
-      for (const f of [-7, 7]) box(f, 0, 0, 1.6, 10.4, 15.4, hex('#3a2a1a'));
-      if (open) { const [hx, hy] = at(0, -7.5); K.add(P_BOX(), hx, 10 + 6 * Math.sin(open * 1.4), hy - 0, 24, 2, 15, hex('#a8824e'), -a, -open * 1.4); }
-      else { box(0, 0, 10, 24.4, 2.2, 15.4, hex('#a8824e')); const [px, py] = at(0, 7.8); K.add(P_BOX(), px, 8, py, 2.6, 3.6, 0.8, hex('#d8c070'), -a); }
-      break;
-    }
+    case 'chest': chestKit(K, x, y, a + Math.PI / 2, 0.78, B.openT > 0 ? Math.min(1, B.openT * 4) : 0); break;
     case 'furnace': {
       K.add(P_CYL(10), x, 0, y, 26, 14, 26, hex('#7a7872')); K.add(P_BALL(), x, 14, y, 26, 22, 26, hex('#8d8b85')); K.add(P_CYL(8), x, 20, y, 8, 14, 8, hex('#6e6c67'));
       const [mx, my] = at(0, 12.2), lit = B.fuel > 0 || B.lit || B.smelt; K.add(P_BOX(), mx, 6, my, 8, 7, 1.4, hex(lit ? '#ffa040' : '#1c1a18'), -a, 0, 0, lit ? 1 : 0);
@@ -226,22 +263,32 @@ function thingsFrame(now) {
     const sh = o.shakeT !== undefined ? o.shakeT : -99, sd = o.seed || 0;
     if (o.t === 'grass') nodeB.add('grass', sd * 9 | 0, o.x, o.y, 1.5, sd % 1 < 0.5 ? 1 : -1, 1.4, sh, sd);
     else if (o.t === 'bush') { nodeB.add('bush', sd * 9 | 0, o.x, o.y, 1.7, sd % 1 < 0.5 ? 1 : -1, 0.7, sh, sd); if (o.ber) for (let i = 0; i < 7; i++) { const a = sd * 7 + i * 1.9; stat(o.x + Math.cos(a) * 8, 9 + (i % 3) * 3, o.y + Math.sin(a) * 8, 2.6, 0.82, 0.19, 0.24, 0.0, 0); K.add(P_BALL(), o.x + Math.cos(a) * 9, 9 + (i % 3) * 3.5, o.y + Math.sin(a) * 9, 2.4, 2.4, 2.4, hex('#d0303e')); } }
-    else if (o.t === 'sticks') for (let i = 0; i < 3; i++) { const a = sd + i * 1.1; K.rod(P_CYL(5), o.x - Math.cos(a) * 9, 0.9, o.y - Math.sin(a) * 9, o.x + Math.cos(a) * 9, 0.9 + (i === 1 ? 1.6 : 0), o.y + Math.sin(a) * 9, 0.9, hex('#6e5235')); }
-    else if (o.t === 'stones') for (let i = 0; i < 3; i++) { const a = sd + i * 2.1; K.add(P_BALL(), o.x + Math.cos(a) * 6, 0.6, o.y + Math.sin(a) * 6, 7.2, 4.4, 5.6, hex(['#8d8b85', '#a19f98', '#77756f'][i]), a); }
-    else if (o.t === 'shroom') for (let i = 0; i < (o.n || 1) + 1; i++) { const a = sd + i * 2.4, x = o.x + Math.cos(a) * 4 * i, y = o.y + Math.sin(a) * 4 * i, h = 5 + 2 * ((i + Math.floor(sd)) % 2); K.add(P_CYL(6), x, 0, y, 1.8, h, 1.8, hex('#e8dcc4')); K.add(P_BALL(), x, h, y, 7.2, 4, 7.2, hex('#b07848')); }
+    else if (o.t === 'sticks') for (let i = 0; i < 4; i++) {   // a few fallen sticks, crossed, each with a twig off it
+      const a = sd * 3 + i * 1.3, L = 7 + 3 * hash(sd + i, 2), cx = o.x + Math.cos(a + 1.6) * (i - 1.5) * 1.6, cy = o.y + Math.sin(a + 1.6) * (i - 1.5) * 1.6, z = 0.8 + (i % 2) * 1.3;
+      K.mt = 'bark'; K.rod(P_CYL(5), cx - Math.cos(a) * L, z, cy - Math.sin(a) * L, cx + Math.cos(a) * L, z + 0.4, cy + Math.sin(a) * L, 0.75, hex(['#6e5235', '#5e4630', '#7a5c3c'][i % 3]));
+      const tx = cx + Math.cos(a) * L * 0.3, ty = cy + Math.sin(a) * L * 0.3; K.rod(P_CYL(4), tx, z, ty, tx + Math.cos(a + 0.7) * 4, z + 0.6, ty + Math.sin(a + 0.7) * 4, 0.35, hex('#6e5235')); K.mt = null;
+    }
+    else if (o.t === 'stones') for (let i = 0; i < 4; i++) { const a = sd + i * 1.7, r = i ? 6 : 0; K.mt = 'stone'; K.add(P_ROCK((i + Math.floor(sd * 5)) % 4), o.x + Math.cos(a) * r, 1.4, o.y + Math.sin(a) * r, 7.5 - i, 4.6 - i * 0.4, 6.2 - i * 0.6, hex(['#8d8b85', '#a19f98', '#77756f', '#96938b'][i]), a); K.mt = null; }
+    else if (o.t === 'shroom') for (let i = 0; i < (o.n || 1) + 1; i++) {   // pale stems, brown caps flecked white
+      const a = sd + i * 2.4, x = o.x + Math.cos(a) * 4 * i, y = o.y + Math.sin(a) * 4 * i, h = 5 + 2 * ((i + Math.floor(sd)) % 2);
+      K.mt = 'plain'; K.add(P_CYL(6), x, 0, y, 1.8, h, 1.8, hex('#e8dcc4')); K.add(P_BALL(), x, h, y, 7.2, 4, 7.2, hex('#b07848'));
+      for (let f = 0; f < 4; f++) { const q = a * 3 + f * 1.6; K.add(P_BALL(), x + Math.cos(q) * 1.9, h + 1.55, y + Math.sin(q) * 1.9, 1, 0.5, 1, hex('#f2ead8')); } K.mt = null;
+    }
   }
   nodeB.end();
   // dropped things: their own pictures, bobbing; tools glint now and then so you find them again
-  dropB.begin();
+  dropB.begin(); let dn = 0;
   for (const o of D.drops) {
     if (Math.abs(o.x - p.x) > 600 || Math.abs(o.y - p.y) > 600) continue;
     const bob = Math.sin(now * 3 + (o.seed || 0)) * 1.2, T = DIT[o.it];
     if (o.it === 'logs') { for (const s of [-1, 1]) K.rod(P_CYL(8), o.x - 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2, o.x + 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2 - 1, 2.4, hex('#7a5232')); }
-    else dropB.add(o.it, 0, o.x, o.y, 1, 1, 0, -99, 0, 2 + bob);
+    else { const geo = extrudeIcon(o.it);
+      if (geo) { const m = dropMesh(dn++, geo); m.position.set(o.x, 2.4 + bob, o.y); m.rotation.set(0, now * 1.1 + (o.seed || 0) * 7, 0); m.scale.setScalar(1.1); }
+      else dropB.add(o.it, 0, o.x, o.y, 1, 1, 0, -99, 0, 2 + bob); }
     shadow(o.x, o.y, 6, 0);
     if (T && (T.dur || T.k === 'place' || T.k === 'gear')) { const g = (now * 0.7 + (o.seed || 0)) % 2.2; if (g < 0.35) stat(o.x, 12 + bob, o.y, 4 + 6 * Math.sin(g / 0.35 * Math.PI), 1, 0.97, 0.86, 0.9, 1); }
   }
-  dropB.end();
+  dropB.end(); for (let i = dn; i < dropPool.length; i++) dropPool[i].visible = false;
   // the tree you just felled, toppling
   for (const g of D.logs) if (g.kind === 'poof') {
     const u = Math.min(1, g.t / POOF_T), a = (g.seed * 7.3) % 6.283, h = 70 * (g.s || 1), tilt = u * u * 1.5;

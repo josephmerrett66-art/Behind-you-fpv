@@ -16,7 +16,7 @@ function hintsFrame(now) {
     const pulse = 0.65 + 0.35 * Math.sin(S.t * 3 + o.x * 0.05), on = o === tgt, rr = on ? 15 : 12, a = how === 'take' ? (on ? 0.95 : 0.25 + 0.45 * f) * pulse : 0.5 * f * pulse;
     const [cr, cg, cb] = how === 'take' ? [1, 0.88, 0.59] : [0.67, 0.88, 0.55];
     for (let i = 0; i < 20; i++) { const q = i / 20 * 6.283 + now * 0.4; stat(o.x + Math.cos(q) * rr, 0.8, o.y + Math.sin(q) * rr, on ? 2.6 : 2, cr, cg, cb, a * 0.8, 0); }
-    if (on || d > R) continue;   // the one you'd take next is named under the crosshair instead
+    if (on || d > R || how === 'take' && D.drops.includes(o)) continue;   // the one you'd take next is named under the crosshair instead; dropped things already show themselves
     hintB.add(it, 0, o.x, o.y, 1.25, 1, 0, -99, 0, 17 + 2.5 * Math.sin(S.t * 2.5 + o.x));
   }
   hintB.end();

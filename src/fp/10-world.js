@@ -68,12 +68,48 @@ const tallB = new Board(2600, VIEW, 30, false), coverB = new Board(6000, 420, 0,
 
 // ---------------- the kit: solid things built from simple shapes, with the game's dark outline round them ----------------
 // Shapes are baked into one mesh per batch (vertex colours), drawn twice: once lit, once as a slightly fatter dark shell.
+// Each shape carries what it is made of (wood, stone, iron, cloth, leaves, water) and where each point sits along it, so the
+// surface can be painted: grain running the length of a log or plank, mottled stone, iron that catches the light, a weave in
+// cloth. Everything also darkens where it meets the ground, which seats it in the world instead of floating on it.
+const MT = { plain: 0, wood: 1, stone: 2, metal: 3, cloth: 4, plant: 5, water: 6, bark: 7 };
+const PAINT_GLSL = `
+uniform float time;
+float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float vn(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z); }
+vec3 paint(vec3 c, float mt, vec3 g, vec3 W, vec3 N) {
+  if (mt > 0.5 && mt < 1.5) {        // wood: long streaks of grain, the odd dark knot
+    float w = vn(vec3(g.x * 0.05, g.y * 0.8, g.z * 0.8));
+    float streak = sin((g.y + g.z) * 1.9 + w * 9.0) * 0.5 + 0.5;
+    float knot = smoothstep(0.82, 0.9, vn(g * vec3(0.12, 0.6, 0.6)));
+    c *= 0.8 + 0.26 * streak + 0.12 * (vn(g * 0.35) - 0.5); c *= 1.0 - 0.3 * knot;
+  } else if (mt > 1.5 && mt < 2.5) { // stone: mottled, with grit
+    float n = vn(g * 0.22) * 0.6 + vn(g * 0.8) * 0.4;
+    c *= 0.72 + 0.5 * n; c *= h3(floor(g * 1.7)) > 0.9 ? 0.82 : 1.0;
+  } else if (mt > 2.5 && mt < 3.5) { // iron: a little rust and wear, and it catches the sun and your torch
+    c *= 0.86 + 0.24 * vn(g * 0.6);
+    vec3 V = normalize(W - camPos), R = reflect(V, N);
+    float sp = pow(max(dot(R, sunDir), 0.0), 14.0) * 0.55 * sunK + pow(max(dot(R, -normalize(W - tPos)), 0.0), 20.0) * 0.5 * length(tCol);
+    c += vec3(sp);
+  } else if (mt > 3.5 && mt < 4.5) { // cloth and hide: a soft weave and some staining
+    c *= 1.0 + sin(g.x * 2.6) * sin(g.y * 2.6) * 0.05 + (vn(g * 0.15) - 0.5) * 0.22;
+  } else if (mt > 4.5 && mt < 5.5) { // leaves
+    c *= 0.78 + 0.4 * vn(g * 0.7);
+  } else if (mt > 5.5 && mt < 6.5) { // water: the sky in it, a slow shimmer
+    float f = pow(1.0 - abs(dot(normalize(camPos - W), N)), 2.0);
+    c = mix(c, fogCol * 0.85, 0.15 + 0.35 * f) * (0.92 + 0.12 * sin(time * 1.7 + (W.x + W.z) * 0.35));
+  } else if (mt > 6.5) {             // bark: deep furrows up the trunk
+    c *= 0.72 + 0.4 * smoothstep(0.2, 0.8, vn(vec3(g.x * 0.08, g.y * 1.4, g.z * 1.4)));
+  }
+  return c * mix(0.58, 1.0, smoothstep(0.0, 9.0, W.y));   // seated: darker where it meets the ground
+}`;
 const kitMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ glow: { value: 0 } }, LU),
-  vertexShader: `attribute vec3 color; attribute float em; varying vec3 vC, vW, vN; varying float vE;
-    void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; gl_Position = projectionMatrix * viewMatrix * w; }`,
-  fragmentShader: LIGHT_GLSL + `varying vec3 vC, vW, vN; varying float vE;
-    void main() { vec3 c = vC * lightAt(vW, normalize(vN), 1.0) * 1.05 + vC * vE; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
+  vertexShader: `attribute vec3 color, gu; attribute float em, mt; varying vec3 vC, vW, vN, vG; varying float vE, vM;
+    void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; vG = gu; vM = mt; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG; varying float vE, vM;
+    void main() { vec3 N = normalize(vN); vec3 base = paint(vC, vM, vG, vW, N); vec3 c = base * lightAt(vW, N, 1.0) * 1.05 + vC * vE; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
 });
 const kitEdge = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU), side: THREE.BackSide,
@@ -87,16 +123,29 @@ function prim(key, make) { let g = PRIM[key]; if (!g) { g = make(); if (g.index)
 const P_BOX = () => prim('box', () => new THREE.BoxGeometry(1, 1, 1));
 const P_CYL = (n = 8) => prim('cyl' + n, () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, n); g.translate(0, 0.5, 0); return g; });
 const P_CONE = (n = 8) => prim('cone' + n, () => { const g = new THREE.ConeGeometry(0.5, 1, n); g.translate(0, 0.5, 0); return g; });
+const P_ROCK = (k = 0) => prim('rock' + k, () => { const g = new THREE.IcosahedronGeometry(0.5, 0), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const h = 0.85 + 0.3 * hash(Math.round(p.getX(i) * 9) + k * 3.1, Math.round(p.getY(i) * 7 + p.getZ(i) * 5)); p.setXYZ(i, p.getX(i) * h, p.getY(i) * h, p.getZ(i) * h); } g.computeVertexNormals(); return g; });   // a faceted stone, each variant knocked about a little
 const P_BALL = () => prim('ball', () => new THREE.SphereGeometry(0.5, 10, 7));
-const P_TENT = () => prim('tent', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 3, 1); g.rotateZ(Math.PI / 2); g.rotateX(Math.PI / 6 + Math.PI); g.translate(0, 0.25, 0); return g; });   // a triangular prism lying along x
+const P_TENT = () => prim('tent', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 3, 1); g.rotateZ(Math.PI / 2); g.rotateX(Math.PI / 6); g.translate(0, 0.25, 0); return g; });   // a triangular prism lying along x, ridge up (0.75 high, 0.87 wide)
+// what a colour is most likely made of, when the shape doesn't say
+function autoMt(col) {
+  const [r, g, b] = col, mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = mx > 0 ? (mx - mn) / mx : 0;
+  if (g > r * 1.08 && g > b) return MT.plant;
+  if (b > r * 1.12 && b > g) return mx > 0.5 ? MT.water : MT.metal;
+  if (sat < 0.09) return mx > 0.6 && b >= r ? MT.metal : MT.stone;
+  return r >= b ? MT.wood : MT.stone;
+}
 class Kit {
-  constructor() { this.pos = []; this.nor = []; this.col = []; this.em = []; this.ew = []; }
+  constructor() { this.pos = []; this.nor = []; this.col = []; this.em = []; this.ew = []; this.gu = []; this.mts = []; this.mt = null; }
+  _mat(col) { return this.mt !== null ? MT[this.mt] ?? this.mt : autoMt(col); }
   // put a shape in: at (x, y, z) in 3D (z is the game's y), turned by yaw (and pitch, roll), sized (sx, sy, sz), coloured
   add(geo, x, y, z, sx, sy, sz, col, yaw = 0, pitch = 0, roll = 0, em = 0, ew = 0.7) {
     _km.compose(_kv.set(x, y, z), _kq.setFromEuler(_ke.set(pitch, yaw, roll, 'YXZ')), _ks.set(sx, sy, sz));
     const p = geo.attributes.position, n = geo.attributes.normal, nm = new THREE.Matrix3().getNormalMatrix(_km), v = new V3();
+    const m = this._mat(col), ax = sx >= sy && sx >= sz ? 0 : sy >= sz ? 1 : 2, o = (x * 0.37 + z * 0.61) % 97;   // grain runs along the longest side
     for (let i = 0; i < p.count; i++) {
-      v.fromBufferAttribute(p, i).applyMatrix4(_km); this.pos.push(v.x, v.y, v.z);
+      v.fromBufferAttribute(p, i); const l = [v.x * sx, v.y * sy, v.z * sz];
+      this.gu.push(l[ax] + o, l[(ax + 1) % 3] + o * 0.3, l[(ax + 2) % 3]); this.mts.push(m);
+      v.applyMatrix4(_km); this.pos.push(v.x, v.y, v.z);
       v.fromBufferAttribute(n, i).applyMatrix3(nm).normalize(); this.nor.push(v.x, v.y, v.z);
       this.col.push(col[0], col[1], col[2]); this.em.push(em); this.ew.push(ew);
     }
@@ -107,8 +156,10 @@ class Kit {
     _kq.setFromUnitVectors(_kv.set(0, 1, 0), new V3(dx / L, dy / L, dz / L));
     _km.compose(new V3(ax, ay, az), _kq, _ks.set(r * 2, L, r * 2));
     const p = geo.attributes.position, n = geo.attributes.normal, nm = new THREE.Matrix3().getNormalMatrix(_km), v = new V3();
+    const m = this._mat(col), o = (ax * 0.37 + az * 0.61) % 97;
     for (let i = 0; i < p.count; i++) {
-      v.fromBufferAttribute(p, i).applyMatrix4(_km); this.pos.push(v.x, v.y, v.z);
+      v.fromBufferAttribute(p, i); this.gu.push(v.y * L + o, v.x * r * 2 + o * 0.3, v.z * r * 2); this.mts.push(m);
+      v.applyMatrix4(_km); this.pos.push(v.x, v.y, v.z);
       v.fromBufferAttribute(n, i).applyMatrix3(nm).normalize(); this.nor.push(v.x, v.y, v.z);
       this.col.push(col[0], col[1], col[2]); this.em.push(em); this.ew.push(0.6);
     }
@@ -117,6 +168,7 @@ class Kit {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nor, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3)); g.setAttribute('em', new THREE.Float32BufferAttribute(this.em, 1)); g.setAttribute('ew', new THREE.Float32BufferAttribute(this.ew, 1));
+    g.setAttribute('gu', new THREE.Float32BufferAttribute(this.gu, 3)); g.setAttribute('mt', new THREE.Float32BufferAttribute(this.mts, 1));
     g.computeBoundingSphere();
     return g;
   }
@@ -130,9 +182,10 @@ class KitMesh {   // a batch you can rebuild: the lit shapes and their outline
 // ---------------- the camp: the palisade with its four gates, two watchtowers, the yard ----------------
 const logTone3 = k => hex(['#4a453e', '#3f3a34', '#524c44', '#46413a'][((k % 4) + 4) % 4]);
 function campKit(K) {
+  yardKit(K);
   { const x = EX_FIRE.x, y = EX_FIRE.y;   // the fire in the middle: a ring of stones, the logs crossed in it, a bed of ash
     K.add(P_CYL(12), x, -0.4, y, 24, 1, 24, hex('#2e2a26'));
-    for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283 + 0.2; K.add(P_BALL(), x + Math.cos(a) * 14, 1.2, y + Math.sin(a) * 14, 7 + hash(k, 3) * 2, 5, 6, hex(k % 2 ? '#7a7872' : '#8d8b85'), -a); }
+    for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283 + 0.2; K.mt = 'stone'; K.add(P_ROCK(k % 4), x + Math.cos(a) * 14, 1.6, y + Math.sin(a) * 14, 8 + hash(k, 3) * 2, 6, 7, hex(k % 2 ? '#7a7872' : '#8d8b85'), -a); K.mt = null; }
     for (let k = 0; k < 4; k++) { const a = k / 4 * 3.1416 + 0.4; K.rod(P_CYL(6), x - Math.cos(a) * 9, 1.5, y - Math.sin(a) * 9, x + Math.cos(a) * 9, 4.5, y + Math.sin(a) * 9, 1.8, hex(k % 2 ? '#4a3420' : '#5a3e28'), 0.15); } }
   for (const o of CAMP) {
     if (o.camp === 'wall') {   // three logs, each its own height with a point on top, lashed twice
@@ -159,18 +212,86 @@ function campKit(K) {
       for (let m = -1; m <= 1; m++) { const bx = o.x - uy * m * 7, by = o.y + ux * m * 7, h = 15 + 4 * ((m + 1 + o.seed * 3) % 2);
         K.rod(P_CONE(5), bx, 0, by, bx + ux * 13, h, by + uy * 13, 1.4, logTone3(m + 1)); }
       K.rod(P_CYL(5), o.x - uy * 10, 2, o.y + ux * 10, o.x + uy * 10, 2, o.y - ux * 10, 1.5, hex('#3a3631'));
-    } else if (o.camp === 'bench') {
-      const ux = Math.cos(o.a) * 13, uy = Math.sin(o.a) * 13;
-      K.rod(P_CYL(8), o.x - ux, 3, o.y - uy, o.x + ux, 3, o.y + uy, 3, hex('#46413a'));
+    } else if (o.camp === 'bench') {   // a split log to sit on, on two short stumps
+      const ux = Math.cos(o.a), uy = Math.sin(o.a);
+      for (const m of [-8, 8]) K.add(P_CYL(8), o.x + ux * m, 0, o.y + uy * m, 4.4, 4.2, 4.4, hex('#4a4038'));
+      logRod(K, o.x - ux * 14, 6.2, o.y - uy * 14, o.x + ux * 14, 6.2, o.y + uy * 14, 2.8, hex('#5c4a3a'));
     } else if (o.camp === 'tent') {
-      K.add(P_TENT(), o.x, 0, o.y, 34, 25, 26, hex('#57534c'), -o.a);
-      K.add(P_BOX(), o.x + Math.cos(o.a) * 17.2, 5, o.y + Math.sin(o.a) * 17.2, 0.4, 10, 6, hex('#1c1b19'), -o.a);
+      tentKit(K, o, hex('#8c8474'));
     } else if (o.camp === 'rack') {
       K.add(P_CYL(5), o.x - 9, 0, o.y, 2, 18, 2, hex('#3a3631')); K.add(P_CYL(5), o.x + 9, 0, o.y, 2, 16, 2, hex('#3a3631'));
       K.rod(P_CYL(5), o.x - 10, 15, o.y, o.x + 10, 13, o.y, 1, hex('#3a3631'));
       for (let m = 0; m < 4; m++) { const x = o.x - 6 + m * 4; K.rod(P_CYL(4), x - 1, 0, o.y + 2, x + 1, 32, o.y - 2, 0.65, hex('#4f4a43')); K.add(P_CONE(4), x + 1, 32, o.y - 2, 2.2, 6, 2.2, hex('#7a756c')); }
     } else if (o.camp === 'flag') {
       K.add(P_CYL(6), o.x, 0, o.y, 2.4, 74, 2.4, hex('#3a3631'));
+    }
+  }
+}
+// a ridge tent: canvas over a pole, the door a dark triangle, guy ropes out to pegs at each end
+function tentKit(K, o, col) {
+  const ca = Math.cos(o.a), sa = Math.sin(o.a), at = (f, s2 = 0) => [o.x + ca * f - sa * s2, o.y + sa * f + ca * s2], H = 18.75;
+  K.mt = 'cloth'; K.add(P_TENT(), o.x, 0, o.y, 34, 25, 26, col, -o.a);
+  { const [fx, fy] = at(17.1); K.mt = 'plain'; K.add(P_TENT(), fx, 0, fy, 0.5, 18, 15, hex('#16140f'), -o.a); }
+  K.mt = 'wood'; { const [ax, ay] = at(-20), [bx, by] = at(20); K.rod(P_CYL(6), ax, H + 0.4, ay, bx, H + 0.4, by, 0.85, hex('#6a5034')); }
+  for (const f of [-17.6, 17.6]) { const [px, py] = at(f); K.add(P_CYL(6), px, 0, py, 1.5, H, 1.5, hex('#6a5034')); const [gx, gy] = at(f * 1.75); K.mt = 'cloth'; K.rod(P_CYL(4), px + ca * Math.sign(f) * 2, H, py + sa * Math.sign(f) * 2, gx, 0.5, gy, 0.22, hex('#c8b890')); K.mt = 'wood'; K.add(P_CONE(4), gx, -0.5, gy, 1.4, 3.4, 1.4, hex('#6a5034')); }
+  for (const f of [-10, 0, 10]) for (const sd of [-1, 1]) { const [px, py] = at(f, sd * 13.6); K.add(P_CONE(4), px, -0.5, py, 1.2, 2.6, 1.2, hex('#6a5034')); }
+  K.mt = null;
+}
+// a log: bark round it, the pale cut wood showing at each end
+function logRod(K, ax, ay, az, bx, by, bz, r, col, cut = hex('#b89a74')) {
+  K.mt = 'bark'; K.rod(P_CYL(9), ax, ay, az, bx, by, bz, r, col); K.mt = 'wood';
+  const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz), e = 0.35 / L;
+  K.rod(P_CYL(9), ax - dx * e, ay - dy * e, az - dz * e, ax + dx * e, ay + dy * e, az + dz * e, r * 0.86, cut);
+  K.rod(P_CYL(9), bx - dx * e, by - dy * e, bz - dz * e, bx + dx * e, by + dy * e, bz + dz * e, r * 0.86, cut);
+  K.mt = null;
+}
+// ---------------- the yard: your storage box by the tent, the water barrel across the fire from it, the woodpile ----------------
+// The main game keeps these four stores in one huddle; here the box and the barrel each get their own place so you can
+// tell them apart at a glance, and they're built solid rather than painted.
+YARD_DAY[0] = YARD_DAY[1] = { x: -52, y: -50 };   // the box (the two crates share its place)
+YARD_DAY[2] = YARD_DAY[3] = { x: 60, y: 56 };     // the water barrel (and its twin)
+// a strongbox: planked sides, iron at the corners, a rounded lid strapped twice, a lock on the front (facing a); open 0..1 tips the lid back
+function chestKit(K, bx, by, a, sc = 1, open = 0) {
+  const ca = Math.cos(a), sa = Math.sin(a);
+  const put = (geo, lx, h, lz, sx, sy, sz, col, mt, pitch = 0, roll = 0) => { K.mt = mt; K.add(geo, bx + (ca * lx - sa * lz) * sc, h * sc, by + (sa * lx + ca * lz) * sc, sx * sc, sy * sc, sz * sc, col, -a, pitch, roll); };
+  const planks = ['#7a5a3c', '#6e5034', '#83613f'];
+  for (let i = 0; i < 3; i++) put(P_BOX(), 0, 2.6 + i * 4.75, 0, 20, 4.5, 30, hex(planks[i]), 'wood');
+  for (const [lx, lz] of [[-9, -14], [9, -14], [9, 14], [-9, 14]]) { put(P_BOX(), lx, 0.4, lz, 3, 1.2, 3, hex('#3a2c20'), 'wood'); put(P_BOX(), lx * 1.04, 7.6, lz * 1.02, 2.2, 15, 2.2, hex('#5a5e62'), 'metal'); }
+  if (open > 0) {   // tipped back on its hinge: the inside dark, the lid's underside showing
+    put(P_BOX(), 0, 14.1, 0, 18, 0.4, 28, hex('#1e1712'), 'plain');
+    const t = open * 1.9, hx = -10, hh = 14.4, cx = hx + Math.cos(t) * 10, ch = hh + Math.sin(t) * 10;
+    put(P_BOX(), cx, ch, 0, 20, 2.4, 30, hex('#6a4c30'), 'wood', 0, t);
+  } else {
+    put(P_CYL(14), 0, 14.6, -15, 20, 30, 8, hex('#6a4c30'), 'wood', Math.PI / 2);
+    for (const lz of [-9, 9]) put(P_CYL(14), 0, 14.6, lz - 0.8, 20.8, 1.6, 8.8, hex('#4e5256'), 'metal', Math.PI / 2);
+    put(P_BOX(), 10.3, 13, 0, 1, 5, 4.4, hex('#8a8e92'), 'metal'); put(P_BOX(), 10.9, 11.2, 0, 0.8, 1.6, 1.4, hex('#2a2a2a'), 'metal');
+  }
+  for (const lz of [-15.4, 15.4]) put(P_BOX(), 0, 9.5, lz, 6, 1.2, 1, hex('#8a7550'), 'cloth');   // rope handles
+  K.mt = null;
+}
+function yardKit(K) {
+  chestKit(K, CAMP_BOX.x, CAMP_BOX.y, Math.atan2(-CAMP_BOX.y, -CAMP_BOX.x), 1, 0);
+  { // the water barrel: staves held by three iron hoops, standing on a flat stone, brimming; a dipper hung on the rim
+    const wx = CAMP_BARREL.x, wy = CAMP_BARREL.y, R = 9.4;
+    K.mt = 'stone'; K.add(P_CYL(12), wx, 0, wy, 26, 1.6, 24, hex('#7c7a74'), 0.4); K.mt = null;
+    K.add(P_CYL(16), wx + 4, 0.05, wy + 3, 40, 0.1, 34, hex('#3f3a33'));   // the ground dark where it's spilled
+    for (let i = 0; i < 16; i++) {
+      const t = i / 16 * 6.283, col = hex(['#6f5236', '#7a5b3c', '#664a30', '#80603f'][i % 4]);
+      K.mt = 'wood'; K.add(P_BOX(), wx + Math.cos(t) * R, 12.6, wy + Math.sin(t) * R, 1.6, 23, 3.9, col, -t);
+    }
+    K.mt = 'metal'; for (const h of [3.2, 12.2, 21]) K.add(P_CYL(18), wx, h, wy, R * 2 + 2, 1.7, R * 2 + 2, hex('#4c5054'));
+    K.mt = 'wood'; K.add(P_CYL(16), wx, 1.4, wy, R * 2 - 1, 1, R * 2 - 1, hex('#5a4230'));
+    K.mt = 'water'; K.add(P_CYL(18), wx, 22.4, wy, R * 2 - 1.6, 0.4, R * 2 - 1.6, hex('#3a6c94'), 0, 0, 0, 0.12);
+    K.mt = 'wood'; K.rod(P_CYL(6), wx + 5, 22.8, wy - 1, wx + 11, 30, wy - 3, 0.45, hex('#8a6a46'));
+    K.add(P_CYL(10), wx + 4.2, 21, wy - 0.8, 3.4, 2.6, 3.4, hex('#7a5a3a')); K.mt = null;
+  }
+  { // the woodpile: split logs stacked between two stakes
+    const w = CAMP.find(q => q.camp === 'wood'); if (w) {
+      const a = Math.atan2(-w.y, -w.x) + Math.PI / 2, ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
+      const rows = [4, 3, 2];
+      rows.forEach((n, row) => { for (let i = 0; i < n; i++) { const off = (i - (n - 1) / 2) * 6.6, h = 3.2 + row * 5.6, j = hash(row * 7 + i, 5) * 3 - 1.5;
+        logRod(K, w.x + vx * off - ux * (13 + j), h, w.y + vy * off - uy * (13 + j), w.x + vx * off + ux * (13 - j), h, w.y + vy * off + uy * (13 - j), 3.1, hex(['#5a4634', '#4e3c2c', '#62503c'][(row + i) % 3])); } });
+      for (const s of [-15.5, 15.5]) { K.mt = 'bark'; K.add(P_CYL(6), w.x + vx * s, 0, w.y + vy * s, 2.2, 20, 2.2, hex('#4a3a2a')); K.mt = null; }
     }
   }
 }
@@ -190,11 +311,11 @@ function flagStep(t) {
 // ---------------- the raider camps: stakes and skulls round a fire, two tents, a rack, the relic on its stand ----------------
 function raiderKit(K) {
   for (const C of dayCampList()) for (const o of C.parts) {
-    if (o.sub === 'tent') { K.add(P_TENT(), o.x, 0, o.y, 34, 25, 26, hex('#5a5048'), -o.a); K.add(P_BOX(), o.x + Math.cos(o.a) * 17.2, 5, o.y + Math.sin(o.a) * 17.2, 0.4, 10, 6, hex('#1c1b19'), -o.a); }
+    if (o.sub === 'tent') tentKit(K, o, hex('#7a6a56'));
     else if (o.sub === 'stake') { K.add(P_CYL(6), o.x, 0, o.y, 3.6, 30, 3.6, logTone3(o.seed * 9 | 0)); K.add(P_CONE(6), o.x, 30, o.y, 3.6, 6, 3.6, logTone3(o.seed * 9 | 0)); if (o.skull) K.add(P_BALL(), o.x, 30, o.y, 5, 5.5, 5.5, hex('#d8d0bc')); }
     else if (o.sub === 'dirt') K.add(P_CYL(10), o.x, -0.6, o.y, 22 + o.seed * 8, 1, 14 + o.seed * 6, hex('#3e3428'), o.seed * 6);
     else if (o.sub === 'bones') { for (let k = 0; k < 3; k++) { const a = o.seed * 9 + k * 2.1; K.rod(P_CYL(4), o.x + Math.cos(a) * 3, 0.8, o.y + Math.sin(a) * 3, o.x + Math.cos(a) * 3 + Math.cos(a + 1.3) * 9, 0.8, o.y + Math.sin(a) * 3 + Math.sin(a + 1.3) * 9, 0.8, hex('#e6dfcc')); } }
-    else if (o.sub === 'fire') { for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; K.add(P_BALL(), o.x + Math.cos(a) * 11, 1, o.y + Math.sin(a) * 11, 6, 4, 6, hex(k % 2 ? '#7a7872' : '#8d8b85')); } K.rod(P_CYL(5), o.x - 6, 2, o.y - 3, o.x + 6, 2, o.y + 3, 1.6, hex('#5a3e28')); K.rod(P_CYL(5), o.x - 5, 2, o.y + 4, o.x + 5, 2, o.y - 4, 1.6, hex('#4a3420')); }
+    else if (o.sub === 'fire') { for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; K.add(P_ROCK(k % 4), o.x + Math.cos(a) * 11, 1.4, o.y + Math.sin(a) * 11, 7, 5, 7, hex(k % 2 ? '#7a7872' : '#8d8b85'), a); } K.rod(P_CYL(5), o.x - 6, 2, o.y - 3, o.x + 6, 2, o.y + 3, 1.6, hex('#5a3e28')); K.rod(P_CYL(5), o.x - 5, 2, o.y + 4, o.x + 5, 2, o.y - 4, 1.6, hex('#4a3420')); }
     else if (o.sub === 'wrack') { K.add(P_CYL(5), o.x - 9, 0, o.y, 2, 22, 2, hex('#4a3a2a')); K.add(P_CYL(5), o.x + 9, 0, o.y, 2, 22, 2, hex('#4a3a2a')); K.rod(P_CYL(5), o.x - 10, 18, o.y, o.x + 10, 18, o.y, 1, hex('#4a3a2a')); }
   }
 }
@@ -269,14 +390,8 @@ function worldSync(force) {
       shadow(o.x, o.y, 15 * o.s, 10 * o.s);
     } else if (o.kind === 'post') { tallB.add('post', (hash(o.x * 0.53, o.y * 0.29) * 50 | 0), o.x, o.y, 1.4, 1, 0); shadow(o.x, o.y, 5, 18); }
   }
-  // the camp yard's own sprites: crates, barrels, the woodpile
-  for (const o of CAMP) {
-    if (o.camp === 'crate') tallB.add(o.big ? 'crateB' : 'crateS', 0, o.x, o.y, 1.4, 1, 0);
-    else if (o.camp === 'barrel') tallB.add('barrel', 0, o.x, o.y, 1.4, 1, 0);
-    else if (o.camp === 'wood') tallB.add('woodpile', 0, o.x, o.y, 1.4, 1, 0);
-    else continue;
-    shadow(o.x, o.y, 12, 8);
-  }
+  // the camp's storage box, water barrel and woodpile are solid (yardKit); they only need their shadows here
+  for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, 10);
   tallB.end(); shBase = shN;
   // ground cover
   coverB.begin();

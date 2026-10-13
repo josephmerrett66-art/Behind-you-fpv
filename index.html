@@ -6757,7 +6757,9 @@ function shadowsEnd() { shGeo.instanceCount = shN; const a = shGeo.attributes.sd
 const WORLD = { x: 1e9, y: 1e9, gen: -1, props: [], nodes: [], lakes: [] };
 let worldDirty = true;
 const kindOfTree = o => o.type === 'pine' || o.type === 'oak' || o.type === 'cherry' ? o.type : 'dead';
-let staticK = null;   // the palisade, the yard and the raiders' camps never move: built once
+let staticK = null;
+const logK = new KitMesh();   // the fallen logs on the forest floor, re-laid as you walk
+const K_BR = (K, ax, ay, az, bx, by, bz, r) => { K.mt = 'bark'; K.rod(P_CYL(6), ax, ay, az, bx, by, bz, r, hex('#4a3c30')); K.mt = null; };   // the palisade, the yard and the raiders' camps never move: built once
 function worldSync(force) {
   const p = S.p, D = S.day;
   if (!staticK) { const K = new Kit(); campKit(K); raiderKit(K); staticK = new KitMesh(); staticK.set(K); }
@@ -6782,14 +6784,22 @@ function worldSync(force) {
   tallB.end(); shBase = shN;
   // ground cover
   // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's
+  const LK = new Kit();
   coverB.begin(); plantB.begin(); bushB.begin();
   for (const d of decorNear(p.x, p.y, 430)) {
     const k = d.dk === 'log' ? 'log' : d.dk;
     if (!ATLAS.meta[k]) continue;
+    if (k === 'log') {   // a fallen log lies flat on the ground as a solid log, with a broken branch or two
+      const a = d.seed * 6.283, L = 38 * d.s, r = 4.2 * d.s, ux = Math.cos(a) * L / 2, uy = Math.sin(a) * L / 2;
+      logRod(LK, d.x - ux, r * 0.8, d.y - uy, d.x + ux, r * 0.85, d.y + uy, r, hex((d.seed * 31 % 1) < 0.5 ? '#5c4a3a' : '#4e4034'));
+      for (let j = 0; j < 2; j++) { const t = j ? 0.3 : -0.2, bx = d.x + ux * t, by = d.y + uy * t, ba = a + (j ? 1 : -1) * (0.8 + 0.4 * (d.seed * 7 % 1)); K_BR(LK, bx, r * 1.2, by, bx + Math.cos(ba) * r * 2.2, r * 2.4, by + Math.sin(ba) * r * 2.2, r * 0.3); }
+      shadow(d.x, d.y, L * 0.45, 0);
+      continue;
+    }
     const fl = k.startsWith('flower'), plant = fl || k === 'grass' || k === 'fern' || k === 'bush';
     (k === 'bush' ? bushB : plant ? plantB : coverB).add(k, d.v, d.x, d.y, d.s * (k === 'log' ? 1.3 : k === 'bush' ? 1.1 : fl ? 0.72 : 1.15), (d.seed * 7919 % 1) < 0.5 ? 1 : -1, k === 'grass' || k === 'fern' || fl ? 1.2 : k === 'bush' ? 0.6 : 0, -99, d.seed);
   }
-  coverB.end(); plantB.end(); bushB.end();
+  coverB.end(); plantB.end(); bushB.end(); logK.set(LK); shBase = shN;   // the logs cast shadows too
   WORLD.lakes = pondsSync(p.x, p.y);
 }
 

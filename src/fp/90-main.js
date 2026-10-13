@@ -8,7 +8,7 @@ const mix3 = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], 
 function envFrame() {
   const lt = S && S.day ? dayLight() : 1, f = S && S.day ? dayT() : 0.2, set = lt < 1 && lt > 0 ? Math.sin(Math.PI * lt) : 0;
   ENV.lt = lt;
-  const dayAmb = [1.0, 0.98, 0.92], duskAmb = [1.0, 0.68, 0.5], nightAmb = [0.075, 0.085, 0.125];
+  const dayAmb = [1.06, 1.0, 0.88], duskAmb = [1.0, 0.68, 0.5], nightAmb = [0.075, 0.085, 0.125];
   LU.amb.value.set(...mix3(nightAmb, mix3(dayAmb, duskAmb, set * 0.85), Math.pow(lt, 0.8)));
   LU.sunK.value = lt;
   const sa = clamp(f / (NIGHT_IN + DUSK), 0, 1) * Math.PI, el = Math.max(0.12, Math.sin(sa)) * 0.95;
@@ -21,7 +21,7 @@ function envFrame() {
   const tl = S ? S.torchLvl * (S.torchOn ? 1 : 0) : 0;
   LU.tCol.value.set(1.0 * tl, 0.88 * tl, 0.7 * tl);
   LU.colourK.value = COLOUR ? 1 : 0;
-  shMat.uniforms.k.value = 0.32 * lt;
+  shMat.uniforms.k.value = 0.4 * lt;
   shMat.uniforms.lean.value.set(-LU.sunDir.value.x * 1.4, -LU.sunDir.value.z * 1.4);
   pondMat.uniforms.lt.value = lt;
   const s2 = 1 - lt * 0.95; vmLight.value.set(lerp(1, 0.32, s2), lerp(0.97, 0.3, s2), lerp(0.9, 0.36, s2));
@@ -240,7 +240,7 @@ function frame(t) {
   } else { IN.lx = IN.ly = 0; }
   // what changed this frame for the hurt and heal flashes
   const hp = S.rg.hp; if (lastHp !== null) { if (hp < lastHp) { hurtFx = 1; VIEW_FX.trauma = Math.min(1, VIEW_FX.trauma + 0.35); } else if (hp > lastHp) healFx = 1; } lastHp = hp;
-  envFrame(); weatherFrame(now); weatherLight();
+  envFrame(); weatherFrame(now); weatherLight(); raysFrame();
   worldSync(false); thingsSync(false);
   for (const b of [tallB, coverB, nodeB, dropB]) b.m.uniforms.now.value = S.t;
   grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);

@@ -3,21 +3,30 @@
 // ---------------- billboards: every painted sprite, stood upright and facing you, swaying at the top ----------------
 // One instanced draw per board. Boards are refilled from the game's world as you walk (only when you've moved far enough).
 class Board {
-  constructor(cap, cull, near, cover, tex = atlasTex, atlas = ATLAS) {
+  // cross: instead of one card turned to face you, three cards crossed through each other (a plant seen from any side has body)
+  constructor(cap, cull, near, cover, tex = atlasTex, atlas = ATLAS, cross = false) {
     this.cap = cap; this.atlas = atlas;
     const g = new THREE.InstancedBufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0], 3));
-    g.setIndex([0, 2, 1, 0, 3, 2]);
+    const nq = cross ? 3 : 1, pos = [], idx = [];
+    for (let q = 0; q < nq; q++) { pos.push(0, 0, q, 1, 0, q, 1, 1, q, 0, 1, q); idx.push(q * 4, q * 4 + 2, q * 4 + 1, q * 4, q * 4 + 3, q * 4 + 2); }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
     this.P = new Float32Array(cap * 4); this.R = new Float32Array(cap * 4); this.D = new Float32Array(cap * 4); this.X = new Float32Array(cap * 4);
     for (const [k, a] of [['iPos', this.P], ['iRect', this.R], ['iDim', this.D], ['iMisc', this.X]]) { const b = new THREE.InstancedBufferAttribute(a, 4); b.setUsage(THREE.DynamicDrawUsage); g.setAttribute(k, b); }
     g.instanceCount = 0; this.g = g;
     const m = new THREE.ShaderMaterial({
       uniforms: Object.assign({ map: { value: tex }, cull: { value: cull }, near: { value: near }, now: { value: 0 } }, LU),
-      defines: AA ? { A2C: 1 } : {}, alphaToCoverage: AA, side: THREE.DoubleSide,   // a flipped sprite turns its back; draw both faces
+      defines: Object.assign(AA ? { A2C: 1 } : {}, cross ? { CROSS: 1 } : {}), alphaToCoverage: AA, side: THREE.DoubleSide,   // a flipped sprite turns its back; draw both faces
       vertexShader: `attribute vec4 iPos, iRect, iDim, iMisc; uniform vec3 camPos, camRight; uniform float time, cull, near, now;
-        varying vec2 vUv; varying vec3 vW; varying vec3 vNear;
+        varying vec2 vUv; varying vec3 vW; varying vec3 vNear; varying vec2 vSh;
         void main() {
           float d = distance(iPos.xz, camPos.xz);
+          vec3 R = camRight; float edge = 1.0, card = 1.0;
+          #ifdef CROSS
+            float a = iMisc.w * 6.2832 + position.z * 1.0472; R = vec3(cos(a), 0.0, sin(a));
+            vec3 tv = normalize(vec3(camPos.x - iPos.x, 0.0, camPos.z - iPos.z) + vec3(1e-4));
+            edge = smoothstep(0.08, 0.4, abs(dot(vec3(-R.z, 0.0, R.x), tv)));   // a card seen edge-on thins away instead of showing as a sliver
+            card = 0.84 + 0.16 * position.z * 0.5;                                    // the three cards a shade apart, so they read as layers
+          #endif
           if (d > cull) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
           float s = iPos.w;
           float lx = (position.x * iDim.x - iDim.z) * s * iMisc.x;
@@ -26,17 +35,18 @@ class Board {
           float sw = sin(time * 0.7 + iMisc.w * 20.0) * 1.6 + sin(time * 1.9 + iMisc.w * 7.0) * 0.5;
           float st = now - iMisc.z; float shake = st >= 0.0 && st < 0.45 ? sin(st * 48.0) * (1.0 - st / 0.45) * 5.0 : 0.0;   // struck: it shudders
           sw = (sw * iMisc.y + shake) * up * up;
-          vec3 w = vec3(iPos.x, iPos.y, iPos.z) + camRight * (lx + sw * s) + vec3(0.0, ly, 0.0);
+          vec3 w = vec3(iPos.x, iPos.y, iPos.z) + R * lx + camRight * sw * s + vec3(0.0, ly, 0.0);
+          vSh = vec2(edge, card * mix(0.62, 1.0, smoothstep(0.0, 0.45, up)));   // darker down at the roots, where it meets the ground
           vUv = iRect.xy + vec2(position.x, 1.0 - position.y) * iRect.zw;
           vW = w;
           vNear = vec3(near > 0.0 && iDim.y * s > 70.0 ? clamp((d - near) / (near * 0.9), 0.0, 1.0) : 1.0, abs(lx) / s, ly / s);   // right beside a tree, all but its trunk melts away so it never fills the screen
           gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
         }`,
-      fragmentShader: LIGHT_GLSL + `uniform sampler2D map; varying vec2 vUv; varying vec3 vW; varying vec3 vNear;
+      fragmentShader: LIGHT_GLSL + `uniform sampler2D map; varying vec2 vUv; varying vec3 vW; varying vec3 vNear; varying vec2 vSh;
         void main() {
           vec4 t = texture2D(map, vUv);
           float trunk = (vNear.y < 7.0 && vNear.z < 34.0) ? 1.0 : 0.0;
-          float keep = max(vNear.x, trunk);
+          float keep = max(vNear.x, trunk) * vSh.x;
           #ifdef A2C
             t.a *= keep * keep;
             if (t.a < 0.08) discard;
@@ -44,7 +54,7 @@ class Board {
             if (keep < 1.0) { vec2 b = mod(floor(gl_FragCoord.xy), 4.0); float h = (mod(b.x + b.y * 2.0, 4.0) * 4.0 + mod(b.x * 2.0 + b.y, 4.0)) / 16.0 + 0.03; if (h > keep) discard; }
             if (t.a < 0.5) discard;
           #endif
-          gl_FragColor = vec4(fogged(grey(t.rgb * lightAt(vW, vec3(0.0), 0.0) * ${cover ? '1.18' : '1.12'}), vW), t.a);
+          gl_FragColor = vec4(fogged(grey(t.rgb * vSh.y * lightAt(vW, vec3(0.0), 0.0) * ${cover ? '1.18' : '1.12'}), vW), t.a);
         }`,
     });
     this.m = m; this.mesh = new THREE.Mesh(g, m); this.mesh.frustumCulled = false; scene.add(this.mesh); this.n = 0;
@@ -64,7 +74,7 @@ class Board {
     for (const k of ['iPos', 'iRect', 'iDim', 'iMisc']) { const a = this.g.attributes[k]; a.needsUpdate = true; if (a.clearUpdateRanges) { a.clearUpdateRanges(); a.addUpdateRange(0, this.n * 4); } else { a.updateRange.offset = 0; a.updateRange.count = this.n * 4; } }
   }
 }
-const tallB = new Board(2600, VIEW, 30, false), coverB = new Board(6000, 420, 0, true), nearB = new Board(900, 300, 0, true);
+const tallB = new Board(2600, VIEW, 30, false), coverB = new Board(6000, 420, 0, true), plantB = new Board(6000, 420, 0, true, atlasTex, ATLAS, true), nearB = new Board(900, 300, 0, true);
 
 // ---------------- the kit: solid things built from simple shapes, with the game's dark outline round them ----------------
 // Shapes are baked into one mesh per batch (vertex colours), drawn twice: once lit, once as a slightly fatter dark shell.
@@ -394,12 +404,14 @@ function worldSync(force) {
   for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, 10);
   tallB.end(); shBase = shN;
   // ground cover
-  coverB.begin();
+  // plants are crossed cards so they have body from every side; flowers sit low and small among the turf
+  coverB.begin(); plantB.begin();
   for (const d of decorNear(p.x, p.y, 430)) {
     const k = d.dk === 'log' ? 'log' : d.dk;
     if (!ATLAS.meta[k]) continue;
-    coverB.add(k, d.v, d.x, d.y, d.s * (k === 'log' ? 1.3 : k === 'bush' ? 1.5 : 1.25), (d.seed * 7919 % 1) < 0.5 ? 1 : -1, k === 'grass' || k === 'fern' || k.startsWith('flower') ? 1.2 : k === 'bush' ? 0.6 : 0, -99, d.seed);
+    const fl = k.startsWith('flower'), plant = fl || k === 'grass' || k === 'fern' || k === 'bush';
+    (plant ? plantB : coverB).add(k, d.v, d.x, d.y, d.s * (k === 'log' ? 1.3 : k === 'bush' ? 1.5 : fl ? 0.72 : 1.15), (d.seed * 7919 % 1) < 0.5 ? 1 : -1, k === 'grass' || k === 'fern' || fl ? 1.2 : k === 'bush' ? 0.6 : 0, -99, d.seed);
   }
-  coverB.end();
+  coverB.end(); plantB.end();
   WORLD.lakes = pondsSync(p.x, p.y);
 }

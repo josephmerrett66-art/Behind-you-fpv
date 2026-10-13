@@ -63,7 +63,7 @@ function dropMesh(i, geo) {
   m.geometry = geo; m.visible = true; return m;
 }
 const dropB = new Board(400, 600, 0, true, iconTex, ISHEET);
-const nodeB = new Board(900, 560, 0, true);   // the grass and berry bushes you gather are the woods' own sprites
+const nodeB = new Board(900, 560, 0, true, atlasTex, ATLAS, true);   // the grass and berry bushes you gather are the woods' own sprites
 
 // ---------------- the kits ----------------
 const thingsK = new KitMesh(true), dynK = new KitMesh(true);

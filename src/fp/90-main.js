@@ -240,9 +240,9 @@ function frame(t) {
   } else { IN.lx = IN.ly = 0; }
   // what changed this frame for the hurt and heal flashes
   const hp = S.rg.hp; if (lastHp !== null) { if (hp < lastHp) { hurtFx = 1; VIEW_FX.trauma = Math.min(1, VIEW_FX.trauma + 0.35); } else if (hp > lastHp) healFx = 1; } lastHp = hp;
-  envFrame(); weatherFrame(now); weatherLight(); raysFrame();
+  envFrame(); weatherFrame(now); weatherLight();
   worldSync(false); thingsSync(false);
-  for (const b of [tallB, coverB, nodeB, dropB]) b.m.uniforms.now.value = S.t;
+  for (const b of [tallB, coverB, plantB, nodeB, dropB]) b.m.uniforms.now.value = S.t;
   grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);
   flagStep(now);
   const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? rdt * 0.06 : rdt) : 0;

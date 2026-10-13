@@ -171,7 +171,7 @@ $('quit').addEventListener('click', quitToTitle);
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') { if (menusOpen()) { try { daySave(); } catch (e) {} } else pause(); } });
 addEventListener('pagehide', () => { if (S && S.day && state !== 'title') try { daySave(); } catch (e) {} });
 function syncSet() {
-  $('sSens').value = SET.sens;
+  $('sSens').value = SET.sens; $('sFov').value = SET.fov; $('sFovV').textContent = SET.fov + '°';
   for (const b of document.querySelectorAll('#sQual .tab')) b.setAttribute('aria-pressed', b.dataset.q === SET.quality ? 'true' : 'false');
   $('sInv').setAttribute('aria-pressed', SET.invert ? 'true' : 'false');
   $('sFps').setAttribute('aria-pressed', SET.fps ? 'true' : 'false');
@@ -180,6 +180,7 @@ function syncSet() {
   document.body.classList.toggle('showfps', SET.fps);
 }
 $('sSens').addEventListener('input', e => { SET.sens = +e.target.value; saveSet(); });
+$('sFov').addEventListener('input', e => { SET.fov = +e.target.value; $('sFovV').textContent = SET.fov + '°'; saveSet(); resize(); });
 for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('click', () => {
   SET.quality = b.dataset.q; saveSet();
   pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.5);
@@ -242,7 +243,7 @@ function frame(t) {
   const hp = S.rg.hp; if (lastHp !== null) { if (hp < lastHp) { hurtFx = 1; VIEW_FX.trauma = Math.min(1, VIEW_FX.trauma + 0.35); } else if (hp > lastHp) healFx = 1; } lastHp = hp;
   envFrame(); weatherFrame(now); weatherLight();
   worldSync(false); thingsSync(false);
-  for (const b of [tallB, coverB, plantB, nodeB, dropB]) b.m.uniforms.now.value = S.t;
+  for (const b of [tallB, coverB, plantB, bushB, nodeB, dropB]) b.m.uniforms.now.value = S.t;
   grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);
   flagStep(now);
   const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? rdt * 0.06 : rdt) : 0;

@@ -11,7 +11,7 @@ const hex = (h, k = 1) => { const c = new THREE.Color(h); return [c.r * k, c.g *
 function rng(seed) { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 // ---------------- settings ----------------
-const SET = { sens: 1, invert: false, fps: false, quality: 'auto', sound: true, colour: true };
+const SET = { sens: 1, invert: false, fps: false, quality: 'auto', sound: true, colour: true, fov: 104 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('behind-you-fp') || '{}')); } catch (e) {}
 const saveSet = () => { try { localStorage.setItem('behind-you-fp', JSON.stringify(SET)); } catch (e) {} };
 COLOUR = SET.colour !== false;
@@ -35,7 +35,8 @@ cam.rotation.order = 'YXZ';
 const QCAP = TOUCH ? Math.min(DPR, 1.6) : Math.min(DPR, 2);
 let pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.5);
 let VW = 1, VH = 1, vmX = 1;
-const baseFov = () => cam.aspect >= 1 ? 2 * Math.atan(Math.tan(48 * Math.PI / 180) / cam.aspect) * 180 / Math.PI : 78;
+// field of view: the setting is how wide you see across a landscape screen; held upright, the same setting widens the view up and down
+const baseFov = () => cam.aspect >= 1 ? 2 * Math.atan(Math.tan(SET.fov / 2 * Math.PI / 180) / cam.aspect) * 180 / Math.PI : clamp(78 + (SET.fov - 96) * 0.6, 62, 96);
 function resize() {
   VW = window.innerWidth; VH = window.innerHeight; W = VW; H = VH;
   renderer.setPixelRatio(pixK); renderer.setSize(VW, VH, false);

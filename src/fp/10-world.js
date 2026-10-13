@@ -79,7 +79,7 @@ class Board {
     for (const k of ['iPos', 'iRect', 'iDim', 'iMisc']) { const a = this.g.attributes[k]; a.needsUpdate = true; if (a.clearUpdateRanges) { a.clearUpdateRanges(); a.addUpdateRange(0, this.n * 4); } else { a.updateRange.offset = 0; a.updateRange.count = this.n * 4; } }
   }
 }
-const tallB = new Board(2600, VIEW, 30, false), coverB = new Board(6000, 420, 0, true), plantB = new Board(6000, 420, 0, true, atlasTex, ATLAS, 5), bushB = new Board(2000, 420, 0, true, atlasTex, ATLAS, 9), nearB = new Board(900, 300, 0, true);
+const tallB = new Board(2600, VIEW, 30, false), coverB = new Board(6000, 420, 0, true), plantB = new Board(6000, 420, 0, true), bushB = new Board(2000, 420, 0, true), nearB = new Board(900, 300, 0, true);
 
 // ---------------- the kit: solid things built from simple shapes, with the game's dark outline round them ----------------
 // Shapes are baked into one mesh per batch (vertex colours), drawn twice: once lit, once as a slightly fatter dark shell.
@@ -409,13 +409,13 @@ function worldSync(force) {
   for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, 10);
   tallB.end(); shBase = shN;
   // ground cover
-  // plants are crossed cards so they have body from every side; flowers sit low and small among the turf
+  // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's
   coverB.begin(); plantB.begin(); bushB.begin();
   for (const d of decorNear(p.x, p.y, 430)) {
     const k = d.dk === 'log' ? 'log' : d.dk;
     if (!ATLAS.meta[k]) continue;
     const fl = k.startsWith('flower'), plant = fl || k === 'grass' || k === 'fern' || k === 'bush';
-    (k === 'bush' ? bushB : plant ? plantB : coverB).add(k, d.v, d.x, d.y, d.s * (k === 'log' ? 1.3 : k === 'bush' ? 1.5 : fl ? 0.72 : 1.15), (d.seed * 7919 % 1) < 0.5 ? 1 : -1, k === 'grass' || k === 'fern' || fl ? 1.2 : k === 'bush' ? 0.6 : 0, -99, d.seed);
+    (k === 'bush' ? bushB : plant ? plantB : coverB).add(k, d.v, d.x, d.y, d.s * (k === 'log' ? 1.3 : k === 'bush' ? 1.1 : fl ? 0.72 : 1.15), (d.seed * 7919 % 1) < 0.5 ? 1 : -1, k === 'grass' || k === 'fern' || fl ? 1.2 : k === 'bush' ? 0.6 : 0, -99, d.seed);
   }
   coverB.end(); plantB.end(); bushB.end();
   WORLD.lakes = pondsSync(p.x, p.y);

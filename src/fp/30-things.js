@@ -63,7 +63,7 @@ function dropMesh(i, geo) {
   m.geometry = geo; m.visible = true; return m;
 }
 const dropB = new Board(400, 600, 0, true, iconTex, ISHEET);
-const nodeB = new Board(900, 560, 0, true, atlasTex, ATLAS, 8);   // the grass and berry bushes you gather are the woods' own sprites
+const nodeB = new Board(900, 560, 0, true);   // the grass and berry bushes you gather are the woods' own sprites
 
 // ---------------- the kits ----------------
 const thingsK = new KitMesh(true), dynK = new KitMesh(true);
@@ -262,7 +262,7 @@ function thingsFrame(now) {
   for (const o of dayNodesNear(p.x, p.y, 540)) {
     const sh = o.shakeT !== undefined ? o.shakeT : -99, sd = o.seed || 0;
     if (o.t === 'grass') nodeB.add('grass', sd * 9 | 0, o.x, o.y, 1.5, sd % 1 < 0.5 ? 1 : -1, 1.4, sh, sd);
-    else if (o.t === 'bush') { nodeB.add('bush', sd * 9 | 0, o.x, o.y, 1.7, sd % 1 < 0.5 ? 1 : -1, 0.7, sh, sd); if (o.ber) for (let i = 0; i < 7; i++) { const a = sd * 7 + i * 1.9; stat(o.x + Math.cos(a) * 8, 9 + (i % 3) * 3, o.y + Math.sin(a) * 8, 2.6, 0.82, 0.19, 0.24, 0.0, 0); K.add(P_BALL(), o.x + Math.cos(a) * 9, 9 + (i % 3) * 3.5, o.y + Math.sin(a) * 9, 2.4, 2.4, 2.4, hex('#d0303e')); } }
+    else if (o.t === 'bush') { nodeB.add('bush', sd * 9 | 0, o.x, o.y, 1.3, sd % 1 < 0.5 ? 1 : -1, 0.7, sh, sd); if (o.ber) for (let i = 0; i < 7; i++) { const a = sd * 7 + i * 1.9; stat(o.x + Math.cos(a) * 6, 7 + (i % 3) * 2.3, o.y + Math.sin(a) * 6, 2.2, 0.82, 0.19, 0.24, 0.0, 0); K.add(P_BALL(), o.x + Math.cos(a) * 7, 7 + (i % 3) * 2.6, o.y + Math.sin(a) * 7, 2, 2, 2, hex('#d0303e')); } }
     else if (o.t === 'sticks') for (let i = 0; i < 4; i++) {   // a few fallen sticks, crossed, each with a twig off it
       const a = sd * 3 + i * 1.3, L = 7 + 3 * hash(sd + i, 2), cx = o.x + Math.cos(a + 1.6) * (i - 1.5) * 1.6, cy = o.y + Math.sin(a + 1.6) * (i - 1.5) * 1.6, z = 0.8 + (i % 2) * 1.3;
       K.mt = 'bark'; K.rod(P_CYL(5), cx - Math.cos(a) * L, z, cy - Math.sin(a) * L, cx + Math.cos(a) * L, z + 0.4, cy + Math.sin(a) * L, 0.75, hex(['#6e5235', '#5e4630', '#7a5c3c'][i % 3]));

@@ -6775,20 +6775,52 @@ function worldSync(force) {
 
 ;
 // ================= the turf: fine short grass over all the ground, blade by blade =================
-// One field of thin blades rides along with you. Each blade keeps its own spot in the world (the field wraps round as you
-// walk, so nothing slides underfoot) and thins out with distance; past the edge the ground's own colour carries on.
-// A small top-down mask keeps it off ponds, floors you've laid, fire pits and tent floors.
-const GR_R = 120, GR_N = 110000, GM_N = 160, GM_S = (GR_R + 40) * 2;
+// Fields of thin blades ride along with you, one inside the next: a dense one underfoot and wider, sparser ones out to the
+// horizon, blending into each other so there's no edge to see. Each blade keeps its own spot in the world (a field wraps
+// round as you walk, so nothing slides or pops underfoot), and blades thin out and shrink smoothly with distance.
+// A top-down mask keeps it off ponds, floors you've laid, fire pits and tent floors.
+const GR_N = 100000, GR_RINGS = [120, 360, 1080], GM_N = 512, GM_S = 2400;
 const grassMaskData = new Uint8Array(GM_N * GM_N).fill(255);
 const grassMaskTex = new THREE.DataTexture(grassMaskData, GM_N, GM_N, THREE.RedFormat, THREE.UnsignedByteType);
 grassMaskTex.magFilter = grassMaskTex.minFilter = THREE.LinearFilter; grassMaskTex.needsUpdate = true;
 const grassU = { mask: { value: grassMaskTex }, mo: { value: new THREE.Vector2(-GM_S / 2, -GM_S / 2) }, ms: { value: GM_S }, gmap: { value: floorTex } };
+const GRASS_V = `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms, ring; uniform vec2 mo; uniform sampler2D mask;
+  varying vec3 vW; varying float vUp, vTone, vRoot;
+  const float R0 = ${GR_RINGS[0].toFixed(1)}, R1 = ${GR_RINGS[1].toFixed(1)}, R2 = ${GR_RINGS[2].toFixed(1)};
+  float fin(float R, float d) { return smoothstep(R, R * 0.7, d); }   // 1 well inside a field, 0 at its edge
+  void main() {
+    float R = ring < 0.5 ? R0 : ring < 1.5 ? R1 : R2;
+    vec2 rt = camPos.xz + mod(bd.xy * R - camPos.xz + R, 2.0 * R) - R;   // its own spot in the world, the nearest copy to you
+    float d = distance(rt, camPos.xz);
+    // how thick the turf is out here, and this field's share of it: the shares add to one, so the fields meet without a seam
+    float want = min(1.0, pow(40.0 / max(d, 1.0), 2.0)), dens = pow(R / R0, 2.0);
+    float share = ring < 0.5 ? fin(R0, d) : ring < 1.5 ? fin(R1, d) - fin(R0, d) : fin(R2, d) - fin(R1, d);
+    float m = texture2D(mask, (rt - mo) / ms).r;
+    float k = (bd.w < want * dens * share ? 1.0 : 0.0) * smoothstep(0.35, 0.7, m);
+    float shrink = 1.0 / (1.0 + d / 260.0), widen = 1.0 + d / 140.0;      // smaller further off, but never thinner than a hair
+    float up = position.y * shrink * k;
+    float c = cos(bd.z), s = sin(bd.z);
+    vec3 w = vec3(rt.x + position.x * widen * c, up, rt.y + position.x * widen * s);
+    // a breeze that runs across the turf, and a little shiver of its own
+    float br = sin(time * 1.3 + rt.x * 0.05 + rt.y * 0.035) * 0.5 + sin(time * 2.7 + rt.x * 0.3 + bd.w * 6.0) * 0.25;
+    w.x += br * 0.35 * up; w.z += br * 0.2 * up;
+    vW = w; vUp = position.y / 3.3; vTone = fract(bd.w * 7.13); vRoot = position.y;
+    gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
+  }`;
+const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW; varying float vUp, vTone, vRoot;
+  void main() {
+    vec3 g = texture2D(gmap, vW.xz / 384.0).rgb;
+    vec3 turf = mix(vec3(0.36, 0.46, 0.2), vec3(0.56, 0.62, 0.3), vTone) * (0.85 + 0.3 * g.r);   // a short, slightly dry green
+    vec3 c = mix(turf * 0.62, turf * 1.15, smoothstep(0.0, 0.8, vUp));
+    c *= mix(0.75, 1.0, smoothstep(0.0, 1.2, vRoot));                          // shaded down among the roots
+    gl_FragColor = vec4(fogged(grey(c * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12), vW), 1.0);
+  }`;
 {
   const pos = new Float32Array(GR_N * 9), bd = new Float32Array(GR_N * 12);
   let s = 12345; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < GR_N; i++) {
-    // where it stands in the field (a square 2R across that wraps), how tall, how wide, which way it faces and leans
-    const x = (rnd() * 2 - 1) * GR_R, z = (rnd() * 2 - 1) * GR_R, h = 0.9 + rnd() * rnd() * 2.0, w = 0.24 + rnd() * 0.18, f = rnd() * Math.PI * 2, r = rnd();
+    // where it stands in its field (a square that wraps, -1..1 across), how tall, how wide, which way it faces and leans
+    const x = rnd() * 2 - 1, z = rnd() * 2 - 1, h = 0.9 + rnd() * rnd() * 2.0, w = 0.24 + rnd() * 0.18, f = rnd() * Math.PI * 2, r = rnd();
     const lean = (rnd() - 0.5) * 0.9;
     // three corners: two at the root, one at the tip, leaning a little to one side
     const v = [[-w / 2, 0], [w / 2, 0], [lean * h * 0.35, h]];
@@ -6800,37 +6832,12 @@ const grassU = { mask: { value: grassMaskTex }, mo: { value: new THREE.Vector2(-
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('bd', new THREE.BufferAttribute(bd, 4));
   g.boundingSphere = new THREE.Sphere(new V3(), 1e5);
-  const m = new THREE.ShaderMaterial({
-    uniforms: Object.assign(grassU, LU), side: THREE.DoubleSide,
-    vertexShader: `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms; uniform vec2 mo; uniform sampler2D mask; uniform vec2 fogR;
-      varying vec3 vW; varying float vUp, vTone, vRoot;
-      void main() {
-        vec2 R = vec2(${GR_R.toFixed(1)});
-        vec2 rt = camPos.xz + mod(bd.xy - camPos.xz + R, 2.0 * R) - R;   // its own spot in the world, the nearest copy to you
-        float d = distance(rt, camPos.xz);
-        float keep = clamp(1.0 - pow(d / R.x, 1.6), 0.0, 1.0);            // dense underfoot, thinner further off
-        float m = texture2D(mask, (rt - mo) / ms).r;
-        float k = (bd.w < keep * keep * 1.15 ? 1.0 : 0.0) * smoothstep(0.35, 0.7, m) * smoothstep(R.x, R.x * 0.85, d);
-        float up = position.y;
-        float c = cos(bd.z), s = sin(bd.z);
-        vec3 w = vec3(rt.x + position.x * c, up * k, rt.y + position.x * s);
-        // a breeze that runs across the turf, and a little shiver of its own
-        float br = sin(time * 1.3 + rt.x * 0.05 + rt.y * 0.035) * 0.5 + sin(time * 2.7 + rt.x * 0.3 + bd.w * 6.0) * 0.25;
-        w.x += br * 0.35 * up; w.z += br * 0.2 * up;
-        vW = w; vUp = up / 3.3; vTone = bd.w; vRoot = up;
-        gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
-      }`,
-    fragmentShader: LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW; varying float vUp, vTone, vRoot;
-      void main() {
-        vec3 g = texture2D(gmap, vW.xz / 384.0).rgb;
-        vec3 turf = mix(vec3(0.36, 0.46, 0.2), vec3(0.56, 0.62, 0.3), vTone) * (0.85 + 0.3 * g.r);   // a short, slightly dry green
-        vec3 c = mix(turf * 0.62, turf * 1.15, smoothstep(0.0, 0.8, vUp));
-        c *= mix(0.75, 1.0, smoothstep(0.0, 1.2, vRoot));                          // shaded down among the roots
-        gl_FragColor = vec4(fogged(grey(c * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12), vW), 1.0);
-      }`,
-  });
   if (SET.quality === 'fast') g.setDrawRange(0, Math.floor(GR_N * 0.45) * 3);   // a sparser lawn on the fast setting
-  var grassMesh = new THREE.Mesh(g, m); grassMesh.frustumCulled = false; grassMesh.renderOrder = 0; scene.add(grassMesh);
+  GR_RINGS.forEach((R, i) => {
+    const m = new THREE.ShaderMaterial({ uniforms: Object.assign({ ring: { value: i } }, grassU, LU), side: THREE.DoubleSide, vertexShader: GRASS_V, fragmentShader: GRASS_F });
+    const o = new THREE.Mesh(g, m); o.frustumCulled = false; o.renderOrder = 0; scene.add(o);
+  });
+  var grassMesh = { geometry: g };   // what the quality governor thins
 }
 
 // the mask: re-drawn when you've walked a way or something on the ground has changed

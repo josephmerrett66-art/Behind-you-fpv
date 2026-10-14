@@ -44,4 +44,9 @@ function weatherLight() {
   if (fl > 0.01) { const k = fl * 0.9; LU.amb.value.set(lerp(LU.amb.value.x, 0.95, k), lerp(LU.amb.value.y, 0.97, k), lerp(LU.amb.value.z, 1.05, k)); SKY.top.set(lerp(SKY.top.x, 0.8, k), lerp(SKY.top.y, 0.84, k), lerp(SKY.top.z, 0.95, k)); SKY.hor.set(lerp(SKY.hor.x, 0.85, k), lerp(SKY.hor.y, 0.88, k), lerp(SKY.hor.z, 0.95, k)); }
   LU.fogCol.value.copy(SKY.hor);
 }
-function wxLoad() { wxS.tried = true; }   // the main game's rain and thunder recordings aren't shipped here; its own hiss and boom stand in
+// the main game's own rain recording, packed into the page; the hiss stands in only until it's decoded (its thunder isn't shipped, so its boom stands in)
+const RAIN_SRC = '/*RAIN*/';
+function wxLoad() {
+  if (wxS.tried || !actx) return; wxS.tried = true;
+  try { const bin = atob(RAIN_SRC), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); actx.decodeAudioData(u.buffer, b => { wxS.buf = b; }, () => {}); } catch (e) {}
+}

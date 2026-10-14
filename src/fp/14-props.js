@@ -37,13 +37,47 @@ const P_KNOB = (k = 0) => prim('knob' + k, () => {   // the trees' soft lump of 
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 0.9 + 0.14 * Math.sin(v.x * 9 + k) * Math.sin(v.y * 8 + k * 2) * Math.sin(v.z * 10 + k * 3) + 0.07 * Math.sin(v.x * 27 + v.y * 13 + v.z * 21 + k); v.multiplyScalar(n); v.y *= 0.88; p.setXYZ(i, v.x, v.y, v.z); }
   g.computeVertexNormals(); return g;
 });
+// a blade of grass that curves over as it rises: a folded strip, wide at the foot and running to a point, faced both ways
+const P_CBLADE = (k = 0) => prim('cblade' + k, () => {
+  const N = 5, bend = 0.35 + 0.12 * k, pos = [], idx = [];
+  for (let i = 0; i <= N; i++) { const t = i / N, w = 0.5 * Math.pow(1 - t, 0.75) + 0.02, z = bend * t * t, y = t * (1 - 0.18 * t * k * 0.5);
+    pos.push(-w, y, z, 0, y, z - 0.06 * (1 - t), w, y, z); }
+  for (let i = 0; i < N; i++) { const a = i * 3, b = a + 3;
+    for (const [p, q, r] of [[a, a + 1, b], [a + 1, b + 1, b], [a + 1, a + 2, b + 1], [a + 2, b + 2, b + 1]]) idx.push(p, q, r, p, r, q); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+});
+// shade a part just put into a kit from one colour at its foot to another at its top (light on the outside, dark in its heart)
+function kitGrad(K, add, bot, top, pow = 1) {
+  const n0 = K.col.length / 3; add(); const n1 = K.col.length / 3;
+  let lo = 1e9, hi = -1e9; for (let i = n0; i < n1; i++) { const y = K.pos[i * 3 + 1]; lo = Math.min(lo, y); hi = Math.max(hi, y); }
+  for (let i = n0; i < n1; i++) { const t = Math.pow(clamp((K.pos[i * 3 + 1] - lo) / Math.max(hi - lo, 1e-3), 0, 1), pow); for (let c = 0; c < 3; c++) K.col[i * 3 + c] = bot[c] + (top[c] - bot[c]) * t; }
+}
+// a bush: a dark heart, and leafy clusters heaped round it in a dome, each paler toward the light on top; a twig or two at the foot
+function bushKit(K, R, vi, dark, mid, light, tall) {
+  const mixc = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+  K.mt = 'plant';
+  K.add(P_KNOB(5), 0, 7, 0, 22, 14 * tall, 22, dark, 0, 0, 0, 0, 0.35);
+  const n = 26 + vi * 3, ga = 2.39996;
+  for (let i = 0; i < n; i++) {
+    const f = (i + 0.5) / n, e = Math.asin(f) * 1.05, a = i * ga + vi * 1.3 + R() * 0.4, rr = 12.5 * Math.cos(e) + 1 + R() * 1.5;
+    const x = Math.cos(a) * rr, z = Math.sin(a) * rr, y = 3.5 + Math.sin(e) * 12 * tall, sz = 8 - f * 2.5 + R() * 1.8, h = mixc(mid, light, 0.45 + 0.55 * f + R() * 0.15), d = mixc(dark, mid, 0.3 + 0.5 * f);
+    kitGrad(K, () => K.add(P_KNOB(i % 5), x, y, z, sz, sz * 0.82, sz, h, R() * 6.28, 0, 0, 0, 0.35), d, h, 0.8);
+  }
+  for (let i = 0; i < 22; i++) {
+    const f = R() * 0.85, e = Math.asin(f), a = R() * 6.28, rr = 14.5 * Math.cos(e) + 1.5, x = Math.cos(a) * rr, z = Math.sin(a) * rr, y = 3 + Math.sin(e) * 13.5 * tall, c = mixc(mid, light, 0.5 + 0.5 * f + R() * 0.2);
+    K.add(P_KNOB(i % 5), x, y, z, 3.6 + R() * 1.6, 1.5, 2.4 + R(), c, -a, 0.6 - f * 0.9, R() - 0.5, 0, 0.35);
+  }
+  K.mt = 'bark';
+  for (let j = 0; j < 3; j++) { const a = j * 2.1 + vi; K.rod(P_CYL(4), Math.cos(a) * 3, 0, Math.sin(a) * 3, Math.cos(a) * 9, 4.5, Math.sin(a) * 9, 0.7, hex('#4a3826')); }
+  K.mt = null;
+}
 const P_BLADE = () => prim('blade', () => { const g = new THREE.ConeGeometry(0.5, 1, 4, 1); g.scale(1, 1, 0.25); g.translate(0, 0.5, 0); return g; });
 
 // the models, foot at the origin, in the pictures' own units (each is drawn at the scale its picture was)
 const PETAL = { flowerY: '#f2cf34', flowerB: '#8796ee', flowerR: '#e43c34', flowerW: '#f4f1e6', flowerV: '#9644cc' };
 const PROP_KIND = {
   rock: { n: 3, mat: 'still', edge: true, shadow: true }, rockIron: { n: 3, mat: 'still', edge: true, shadow: true }, post: { n: 2, mat: 'still', edge: true, shadow: true },
-  bush: { n: 3, mat: 'plant', edge: true, shadow: true }, fern: { n: 3, mat: 'plant', edge: true, shadow: false },
+  bush: { n: 3, mat: 'plant', edge: false, shadow: true }, fern: { n: 3, mat: 'plant', edge: true, shadow: false },
   grass: { n: 3, mat: 'grass', edge: false, shadow: false }, pebbles: { n: 3, mat: 'still', edge: true, shadow: false },
   shrooms: { n: 2, mat: 'still', edge: true, shadow: false },
 };
@@ -51,7 +85,7 @@ for (const k in PETAL) PROP_KIND[k] = { n: 2, mat: 'grass', edge: false, shadow:
 // what you gather, each one its own few models now rather than rebuilt by hand every time you walk on (30-things)
 Object.assign(PROP_KIND, { nsticks: { n: 3, mat: 'still', edge: true, shadow: false }, nstones: { n: 4, mat: 'still', edge: true, shadow: false },
   nshroom1: { n: 2, mat: 'still', edge: true, shadow: false }, nshroom2: { n: 2, mat: 'still', edge: true, shadow: false }, nshroom3: { n: 2, mat: 'still', edge: true, shadow: false },
-  nberries: { n: 3, mat: 'still', edge: true, shadow: false }, bbush: { n: 3, mat: 'plant', edge: true, shadow: true } });
+  nberries: { n: 3, mat: 'still', edge: true, shadow: false }, bbush: { n: 3, mat: 'plant', edge: false, shadow: true } });
 PROP_KIND.log = { n: 3, mat: 'still', edge: true, shadow: true };
 function propModel(kind, vi) {
   let s = 4211 + vi * 337 + kind.length * 59; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
@@ -71,12 +105,8 @@ function propModel(kind, vi) {
     K.mt = 'bark'; K.add(P_CYL(6), 0, 0, 0, 8, 38, 8, hex(vi ? '#5a3e2a' : '#634530'), 0.3 * vi, 0, 0, 0, 0.5);
     K.add(P_CONE(6), 0, 38, 0, 8, 2.5, 8, hex('#6e4e36'), 0.3 * vi, 0, 0, 0, 0.4); K.mt = null;
     K.mt = 'cloth'; K.add(P_CYL(8), 0, 27, 0, 9.2, 2.2, 9.2, hex('#b08654'), 0, 0, 0.18, 0, 0.3); K.mt = null;
-  } else if (kind === 'bush') {   // a low mound of leaf, darker at its heart (28 wide, 20 high)
-    K.mt = 'plant';
-    const G = ['#2b5426', '#34622d', '#3e7034', '#487c3c'], lumps = 5 + vi;
-    for (let i = 0; i < lumps; i++) { const a = i / lumps * 6.28 + R(), d = 7 + R() * 4, r = 12 + R() * 5; K.add(P_KNOB(i % 5), Math.cos(a) * d, 6 + R() * 4, Math.sin(a) * d, r, r * 0.85, r, pick(G, i + vi), R() * 6.28, 0, 0, 0, 0.35); }
-    K.add(P_KNOB(5), 0, 11, 0, 17, 14, 17, pick(G, 2 + vi), 0, 0, 0, 0, 0.35);
-    K.mt = null;
+  } else if (kind === 'bush') {   // a low leafy mound (28 wide, 20 high): deep green in its heart, sunlit yellow-green on top
+    bushKit(K, R, vi, hex('#1f3d1c'), hex('#3a6a2e'), hex('#6fa24a'), 1);
   } else if (kind === 'fern') {   // fronds arching out and down from the middle (34 wide, 16 high)
     K.mt = 'plant';
     const G = ['#3d7a32', '#4a8a3a', '#356c2c'], fronds = 8 + vi;
@@ -88,10 +118,14 @@ function propModel(kind, vi) {
       K.add(P_PEA(8, 5), mx * 1.45, my * 0.85, mz * 1.45, 3.0, 1.0, L * 0.55, pick(G, i + 1), -a + Math.PI / 2, 0.45, 0, 0, 0.25);
     }
     K.mt = null;
-  } else if (kind === 'grass') {   // a tuft of blades leaning out (16 wide, 13 high)
-    const G = ['#5b8c3a', '#6a9a44', '#4e7e32', '#78a64c'], blades = 9 + vi * 2;
+  } else if (kind === 'grass') {   // a tuft of curving blades springing from a dark base (16 wide, 13 high), green at the root, pale at the tips
+    const G = [['#2f5222', '#7aa84a'], ['#355a26', '#8db456'], ['#2a4a1e', '#6c9a40'], ['#3e5e28', '#b0ad5e']], blades = 18 + vi * 3;
+    K.mt = 'plant'; K.add(P_KNOB(vi), 0, 0.3, 0, 5, 1.4, 5, hex('#3a5a26'), 0, 0, 0, 0, 0.3);
     K.mt = 'plain';
-    for (let i = 0; i < blades; i++) { const a = R() * 6.28, h = 9 + R() * 6, lean = 0.15 + R() * 0.45, o = R() * 3; K.add(P_BLADE(), Math.cos(a) * o, 0, Math.sin(a) * o, 1.6, h, 1.6, pick(G, i), -a + Math.PI / 2, lean, 0, 0, 0); }
+    for (let i = 0; i < blades; i++) {
+      const a = i * 2.39996 + R() * 0.6, o = R() * 2.6, h = 7 + R() * 8 - (i % 4 === 3 ? 3 : 0), w = 1.5 + R() * 0.8, c = G[(i + vi) % 4];
+      kitGrad(K, () => K.add(P_CBLADE(i % 3), Math.cos(a) * o, 0, Math.sin(a) * o, w, h, h * (0.55 + R() * 0.5), hex(c[1]), -a + Math.PI / 2, 0, 0, 0, 0), hex(c[0]), hex(c[1]), 0.9);
+    }
     K.mt = null;
   } else if (kind === 'pebbles') {   // a few small stones in a scatter (16 wide)
     K.mt = 'stone';
@@ -139,12 +173,8 @@ function propModel(kind, vi) {
       K.mt = 'plain'; K.add(P_CYL(6), x, 0, y, 1.8, h, 1.8, hex('#e8dcc4')); K.add(P_PEA(10, 6), x, h, y, 7.2, 4, 7.2, hex('#b07848'));
       for (let f = 0; f < 4; f++) { const q = a * 3 + f * 1.6; K.add(P_PEA(5, 3), x + Math.cos(q) * 1.9, h + 1.55, y + Math.sin(q) * 1.9, 1, 0.5, 1, hex('#f2ead8')); } K.mt = null;
     }
-  } else if (kind === 'bbush') {   // a berry bush: rounder and a cooler, glossier green than the woods' bushes, so you know one even picked bare
-    K.mt = 'plant';
-    const G = ['#245a44', '#2c6a50', '#347858', '#3c8460'], lumps = 6 + vi;
-    for (let i = 0; i < lumps; i++) { const a = i / lumps * 6.28 + R(), d = 6 + R() * 3, r = 12 + R() * 3; K.add(P_KNOB(i % 5), Math.cos(a) * d, 7 + R() * 3, Math.sin(a) * d, r, r * 0.95, r, pick(G, i + vi), R() * 6.28, 0, 0, 0, 0.35); }
-    K.add(P_KNOB(5), 0, 12, 0, 17, 15, 17, pick(G, 2 + vi), 0, 0, 0, 0, 0.35);
-    K.mt = null;
+  } else if (kind === 'bbush') {   // a berry bush: rounder and a cooler, glossier blue-green than the woods' bushes, so you know one even picked bare
+    bushKit(K, R, vi, hex('#173a2e'), hex('#2c6a50'), hex('#5aa27a'), 1.12);
   } else if (kind === 'nberries') {   // bunches of fat red berries all over the outside of a berry bush
     for (let c = 0; c < 9; c++) {
       const a = c * 2.1 + vi * 0.7, e = 0.1 + (c % 3) * 0.4, rr = 15.5 - (c % 3) * 2.5, cx = Math.cos(a) * Math.cos(e) * rr, cz = Math.sin(a) * Math.cos(e) * rr, cy = 7 + Math.sin(e) * 13;

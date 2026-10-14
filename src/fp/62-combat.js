@@ -172,7 +172,7 @@ function combatDraw(rdt, now) {
 }
 
 function drawCrescent(g, s) {
-  if (thirdP()) return;   // in third person the blade itself leaves the smear (76-body.js)
+  if (outsideP()) return;   // seen from outside the blade itself leaves the smear (76-body.js)
   const k = s.t / s.life, fade = (1 - k * k) * (s.dim || 1), tint = s.tint || ['255,150,60', '255,200,120', '255,248,225'];
   const thrust = s.i === 3 || (s.cleave && !s.whirl && (s.life || 0) < 0.2), whirl = s.whirl || s.ring, chop = s.i === 2;
   const sweep = sEase(Math.min(1, s.t / (thrust ? 0.06 : 0.11))), M = Math.min(FW, FH);

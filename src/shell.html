@@ -54,6 +54,8 @@ body.playing #hud { display: grid; }
 #info { font-size: 0.56rem; line-height: 1.5; letter-spacing: 0.08em; color: rgba(239,239,234,0.78); text-transform: uppercase; text-shadow: 0 1px 3px #000, 0 0 6px rgba(0,0,0,0.7); }
 #dot { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: rgba(239,239,234,0.6); pointer-events: none; display: none; box-shadow: 0 0 2px rgba(0,0,0,0.8); }
 body.playing #dot { display: block; }
+body.iso #dot { display: none !important; }
+body.iso.playing #gl { cursor: crosshair; }
 #dot.hit { background: #fff; transform: scale(2.2); transition: transform 0.12s; }
 #prompt { position: fixed; left: 0; right: 0; top: calc(50% + 26px); text-align: center; pointer-events: none; display: none; }
 body.playing #prompt { display: block; }

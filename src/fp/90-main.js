@@ -178,7 +178,9 @@ function syncSet() {
   $('sFps').setAttribute('aria-pressed', SET.fps ? 'true' : 'false');
   $('sSnd').setAttribute('aria-pressed', SET.sound ? 'true' : 'false');
   $('sCol').setAttribute('aria-pressed', COLOUR ? 'true' : 'false');
-  $('sView').setAttribute('aria-pressed', SET.view === 'third' ? 'true' : 'false');
+  $('sView').setAttribute('aria-pressed', SET.view !== 'first' ? 'true' : 'false'); $('sView').textContent = 'View: ' + VIEW_NAME[SET.view];
+  document.body.classList.toggle('iso', isoP());
+  if (isoP()) lockOff();
   document.body.classList.toggle('showfps', SET.fps);
 }
 $('sSens').addEventListener('input', e => { SET.sens = +e.target.value; saveSet(); });
@@ -188,7 +190,7 @@ for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('cl
   pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.5);
   resize(); syncSet();
 });
-$('sView').addEventListener('click', () => { SET.view = SET.view === 'third' ? 'first' : 'third'; saveSet(); syncSet(); });
+$('sView').addEventListener('click', () => { SET.view = nextView(); saveSet(); syncSet(); });
 $('sInv').addEventListener('click', () => { SET.invert = !SET.invert; saveSet(); syncSet(); });
 $('sFps').addEventListener('click', () => { SET.fps = !SET.fps; saveSet(); syncSet(); });
 $('sSnd').addEventListener('click', () => { SET.sound = !SET.sound; saveSet(); syncSet(); if (sfxGain) setSoundOn(SET.sound); });
@@ -232,6 +234,7 @@ function frame(t) {
     if (free) { look.yaw -= IN.lx; look.pitch = clamp(look.pitch - IN.ly * (SET.invert ? -1 : 1), -1.3, 1.2); }
     IN.lx = IN.ly = 0;
     readMove(); if (!free) MV.x = MV.y = 0;
+    if (free && isoP()) isoAim(rdt);
     let dt = rdt;
     if (S.hitstop > 0) { S.hitstop -= rdt; dt = 0; }   // a blow lands: everything holds dead still for a beat
     if (S.running) {

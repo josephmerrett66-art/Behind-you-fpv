@@ -54,6 +54,8 @@ body.playing #hud { display: grid; }
 #info { font-size: 0.56rem; line-height: 1.5; letter-spacing: 0.08em; color: rgba(239,239,234,0.78); text-transform: uppercase; text-shadow: 0 1px 3px #000, 0 0 6px rgba(0,0,0,0.7); }
 #dot { position: fixed; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; border-radius: 50%; background: rgba(239,239,234,0.6); pointer-events: none; display: none; box-shadow: 0 0 2px rgba(0,0,0,0.8); }
 body.playing #dot { display: block; }
+body.iso #dot { display: none !important; }
+body.iso.playing #gl { cursor: crosshair; }
 #dot.hit { background: #fff; transform: scale(2.2); transition: transform 0.12s; }
 #prompt { position: fixed; left: 0; right: 0; top: calc(50% + 26px); text-align: center; pointer-events: none; display: none; }
 body.playing #prompt { display: block; }
@@ -6443,6 +6445,7 @@ vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, d
 // every tree, the camp, the raiders and you all stand on the same slopes. A few broad swells with smaller rises over them;
 // the camp, the raiders' camps and the ponds sit on level ground let into the hillside.
 const TERR_N = 8;
+LU.occ = { value: new V4(0, 0, 0, 0) };   // from above: the line from the camera to you, which trees keep clear of (77-iso.js)
 LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) };   // level places: x, y, radius, height
 function terrBase(x, z) {
   return 24 * Math.sin(x * 0.0061 + 1.3) * Math.sin(z * 0.0053 + 0.4) + 11 * Math.sin(x * 0.013 + z * 0.0081) * Math.cos(z * 0.0117 - x * 0.004) + 3 * Math.sin(x * 0.031 + 2.0) * Math.sin(z * 0.027 + 1.0);
@@ -7047,7 +7050,14 @@ const treeMat = new THREE.ShaderMaterial({
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
+    uniform vec4 occ;
+    float occluding(vec3 p) {   // from above: on the line between the camera and you, a tree thins away
+      if (occ.w < 0.5 || p.y < occ.y - 4.0) return 0.0;
+      vec3 ab = occ.xyz - camPos; float t = clamp(dot(p - camPos, ab) / dot(ab, ab), 0.0, 1.0);
+      return 1.0 - smoothstep(26.0, 46.0, distance(p, camPos + ab * t));
+    }
     void main() {
+      if (occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;
       vec3 N = normalize(vN), c;
       bool leaf = vM > 4.5 && vM < 5.5, needle = vM > 7.5;
       if (leaf || needle) {
@@ -7081,7 +7091,8 @@ const treeEdge = new THREE.ShaderMaterial({
       vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: LIGHT_GLSL + `varying vec3 vW;
-    void main() { if (distance(vW, camPos) < 30.0) discard; vec3 L = lightAt(vW, vec3(0.0), 0.0); float b = clamp(dot(L, vec3(0.34)) * 2.2, 0.0, 1.0); gl_FragColor = vec4(fogged(vec3(0.122, 0.114, 0.102) * b, vW), 1.0); }`,
+    uniform vec4 occ;
+    void main() { if (distance(vW, camPos) < 30.0) discard; if (occ.w > 0.5 && vW.y > occ.y - 4.0) { vec3 ab = occ.xyz - camPos; float t = clamp(dot(vW - camPos, ab) / dot(ab, ab), 0.0, 1.0); if (distance(vW, camPos + ab * t) < 40.0) discard; } vec3 L = lightAt(vW, vec3(0.0), 0.0); float b = clamp(dot(L, vec3(0.34)) * 2.2, 0.0, 1.0); gl_FragColor = vec4(fogged(vec3(0.122, 0.114, 0.102) * b, vW), 1.0); }`,
 });
 
 // soft lumps for a crown, and a tier of a pine's skirt with a ragged, drooping hem
@@ -7605,7 +7616,7 @@ function drawFigures(now, dt) {
   const rg = S.rg, D = S.day, p = S.p;
   for (const e of rg.enemies) if (!e.dead && Math.abs(e.x - p.x) < VIEW && Math.abs(e.y - p.y) < VIEW && e.type !== 'centi') poseFoe(e, now, dt, false);
   for (const g of rg.dying) if (g.type !== 'centi') poseFoe(g, now, dt, true);
-  if (thirdP() && state === 'play') posePlayer(now);
+  if (outsideP() && state === 'play') posePlayer(now);
   for (const o of D.beasts) if (Math.abs(o.x - p.x) < VIEW && Math.abs(o.y - p.y) < VIEW) poseBeast(o, now, dt);
 }
 function figuresEnd() { for (const k in PT) PT[k].done(); }
@@ -7976,8 +7987,8 @@ function simStep(dt) {
   setAim();
   // move: the way you push, turned to the way you face. Backing up is a little slower; there is no walk, as in the 2D game.
   let mx = MV.x, my = MV.y; const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
-  const a = S.aimW, fx = Math.cos(a), fy = Math.sin(a), rx = -fy, ry = fx;
-  const back = my < 0 ? 0.78 : 1;
+  const a = isoP() ? aimOfYaw(ISO.yaw) : S.aimW, fx = Math.cos(a), fy = Math.sin(a), rx = -fy, ry = fx;   // from above, the way you push on the screen
+  const back = my < 0 && !isoP() ? 0.78 : 1;
   const speed = RUN * rgSpeed() * exWeight() * dayMoveK() * (rg.drink ? 0.3 : 1);
   const wx = (rx * mx * 0.95 + fx * my * back) * speed, wy = (ry * mx * 0.95 + fy * my * back) * speed;
   const k = 1 - Math.exp(-ACCEL * dt);
@@ -8211,7 +8222,7 @@ function setMode(m) { if (inputMode === m) return; inputMode = m; document.body.
 document.body.classList.toggle('touch', inputMode === 'touch');
 const playing = () => state === 'play' && S && S.running;
 const menusOpen = () => !craftEl.hidden || !statsEl.hidden || !deathCard.hidden || !campEl.hidden;
-const lockOn = () => { if (inputMode === 'kb' && !document.pointerLockElement && state === 'play') { try { const r = document.body.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } };
+const lockOn = () => { if (inputMode === 'kb' && !document.pointerLockElement && state === 'play' && !isoP()) { try { const r = document.body.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } };
 const lockOff = () => { if (document.pointerLockElement) document.exitPointerLock(); };
 function wpSpecial() { if (S && S.day && playing()) daySpecial(); }
 function useNow() { if (playing()) dayUse(); }
@@ -8249,7 +8260,7 @@ $('touch').addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('mousemove', e => { if (document.pointerLockElement && state === 'play') { IN.lx += e.movementX * 0.0022 * SET.sens; IN.ly += e.movementY * 0.0022 * SET.sens; } });
 addEventListener('mousedown', e => {
   if (state !== 'play' || inputMode === 'touch' || menusOpen() || e.target.closest('button, #hotbar, #buildbar')) return;
-  if (!document.pointerLockElement) { lockOn(); return; }
+  if (!document.pointerLockElement && !isoP()) { lockOn(); return; }
   if (e.button === 0) attack(); else if (e.button === 2) dodge(); else if (e.button === 1) { e.preventDefault(); wpSpecial(); }
 });
 addEventListener('mouseup', e => { if (e.button === 0) rngUp(); });
@@ -8258,7 +8269,7 @@ addEventListener('wheel', e => {
   if (dayTool() === 'build' && held.has('ShiftLeft')) { stRot(e.deltaY > 0 ? 1 : -1); return; }
   daySelect((S.day.hot + (e.deltaY > 0 ? 1 : -1) + HOTN) % HOTN);
 }, { passive: true });
-document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && state === 'play' && inputMode === 'kb' && !menusOpen()) IN.pause = true; });
+document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && state === 'play' && inputMode === 'kb' && !menusOpen() && !isoP()) IN.pause = true; });
 
 // ---------------- touch: a stick under your left thumb, the right side looks, buttons bottom right ----------------
 const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, looks = new Map();
@@ -8611,7 +8622,7 @@ function combatDraw(rdt, now) {
 }
 
 function drawCrescent(g, s) {
-  if (thirdP()) return;   // in third person the blade itself leaves the smear (76-body.js)
+  if (outsideP()) return;   // seen from outside the blade itself leaves the smear (76-body.js)
   const k = s.t / s.life, fade = (1 - k * k) * (s.dim || 1), tint = s.tint || ['255,150,60', '255,200,120', '255,248,225'];
   const thrust = s.i === 3 || (s.cleave && !s.whirl && (s.life || 0) < 0.2), whirl = s.whirl || s.ring, chop = s.i === 2;
   const sweep = sEase(Math.min(1, s.t / (thrust ? 0.06 : 0.11))), M = Math.min(FW, FH);
@@ -9097,8 +9108,10 @@ function placeHands(dt, now, bob, lag) {
 // ================= third person: you, seen from over your shoulder =================
 // The same woods and the same fight with the camera pulled back behind your right shoulder. You're the top-down game's
 // figure in a knitted cap and scarf with a pack on your back (76-body.js).
-// The camera pulls in when a tree trunk gets between it and you. Toggle it in the pause menu, or with V.
+// The camera pulls in when a tree trunk gets between it and you. Switch views (first, third, isometric) in the pause menu, or with V.
 const thirdP = () => SET.view === 'third';
+const VIEWS = ['first', 'third', 'iso'], VIEW_NAME = { first: 'First person', third: 'Third person', iso: 'Isometric' };
+const nextView = () => VIEWS[(VIEWS.indexOf(SET.view) + 1) % VIEWS.length];
 const TP = { boom: 76, face: undefined, holdId: null, items: new Map(), hold: new THREE.Group(), yawLast: 0 };
 TP.hold.matrixAutoUpdate = false; scene.add(TP.hold);   // its items are marked as casting shadows as they're made (76-body.js)
 
@@ -9127,18 +9140,19 @@ let frameDtTP = 1 / 60;
 // called at the end of placing the camera: swap your eyes for the camera over your shoulder
 function thirdFrame(rdt, now, headY) {
   frameDtTP = rdt;
-  const on = thirdP() && state === 'play';
+  const on = outsideP() && state === 'play';
   trail.visible = !on;
+  if (!isoP() || !on) isoOff();
   if (!on) { TP.hold.visible = false; TP.boom = 76; return false; }
   handG.visible = torchG.visible = false;
-  thirdCamera(S.p, look.yaw, look.pitch, headY);
+  if (isoP()) isoCamera(S.p, rdt); else thirdCamera(S.p, look.yaw, look.pitch, headY);
   cam.rotation.z *= 0.25;   // fallen: the camera stays upright and watches you go down
   cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);
   return true;
 }
 addEventListener('keydown', e => {
   if (e.code !== 'KeyV' || e.repeat || state !== 'play' || menusOpen()) return;
-  SET.view = thirdP() ? 'first' : 'third'; saveSet(); syncSet();
+  SET.view = nextView(); saveSet(); syncSet();
 });
 
 ;
@@ -9465,6 +9479,56 @@ function posePlayer(now) {
 function bodyHide() { BODY.mesh.visible = BODY.edge.visible = false; smear.visible = false; }
 
 ;
+// ================= isometric: the woods seen from above, as the top-down game sees them =================
+// The camera hangs high off your shoulder at the top-down game's angle and stays put while you move under it. You walk the
+// way you push on the screen, and face where you point: the mouse on the ground, or on a phone the way your thumb pushes
+// (standing still, you turn to the nearest raider in reach). Trees between the camera and you thin away so you're never lost.
+const isoP = () => SET.view === 'iso';
+const outsideP = () => SET.view === 'third' || SET.view === 'iso';   // you can see yourself
+const ISO = { yaw: Math.PI / 4, pitch: -0.86, mx: -1, my: -1, fogAdd: 0 };
+const _isoR = new THREE.Raycaster(), _isoN = new THREE.Vector2();
+
+// where you face: the mouse over the ground, the way you push, or the nearest raider
+function isoAim(rdt) {
+  const p = S.p;
+  let a = aimOfYaw(look.yaw);   // already turned by a thumb dragging on the right of the screen, or a pad's right stick
+  if (inputMode === 'kb' && ISO.mx >= 0) {
+    _isoN.set(ISO.mx / VW * 2 - 1, 1 - ISO.my / VH * 2); _isoR.setFromCamera(_isoN, cam);
+    const o = _isoR.ray.origin, d = _isoR.ray.direction, h = terrH(p.x, p.y) + 18;
+    if (d.y < -0.05) { const t = (h - o.y) / d.y, gx = o.x + d.x * t, gz = o.z + d.z * t; if (Math.hypot(gx - p.x, gz - p.y) > 4) a = Math.atan2(gz - p.y, gx - p.x); }
+  } else {
+    const mx = MV.x, my = MV.y;
+    if (Math.hypot(mx, my) > 0.25) a = isoMoveDir(mx, my);
+    else {
+      let best = null, bd = 150;
+      for (const e of S.rg.enemies) if (!e.dead) { const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; best = e; } }
+      if (best) a = Math.atan2(best.y - p.y, best.x - p.x);
+    }
+  }
+  look.yaw = look.tYaw = yawOfAim(a); look.pitch = -0.04;
+}
+// the way a push on the screen goes on the ground: up the screen is away from the camera
+function isoMoveDir(mx, my) {
+  const f = aimOfYaw(ISO.yaw), fx = Math.cos(f), fy = Math.sin(f), rx = -fy, ry = fx;
+  return Math.atan2(ry * mx + fy * my, rx * mx + fx * my);
+}
+
+// the camera: high up behind you at a fixed angle, a narrow lens so it reads like the top-down game
+function isoCamera(p, rdt) {
+  const port = cam.aspect < 1, fov = port ? 50 : 30, dist = port ? 330 : 300;
+  const gy = terrH(p.x, p.y) + 14, cp = Math.cos(ISO.pitch), fx = -Math.sin(ISO.yaw) * cp, fy = Math.sin(ISO.pitch), fz = -Math.cos(ISO.yaw) * cp;
+  const sh = VIEW_FX.trauma * VIEW_FX.trauma * 3, nz = s => Math.sin(VIEW_FX.shakeT * 37 + s) * sh;
+  cam.position.set(p.x - fx * dist + nz(1), gy - fy * dist + nz(2), p.y - fz * dist + nz(3));
+  cam.rotation.set(ISO.pitch, ISO.yaw, VIEW_FX.roll * 0.3, 'YXZ');
+  if (Math.abs(cam.fov - fov - VIEW_FX.fov * 0.4) > 0.01) { cam.fov = fov + VIEW_FX.fov * 0.4; cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; }
+  // the haze starts out round you, not round the camera up there
+  ISO.fogAdd = Math.hypot(fx, fz) * dist; LU.fogR.value.x += ISO.fogAdd; LU.fogR.value.y += ISO.fogAdd;
+  LU.occ.value.set(p.x, gy - 10, p.y, 1);
+}
+function isoOff() { LU.occ.value.w = 0; if (ISO.fogAdd) { cam.fov = baseFov(); cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; ISO.fogAdd = 0; } }
+addEventListener('mousemove', e => { ISO.mx = e.clientX; ISO.my = e.clientY; });
+
+;
 // ================= the weather: rain, fog and thunderstorms, as the main game's woods have them =================
 // The main game's weatherStep decides what the sky does (and the rain chills you and fills your waterskin); here it is seen:
 // streaks of rain falling round you, the fog closing in on what you can see, the whole wood lit white for a blink by lightning.
@@ -9694,7 +9758,9 @@ function syncSet() {
   $('sFps').setAttribute('aria-pressed', SET.fps ? 'true' : 'false');
   $('sSnd').setAttribute('aria-pressed', SET.sound ? 'true' : 'false');
   $('sCol').setAttribute('aria-pressed', COLOUR ? 'true' : 'false');
-  $('sView').setAttribute('aria-pressed', SET.view === 'third' ? 'true' : 'false');
+  $('sView').setAttribute('aria-pressed', SET.view !== 'first' ? 'true' : 'false'); $('sView').textContent = 'View: ' + VIEW_NAME[SET.view];
+  document.body.classList.toggle('iso', isoP());
+  if (isoP()) lockOff();
   document.body.classList.toggle('showfps', SET.fps);
 }
 $('sSens').addEventListener('input', e => { SET.sens = +e.target.value; saveSet(); });
@@ -9704,7 +9770,7 @@ for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('cl
   pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.5);
   resize(); syncSet();
 });
-$('sView').addEventListener('click', () => { SET.view = SET.view === 'third' ? 'first' : 'third'; saveSet(); syncSet(); });
+$('sView').addEventListener('click', () => { SET.view = nextView(); saveSet(); syncSet(); });
 $('sInv').addEventListener('click', () => { SET.invert = !SET.invert; saveSet(); syncSet(); });
 $('sFps').addEventListener('click', () => { SET.fps = !SET.fps; saveSet(); syncSet(); });
 $('sSnd').addEventListener('click', () => { SET.sound = !SET.sound; saveSet(); syncSet(); if (sfxGain) setSoundOn(SET.sound); });
@@ -9748,6 +9814,7 @@ function frame(t) {
     if (free) { look.yaw -= IN.lx; look.pitch = clamp(look.pitch - IN.ly * (SET.invert ? -1 : 1), -1.3, 1.2); }
     IN.lx = IN.ly = 0;
     readMove(); if (!free) MV.x = MV.y = 0;
+    if (free && isoP()) isoAim(rdt);
     let dt = rdt;
     if (S.hitstop > 0) { S.hitstop -= rdt; dt = 0; }   // a blow lands: everything holds dead still for a beat
     if (S.running) {

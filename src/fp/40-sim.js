@@ -38,8 +38,8 @@ function simStep(dt) {
   setAim();
   // move: the way you push, turned to the way you face. Backing up is a little slower; there is no walk, as in the 2D game.
   let mx = MV.x, my = MV.y; const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
-  const a = S.aimW, fx = Math.cos(a), fy = Math.sin(a), rx = -fy, ry = fx;
-  const back = my < 0 ? 0.78 : 1;
+  const a = isoP() ? aimOfYaw(ISO.yaw) : S.aimW, fx = Math.cos(a), fy = Math.sin(a), rx = -fy, ry = fx;   // from above, the way you push on the screen
+  const back = my < 0 && !isoP() ? 0.78 : 1;
   const speed = RUN * rgSpeed() * exWeight() * dayMoveK() * (rg.drink ? 0.3 : 1);
   const wx = (rx * mx * 0.95 + fx * my * back) * speed, wy = (ry * mx * 0.95 + fy * my * back) * speed;
   const k = 1 - Math.exp(-ACCEL * dt);

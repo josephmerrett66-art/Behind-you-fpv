@@ -7,7 +7,7 @@ function setMode(m) { if (inputMode === m) return; inputMode = m; document.body.
 document.body.classList.toggle('touch', inputMode === 'touch');
 const playing = () => state === 'play' && S && S.running;
 const menusOpen = () => !craftEl.hidden || !statsEl.hidden || !deathCard.hidden || !campEl.hidden;
-const lockOn = () => { if (inputMode === 'kb' && !document.pointerLockElement && state === 'play') { try { const r = document.body.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } };
+const lockOn = () => { if (inputMode === 'kb' && !document.pointerLockElement && state === 'play' && !isoP()) { try { const r = document.body.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } };
 const lockOff = () => { if (document.pointerLockElement) document.exitPointerLock(); };
 function wpSpecial() { if (S && S.day && playing()) daySpecial(); }
 function useNow() { if (playing()) dayUse(); }
@@ -45,7 +45,7 @@ $('touch').addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('mousemove', e => { if (document.pointerLockElement && state === 'play') { IN.lx += e.movementX * 0.0022 * SET.sens; IN.ly += e.movementY * 0.0022 * SET.sens; } });
 addEventListener('mousedown', e => {
   if (state !== 'play' || inputMode === 'touch' || menusOpen() || e.target.closest('button, #hotbar, #buildbar')) return;
-  if (!document.pointerLockElement) { lockOn(); return; }
+  if (!document.pointerLockElement && !isoP()) { lockOn(); return; }
   if (e.button === 0) attack(); else if (e.button === 2) dodge(); else if (e.button === 1) { e.preventDefault(); wpSpecial(); }
 });
 addEventListener('mouseup', e => { if (e.button === 0) rngUp(); });
@@ -54,7 +54,7 @@ addEventListener('wheel', e => {
   if (dayTool() === 'build' && held.has('ShiftLeft')) { stRot(e.deltaY > 0 ? 1 : -1); return; }
   daySelect((S.day.hot + (e.deltaY > 0 ? 1 : -1) + HOTN) % HOTN);
 }, { passive: true });
-document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && state === 'play' && inputMode === 'kb' && !menusOpen()) IN.pause = true; });
+document.addEventListener('pointerlockchange', () => { if (!document.pointerLockElement && state === 'play' && inputMode === 'kb' && !menusOpen() && !isoP()) IN.pause = true; });
 
 // ---------------- touch: a stick under your left thumb, the right side looks, buttons bottom right ----------------
 const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, looks = new Map();

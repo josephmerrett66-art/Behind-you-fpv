@@ -18,7 +18,14 @@ const treeMat = new THREE.ShaderMaterial({
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
+    uniform vec4 occ;
+    float occluding(vec3 p) {   // from above: on the line between the camera and you, a tree thins away
+      if (occ.w < 0.5 || p.y < occ.y - 4.0) return 0.0;
+      vec3 ab = occ.xyz - camPos; float t = clamp(dot(p - camPos, ab) / dot(ab, ab), 0.0, 1.0);
+      return 1.0 - smoothstep(26.0, 46.0, distance(p, camPos + ab * t));
+    }
     void main() {
+      if (occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;
       vec3 N = normalize(vN), c;
       bool leaf = vM > 4.5 && vM < 5.5, needle = vM > 7.5;
       if (leaf || needle) {
@@ -52,7 +59,8 @@ const treeEdge = new THREE.ShaderMaterial({
       vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: LIGHT_GLSL + `varying vec3 vW;
-    void main() { if (distance(vW, camPos) < 30.0) discard; vec3 L = lightAt(vW, vec3(0.0), 0.0); float b = clamp(dot(L, vec3(0.34)) * 2.2, 0.0, 1.0); gl_FragColor = vec4(fogged(vec3(0.122, 0.114, 0.102) * b, vW), 1.0); }`,
+    uniform vec4 occ;
+    void main() { if (distance(vW, camPos) < 30.0) discard; if (occ.w > 0.5 && vW.y > occ.y - 4.0) { vec3 ab = occ.xyz - camPos; float t = clamp(dot(vW - camPos, ab) / dot(ab, ab), 0.0, 1.0); if (distance(vW, camPos + ab * t) < 40.0) discard; } vec3 L = lightAt(vW, vec3(0.0), 0.0); float b = clamp(dot(L, vec3(0.34)) * 2.2, 0.0, 1.0); gl_FragColor = vec4(fogged(vec3(0.122, 0.114, 0.102) * b, vW), 1.0); }`,
 });
 
 // soft lumps for a crown, and a tier of a pine's skirt with a ragged, drooping hem

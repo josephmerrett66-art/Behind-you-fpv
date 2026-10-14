@@ -1,8 +1,10 @@
 // ================= third person: you, seen from over your shoulder =================
 // The same woods and the same fight with the camera pulled back behind your right shoulder. You're the top-down game's
 // figure in a knitted cap and scarf with a pack on your back (76-body.js).
-// The camera pulls in when a tree trunk gets between it and you. Toggle it in the pause menu, or with V.
+// The camera pulls in when a tree trunk gets between it and you. Switch views (first, third, isometric) in the pause menu, or with V.
 const thirdP = () => SET.view === 'third';
+const VIEWS = ['first', 'third', 'iso'], VIEW_NAME = { first: 'First person', third: 'Third person', iso: 'Isometric' };
+const nextView = () => VIEWS[(VIEWS.indexOf(SET.view) + 1) % VIEWS.length];
 const TP = { boom: 76, face: undefined, holdId: null, items: new Map(), hold: new THREE.Group(), yawLast: 0 };
 TP.hold.matrixAutoUpdate = false; scene.add(TP.hold);   // its items are marked as casting shadows as they're made (76-body.js)
 
@@ -31,16 +33,17 @@ let frameDtTP = 1 / 60;
 // called at the end of placing the camera: swap your eyes for the camera over your shoulder
 function thirdFrame(rdt, now, headY) {
   frameDtTP = rdt;
-  const on = thirdP() && state === 'play';
+  const on = outsideP() && state === 'play';
   trail.visible = !on;
+  if (!isoP() || !on) isoOff();
   if (!on) { TP.hold.visible = false; TP.boom = 76; return false; }
   handG.visible = torchG.visible = false;
-  thirdCamera(S.p, look.yaw, look.pitch, headY);
+  if (isoP()) isoCamera(S.p, rdt); else thirdCamera(S.p, look.yaw, look.pitch, headY);
   cam.rotation.z *= 0.25;   // fallen: the camera stays upright and watches you go down
   cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);
   return true;
 }
 addEventListener('keydown', e => {
   if (e.code !== 'KeyV' || e.repeat || state !== 'play' || menusOpen()) return;
-  SET.view = thirdP() ? 'first' : 'third'; saveSet(); syncSet();
+  SET.view = nextView(); saveSet(); syncSet();
 });

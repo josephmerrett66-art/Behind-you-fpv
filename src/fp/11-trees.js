@@ -1,8 +1,7 @@
 // ================= the trees, built solid: the same pines, oaks, cherries and dead trees as the pictures, in the round =================
 // Each kind is modelled a few ways over (trunk, limbs, and a crown of soft lumps or drooping tiers of needles), in the
 // pictures' own colours with the same dark outline, then stood about the woods many times over in one draw per model.
-// On the fast setting, out past the near woods where the fog has them, the pictures stand in for them.
-const TREE_R3D = SET.quality === 'fast' ? 600 : 1e9, TREE_NV = 3;
+const TREE_R3D = 1e9, TREE_NV = 3;   // every tree solid, near or far
 const treeMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
   vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;

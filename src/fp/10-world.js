@@ -395,7 +395,7 @@ function worldSync(force) {
   if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < 70 && gen === WORLD.gen) return;
   WORLD.x = p.x; WORLD.y = p.y; WORLD.gen = gen; worldDirty = false;
   // trees, rocks, posts
-  tallB.begin(); treesBegin(); shN = 0;
+  tallB.begin(); treesBegin(); propsW.begin(); shN = 0;
   const props = propsNear(p.x, p.y, VIEW + 60); WORLD.props = props;
   for (const o of props) {
     if (o.kind === 'tree') {
@@ -403,9 +403,9 @@ function worldSync(force) {
       if (!treeAdd(o, kind, Math.hypot(o.x - p.x, o.y - p.y))) tallB.add(kind, v, o.x, o.y, o.s * TREE_K, m, kind === 'dead' ? 0.4 : 1, o.shakeT ?? -99, o.seed);
       shadow(o.x, o.y, (kind === 'pine' ? 15 : kind === 'dead' ? 10 : 20) * o.s * 1.2, -(kind === 'pine' ? 90 : 70) * o.s);
     } else if (o.kind === 'rock') {
-      tallB.add('rock', (hash(o.x * 0.37, o.y * 0.91) * 50 | 0), o.x, o.y, o.s * ROCK_K, 1, 0, o.shakeT ?? -99, 0);
+      propsW.add('rock', (hash(o.x * 0.37, o.y * 0.91) * 50 | 0), o.x, o.y, o.s * ROCK_K, hash(o.y * 0.7, o.x * 0.3));
       shadow(o.x, o.y, 15 * o.s, 10 * o.s);
-    } else if (o.kind === 'post') { tallB.add('post', (hash(o.x * 0.53, o.y * 0.29) * 50 | 0), o.x, o.y, 1.4, 1, 0); shadow(o.x, o.y, 5, 18); }
+    } else if (o.kind === 'post') { propsW.add('post', (hash(o.x * 0.53, o.y * 0.29) * 50 | 0), o.x, o.y, 1.4, hash(o.x, o.y)); shadow(o.x, o.y, 5, 18); }
   }
   // the camp's storage box, water barrel and woodpile are solid (yardKit); they only need their shadows here
   for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, -10);
@@ -425,8 +425,9 @@ function worldSync(force) {
       continue;
     }
     const fl = k.startsWith('flower'), plant = fl || k === 'grass' || k === 'fern' || k === 'bush';
+    if (propsW.add(k, d.v, d.x, d.y, d.s * (k === 'bush' ? 1.1 : fl ? 0.72 : 1.15), d.seed)) continue;   // solid now (14-props); the pictures stay only for anything without a model
     (k === 'bush' ? bushB : plant ? plantB : coverB).add(k, d.v, d.x, d.y, d.s * (k === 'log' ? 1.3 : k === 'bush' ? 1.1 : fl ? 0.72 : 1.15), (d.seed * 7919 % 1) < 0.5 ? 1 : -1, k === 'grass' || k === 'fern' || fl ? 1.2 : k === 'bush' ? 0.6 : 0, -99, d.seed);
   }
-  coverB.end(); plantB.end(); bushB.end(); logK.set(LK); shBase = shN;   // the logs cast shadows too
+  coverB.end(); plantB.end(); bushB.end(); propsW.end(); logK.set(LK); shBase = shN;   // the logs cast shadows too
   WORLD.lakes = pondsSync(p.x, p.y); terrLevelSync(p.x, p.y, WORLD.lakes);
 }

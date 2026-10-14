@@ -258,11 +258,11 @@ const _gk = { k: null };
 function thingsFrame(now) {
   const D = S.day, rg = S.rg, p = S.p;
   // what lies about to be gathered: sticks, stones, mushrooms as shapes; grass and bushes as the woods' own sprites
-  nodeB.begin(); const K = new Kit();
+  nodeB.begin(); propsN.begin(); const K = new Kit();
   for (const o of dayNodesNear(p.x, p.y, 540)) {
     const sh = o.shakeT !== undefined ? o.shakeT : -99, sd = o.seed || 0;
-    if (o.t === 'grass') nodeB.add('grass', sd * 9 | 0, o.x, o.y, 1.5, sd % 1 < 0.5 ? 1 : -1, 1.4, sh, sd);
-    else if (o.t === 'bush') { nodeB.add('bush', sd * 9 | 0, o.x, o.y, 1.3, sd % 1 < 0.5 ? 1 : -1, 0.7, sh, sd); if (o.ber) for (let i = 0; i < 7; i++) { const a = sd * 7 + i * 1.9; stat(o.x + Math.cos(a) * 6, 7 + (i % 3) * 2.3, o.y + Math.sin(a) * 6, 2.2, 0.82, 0.19, 0.24, 0.0, 0); K.add(P_BALL(), o.x + Math.cos(a) * 7, 7 + (i % 3) * 2.6, o.y + Math.sin(a) * 7, 2, 2, 2, hex('#d0303e')); } }
+    if (o.t === 'grass') propsN.add('grass', sd * 9 | 0, o.x, o.y, 1.5, sd, sh);
+    else if (o.t === 'bush') { propsN.add('bush', sd * 9 | 0, o.x, o.y, 1.3, sd, sh); if (o.ber) for (let i = 0; i < 7; i++) { const a = sd * 7 + i * 1.9; stat(o.x + Math.cos(a) * 6, 7 + (i % 3) * 2.3, o.y + Math.sin(a) * 6, 2.2, 0.82, 0.19, 0.24, 0.0, 0); K.add(P_BALL(), o.x + Math.cos(a) * 7, 7 + (i % 3) * 2.6, o.y + Math.sin(a) * 7, 2, 2, 2, hex('#d0303e')); } }
     else if (o.t === 'sticks') for (let i = 0; i < 4; i++) {   // a few fallen sticks, crossed, each with a twig off it
       const a = sd * 3 + i * 1.3, L = 7 + 3 * hash(sd + i, 2), cx = o.x + Math.cos(a + 1.6) * (i - 1.5) * 1.6, cy = o.y + Math.sin(a + 1.6) * (i - 1.5) * 1.6, z = 0.8 + (i % 2) * 1.3;
       K.mt = 'bark'; K.rod(P_CYL(5), cx - Math.cos(a) * L, z, cy - Math.sin(a) * L, cx + Math.cos(a) * L, z + 0.4, cy + Math.sin(a) * L, 0.75, hex(['#6e5235', '#5e4630', '#7a5c3c'][i % 3]));
@@ -275,7 +275,7 @@ function thingsFrame(now) {
       for (let f = 0; f < 4; f++) { const q = a * 3 + f * 1.6; K.add(P_BALL(), x + Math.cos(q) * 1.9, h + 1.55, y + Math.sin(q) * 1.9, 1, 0.5, 1, hex('#f2ead8')); } K.mt = null;
     }
   }
-  nodeB.end();
+  nodeB.end(); propsN.end();
   // dropped things: their own pictures, bobbing; tools glint now and then so you find them again
   dropB.begin(); let dn = 0;
   for (const o of D.drops) {

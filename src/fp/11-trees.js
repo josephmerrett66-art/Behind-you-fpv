@@ -158,6 +158,9 @@ function treeAdd(o, kind, d) {   // near enough to stand solid? then it's ours, 
 }
 function treesEnd() {
   for (const k of TREE_KINDS) for (const B of TREES[k]) {
+    // nearest first, so the sun's pass can draw only those inside its map (sunShadows): the far woods cast nothing you could see
+    const px = S.p.x, py = S.p.y, d2 = o => (o.x - px) * (o.x - px) + (o.y - py) * (o.y - py), SR = shadowReach() ** 2;
+    B.list.sort((a, b) => d2(a) - d2(b)); B.shN = 0; while (B.shN < B.list.length && d2(B.list[B.shN]) < SR) B.shN++;
     B.list.forEach((o, i) => B.m.setMatrixAt(i, treeMatrix(o, 0)));
     B.m.count = B.e.count = B.list.length; B.m.instanceMatrix.needsUpdate = true;
   }

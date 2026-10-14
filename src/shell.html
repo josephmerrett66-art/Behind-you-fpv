@@ -63,6 +63,14 @@ body.playing #prompt { display: block; }
 #prompt span:empty { display: none; }
 #prompt .sneak { color: rgb(255,214,150); }
 #prompt .hit { color: rgb(200,235,180); }
+#homeMark { position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 3; opacity: 0.88; }
+#homeMark svg { position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; overflow: visible; }
+#homeMark span { position: absolute; left: -50px; top: 13px; width: 100px; text-align: center; font: 700 10px var(--mono, monospace); letter-spacing: 0.06em; color: #ffd68c; text-shadow: 0 0 3px #000, 0 0 2px #000; transform: skewX(-10deg); }
+#homeMark i { position: absolute; left: -7px; top: -7px; width: 14px; height: 14px; }
+#homeMark i::before { content: ''; position: absolute; inset: 0; background: #ffd68c; clip-path: polygon(100% 50%, 0 0, 0 100%); filter: drop-shadow(0 0 2px #000); }
+#useMark { position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 3; }
+#useMark b { position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 700 0.8rem var(--mono, monospace); color: #1a140c; background: rgba(255,232,180,0.95); border: 2px solid rgba(8,6,4,0.75); box-shadow: 0 2px 8px rgba(0,0,0,0.45); }
+#useMark.padX b { background: #3a7bd5; color: #fff; }
 #guide { position: fixed; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
 #guide svg { position: absolute; left: -15px; top: -15px; width: 30px; height: 30px; }
 #guideT { position: absolute; left: -40px; top: 16px; width: 80px; display: grid; justify-items: center; gap: 2px; }
@@ -180,6 +188,8 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <div id="flashFx"></div>
 <div id="dot"></div>
 <div id="prompt"><span id="promptT"></span></div>
+<div id="useMark" hidden><b></b></div>
+<div id="homeMark" hidden><i></i><svg viewBox="-12 -12 24 24"><path d="M0-11 11-.5H8V9.5H-8V-.5H-11Z" fill="#ffd68c" stroke="rgba(8,6,4,0.75)" stroke-width="2.4" stroke-linejoin="round"/><rect x="-2.4" y="3" width="4.8" height="6.5" fill="#462a14"/></svg><span></span></div>
 <div id="guide" hidden><svg id="guideA" viewBox="-8 -10 20 20"><path d="M11 0-6-9-2 0-6 9Z" fill="rgba(0,0,0,0.45)"/><path d="M9 0-5-7-2 0-5 7Z" fill="#fff0c8"/></svg><div id="guideT"></div></div>
 <div id="siege" hidden><div class="track"><i id="siegeI"></i></div><div id="siegeT"></div></div>
 <div id="hud">

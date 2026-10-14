@@ -1,6 +1,6 @@
 // ================= what you can gather shows itself (the main game's v156 hints), and the signal fire's countdown =================
-// Everything Take picks up has a warm ring on the ground and its picture floating over it as you come near; grass and berry
-// bushes, which you strike instead, get a green ring close up. Until you've held your first sticks and stones an arrow by the
+// Everything Take picks up has a warm ring on the ground as you come near; grass and berry bushes, which you strike instead,
+// get a green ring close up. Once you're close enough, the button that gathers it floats over it. Until you've held your first sticks and stones an arrow by the
 // crosshair points the way to the nearest. While a signal fire burns, a bar across the top says how long you still have to stand.
 const hintB = new Board(240, 400, 0, true, iconTex, ISHEET);
 const guideEl = $('guide'), guideA = $('guideA'), guideT = $('guideT'), siegeEl = $('siege'), siegeI = $('siegeI'), siegeT = $('siegeT');
@@ -16,10 +16,9 @@ function hintsFrame(now) {
     const pulse = 0.65 + 0.35 * Math.sin(S.t * 3 + o.x * 0.05), on = o === tgt, rr = on ? 15 : 12, a = how === 'take' ? (on ? 0.95 : 0.25 + 0.45 * f) * pulse : 0.5 * f * pulse;
     const [cr, cg, cb] = how === 'take' ? [1, 0.88, 0.59] : [0.67, 0.88, 0.55];
     for (let i = 0; i < 20; i++) { const q = i / 20 * 6.283 + now * 0.4; stat(o.x + Math.cos(q) * rr, 0.8, o.y + Math.sin(q) * rr, on ? 2.6 : 2, cr, cg, cb, a * 0.8, 0); }
-    if (on || d > R || how === 'take' && D.drops.includes(o)) continue;   // the one you'd take next is named under the crosshair instead; dropped things already show themselves
-    hintB.add(it, 0, o.x, o.y, 1.25, 1, 0, -99, 0, 17 + 2.5 * Math.sin(S.t * 2.5 + o.x));
   }
-  hintB.end();
+  hintB.end();   // (Joe) no pictures floating over things any more: the button to press shows over the one you're close enough to gather
+  useMarkFrame(play, tgt); homeFrame();
   // the first-time guide
   let best = null;
   if (play && !(D.seen.has('sticks') && D.seen.has('stones')) && !dayPickables(140).some(q => q.how === 'take' && (q.it === 'sticks' || q.it === 'stones') && Math.hypot(q.o.x - p.x, q.o.y - p.y) < 140)) {
@@ -41,4 +40,17 @@ function hintsFrame(now) {
     siegeI.style.transform = `scaleX(${clamp(1 - left / SIEGE_T, 0.01, 1)})`;
     siegeT.textContent = G.far ? 'BACK TO THE FIRE' : `HOLD OUT · ${Math.ceil(left)}S`; siegeT.classList.toggle('far', !!G.far);
   }
+}
+
+// the button over what you're close enough to gather: Use for what you take, attack for grass and bushes you strike
+const useMark = $('useMark'), useMarkB = useMark.firstChild, _um = [0, 0, 0];
+let useMarkKey = '';
+function useMarkFrame(play, tgt) {
+  let o = null, hit = false;
+  if (play && !menusOpen()) { if (tgt) o = tgt; else { o = dayHitTarget(); hit = !!o; } }
+  const q = o && o.x !== undefined && scr(o.x, hit ? 26 : 20, o.y, _um);
+  if (!q || q[0] < 20 || q[0] > FW - 20 || q[1] < 20 || q[1] > FH - 20) { useMark.hidden = true; return; }
+  const key = inputMode === 'pad' ? (hit ? 'RT' : 'X') : inputMode === 'touch' ? (hit ? '⚔' : '✋') : (hit ? '🖱' : 'E');
+  if (key !== useMarkKey) { useMarkKey = key; useMarkB.textContent = key; useMark.className = inputMode === 'pad' && !hit ? 'padX' : ''; }
+  useMark.hidden = false; useMark.style.transform = `translate(${q[0].toFixed(1)}px, ${(q[1] + Math.sin(S.t * 4) * 2).toFixed(1)}px)`;
 }

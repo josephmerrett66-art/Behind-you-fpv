@@ -45,7 +45,15 @@ function sunShadows() {
   LU.shC.value.set(c.x, c.z, R * Rk, 1);
   // the depth from the sun's side: only things marked as casting
   const prevT = renderer.getRenderTarget();
+  // only the trees and rocks near enough to land a shadow in the map (they're kept nearest first): the rest are left out of this pass
+  const cut = [];
+  if (typeof TREES !== 'undefined') for (const k of TREE_KINDS) for (const B of TREES[k]) if (B.shN !== undefined && B.m.count > B.shN) { cut.push([B.m, B.m.count]); B.m.count = B.shN; }
+  for (const P of [propsW]) for (const kind in P.k) if (P.k[kind]) for (const B of P.k[kind]) if (B.shadow && B.m.count > B.shN) { cut.push([B.m, B.m.count]); B.m.count = B.shN; }
   scene.overrideMaterial = SUN.mat;
   renderer.setRenderTarget(SUN.rt); renderer.clear(false, true, false); renderer.render(scene, sc);
   scene.overrideMaterial = null; renderer.setRenderTarget(prevT);
+  for (const [m, n] of cut) m.count = n;
 }
+// how far from you anything can stand and still throw a shadow into the map: its reach round its centre, the centre's lead, and a
+// tall tree's long shadow at a low sun, with room for walking on before the woods are next re-laid
+function shadowReach() { const Rk = isoP() ? Math.max(1, (SET.isoZoom || 1.7) * 0.75) : 1; return SUN.R * Rk * 1.45 + SUN.R * 0.35 + 160; }

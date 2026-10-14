@@ -259,21 +259,15 @@ function thingsFrame(now) {
   const D = S.day, rg = S.rg, p = S.p;
   // what lies about to be gathered: sticks, stones, mushrooms as shapes; grass and bushes as the woods' own sprites
   nodeB.begin(); propsN.begin(); const K = new Kit();
+  // what lies about to be gathered, each a solid model stood in place (14-props): sticks, stones, mushrooms, grass, bushes and their berries
   for (const o of dayNodesNear(p.x, p.y, 540)) {
-    const sh = o.shakeT !== undefined ? o.shakeT : -99, sd = o.seed || 0;
-    if (o.t === 'grass') propsN.add('grass', sd * 9 | 0, o.x, o.y, 1.5, sd, sh);
-    else if (o.t === 'bush') { propsN.add('bush', sd * 9 | 0, o.x, o.y, 1.3, sd, sh); if (o.ber) for (let i = 0; i < 7; i++) { const a = sd * 7 + i * 1.9; stat(o.x + Math.cos(a) * 6, 7 + (i % 3) * 2.3, o.y + Math.sin(a) * 6, 2.2, 0.82, 0.19, 0.24, 0.0, 0); K.add(P_BALL(), o.x + Math.cos(a) * 7, 7 + (i % 3) * 2.6, o.y + Math.sin(a) * 7, 2, 2, 2, hex('#d0303e')); } }
-    else if (o.t === 'sticks') for (let i = 0; i < 4; i++) {   // a few fallen sticks, crossed, each with a twig off it
-      const a = sd * 3 + i * 1.3, L = 7 + 3 * hash(sd + i, 2), cx = o.x + Math.cos(a + 1.6) * (i - 1.5) * 1.6, cy = o.y + Math.sin(a + 1.6) * (i - 1.5) * 1.6, z = 0.8 + (i % 2) * 1.3;
-      K.mt = 'bark'; K.rod(P_CYL(5), cx - Math.cos(a) * L, z, cy - Math.sin(a) * L, cx + Math.cos(a) * L, z + 0.4, cy + Math.sin(a) * L, 0.75, hex(['#6e5235', '#5e4630', '#7a5c3c'][i % 3]));
-      const tx = cx + Math.cos(a) * L * 0.3, ty = cy + Math.sin(a) * L * 0.3; K.rod(P_CYL(4), tx, z, ty, tx + Math.cos(a + 0.7) * 4, z + 0.6, ty + Math.sin(a + 0.7) * 4, 0.35, hex('#6e5235')); K.mt = null;
-    }
-    else if (o.t === 'stones') for (let i = 0; i < 4; i++) { const a = sd + i * 1.7, r = i ? 6 : 0; K.mt = 'stone'; K.add(P_ROCK((i + Math.floor(sd * 5)) % 4), o.x + Math.cos(a) * r, 1.4, o.y + Math.sin(a) * r, 7.5 - i, 4.6 - i * 0.4, 6.2 - i * 0.6, hex(['#8d8b85', '#a19f98', '#77756f', '#96938b'][i]), a); K.mt = null; }
-    else if (o.t === 'shroom') for (let i = 0; i < (o.n || 1) + 1; i++) {   // pale stems, brown caps flecked white
-      const a = sd + i * 2.4, x = o.x + Math.cos(a) * 4 * i, y = o.y + Math.sin(a) * 4 * i, h = 5 + 2 * ((i + Math.floor(sd)) % 2);
-      K.mt = 'plain'; K.add(P_CYL(6), x, 0, y, 1.8, h, 1.8, hex('#e8dcc4')); K.add(P_BALL(), x, h, y, 7.2, 4, 7.2, hex('#b07848'));
-      for (let f = 0; f < 4; f++) { const q = a * 3 + f * 1.6; K.add(P_BALL(), x + Math.cos(q) * 1.9, h + 1.55, y + Math.sin(q) * 1.9, 1, 0.5, 1, hex('#f2ead8')); } K.mt = null;
-    }
+    if (o.gone) continue;
+    const sh = o.shakeT !== undefined ? o.shakeT : -99, sd = o.seed || 0, v = sd * 9 | 0;
+    if (o.t === 'grass') propsN.add('grass', v, o.x, o.y, 1.5, sd, sh);
+    else if (o.t === 'bush') { propsN.add('bush', v, o.x, o.y, 1.3, sd, sh); if (o.ber) { propsN.add('nberries', 0, o.x, o.y, 1, sd, sh); for (let i = 0; i < 7; i++) { const a = sd * 7 + i * 1.9; stat(o.x + Math.cos(a) * 6, 7 + (i % 3) * 2.3, o.y + Math.sin(a) * 6, 2.2, 0.82, 0.19, 0.24, 0.0, 0); } } }
+    else if (o.t === 'sticks') propsN.add('nsticks', v, o.x, o.y, 1, sd);
+    else if (o.t === 'stones') propsN.add('nstones', v, o.x, o.y, 1, sd);
+    else if (o.t === 'shroom') propsN.add('nshroom' + clamp(o.n || 1, 1, 3), v, o.x, o.y, 1, sd);
   }
   nodeB.end(); propsN.end();
   // dropped things: their own pictures, bobbing; tools glint now and then so you find them again
@@ -310,7 +304,7 @@ function thingsFrame(now) {
   }
   // fishing: the line and the float
   if (D.fish && D.fish.x !== undefined) { const f = D.fish, bob = f.bite ? Math.sin(now * 30) * 1.4 : Math.sin(now * 2) * 0.4; K.add(P_BALL(), f.x, 1 + bob, f.y, 3, 3, 3, hex('#e04030'), 0, 0, 0, 0.2); }
-  dynK.set(K);
+  if (K.pos.length || dynK.had) { dynK.set(K); dynK.had = K.pos.length > 0; }   // nothing flying: nothing rebuilt
   // the ghost of what you'd put down, and of the grid piece you're placing
   const GK = new Kit(); let ok = true, any = false;
   const g = dayGhost();

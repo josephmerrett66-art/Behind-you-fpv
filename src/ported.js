@@ -1869,7 +1869,8 @@ function exNewRun() {
   rg.inCamp = true; rg.flask = FLASK_MAX; rg.drink = null; rg.oil = oilMax(); rg.oilWarn = 0; rg.ringMax = 0; rg.spawnT = 2; rg.tallCd = 10; rg.outT = 0; rg.recall = null; rg.lamps = exPathLamps();
   return rg;
 }
-const DAY_LEN = 360, FOOD_MAX = 100, FOOD_RATE = 0.5, WATER_RATE = 0.65, STARVE_T = 5, DAY_KEY = 'behind-you-fp-day-best';
+const DAY_LEN = 540,   // first person (Joe): the day twice as long, the night the same 3 minutes as before
+  FOOD_MAX = 100, FOOD_RATE = 0.5, WATER_RATE = 0.65, STARVE_T = 5, DAY_KEY = 'behind-you-fp-day-best';
 const STA_MAX = 100, STA_SWING = 10, STA_SLAM = 18, STA_ROLL = 20, STA_CHOP = 4, STA_REGEN = 34, STA_WAIT = 0.6;
 const HOTN = 6, BASE_SLOTS = 20,   // v161 (Joe): the pack holds twice what it did
   BOX_SLOTS = 30, CHEST_SLOTS = 18, SKIN_SIPS = 4;
@@ -2185,7 +2186,7 @@ function dayStep(dt, inCamp) {
   { const ph = dayNight() ? 'night' : 'day';   // v153: they come with the dark
     if (ph !== D.ph) { D.ph = ph;
       if (ph === 'night') {
-        for (const B of D.builds) if (B.t === 'tpost' && !(B.fuel > 0)) B.fuel = DAY_LEN * 0.5;   // v155: your posts take light at dusk
+        for (const B of D.builds) if (B.t === 'tpost' && !(B.fuel > 0)) B.fuel = NIGHT_LEN;   // v155: your posts take light at dusk
         if (inCamp) { D.raidDue = true; rg.ringMsg = { text: 'night', sub: (D.heat || 0) > 1 ? `They are ${HEAT_NAME[Math.min(4, D.heat)]} · about ${dayRaidSize()} coming` : 'They wait outside the fence', t: 0 }; }
         else { rg.ringMsg = { text: 'night', sub: 'Burn them with your torch · their wisps are yours', t: 0 }; playRingSting(); dayRaid(); }
       } else {
@@ -2733,7 +2734,7 @@ function dayMakeBuild(t, cx, cy, a, fake) {
   } else if (t === 'furnace' || t === 'rack' || t === 'anvil') {
     B.parts.push({ kind: 'dbuild', sub: t, x: cx, y: cy, r: t === 'furnace' ? 15 : t === 'anvil' ? 14 : 17, s: 1, build: B });
   } else if (t === 'tpost' || t === 'effigy') {
-    if (t === 'tpost') B.fuel = DAY_LEN * 0.5;
+    if (t === 'tpost') B.fuel = NIGHT_LEN;
     B.parts.push({ kind: 'dbuild', sub: t, x: cx, y: cy, r: 7, s: 1, build: B });
   } else if (t === 'signal') {
     B.lit = 0;
@@ -3603,7 +3604,7 @@ const BPIC = {
   ring: '<g fill="#8e8c86"><circle cx="12" cy="6" r="2.3"/><circle cx="17.5" cy="9" r="2.3"/><circle cx="17.5" cy="15" r="2.3"/><circle cx="12" cy="18" r="2.3"/><circle cx="6.5" cy="15" r="2.3"/><circle cx="6.5" cy="9" r="2.3"/></g>',
 };
 let stGen = 0;
-const NIGHT_IN = 0.46, NIGHT_OUT = 0.96, DUSK = 0.06;
+const NIGHT_LEN = 180, NIGHT_OUT = 0.96, NIGHT_IN = NIGHT_OUT - NIGHT_LEN / DAY_LEN, DUSK = 21.6 / DAY_LEN;   // dusk as long as it was, in seconds
 const WARM_MAX = 100, WARM_NIGHT = 0.75, WARM_RAIN = 0.4, WARM_FIRE = 9, WARM_BITE = 6, BLEED_T = 7;
 const PONDC = 900;
 function dayT() { return (S.day.t % DAY_LEN) / DAY_LEN; }
@@ -3961,7 +3962,7 @@ function dayPostFeed(B) {                          // feed it sticks and it burn
   const D = S.day, s = heldSlot();
   if (!s || s.id !== 'sticks') { dayNote('fuel', 'sticks in your hand to feed it', 1.6); return; }
   s.n--; if (!s.n) D.inv[D.hot] = null;
-  B.fuel = Math.min(DAY_LEN * 1.5, (B.fuel || 0) + DAY_LEN * 0.5); dayAct(7, 0.5);
+  B.fuel = Math.min(NIGHT_LEN * 3, (B.fuel || 0) + NIGHT_LEN); dayAct(7, 0.5);
   ashBurst(B.x, B.y, 6, 40); sfx(1.1, 0.3, 'bandpass', 700, 0.25); exNote('the post burns brighter'); dayChanged();
 }
 function dayJLog(text) { const D = S.day; if (!D.jlog) D.jlog = []; D.jlog.push({ d: D.n, t: Math.round(D.t % DAY_LEN), text }); if (D.jlog.length > 40) D.jlog.shift(); }

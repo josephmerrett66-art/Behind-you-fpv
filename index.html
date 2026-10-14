@@ -7552,6 +7552,24 @@ function bushKit(K, R, vi, dark, mid, light, tall) {
   for (let j = 0; j < 3; j++) { const a = j * 2.1 + vi; K.rod(P_CYL(4), Math.cos(a) * 3, 0, Math.sin(a) * 3, Math.cos(a) * 9, 4.5, Math.sin(a) * 9, 0.7, hex('#4a3826')); }
   K.mt = null;
 }
+// a fern frond, one piece: a stalk rising from the middle and arching over, with pairs of leaflets all along it, longest
+// near the middle and shrinking to the tip, each lifted a little and swept forward. Length 1 along +z, faced both ways.
+const P_FROND = (k = 0) => prim('frond' + k, () => {
+  const N = 14, pos = [], arch = 0.62 + 0.1 * k, droop = 0.18 - 0.1 * k;
+  const sp = t => { const u = 1 - t; return [0, 2 * u * t * arch + t * t * droop, 2 * u * t * 0.3 + t * t]; };   // a curve: up steeply, then over
+  const tri = (a, b, c) => pos.push(...a, ...b, ...c, ...a, ...c, ...b);
+  for (let i = 0; i < N; i++) {
+    const t0 = i / N, t1 = (i + 1) / N, a = sp(t0), b = sp(t1), tm = (t0 + t1) / 2, m = sp(tm);
+    tri([-0.012, a[1], a[2]], [0.012, a[1], a[2]], [0, b[1], b[2]]);   // the stalk
+    if (t0 < 0.12) continue;                                                      // bare at the foot
+    const w = 0.34 * Math.sin(Math.PI * Math.min(1, (tm - 0.08) / 0.95)) + 0.03, dz = b[2] - a[2], dy = b[1] - a[1];
+    for (const sd of [-1, 1]) {   // a leaflet each side: from the stalk, out and a touch forward, its tip lifted
+      const tip = [sd * w, m[1] + w * 0.22, m[2] + dz * 0.9 + w * 0.25], mid = [sd * w * 0.5, m[1] + w * 0.16 + dy * 0.5, m[2] + dz * 0.65 + w * 0.12];
+      tri(a, mid, tip); tri(a, tip, [sd * w * 0.45, m[1] + dy * 0.2 + w * 0.05, m[2] + dz * 0.2]); tri(b, mid, tip);
+    }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+});
 const P_BLADE = () => prim('blade', () => { const g = new THREE.ConeGeometry(0.5, 1, 4, 1); g.scale(1, 1, 0.25); g.translate(0, 0.5, 0); return g; });
 
 // the models, foot at the origin, in the pictures' own units (each is drawn at the scale its picture was)
@@ -7588,15 +7606,16 @@ function propModel(kind, vi) {
     K.mt = 'cloth'; K.add(P_CYL(8), 0, 27, 0, 9.2, 2.2, 9.2, hex('#b08654'), 0, 0, 0.18, 0, 0.3); K.mt = null;
   } else if (kind === 'bush') {   // a low leafy mound (28 wide, 20 high): deep green in its heart, sunlit yellow-green on top
     bushKit(K, R, vi, hex('#1f3d1c'), hex('#3a6a2e'), hex('#6fa24a'), 1);
-  } else if (kind === 'fern') {   // fronds arching out and down from the middle (34 wide, 16 high)
-    K.mt = 'plant';
-    const G = ['#3d7a32', '#4a8a3a', '#356c2c'], fronds = 8 + vi;
+  } else if (kind === 'fern') {   // a crown of fronds rising from one root and arching out over the ground (34 wide, 16 high)
+    const G = [['#1f4a1c', '#5d9a40'], ['#244f1f', '#6aa646'], ['#1c4419', '#4f8c36']], fronds = 9 + vi * 2;
+    K.mt = 'plant'; K.add(P_KNOB(vi), 0, 0.5, 0, 4.5, 2.5, 4.5, hex('#2a3a1c'), 0, 0, 0, 0, 0.3);
     for (let i = 0; i < fronds; i++) {
-      const a = i / fronds * 6.28 + R() * 0.5, L = 13 + R() * 5, up = 0.55 + R() * 0.35;
-      // each frond in two pieces: up and out, then over and down
-      const mx = Math.cos(a) * L * 0.5, mz = Math.sin(a) * L * 0.5, my = L * up * 0.7;
-      K.add(P_PEA(8, 5), mx * 0.5, my * 0.5, mz * 0.5, 3.4, 1.2, L * 0.58, pick(G, i), -a + Math.PI / 2, -0.95 * up, 0, 0, 0.25);
-      K.add(P_PEA(8, 5), mx * 1.45, my * 0.85, mz * 1.45, 3.0, 1.0, L * 0.55, pick(G, i + 1), -a + Math.PI / 2, 0.45, 0, 0, 0.25);
+      const a = i * 2.39996 + vi + R() * 0.3, L = 15 + R() * 6, c = G[(i + vi) % 3];
+      kitGrad(K, () => K.add(P_FROND(i % 2), Math.cos(a) * 0.8, 0.5, Math.sin(a) * 0.8, L, L * (0.9 + R() * 0.35), L, hex(c[1]), -a + Math.PI / 2, -0.05 + R() * 0.15, (R() - 0.5) * 0.3, 0, 0.25), hex(c[0]), hex(c[1]), 0.7);
+    }
+    for (let i = 0; i < 3; i++) {   // young fronds still standing up in the middle
+      const a = i * 2.1 + vi, L = 7 + R() * 3;
+      kitGrad(K, () => K.add(P_FROND(1), 0, 0.5, 0, L * 0.8, L * 1.5, L * 0.5, hex('#7ab04e'), -a + Math.PI / 2, 0, 0, 0, 0.25), hex('#2c5a22'), hex('#8cbc58'), 0.8);
     }
     K.mt = null;
   } else if (kind === 'grass') {   // a tuft of curving blades springing from a dark base (16 wide, 13 high), green at the root, pale at the tips

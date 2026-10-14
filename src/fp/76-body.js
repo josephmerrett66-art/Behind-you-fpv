@@ -172,7 +172,7 @@ const _bm = new M4(), _bq = new THREE.Quaternion(), _bv = new V3(), _be = new TH
 function posePlayer(now) {
   const p = S.p, D = S.day, rg = S.rg, s = heldSlot(), id = s ? s.id : null, T = id ? DIT[id] : null, dt = Math.min(0.05, frameDtTP);
   const X = BODY, P = {}; for (const [n] of BONES) P[n] = [0, 0, 0];
-  const v = Math.hypot(p.vx, p.vy), gk = Math.min(1, v / RUN), wk = Math.min(1, v / WALK), ph = p.phase || 0, t = now;
+  const v = Math.hypot(p.vx, p.vy), gk = Math.min(1, v / RUN) + 0.6 * SPR.k, wk = Math.min(1, v / WALK), ph = p.phase || 0, t = now;
   const A = p.atk && p.atk.t < p.atk.dur ? p.atk : null, Wa = p.wact && !p.wact.hold && !D.draw && p.wact.t < (p.wact.dur || 0.4) ? p.wact : null, act = p.act && p.act.t < p.act.dur ? p.act : null;
   // which way you face: you snap to your aim for a blow or a shot, otherwise you turn smoothly into the way you're going
   const aimF = A || Wa || D.draw, want = aimF || v < 12 ? S.aimW : Math.atan2(p.vy, p.vx);

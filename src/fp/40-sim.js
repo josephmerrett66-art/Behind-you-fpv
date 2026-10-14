@@ -32,6 +32,19 @@ function newGame(fresh) {
 
 // ---------------- your step (update(), less the screen) ----------------
 const MV = { x: 0, y: 0 };   // what your hands ask for this frame: x right, y forward
+// a sprint: click the left stick (or hold left shift) and you run flat out until you let the stick go, crouch, draw a bow
+// or run out of breath. It burns stamina as it goes, and stamina doesn't come back while you're running.
+const SPRINT_K = 1.45, SPRINT_COST = 15, SPR = { on: false, k: 0 };
+function sprintToggle() { if (!S || !S.day) return; SPR.on = !SPR.on; if (SPR.on && S.day.crouch) dayCrouch(); }
+function sprintStep(dt, ml) {
+  const D = S.day, p = S.p;
+  if (SPR.on && (ml < 0.2 || D.crouch || D.draw || p.roll > 0 || S.rg.phase === 'dead')) SPR.on = SPR.held = false;
+  if (SPR.on && D.st <= 1) { SPR.on = false; dayNote('tired', 'out of breath', 1.5); }
+  const want = SPR.on || SPR.held && ml > 0.2 && !D.crouch && !D.draw && D.st > 1 ? 1 : 0;
+  SPR.k += (want - SPR.k) * Math.min(1, dt * 6);
+  if (want) { D.st = Math.max(0, D.st - SPRINT_COST * dt); D.stT = 0; }
+  return 1 + (SPRINT_K - 1) * SPR.k;
+}
 function simStep(dt) {
   S.t += dt;
   const p = S.p, rg = S.rg;
@@ -40,7 +53,7 @@ function simStep(dt) {
   let mx = MV.x, my = MV.y; const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
   const a = isoP() ? aimOfYaw(ISO.yaw) : S.aimW, fx = Math.cos(a), fy = Math.sin(a), rx = -fy, ry = fx;   // from above, the way you push on the screen
   const back = my < 0 && !isoP() ? 0.78 : 1;
-  const speed = RUN * rgSpeed() * exWeight() * dayMoveK() * (rg.drink ? 0.3 : 1);
+  const speed = RUN * rgSpeed() * exWeight() * dayMoveK() * (rg.drink ? 0.3 : 1) * (S.day ? sprintStep(dt, ml) : 1);
   const wx = (rx * mx * 0.95 + fx * my * back) * speed, wy = (ry * mx * 0.95 + fy * my * back) * speed;
   const k = 1 - Math.exp(-ACCEL * dt);
   p.vx += (wx - p.vx) * k; p.vy += (wy - p.vy) * k;

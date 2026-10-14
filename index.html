@@ -475,7 +475,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <div id="hotbar" hidden></div>
 <div id="buildbar" hidden></div>
 <div id="fps"></div>
-<div id="padHint">RT attack · B dodge · X use · Y special · LB RB hotbar · L3 sneak · View pack · Menu pause</div>
+<div id="padHint">RT attack · B dodge · X use · Y special · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause</div>
 
 <div id="deathCard" hidden>
   <div class="dc">
@@ -7984,6 +7984,19 @@ function newGame(fresh) {
 
 // ---------------- your step (update(), less the screen) ----------------
 const MV = { x: 0, y: 0 };   // what your hands ask for this frame: x right, y forward
+// a sprint: click the left stick (or hold left shift) and you run flat out until you let the stick go, crouch, draw a bow
+// or run out of breath. It burns stamina as it goes, and stamina doesn't come back while you're running.
+const SPRINT_K = 1.45, SPRINT_COST = 15, SPR = { on: false, k: 0 };
+function sprintToggle() { if (!S || !S.day) return; SPR.on = !SPR.on; if (SPR.on && S.day.crouch) dayCrouch(); }
+function sprintStep(dt, ml) {
+  const D = S.day, p = S.p;
+  if (SPR.on && (ml < 0.2 || D.crouch || D.draw || p.roll > 0 || S.rg.phase === 'dead')) SPR.on = SPR.held = false;
+  if (SPR.on && D.st <= 1) { SPR.on = false; dayNote('tired', 'out of breath', 1.5); }
+  const want = SPR.on || SPR.held && ml > 0.2 && !D.crouch && !D.draw && D.st > 1 ? 1 : 0;
+  SPR.k += (want - SPR.k) * Math.min(1, dt * 6);
+  if (want) { D.st = Math.max(0, D.st - SPRINT_COST * dt); D.stT = 0; }
+  return 1 + (SPRINT_K - 1) * SPR.k;
+}
 function simStep(dt) {
   S.t += dt;
   const p = S.p, rg = S.rg;
@@ -7992,7 +8005,7 @@ function simStep(dt) {
   let mx = MV.x, my = MV.y; const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
   const a = isoP() ? aimOfYaw(ISO.yaw) : S.aimW, fx = Math.cos(a), fy = Math.sin(a), rx = -fy, ry = fx;   // from above, the way you push on the screen
   const back = my < 0 && !isoP() ? 0.78 : 1;
-  const speed = RUN * rgSpeed() * exWeight() * dayMoveK() * (rg.drink ? 0.3 : 1);
+  const speed = RUN * rgSpeed() * exWeight() * dayMoveK() * (rg.drink ? 0.3 : 1) * (S.day ? sprintStep(dt, ml) : 1);
   const wx = (rx * mx * 0.95 + fx * my * back) * speed, wy = (ry * mx * 0.95 + fy * my * back) * speed;
   const k = 1 - Math.exp(-ACCEL * dt);
   p.vx += (wx - p.vx) * k; p.vy += (wy - p.vy) * k;
@@ -8248,14 +8261,15 @@ addEventListener('keydown', e => {
   if (k === 'q') dayCrouch();
   if (k === 'h' || k === 'f') exDrink();
   if (k === 'j') attack();
-  if (k === 'k' || e.code === 'ShiftRight' || e.code === 'ShiftLeft') wpSpecial();
+  if (k === 'k' || e.code === 'ShiftRight') wpSpecial();
+  if (e.code === 'ShiftLeft') SPR.held = true;   // hold left shift to sprint
   if (k >= '1' && k <= '6' && k.length === 1) daySelect(+k - 1);
   if (dayTool() === 'build') {
     if (k === 'z') stRot(-1); else if (k === 'x') stRot(1);
     else if (k === 'v') stSnapToggle(); else if (k === 'b') stDelToggle(); else if (k === '[') stCycle(-1); else if (k === ']') stCycle(1); else if (k === 'n') stCatCycle(1);
   }
 });
-addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys[k] = false; held.delete(e.code); if (k === 'j') rngUp(); });
+addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys[k] = false; held.delete(e.code); if (e.code === 'ShiftLeft') SPR.held = false; if (k === 'j') rngUp(); });
 addEventListener('blur', () => { held.clear(); for (const k in keys) keys[k] = false; rngUp(); });
 function rngUp() { if (S && S.day && S.day.draw) dayDrawRelease(); }   // any let-go of the attack: an arrow or a stone flies
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -8358,7 +8372,8 @@ function pollPad(dt) {
       if (press(4)) daySelect((S.day.hot + HOTN - 1) % HOTN);
       if (press(5)) daySelect((S.day.hot + 1) % HOTN);
       if (press(6)) exDrink();
-      if (press(10)) dayCrouch();
+      if (press(10)) sprintToggle();   // click the left stick to sprint
+      if (press(11)) { if (SPR.on) SPR.on = false; dayCrouch(); }   // click the right stick to sneak
       if (press(12) && dayTool() === 'build') stCycle(-1); if (press(13) && dayTool() === 'build') stCycle(1);
       if (press(14) && dayTool() === 'build') stRot(-1); if (press(15) && dayTool() === 'build') stRot(1);
     }
@@ -9337,7 +9352,7 @@ const _bm = new M4(), _bq = new THREE.Quaternion(), _bv = new V3(), _be = new TH
 function posePlayer(now) {
   const p = S.p, D = S.day, rg = S.rg, s = heldSlot(), id = s ? s.id : null, T = id ? DIT[id] : null, dt = Math.min(0.05, frameDtTP);
   const X = BODY, P = {}; for (const [n] of BONES) P[n] = [0, 0, 0];
-  const v = Math.hypot(p.vx, p.vy), gk = Math.min(1, v / RUN), wk = Math.min(1, v / WALK), ph = p.phase || 0, t = now;
+  const v = Math.hypot(p.vx, p.vy), gk = Math.min(1, v / RUN) + 0.6 * SPR.k, wk = Math.min(1, v / WALK), ph = p.phase || 0, t = now;
   const A = p.atk && p.atk.t < p.atk.dur ? p.atk : null, Wa = p.wact && !p.wact.hold && !D.draw && p.wact.t < (p.wact.dur || 0.4) ? p.wact : null, act = p.act && p.act.t < p.act.dur ? p.act : null;
   // which way you face: you snap to your aim for a blow or a shot, otherwise you turn smoothly into the way you're going
   const aimF = A || Wa || D.draw, want = aimF || v < 12 ? S.aimW : Math.atan2(p.vy, p.vx);
@@ -9692,6 +9707,7 @@ function placeCamera(dt, rdt, now) {
   const rollU = p.roll > 0 ? 1 - p.roll / ROLL_T : -1;
   VIEW_FX.dip = rollU >= 0 ? Math.sin(Math.PI * rollU) * 14 : VIEW_FX.dip * Math.exp(-rdt * 10);
   if (rollU >= 0) VIEW_FX.fov = Math.max(VIEW_FX.fov, 6 * Math.sin(Math.PI * rollU));
+  VIEW_FX.fov = Math.max(VIEW_FX.fov, 7 * SPR.k);   // sprinting: the view stretches a little
   const crouch = (D.crK || 0) * 10;
   const v = Math.hypot(p.vx, p.vy);
   VIEW_FX.bobAmt = lerp(VIEW_FX.bobAmt, p.roll > 0 ? 0 : Math.min(1, v / RUN), Math.min(1, rdt * 8));

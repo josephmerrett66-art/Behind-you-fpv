@@ -30,14 +30,15 @@ addEventListener('keydown', e => {
   if (k === 'q') dayCrouch();
   if (k === 'h' || k === 'f') exDrink();
   if (k === 'j') attack();
-  if (k === 'k' || e.code === 'ShiftRight' || e.code === 'ShiftLeft') wpSpecial();
+  if (k === 'k' || e.code === 'ShiftRight') wpSpecial();
+  if (e.code === 'ShiftLeft') SPR.held = true;   // hold left shift to sprint
   if (k >= '1' && k <= '6' && k.length === 1) daySelect(+k - 1);
   if (dayTool() === 'build') {
     if (k === 'z') stRot(-1); else if (k === 'x') stRot(1);
     else if (k === 'v') stSnapToggle(); else if (k === 'b') stDelToggle(); else if (k === '[') stCycle(-1); else if (k === ']') stCycle(1); else if (k === 'n') stCatCycle(1);
   }
 });
-addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys[k] = false; held.delete(e.code); if (k === 'j') rngUp(); });
+addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys[k] = false; held.delete(e.code); if (e.code === 'ShiftLeft') SPR.held = false; if (k === 'j') rngUp(); });
 addEventListener('blur', () => { held.clear(); for (const k in keys) keys[k] = false; rngUp(); });
 function rngUp() { if (S && S.day && S.day.draw) dayDrawRelease(); }   // any let-go of the attack: an arrow or a stone flies
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -140,7 +141,8 @@ function pollPad(dt) {
       if (press(4)) daySelect((S.day.hot + HOTN - 1) % HOTN);
       if (press(5)) daySelect((S.day.hot + 1) % HOTN);
       if (press(6)) exDrink();
-      if (press(10)) dayCrouch();
+      if (press(10)) sprintToggle();   // click the left stick to sprint
+      if (press(11)) { if (SPR.on) SPR.on = false; dayCrouch(); }   // click the right stick to sneak
       if (press(12) && dayTool() === 'build') stCycle(-1); if (press(13) && dayTool() === 'build') stCycle(1);
       if (press(14) && dayTool() === 'build') stRot(-1); if (press(15) && dayTool() === 'build') stRot(1);
     }

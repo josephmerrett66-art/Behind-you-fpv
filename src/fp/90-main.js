@@ -100,6 +100,7 @@ function placeCamera(dt, rdt, now) {
   const rollU = p.roll > 0 ? 1 - p.roll / ROLL_T : -1;
   VIEW_FX.dip = rollU >= 0 ? Math.sin(Math.PI * rollU) * 14 : VIEW_FX.dip * Math.exp(-rdt * 10);
   if (rollU >= 0) VIEW_FX.fov = Math.max(VIEW_FX.fov, 6 * Math.sin(Math.PI * rollU));
+  VIEW_FX.fov = Math.max(VIEW_FX.fov, 7 * SPR.k);   // sprinting: the view stretches a little
   const crouch = (D.crK || 0) * 10;
   const v = Math.hypot(p.vx, p.vy);
   VIEW_FX.bobAmt = lerp(VIEW_FX.bobAmt, p.roll > 0 ? 0 : Math.min(1, v / RUN), Math.min(1, rdt * 8));

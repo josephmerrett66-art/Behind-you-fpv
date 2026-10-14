@@ -55,7 +55,7 @@ function simStep(dt) {
   const back = my < 0 && !isoP() ? 0.78 : 1;
   const speed = RUN * rgSpeed() * exWeight() * dayMoveK() * (rg.drink ? 0.3 : 1) * (S.day ? sprintStep(dt, ml) : 1);
   const wx = (rx * mx * 0.95 + fx * my * back) * speed, wy = (ry * mx * 0.95 + fy * my * back) * speed;
-  const k = 1 - Math.exp(-ACCEL * dt);
+  const k = 1 - Math.exp(-ACCEL * 1.9 * dt);   // you get going and stop sharply, so the stick feels direct
   p.vx += (wx - p.vx) * k; p.vy += (wy - p.vy) * k;
   if (p.rollCool > 0) { p.rollCool -= dt; if (p.rollCool <= 0) dodgeBtn.dataset.cool = '0'; }
   if (p.roll > 0) {                          // fast at the start, easing out at the end

@@ -176,7 +176,7 @@ function posePlayer(now) {
   const A = p.atk && p.atk.t < p.atk.dur ? p.atk : null, Wa = p.wact && !p.wact.hold && !D.draw && p.wact.t < (p.wact.dur || 0.4) ? p.wact : null, act = p.act && p.act.t < p.act.dur ? p.act : null;
   // which way you face: you snap to your aim for a blow or a shot, otherwise you turn smoothly into the way you're going
   const aimF = A || Wa || D.draw, want = aimF || v < 12 ? S.aimW : Math.atan2(p.vy, p.vx);
-  X.face = X.face === undefined ? want : X.face + angDiff(want, X.face) * Math.min(1, dt * (aimF ? 30 : 10));
+  X.face = X.face === undefined ? want : X.face + angDiff(want, X.face) * Math.min(1, dt * (aimF ? 30 : 18));
   let rootY = 0, lunge = 0, side = 0, rollX = 0, stiff = 14;
   const lean = (k) => { P.spine[0] += k * 0.55; P.chest[0] += k * 0.35; };
   // ---- moving: a run with real weight in it, or standing and breathing ----

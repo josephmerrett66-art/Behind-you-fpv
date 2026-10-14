@@ -128,9 +128,10 @@ function pollPad(dt) {
     if (any) setMode('pad');
     if (inputMode !== 'pad') continue;
     IN.mx += mx; IN.my += my;
-    const mag = Math.hypot(rx, ry), curve = mag > 0 ? Math.pow(mag, 1.7) / mag : 0;
-    padTurn = mag > 0.92 ? Math.min(1, padTurn + dt * 2.2) : Math.max(0, padTurn - dt * 6);
-    IN.lx += rx * curve * (3.1 + 1.6 * padTurn) * SET.sens * dt; IN.ly += ry * curve * 2.2 * SET.sens * dt;
+    // the right stick turns straight away: a gentle curve keeps small pushes fine, and held right over it speeds up within a beat
+    const mag = Math.hypot(rx, ry), curve = mag > 0 ? Math.pow(mag, 1.3) / mag : 0;
+    padTurn = mag > 0.85 ? Math.min(1, padTurn + dt * 6) : Math.max(0, padTurn - dt * 8);
+    IN.lx += rx * curve * (3.8 + 1.8 * padTurn) * SET.sens * dt; IN.ly += ry * curve * 2.6 * SET.sens * dt;
     const press = i => btn(i) && !padPrev[i];
     padMenu(dt, btn, press, gp.axes[0] || 0, gp.axes[1] || 0, ry);
     if (state === 'play' && !menusOpen()) {

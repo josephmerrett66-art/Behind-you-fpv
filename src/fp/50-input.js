@@ -133,8 +133,8 @@ function pollPad(dt) {
     padTurn = mag > 0.85 ? Math.min(1, padTurn + dt * 6) : Math.max(0, padTurn - dt * 8);
     IN.lx += rx * curve * (3.8 + 1.8 * padTurn) * SET.sens * dt; IN.ly += ry * curve * 2.6 * SET.sens * dt;
     const press = i => btn(i) && !padPrev[i];
-    padMenu(dt, btn, press, gp.axes[0] || 0, gp.axes[1] || 0, ry);
-    if (state === 'play' && !menusOpen()) {
+    const inMenu = padMenu(dt, btn, press, gp.axes[0] || 0, gp.axes[1] || 0, ry);
+    if (state === 'play' && !menusOpen() && !inMenu) {   // a press that just shut a menu (B to back out) isn't also a dodge or a swing
       if (press(7) || press(0)) attack();
       const a = btn(7) || btn(0); if (padAtk && !a) rngUp(); padAtk = a;
       if (press(1)) dodge();

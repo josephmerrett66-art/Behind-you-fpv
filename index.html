@@ -6402,6 +6402,7 @@ const LU = {
   tPos: { value: new V3() }, tDir: { value: new V3(0, 0, -1) }, tCone: { value: new THREE.Vector2(Math.cos(0.38 * 1.12), Math.cos(0.38 * 0.5)) },
   tRange: { value: RANGE * 1.25 }, tCol: { value: new V3(1.0, 0.88, 0.7) }, amb: { value: new V3(1, 1, 1) },
   sunDir: { value: new V3(-0.4, 0.75, -0.5).normalize() }, sunK: { value: 1 },
+  shMap: { value: null }, shM: { value: new M4() }, shP: { value: new V4(0, 1 / 2048, 0.002, 0) }, shC: { value: new V4(0, 0, 1, 0) },
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(420, 950) },
   time: { value: 0 }, camPos: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
@@ -6409,9 +6410,22 @@ const LU = {
 const LIGHT_GLSL = `
 uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK;
 uniform vec4 pl[${NL}]; uniform vec3 plc[${NL}];
+uniform sampler2D shMap; uniform mat4 shM; uniform vec4 shP, shC;
+// the sun's shadow (13-sun.js): 1 in the open, down toward shP.x's share in the shade of whatever stands between here and the sun
+float sunShade(vec3 p) {
+  if (shP.x < 0.005) return 1.0;
+  vec3 s = (shM * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+  float e = smoothstep(0.5, 0.4, max(abs(s.x - 0.5), abs(s.y - 0.5)));
+  if (e <= 0.0) return 1.0;
+  float d = s.z - shP.z, o = shP.y, k = 0.0;
+  k += step(texture2D(shMap, s.xy).r, d);
+  k += step(texture2D(shMap, s.xy + vec2(o, o * 0.4)).r, d); k += step(texture2D(shMap, s.xy - vec2(o, o * 0.4)).r, d);
+  k += step(texture2D(shMap, s.xy + vec2(-o * 0.4, o)).r, d); k += step(texture2D(shMap, s.xy - vec2(-o * 0.4, o)).r, d);
+  return 1.0 - shP.x * e * k * 0.2;
+}
 vec3 lightAt(vec3 p, vec3 n, float useN) {
   float sun = mix(1.0, 0.7 + 0.45 * max(dot(n, sunDir), 0.0), useN * sunK);
-  vec3 c = amb * sun;
+  vec3 c = amb * sun * sunShade(p + n * 0.6);
   vec3 L = p - tPos; float d = length(L); vec3 l = L / max(d, 0.001);
   float cone = smoothstep(tCone.x, tCone.y, dot(l, tDir));
   float fall = clamp(1.0 - 0.5 * d / tRange, 0.0, 1.0) * smoothstep(tRange, tRange * 0.62, d);
@@ -6600,7 +6614,7 @@ class Board {
           gl_FragColor = vec4(fogged(grey(t.rgb * vSh.y * lightAt(vW, vec3(0.0), 0.0) * ${cover ? '1.18' : '1.12'}), vW), t.a);
         }`,
     });
-    this.m = m; this.mesh = new THREE.Mesh(g, m); this.mesh.frustumCulled = false; scene.add(this.mesh); this.n = 0;
+    this.m = m; this.mesh = new THREE.Mesh(g, m); this.mesh.frustumCulled = false; scene.add(castsShadow(this.mesh)); this.n = 0;
   }
   begin() { this.n = 0; }
   // one sprite: kind and variant from the atlas, its foot at (x, y) on the ground (h above it), scale, facing (1 or -1), sway, struck time, seed
@@ -6910,8 +6924,8 @@ shGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, 0, -1, 1, 0
 const shDat = new Float32Array(MAXSH * 4); { const b = new THREE.InstancedBufferAttribute(shDat, 4); b.setUsage(THREE.DynamicDrawUsage); shGeo.setAttribute('sd', b); }
 shGeo.instanceCount = 0;
 const shMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ k: { value: 0.3 }, lean: { value: new THREE.Vector2(0.3, 0.3) } }, LU), transparent: true, depthWrite: false,
-  vertexShader: `attribute vec4 sd; uniform vec2 lean; varying vec2 vQ; varying vec3 vW; void main() { vQ = position.xz; vec3 w = vec3(sd.x + position.x * sd.z + lean.x * sd.w * (position.z * 0.5 + 0.5), 0.2, sd.y + position.z * sd.z * 0.75 + lean.y * sd.w * (position.z * 0.5 + 0.5)); vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
-  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, camPos.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
+  vertexShader: `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float near = sd.w < 0.0 ? shC.w * smoothstep(shC.z * 0.92, shC.z * 0.72, distance(sd.xy, shC.xy)) : 0.0, r = sd.z * mix(1.0, 0.5, near), len = abs(sd.w) * (1.0 - near); vK = 1.0 - 0.45 * near; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.2, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
+  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * vK * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, camPos.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
 const shMesh = new THREE.Mesh(shGeo, shMat); shMesh.frustumCulled = false; shMesh.renderOrder = 2; scene.add(shMesh);
 let shN = 0, shBase = 0;
 function shadow(x, y, r, len = 0) { if (shN >= MAXSH) return; const i = shN++ * 4; shDat[i] = x; shDat[i + 1] = y; shDat[i + 2] = r; shDat[i + 3] = len; }
@@ -6939,14 +6953,14 @@ function worldSync(force) {
     if (o.kind === 'tree') {
       const kind = kindOfTree(o), M = ATLAS.meta[kind], v = (o.seed * 997 | 0) % M.length, m = (o.seed * 7919 % 1) < 0.5 ? 1 : -1;
       if (!treeAdd(o, kind, Math.hypot(o.x - p.x, o.y - p.y))) tallB.add(kind, v, o.x, o.y, o.s * TREE_K, m, kind === 'dead' ? 0.4 : 1, o.shakeT ?? -99, o.seed);
-      shadow(o.x, o.y, (kind === 'pine' ? 15 : kind === 'dead' ? 10 : 20) * o.s * 1.2, (kind === 'pine' ? 90 : 70) * o.s);
+      shadow(o.x, o.y, (kind === 'pine' ? 15 : kind === 'dead' ? 10 : 20) * o.s * 1.2, -(kind === 'pine' ? 90 : 70) * o.s);
     } else if (o.kind === 'rock') {
       tallB.add('rock', (hash(o.x * 0.37, o.y * 0.91) * 50 | 0), o.x, o.y, o.s * ROCK_K, 1, 0, o.shakeT ?? -99, 0);
       shadow(o.x, o.y, 15 * o.s, 10 * o.s);
     } else if (o.kind === 'post') { tallB.add('post', (hash(o.x * 0.53, o.y * 0.29) * 50 | 0), o.x, o.y, 1.4, 1, 0); shadow(o.x, o.y, 5, 18); }
   }
   // the camp's storage box, water barrel and woodpile are solid (yardKit); they only need their shadows here
-  for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, 10);
+  for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, -10);
   tallB.end(); treesEnd(); shBase = shN;
   // ground cover
   // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's
@@ -7104,7 +7118,7 @@ function treesBuild() {
   treesBuilt = true;
   for (const k of TREE_KINDS) for (let v = 0; v < TREE_NV; v++) {
     const g = treeModel(k, v), m = new THREE.InstancedMesh(g, treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
-    m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(m); scene.add(e);
+    m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
     TREES[k].push({ m, e, list: [] });
   }
 }
@@ -7252,6 +7266,48 @@ function grassMask(px, py, lakes, gen) {
 Object.assign(groundMesh.material.uniforms, { mask: grassU.mask, mo: grassU.mo, ms: grassU.ms });   // the ground under it knows where it grows
 
 ;
+// ================= the sun's shadows: the real shape of whatever stands in its light =================
+// Each frame the trees, logs, the camp, everyone in the woods and you are drawn once more from the sun's side into a depth
+// map covering the ground round you, and every lit surface (13-sun's sunShade in LIGHT_GLSL) checks it to see whether the sun
+// can reach it. So a pine lays down a long jagged shadow, a raider's shadow swings its arms, and your own runs along beside
+// you. They lengthen and warm as the sun goes down and fade out at dusk; past the edge of the map the old soft pools take over.
+const SUN = (() => {
+  const fast = SET.quality === 'fast', N = fast || TOUCH ? 1024 : 2048, R = fast ? 260 : TOUCH ? 300 : 360;   // a phone gets a lighter map
+  const rt = new THREE.WebGLRenderTarget(N, N, { depthBuffer: true, stencilBuffer: false });
+  rt.depthTexture = new THREE.DepthTexture(N, N); rt.depthTexture.minFilter = rt.depthTexture.magFilter = THREE.NearestFilter;
+  const cam = new THREE.OrthographicCamera(-R, R, R, -R, 10, 2600); cam.layers.set(1);
+  const mat = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide });
+  LU.shMap.value = rt.depthTexture; LU.shP.value.set(0, 1.1 / N, 1.6 / 2590, 0);
+  return { N, R, rt, cam, mat, c: new V3(), v: new V3(), d: new V3() };
+})();
+// mark something as standing in the sun's light (a mesh, or a group and everything in it)
+function castsShadow(o) { o.traverse(q => q.layers.enable(1)); return o; }
+
+function sunShadows() {
+  const k = LU.sunK.value, on = state === 'play' && k > 0.04;
+  LU.shP.value.x = on ? 0.6 * Math.min(1, k * 1.4) : 0; LU.shC.value.w = on ? 1 : 0;
+  if (!on) return;
+  const { R, N, cam: sc, c, v, d } = SUN, p = S.p;
+  // centred a little ahead of where you look, so more of what you can see is covered
+  const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
+  c.set(p.x + fx * R * 0.35, 0, p.y + fz * R * 0.35);
+  d.copy(LU.sunDir.value); if (d.y < 0.3) { d.y = 0.3; d.normalize(); }   // a low sun's shadows run long, but not off the map
+  sc.position.copy(c).addScaledVector(d, 1300); sc.up.set(0, 1, 0); sc.lookAt(c); sc.updateMatrixWorld();
+  // keep the map's texels fixed on the ground as you walk, so the edges don't crawl
+  const tx = 2 * R / N; v.copy(c).applyMatrix4(sc.matrixWorldInverse);
+  const ox = v.x - Math.round(v.x / tx) * tx, oy = v.y - Math.round(v.y / tx) * tx;
+  const right = new V3().setFromMatrixColumn(sc.matrixWorld, 0), up = new V3().setFromMatrixColumn(sc.matrixWorld, 1);
+  sc.position.addScaledVector(right, -ox).addScaledVector(up, -oy); sc.updateMatrixWorld();
+  LU.shM.value.multiplyMatrices(sc.projectionMatrix, sc.matrixWorldInverse);
+  LU.shC.value.set(c.x, c.z, R, 1);
+  // the depth from the sun's side: only things marked as casting
+  const prevT = renderer.getRenderTarget();
+  scene.overrideMaterial = SUN.mat;
+  renderer.setRenderTarget(SUN.rt); renderer.clear(false, true, false); renderer.render(scene, sc);
+  scene.overrideMaterial = null; renderer.setRenderTarget(prevT);
+}
+
+;
 // ================= figures: the raiders and the animals, built of rounded limbs with the game's dark outline =================
 // Each is posed fresh every frame from what the main game says it is doing (walking, winding up a blow, striking, writhing
 // in your light, grazing, fleeing, charging), and drawn as a handful of instanced shapes.
@@ -7276,7 +7332,7 @@ class Part {
     this.col = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4); this.col.setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('iCol', this.col);
     this.mesh = new THREE.InstancedMesh(geo, figMat, cap); this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.mesh.frustumCulled = false; this.mesh.count = 0; scene.add(this.mesh);
+    this.mesh.frustumCulled = false; this.mesh.count = 0; scene.add(castsShadow(this.mesh));
     if (edge) { this.edge = new THREE.InstancedMesh(geo, figEdge, cap); this.edge.instanceMatrix = this.mesh.instanceMatrix; this.edge.frustumCulled = false; this.edge.count = 0; scene.add(this.edge); }
     this.n = 0;
   }
@@ -8985,7 +9041,7 @@ function placeHands(dt, now, bob, lag) {
 // The camera pulls in when a tree trunk gets between it and you. Toggle it in the pause menu, or with V.
 const thirdP = () => SET.view === 'third';
 const TP = { boom: 76, face: undefined, holdId: null, items: new Map(), hold: new THREE.Group(), yawLast: 0 };
-TP.hold.matrixAutoUpdate = false; scene.add(TP.hold);
+TP.hold.matrixAutoUpdate = false; scene.add(TP.hold);   // its items are marked as casting shadows as they're made (76-body.js)
 
 // the camera: from your head, back along where you look and over your right shoulder, short of any trunk in the way
 const _tpv = new V3();
@@ -9165,7 +9221,7 @@ const BODY = (() => {
   const sk = new THREE.Skeleton(bones);
   mesh.add(bones[0]); mesh.bind(sk); edge.bind(sk, mesh.bindMatrix);
   mesh.frustumCulled = edge.frustumCulled = false; mesh.visible = edge.visible = false;
-  scene.add(mesh); scene.add(edge);
+  scene.add(castsShadow(mesh)); scene.add(edge);
   const B = {}; bones.forEach(b => B[b.name] = b);
   const cur = {}; for (const [n] of BONES) cur[n] = [0, 0, 0];
   return { mesh, edge, B, cur, root: [0, 0, 0], face: undefined, deadT: 0, atk: null, lastU: 0 };
@@ -9313,7 +9369,7 @@ function posePlayer(now) {
   if (id !== TP.holdId) {
     if (TP.holdId && TP.items.has(TP.holdId)) TP.items.get(TP.holdId).visible = false;
     TP.holdId = id;
-    if (id) { if (!TP.items.has(id)) { const G = itemModel(id).clone(true); TP.hold.add(G); TP.items.set(id, G); } TP.items.get(id).visible = true; }
+    if (id) { if (!TP.items.has(id)) { const G = castsShadow(itemModel(id).clone(true)); TP.hold.add(G); TP.items.set(id, G); } TP.items.get(id).visible = true; }
   }
   const hand = bow ? X.B.handL : X.B.handR;
   if (id && TP.items.has(id)) {
@@ -9654,7 +9710,7 @@ function frame(t) {
   drawFigures(now, fdt);
   fxFrame(fdt, now);
   if (state === 'play') combatFrame(fdt, rdt, now); else combatDraw(rdt, now);
-  shN = shBase; for (const e of S.rg.enemies) if (!e.dead) shadow(e.x, e.y, 9 * foeScale(e), 30); for (const o of S.day.beasts) shadow(o.x, o.y, (BEAST[o.k] ? BEAST[o.k].w : 10) * 0.8, 12); shadowsEnd();
+  shN = shBase; for (const e of S.rg.enemies) if (!e.dead) shadow(e.x, e.y, 9 * foeScale(e), -30); for (const o of S.day.beasts) shadow(o.x, o.y, (BEAST[o.k] ? BEAST[o.k].w : 10) * 0.8, -12); if (thirdP()) shadow(S.p.x, S.p.y, 8, -24); shadowsEnd();
   figuresEnd();
   flushPoints(fdt);
   hurtFx = Math.max(0, hurtFx - rdt * 1.6); healFx = Math.max(0, healFx - rdt * 1.4);
@@ -9666,6 +9722,7 @@ function frame(t) {
   document.body.classList.toggle('fallen', S.rg.phase === 'dead');
   buildbarEl.hidden = hotbarEl.hidden || dayTool() !== 'build' || !craftEl.hidden;
   drawHud(); audioFrame();
+  sunShadows();
   renderer.clear();
   renderer.render(scene, cam);
   renderer.clearDepth(); renderer.render(vmScene, vmCam);

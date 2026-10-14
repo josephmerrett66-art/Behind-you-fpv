@@ -62,7 +62,7 @@ class Board {
           gl_FragColor = vec4(fogged(grey(t.rgb * vSh.y * lightAt(vW, vec3(0.0), 0.0) * ${cover ? '1.18' : '1.12'}), vW), t.a);
         }`,
     });
-    this.m = m; this.mesh = new THREE.Mesh(g, m); this.mesh.frustumCulled = false; scene.add(this.mesh); this.n = 0;
+    this.m = m; this.mesh = new THREE.Mesh(g, m); this.mesh.frustumCulled = false; scene.add(castsShadow(this.mesh)); this.n = 0;
   }
   begin() { this.n = 0; }
   // one sprite: kind and variant from the atlas, its foot at (x, y) on the ground (h above it), scale, facing (1 or -1), sway, struck time, seed
@@ -372,8 +372,8 @@ shGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, 0, -1, 1, 0
 const shDat = new Float32Array(MAXSH * 4); { const b = new THREE.InstancedBufferAttribute(shDat, 4); b.setUsage(THREE.DynamicDrawUsage); shGeo.setAttribute('sd', b); }
 shGeo.instanceCount = 0;
 const shMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ k: { value: 0.3 }, lean: { value: new THREE.Vector2(0.3, 0.3) } }, LU), transparent: true, depthWrite: false,
-  vertexShader: `attribute vec4 sd; uniform vec2 lean; varying vec2 vQ; varying vec3 vW; void main() { vQ = position.xz; vec3 w = vec3(sd.x + position.x * sd.z + lean.x * sd.w * (position.z * 0.5 + 0.5), 0.2, sd.y + position.z * sd.z * 0.75 + lean.y * sd.w * (position.z * 0.5 + 0.5)); vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
-  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, camPos.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
+  vertexShader: `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float near = sd.w < 0.0 ? shC.w * smoothstep(shC.z * 0.92, shC.z * 0.72, distance(sd.xy, shC.xy)) : 0.0, r = sd.z * mix(1.0, 0.5, near), len = abs(sd.w) * (1.0 - near); vK = 1.0 - 0.45 * near; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.2, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
+  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * vK * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, camPos.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
 const shMesh = new THREE.Mesh(shGeo, shMat); shMesh.frustumCulled = false; shMesh.renderOrder = 2; scene.add(shMesh);
 let shN = 0, shBase = 0;
 function shadow(x, y, r, len = 0) { if (shN >= MAXSH) return; const i = shN++ * 4; shDat[i] = x; shDat[i + 1] = y; shDat[i + 2] = r; shDat[i + 3] = len; }
@@ -401,14 +401,14 @@ function worldSync(force) {
     if (o.kind === 'tree') {
       const kind = kindOfTree(o), M = ATLAS.meta[kind], v = (o.seed * 997 | 0) % M.length, m = (o.seed * 7919 % 1) < 0.5 ? 1 : -1;
       if (!treeAdd(o, kind, Math.hypot(o.x - p.x, o.y - p.y))) tallB.add(kind, v, o.x, o.y, o.s * TREE_K, m, kind === 'dead' ? 0.4 : 1, o.shakeT ?? -99, o.seed);
-      shadow(o.x, o.y, (kind === 'pine' ? 15 : kind === 'dead' ? 10 : 20) * o.s * 1.2, (kind === 'pine' ? 90 : 70) * o.s);
+      shadow(o.x, o.y, (kind === 'pine' ? 15 : kind === 'dead' ? 10 : 20) * o.s * 1.2, -(kind === 'pine' ? 90 : 70) * o.s);
     } else if (o.kind === 'rock') {
       tallB.add('rock', (hash(o.x * 0.37, o.y * 0.91) * 50 | 0), o.x, o.y, o.s * ROCK_K, 1, 0, o.shakeT ?? -99, 0);
       shadow(o.x, o.y, 15 * o.s, 10 * o.s);
     } else if (o.kind === 'post') { tallB.add('post', (hash(o.x * 0.53, o.y * 0.29) * 50 | 0), o.x, o.y, 1.4, 1, 0); shadow(o.x, o.y, 5, 18); }
   }
   // the camp's storage box, water barrel and woodpile are solid (yardKit); they only need their shadows here
-  for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, 10);
+  for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, -10);
   tallB.end(); treesEnd(); shBase = shN;
   // ground cover
   // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's

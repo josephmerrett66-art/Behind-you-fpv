@@ -22,7 +22,7 @@ class Part {
     this.col = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4); this.col.setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('iCol', this.col);
     this.mesh = new THREE.InstancedMesh(geo, figMat, cap); this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.mesh.frustumCulled = false; this.mesh.count = 0; scene.add(this.mesh);
+    this.mesh.frustumCulled = false; this.mesh.count = 0; scene.add(castsShadow(this.mesh));
     if (edge) { this.edge = new THREE.InstancedMesh(geo, figEdge, cap); this.edge.instanceMatrix = this.mesh.instanceMatrix; this.edge.frustumCulled = false; this.edge.count = 0; scene.add(this.edge); }
     this.n = 0;
   }

@@ -57,6 +57,7 @@ const LU = {
   tPos: { value: new V3() }, tDir: { value: new V3(0, 0, -1) }, tCone: { value: new THREE.Vector2(Math.cos(0.38 * 1.12), Math.cos(0.38 * 0.5)) },
   tRange: { value: RANGE * 1.25 }, tCol: { value: new V3(1.0, 0.88, 0.7) }, amb: { value: new V3(1, 1, 1) },
   sunDir: { value: new V3(-0.4, 0.75, -0.5).normalize() }, sunK: { value: 1 },
+  shMap: { value: null }, shM: { value: new M4() }, shP: { value: new V4(0, 1 / 2048, 0.002, 0) }, shC: { value: new V4(0, 0, 1, 0) },
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(420, 950) },
   time: { value: 0 }, camPos: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
@@ -64,9 +65,22 @@ const LU = {
 const LIGHT_GLSL = `
 uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK;
 uniform vec4 pl[${NL}]; uniform vec3 plc[${NL}];
+uniform sampler2D shMap; uniform mat4 shM; uniform vec4 shP, shC;
+// the sun's shadow (13-sun.js): 1 in the open, down toward shP.x's share in the shade of whatever stands between here and the sun
+float sunShade(vec3 p) {
+  if (shP.x < 0.005) return 1.0;
+  vec3 s = (shM * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+  float e = smoothstep(0.5, 0.4, max(abs(s.x - 0.5), abs(s.y - 0.5)));
+  if (e <= 0.0) return 1.0;
+  float d = s.z - shP.z, o = shP.y, k = 0.0;
+  k += step(texture2D(shMap, s.xy).r, d);
+  k += step(texture2D(shMap, s.xy + vec2(o, o * 0.4)).r, d); k += step(texture2D(shMap, s.xy - vec2(o, o * 0.4)).r, d);
+  k += step(texture2D(shMap, s.xy + vec2(-o * 0.4, o)).r, d); k += step(texture2D(shMap, s.xy - vec2(-o * 0.4, o)).r, d);
+  return 1.0 - shP.x * e * k * 0.2;
+}
 vec3 lightAt(vec3 p, vec3 n, float useN) {
   float sun = mix(1.0, 0.7 + 0.45 * max(dot(n, sunDir), 0.0), useN * sunK);
-  vec3 c = amb * sun;
+  vec3 c = amb * sun * sunShade(p + n * 0.6);
   vec3 L = p - tPos; float d = length(L); vec3 l = L / max(d, 0.001);
   float cone = smoothstep(tCone.x, tCone.y, dot(l, tDir));
   float fall = clamp(1.0 - 0.5 * d / tRange, 0.0, 1.0) * smoothstep(tRange, tRange * 0.62, d);

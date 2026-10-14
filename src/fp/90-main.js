@@ -256,7 +256,7 @@ function frame(t) {
   drawFigures(now, fdt);
   fxFrame(fdt, now);
   if (state === 'play') combatFrame(fdt, rdt, now); else combatDraw(rdt, now);
-  shN = shBase; for (const e of S.rg.enemies) if (!e.dead) shadow(e.x, e.y, 9 * foeScale(e), 30); for (const o of S.day.beasts) shadow(o.x, o.y, (BEAST[o.k] ? BEAST[o.k].w : 10) * 0.8, 12); shadowsEnd();
+  shN = shBase; for (const e of S.rg.enemies) if (!e.dead) shadow(e.x, e.y, 9 * foeScale(e), -30); for (const o of S.day.beasts) shadow(o.x, o.y, (BEAST[o.k] ? BEAST[o.k].w : 10) * 0.8, -12); if (thirdP()) shadow(S.p.x, S.p.y, 8, -24); shadowsEnd();
   figuresEnd();
   flushPoints(fdt);
   hurtFx = Math.max(0, hurtFx - rdt * 1.6); healFx = Math.max(0, healFx - rdt * 1.4);
@@ -268,6 +268,7 @@ function frame(t) {
   document.body.classList.toggle('fallen', S.rg.phase === 'dead');
   buildbarEl.hidden = hotbarEl.hidden || dayTool() !== 'build' || !craftEl.hidden;
   drawHud(); audioFrame();
+  sunShadows();
   renderer.clear();
   renderer.render(scene, cam);
   renderer.clearDepth(); renderer.render(vmScene, vmCam);

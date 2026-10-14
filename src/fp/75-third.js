@@ -4,7 +4,7 @@
 // The camera pulls in when a tree trunk gets between it and you. Toggle it in the pause menu, or with V.
 const thirdP = () => SET.view === 'third';
 const TP = { boom: 76, face: undefined, holdId: null, items: new Map(), hold: new THREE.Group(), yawLast: 0 };
-TP.hold.matrixAutoUpdate = false; scene.add(TP.hold);
+TP.hold.matrixAutoUpdate = false; scene.add(TP.hold);   // its items are marked as casting shadows as they're made (76-body.js)
 
 // the camera: from your head, back along where you look and over your right shoulder, short of any trunk in the way
 const _tpv = new V3();

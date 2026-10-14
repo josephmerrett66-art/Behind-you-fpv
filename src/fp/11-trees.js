@@ -132,7 +132,7 @@ function treesBuild() {
   treesBuilt = true;
   for (const k of TREE_KINDS) for (let v = 0; v < TREE_NV; v++) {
     const g = treeModel(k, v), m = new THREE.InstancedMesh(g, treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
-    m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(m); scene.add(e);
+    m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
     TREES[k].push({ m, e, list: [] });
   }
 }

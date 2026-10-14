@@ -137,7 +137,7 @@ const BODY = (() => {
   const sk = new THREE.Skeleton(bones);
   mesh.add(bones[0]); mesh.bind(sk); edge.bind(sk, mesh.bindMatrix);
   mesh.frustumCulled = edge.frustumCulled = false; mesh.visible = edge.visible = false;
-  scene.add(mesh); scene.add(edge);
+  scene.add(castsShadow(mesh)); scene.add(edge);
   const B = {}; bones.forEach(b => B[b.name] = b);
   const cur = {}; for (const [n] of BONES) cur[n] = [0, 0, 0];
   return { mesh, edge, B, cur, root: [0, 0, 0], face: undefined, deadT: 0, atk: null, lastU: 0 };
@@ -285,7 +285,7 @@ function posePlayer(now) {
   if (id !== TP.holdId) {
     if (TP.holdId && TP.items.has(TP.holdId)) TP.items.get(TP.holdId).visible = false;
     TP.holdId = id;
-    if (id) { if (!TP.items.has(id)) { const G = itemModel(id).clone(true); TP.hold.add(G); TP.items.set(id, G); } TP.items.get(id).visible = true; }
+    if (id) { if (!TP.items.has(id)) { const G = castsShadow(itemModel(id).clone(true)); TP.hold.add(G); TP.items.set(id, G); } TP.items.get(id).visible = true; }
   }
   const hand = bow ? X.B.handL : X.B.handR;
   if (id && TP.items.has(id)) {

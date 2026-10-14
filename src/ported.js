@@ -810,8 +810,171 @@ function killFoe(e) {
   dropWisps(e);
   if (S.day) { dayRareDrop(e); dayInfKill(e); dayCapDrop(e); }   // v190, v191
 }
+const STK_TIERS = [
+  { n: 0, m: 1, name: '', win: 2.6, col: [255, 236, 210] },
+  { n: 5, m: 2, name: 'LIT', win: 2.5, col: [255, 214, 150] },
+  { n: 10, m: 3, name: 'ABLAZE', win: 2.3, col: [255, 178, 90] },
+  { n: 20, m: 4, name: 'INFERNO', win: 2.1, col: [255, 132, 52] },
+  { n: 35, m: 5, name: 'HELLFIRE', win: 1.95, col: [255, 86, 40] },
+  { n: 50, m: 6, name: 'SUNBURST', win: 1.8, col: [255, 246, 226] },
+];
+const STK_PTS = { shade: 10, stalker: 10, kamikaze: 5, splitling: 5, splitter: 20, archer: 25, spear: 25, laser: 25, bomber: 25, brute: 40, centi: 40, tall: 80 };
 const STK_COL = { shade: '236,226,210', stalker: '196,160,235', brute: '226,170,120', bomber: '255,90,70' };
 const stkCol = t => STK_COL[t] || EYES[t] || '236,226,210';
+const STK_HIT_T = 0.35, STK_BOSS_WIN = 4, STK_WISP = 150, STK_BLOW = 15;
+const STK_BONUS = { yank: ['YANKED', 30], swingby: ['SWING BY', 25], volley: ['VOLLEY', 25], vault: ['VAULT', 25], backstab: ['BACKSTAB', 60], blink: ['BLINK', 25], flurry: ['FLURRY', 25], homerun: ['HOME RUN', 35], roots: ['ROOTED', 30], whirlwind: ['WHIRLWIND', 30], orbit: ['ORBIT', 30], spin: ['SPIN', 20], uppercut: ['UPPERCUT', 30], erupt: ['ERUPT', 30], hurl: ['HURLED', 40], lunge: ['PIERCE', 25], ricochet: ['RICOCHET', 40], echo: ['ECHO', 30], cleave: ['CLEAVE', 25], timber: ['TIMBER', 40], bulldoze: ['BULLDOZE', 25], boomerang: ['BOOMERANG', 30], double: ['DOUBLE', 20], triple: ['TRIPLE', 60], multi: ['MULTI', 150], slam: ['SLAM', 25], skewer: ['SKEWER', 25], burnout: ['BURNOUT', 10],
+  near: ['NEAR MISS', 40], revenge: ['REVENGE', 50], pack: ['PACK DOWN', 100], ff: ['FRIENDLY FIRE', 60], last: ['LAST LIGHT', 0], untouched: ['UNTOUCHED', 300],
+  punish: ['PUNISH', 100], nohit: ['NO HIT', 2000], boss: ['BOSS DOWN', 0] };
+let STK_MODE = 'full';
+const stkOn = () => STK_MODE !== 'off';
+const stkLoud = () => STK_MODE === 'full';
+const stkFx = () => { const o = isRg() && S.rg ? S.rg : S; return o.stkfx || (o.stkfx = { pops: [], words: [], tier: null, cash: null, crack: 0, punch: 0, shown: 0, glow: 0, ring: [] }); };
+const stkFight = () => isRg() && S.rg && S.rg.phase === 'fight' && !(S.mode === 'expedition' && S.rg.inCamp);
+const stkBossOn = () => S.mode === 'expedition' && !!(bossLive() || miniLive());
+const stkWin = k => stkBossOn() ? STK_BOSS_WIN : STK_TIERS[k.tier].win;
+function stkNew() {
+  const rg = S.rg;
+  const o = rg.stk || {};
+  return rg.stk = { n: 0, heat: 0, tier: 0, pts: 0, t: 0, hits: 0, untouched: false, burst: null, foe: o.foe || null, foeT: o.foeT ?? -9, near: o.near ?? -9, stopT: -9 };
+}
+function stkAdd(x, y, z, base, col, kill) {        // one link in the streak: a kill, or a blow on a boss
+  const rg = S.rg; let k = rg.stk;
+  if (!k || k.n === 0) k = stkNew();
+  const T0 = k.tier;
+  k.n++; k.heat += kill ? 1 : 0.5;
+  while (k.tier < STK_TIERS.length - 1 && k.heat >= STK_TIERS[k.tier + 1].n) k.tier++;
+  const m = STK_TIERS[k.tier].m, v = base * m;
+  k.pts += v; k.t = stkWin(k);
+  const F = stkFx();
+  if (F.pops.length > 40) F.pops.shift();
+  F.pops.push({ x, y, z, v, col, t: 0, big: base >= 80 });
+  if (stkOn()) stkBzing(k.n, kill);
+  if (kill && k.tier === T0 && S.t - k.stopT > 0.35) { k.stopT = S.t; hitStop(0.022); }   // a blink of freeze on a kill, spaced out so a horde never turns it into a stutter
+  if (k.tier > T0) stkTierUp(k);
+  return m;
+}
+function stkWord(id, extra) {                     // a bonus: its word by the counter (the same word again counts up), and its points
+  const k = S.rg.stk, B = STK_BONUS[id], F = stkFx(); if (!k || !B) return;
+  const pts = (extra !== undefined ? extra : B[1]) * STK_TIERS[k.tier].m;
+  k.pts += pts;
+  if (id === 'burnout') return;                   // most kills burn: its points count quietly, no word
+  if (!EX_TEST) lifeTally('bon', id);
+  let w = F.words.find(w => w.id === id || (w.grp && w.grp === STK_GRP[id]));
+  if (w) { w.id = id; w.txt = B[0]; w.c++; w.t = 0; w.pts += pts; if (STK_GRP[id]) w.c = 1; }
+  else { F.words.push(w = { id, txt: B[0], c: 1, t: 0, pts, grp: STK_GRP[id] }); if (F.words.length > 3) F.words.shift(); }
+  if (stkOn() && actx && sfxGain && id !== 'burnout') { const t = actx.currentTime, f = id === 'nohit' || id === 'untouched' ? 1568 : 1175; toneAt(t + 0.03, f, 0.18, 0.05, 'triangle', sfxGain); toneAt(t + 0.08, f * 1.5, 0.3, 0.045, 'triangle', sfxGain); }
+}
+const STK_GRP = { double: 'multi', triple: 'multi', multi: 'multi' };
+function stkKill(e) {                             // called from killFoe: every kill feeds the streak
+  if (!stkFight()) return;
+  const rg = S.rg, f = FOES[e.type]; if (!f) return;
+  const last = rg.hp <= 1 && !(rg.steel > 0);
+  const m = stkAdd(e.x, e.y, f.h * 0.75, (STK_PTS[e.type] || 10) * (last ? 2 : 1), stkCol(e.type), true);
+  const k = rg.stk, src = e.kHitT !== undefined && S.t - e.kHitT < 0.5 ? e.kHit : 'beam';
+  if (!k.burst || S.t - k.burst.t0 > 0.2) k.burst = { t0: S.t, n: 1 };
+  else { k.burst.n++; const n = k.burst.n; if (n === 2) stkWord('double'); else if (n === 3) stkWord('triple', 40); else if (n === 4) stkWord('multi', 90); }
+  if (src === 'slam') stkWord('slam'); else if (src === 'dash') stkWord('skewer'); else if (src === 'ff') stkWord('ff'); else if (['cleave', 'timber', 'bulldoze', 'boomerang', 'yank', 'swingby', 'volley', 'vault', 'backstab', 'blink', 'flurry', 'homerun', 'roots', 'whirlwind', 'orbit', 'spin', 'uppercut', 'erupt', 'hurl', 'lunge', 'ricochet', 'echo'].includes(src)) stkWord(src);
+  else if (src === 'beam' && !e.swung) stkWord('burnout');
+  if (S.t - k.near < 1) { k.near = -9; stkWord('near'); }
+  if (k.foe === e && S.t - k.foeT < 3) { k.foe = null; stkWord('revenge'); }
+  if (e.pk && !rg.enemies.some(o => o !== e && !o.dead && o.pk === e.pk)) stkWord('pack');
+  if (last) stkWord('last', 0);
+  if (!k.untouched && k.hits === 0 && k.n >= 20) { k.untouched = true; stkWord('untouched'); }
+  return m;
+}
+function stkTouch() {                             // a swing that lands but doesn't kill: a little more time
+  const k = S.rg && S.rg.stk; if (!k || !k.n) return;
+  k.t = Math.min(stkWin(k), k.t + STK_HIT_T);
+}
+function stkHurt(e) {                             // a hit costs a tier and half the time left, never the streak
+  const rg = S.rg; rg.stkNoHit = false;
+  if (e && e.kind === 'shade') { const k = rg.stk || stkNew(); k.foe = e; k.foeT = S.t; }
+  const k = rg.stk; if (!k || !k.n) return;
+  k.hits++;
+  const F = stkFx();
+  if (k.n >= 2) { F.crack = 1; if (stkOn()) stkGlass(); }
+  if (k.tier > 0) { k.tier--; k.heat = STK_TIERS[k.tier].n; F.drop = { t: 0, name: STK_TIERS[k.tier + 1].name }; }
+  k.t *= 0.5;
+}
+function stkNear() { const k = S.rg && (S.rg.stk || stkNew()); if (k) k.near = S.t; }
+function stkStep(dt) {
+  const rg = S.rg; if (!rg) return;
+  if (rg.stkPay && (rg.stkPay.t -= dt) <= 0) { gainWisps(rg.stkPay.n); lifeAdd('stkWisps', rg.stkPay.n); rg.stkPay = null; }   // the wisps peel off as the count lands
+  const k = rg.stk; if (!k || !k.n) return;
+  if (rg.phase !== 'fight') return;
+  if ((k.t -= dt) <= 0) stkCash();
+}
+function stkCash(now) {                           // the timer ran dry: count it up and pay (now: stepping into camp, so pay before it banks)
+  const rg = S.rg, k = rg && rg.stk; if (!k || !k.n) return;
+  const F = stkFx();
+  if (k.n >= 2) {
+    const tier = STK_TIERS[k.tier], pts = Math.round(k.pts);
+    const wisps = S.mode === 'expedition' && !(S.day && !dayDark()) ? Math.max(k.tier > 0 ? 1 : 0, Math.floor(pts / STK_WISP)) : 0;
+    F.cash = { t: 0, pts, n: k.n, tier: k.tier };
+    if (wisps) { if (now) { gainWisps(wisps); lifeAdd('stkWisps', wisps); } else rg.stkPay = { t: 0.6, n: (rg.stkPay ? rg.stkPay.n : 0) + wisps }; }
+    rg.score = (rg.score || 0) + pts;
+    rg.stkBest = Math.max(rg.stkBest || 0, k.n); if (k.tier > (rg.stkBestT || 0)) rg.stkBestT = k.tier;
+    lifeMax('stkBest', k.n); lifeMax('stkTier', k.tier); lifeMax('stkCash', pts);
+    if (S.mode === 'survive') lifeMax('nfScore', rg.score);
+    if (stkOn()) stkKaching(k.tier);
+    if (tier.m > 1) addShake(0.12);
+  }
+  rg.stk = { n: 0, near: k.near, foe: k.foe, foeT: k.foeT };
+}
+function stkLose() {                              // dying: the streak goes with you, unpaid
+  const rg = S.rg, k = rg && rg.stk; if (!k || !k.n) return;
+  if (k.n >= 2) { const F = stkFx(); F.lost = { t: 0, n: k.n }; }
+  rg.stk = null;
+}
+function stkTierUp(k) {
+  const T = STK_TIERS[k.tier], F = stkFx();
+  F.tier = { t: 0, name: T.name, m: T.m, col: T.col }; F.glow = 1;
+  hitStop(0.09); addShake(0.3 + 0.05 * k.tier);
+  const p = S.p; F.ring.push({ t: 0 });
+  if (S.rg) { S.rg.echoes.push({ r: 0, x: p.x, y: p.y, max: 160 + 20 * k.tier, burst: true }); for (let i = 0; i < 16 + 4 * k.tier; i++) { const a = Math.random() * Math.PI * 2, v = 90 + Math.random() * 140; S.rg.embers.push({ x: p.x, y: p.y, z: 20, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 60 + Math.random() * 120, life: 0.4 + Math.random() * 0.4, ember: true }); } }
+  if (stkOn()) stkSting(k.tier);
+}
+const STK_SCALE = [0, 2, 4, 7, 9];
+let stkNoteT = 0, stkNotes = [];
+function stkNoteF(n) { const i = Math.max(0, Math.min(n - 1, 14)); return 659.25 * Math.pow(2, (Math.floor(i / 5) * 12 + STK_SCALE[i % 5]) / 12); }
+function stkBzing(n, kill) {                      // bright pluck, sweeping up into its note, a sparkle over it, a tiny thump under it
+  if (!actx || !sfxGain || !noiseBuf) return;
+  const now = actx.currentTime;
+  stkNotes = stkNotes.filter(t => t > now - 0.2); if (stkNotes.length >= 5) return;   // a whole pack at once plays as a run, not a wall
+  const t = Math.max(now, stkNoteT + 0.04); stkNoteT = t; stkNotes.push(t);
+  const f = stkNoteF(n) * (kill ? 1 : 0.5), g0 = kill ? 0.09 : 0.05;
+  for (const [type, mul, g, len] of [['triangle', 1, g0, 0.22], ['square', 2, g0 * 0.18, 0.12], ['sine', 3, g0 * 0.3, 0.3]]) {
+    const o = actx.createOscillator(), gg = actx.createGain(); o.type = type;
+    o.frequency.setValueAtTime(f * mul * 0.62, t); o.frequency.exponentialRampToValueAtTime(f * mul, t + 0.05);
+    gg.gain.setValueAtTime(0.0001, t); gg.gain.exponentialRampToValueAtTime(g, t + 0.004); gg.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(gg); gg.connect(sfxGain); o.start(t); o.stop(t + len + 0.02);
+  }
+  const src = actx.createBufferSource(), bp = actx.createBiquadFilter(), gn = actx.createGain(); src.buffer = noiseBuf;
+  bp.type = 'bandpass'; bp.frequency.value = 7000; bp.Q.value = 1.4;
+  gn.gain.setValueAtTime(kill ? 0.12 : 0.06, t); gn.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+  src.connect(bp); bp.connect(gn); gn.connect(sfxGain); src.start(t, Math.random() * 0.5); src.stop(t + 0.09);
+  if (kill) boomAt(t, 140, 60, 0.07, 0.14, sfxGain);
+}
+function stkSting(tier) {                         // a tier up: a chord stabs in, a whoosh rises under it
+  if (!actx || !sfxGain) return;
+  const t = actx.currentTime + 0.02, r = 392 * Math.pow(2, Math.min(tier, 5) * 2 / 12);
+  [[1, 0], [1.25, 0.015], [1.5, 0.03], [2, 0.045]].forEach(([m, d]) => { toneAt(t + d, r * m, 0.7, 0.06, 'sawtooth', sfxGain); toneAt(t + d, r * m * 2, 0.5, 0.03, 'triangle', sfxGain); });
+  boomAt(t, 110, 40, 0.35, 0.4, sfxGain); noiseAt(t, 1200, 9000, 0.3, 0.12, sfxGain);
+}
+function stkKaching(tier) {                       // the cash-out: a quick run of ticks climbing to a ka-ching
+  if (!actx || !sfxGain) return;
+  const t = actx.currentTime, n = 6 + Math.min(tier, 5) * 2;
+  for (let i = 0; i < n; i++) toneAt(t + i * 0.045, 880 * Math.pow(2, i / n), 0.05, 0.035, 'square', sfxGain);
+  const e = t + n * 0.045 + 0.02;
+  toneAt(e, 2093, 0.5, 0.08, 'triangle', sfxGain); toneAt(e + 0.06, 2637, 0.7, 0.07, 'triangle', sfxGain); toneAt(e + 0.06, 3136, 0.6, 0.04, 'sine', sfxGain);
+  noiseAt(e, 9000, 4000, 0.18, 0.12, sfxGain);
+}
+function stkGlass() {                             // hit mid-streak: glass cracking, a note falling away
+  if (!actx || !sfxGain || !noiseBuf) return;
+  const t = actx.currentTime;
+  noiseAt(t, 10000, 2500, 0.22, 0.22, sfxGain);
+  toneAt(t, 1760, 0.12, 0.05, 'triangle', sfxGain); toneAt(t + 0.05, 1320, 0.14, 0.045, 'triangle', sfxGain); toneAt(t + 0.11, 880, 0.35, 0.05, 'triangle', sfxGain);
+}
 const BOMB_SETUP = 1.2, BOMB_R = 52, BOMB_FLIGHT = 1.8, BOMB_NEAR = 150;
 function bomberReset(e) {                 // pick a spot on the ring round you and head for it, tube packed away
   e.ai = 'move'; e.st = 0; e.shots = 0; e.burst = 2 + (Math.random() < 0.5 ? 1 : 0);

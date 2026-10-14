@@ -83,13 +83,18 @@ function poseFoe(e, now, dt, dying) {
   const b = Math.min(1, burn * 1.2 + pain * (0.12 + 0.18 * Math.random()) + die);
   const cl = (c, a) => c.map((v, i) => v + (tint[i] - v) * a);
   const hot = (c, k, h) => rgb(c.map((v, i) => lerp(v, h[i], k)));
-  const fl = e.flash || 0;
+  // a blow: it flares white, squashes and springs back, rocks away from you and shudders
+  const hkT = !dying && e.kHitT !== undefined ? S.t - e.kHitT : 9, rock = hkT < 0.4 ? Math.exp(-9 * hkT) : 0;
+  const sq = hkT < 0.4 ? 0.22 * Math.exp(-10 * hkT) * Math.cos(26 * hkT) : 0;
+  const fl = Math.max(e.flash || 0, hkT < 0.14 ? 1 - hkT / 0.14 : 0, dying ? Math.max(0, 1 - e.t / 0.1) : 0);
   let body = hot(cl([218, 218, 211], 0.45), b, [255, 150, 60]), head = hot(cl([228, 228, 222], 0.12), b, [255, 175, 90]), legs = hot(cl([158, 158, 152], 0.5), b, [200, 90, 30]), fc = hot([70, 70, 68], b, [120, 40, 10]);
   if (fl > 0) { body = body.map(v => lerp(v, 1.6, fl)); head = head.map(v => lerp(v, 1.6, fl)); }
   const em = b * (0.22 + 0.16 * Math.sin(now * 23 + (e.fgSeed ?? (e.fgSeed = Math.random() * 9)))) + fl * 0.8 + (dying ? 0.6 * (1 - die) : 0);
-  const jit = (pain * 1.6 + (e.sw && e.sw.ph === 'wind' && e.sw.t > e.sw.T * 0.6 ? 0.8 : 0)) * sc, jx = (Math.random() - 0.5) * jit, jz = (Math.random() - 0.5) * jit;
+  const jit = (pain * 1.6 + rock * 3 + (e.sw && e.sw.ph === 'wind' && e.sw.t > e.sw.T * 0.6 ? 0.8 : 0)) * sc, jx = (Math.random() - 0.5) * jit, jz = (Math.random() - 0.5) * jit;
   const bulk = e.type === 'brute' ? 1.18 : e.type === 'stalker' ? 0.9 : 1;
-  _base.compose(_p.set(e.x + jx, -die * 4, e.y + jz), _q.setFromEuler(_e.set(-die * 1.45, faceYaw(face), 0, 'YXZ')), _s.set(sc * bulk, sc * (1 - die * 0.15), sc * bulk));
+  // a kill throws it back off its feet, away from you, before it falls
+  const ka = dying ? (e.ka ?? Math.atan2(e.y - S.p.y, e.x - S.p.x)) : 0, fly = dying ? 26 * (1 - Math.pow(1 - Math.min(1, e.t / 0.35), 3)) : 0, hop = dying ? Math.sin(Math.PI * Math.min(1, e.t / 0.35)) * 9 : 0;
+  _base.compose(_p.set(e.x + jx + Math.cos(ka) * fly, -die * 4 + hop, e.y + jz + Math.sin(ka) * fly), _q.setFromEuler(_e.set(-die * 1.45, faceYaw(face), 0, 'YXZ')), _s.set(sc * bulk * (1 + sq * 0.6), sc * (1 - die * 0.15) * (1 - sq), sc * bulk * (1 + sq * 0.6)));
   const g = Math.min(1.5, gv / (WALK * sc)), sw = Math.sin(ph) * 0.75 * Math.min(1, g);
   let lean = (e.type === 'stalker' ? 0.35 : e.type === 'kamikaze' ? 0.45 : 0) + Math.min(1, g) * 0.12, armL = -sw * 0.8, armR = sw * 0.8, armZ = 0.12, headX = 0, twist = 0;
   const s = e.sw;
@@ -106,6 +111,7 @@ function poseFoe(e, now, dt, dying) {
     armZ = lerp(armZ, 0.7, pain); twist = Math.sin(now * 11 + e.fgSeed) * 0.3 * pain; headX = lerp(headX, -0.5, pain); lean = lerp(lean, -0.2 + Math.sin(now * 9) * 0.15, pain);
   }
   if (e.kick) lean -= 0.4 * e.kick;
+  lean -= 0.55 * rock; headX -= 0.6 * rock; armL -= 0.9 * rock; armR -= 1.1 * rock; armZ += 0.5 * rock;   // knocked back by the blow
   child(_torso, _base, 0, 17, 0, lean, twist, 0); PT.torso.push(_torso, body, em);
   child(_m, _torso, 0, 17.6, 0.6, headX + 0.15, 0, Math.sin(now * 13) * 0.25 * pain); PT.head.push(_m, head, em);
   const hm = _t2.copy(_m);

@@ -230,7 +230,7 @@ function frame(t) {
     IN.lx = IN.ly = 0;
     readMove(); if (!free) MV.x = MV.y = 0;
     let dt = rdt;
-    if (S.hitstop > 0) { S.hitstop -= rdt; dt *= 0.06; }
+    if (S.hitstop > 0) { S.hitstop -= rdt; dt = 0; }   // a blow lands: everything holds dead still for a beat
     if (S.running) {
       simStep(dt);
       beamStep();
@@ -246,12 +246,13 @@ function frame(t) {
   for (const b of [tallB, coverB, plantB, bushB, nodeB, dropB]) b.m.uniforms.now.value = S.t;
   grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);
   flagStep(now);
-  const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? rdt * 0.06 : rdt) : 0;
+  const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? 0 : rdt) : 0;
   lightsFrame(now, fdt);
   placeCamera(fdt, rdt, now);
   thingsFrame(now); hintsFrame(now);
   drawFigures(now, fdt);
   fxFrame(fdt, now);
+  if (state === 'play') combatFrame(fdt, rdt, now); else combatDraw(rdt, now);
   shN = shBase; for (const e of S.rg.enemies) if (!e.dead) shadow(e.x, e.y, 9 * foeScale(e), 30); for (const o of S.day.beasts) shadow(o.x, o.y, (BEAST[o.k] ? BEAST[o.k].w : 10) * 0.8, 12); shadowsEnd();
   figuresEnd();
   flushPoints(fdt);

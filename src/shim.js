@@ -1,7 +1,7 @@
 'use strict';
 // ---- the few things the main game's Daylight code reaches for that belong to its 2D screen, its other modes or its bosses ----
 // Daylight runs here word for word (src/ported.js). These stand in for the parts that don't exist in first person: the iso camera,
-// the boss fights, the Dunes and the Frost, the streak counter, the lifetime record. Everything the woods themselves do is real.
+// the boss fights, the Dunes and the Frost, the lifetime record. Everything the woods themselves do is real.
 let S = null;
 let W = innerWidth, H = innerHeight, Z = 1, last = 0, COLOUR = true;
 const K = () => 1, keys = {};
@@ -43,6 +43,7 @@ const MK = {}, B_SLAM = 0, bK = () => 1, miniShield = () => 1;
 function bossSay() {} function arenaClamp() {} function lampBreak() {} function duneHitBy() {} function duneCloneCopy() {} function srchDown() {} function stkBlow() {}
 // Nightfall's waves and the streak counter belong to other modes
 function startWave() {} function endWave() {} function openPicker() {} function pickFoe() { return 'shade'; } const rgMaxAlive = () => 0;
-function stkTouch() {} function stkStep() {} function stkNear() {} function stkHurt() {} function stkLose() {} function stkKill() {} function rdStep() {} function rdHitBy() {}
+function rdStep() {} function rdHitBy() {}
+function lifeMax() {}   // the streak counter is real (src/ported.js); only its lifetime records stay behind
 function lifeAdd() {} function lifeTally() {} function submitScore() {}
 function exStep(dt) { FP.exStep(dt); }   // the woods' own step, Daylight's part of it (src/fp/sim.js)

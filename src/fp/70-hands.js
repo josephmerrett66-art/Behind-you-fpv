@@ -140,14 +140,15 @@ function swingPose(base, u, side, kind) {   // a blow's arc: wind up, cut throug
   const a = lerp6(base, k0, smooth(w)), b = lerp6(k0, k1, easeOut(s));
   return s <= 0 ? a : r <= 0 ? b : lerp6(k1, base, smooth(r));
 }
-const TRAIL_N = 10, trailPos = new Float32Array(TRAIL_N * 2 * 3), trailA = new Float32Array(TRAIL_N * 2), trailGeo = new THREE.BufferGeometry();
+const TRAIL_N = 14, trailPos = new Float32Array(TRAIL_N * 2 * 3), trailA = new Float32Array(TRAIL_N * 2), trailGeo = new THREE.BufferGeometry();
 trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3).setUsage(THREE.DynamicDrawUsage));
 trailGeo.setAttribute('ta', new THREE.BufferAttribute(trailA, 1).setUsage(THREE.DynamicDrawUsage));
 { const idx = []; for (let i = 0; i < TRAIL_N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } trailGeo.setIndex(idx); }
 const trail = new THREE.Mesh(trailGeo, new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+  uniforms: { tcol: { value: new V3(1, 0.8, 0.55) } },
   vertexShader: `attribute float ta; varying float vA; void main() { vA = ta; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `varying float vA; void main() { gl_FragColor = vec4(vec3(0.95, 0.92, 0.85) * vA * 0.55, 1.0); }`,
+  fragmentShader: `uniform vec3 tcol; varying float vA; void main() { gl_FragColor = vec4(mix(tcol, vec3(1.0, 0.98, 0.94), smoothstep(0.55, 1.0, vA)) * vA * 0.95, 1.0); }`,
 }));
 trail.frustumCulled = false; vmScene.add(trail);
 const trailPts = [];
@@ -183,6 +184,8 @@ function placeHands(dt, now, bob, lag) {
   if (G && T.k === 'light') { const fl = G.getObjectByName('flame'); fl.material.opacity = 0.75 + 0.25 * Math.sin(now * 17) * Math.sin(now * 7); fl.scale.set(8 + Math.sin(now * 11), 11 + 2 * Math.sin(now * 13), 1); }
   // eating and drinking: the left hand lifts the flask to your mouth
   const drink = S.rg.drink ? Math.sin(Math.PI * clamp(1 - S.rg.drink / FLASK_T, 0, 1)) : 0;
+  // the blow lands: the hand jars back and shudders
+  if (CFX.recoil > 0) { const r = CFX.recoil; cur = cur.slice(); cur[2] += 3 * r; cur[0] += (Math.random() - 0.5) * 1.6 * r; cur[1] += (Math.random() - 0.5) * 1.2 * r; cur[3] += 0.18 * r; }
   // put the right hand where the pose says, swaying against your turning and bobbing with your stride
   const [bx, by] = bob, [ly, lp] = lag;
   handG.position.set((cur[0] + bx - ly * 6) * vmX, cur[1] + by + lp * 5 - VIEW_FX.dip * 0.15 - drink * 6, cur[2]);
@@ -195,6 +198,7 @@ function placeHands(dt, now, bob, lag) {
   lensGlow.material.opacity = (0.7 + 0.1 * Math.sin(now * 9)) * S.torchLvl;
   // the smear behind the edge while it cuts
   handG.updateMatrixWorld();
+  { const c = CFX.tint.split(','); trail.material.uniforms.tcol.value.set(c[0] / 255, c[1] / 255, c[2] / 255); }
   const reach = spearish ? 30 : T && (T.wpn === 'sword') ? 17 : 13;
   const tip = new V3(0, reach, 0).applyMatrix4(handG.matrixWorld), mid = new V3(0, reach * 0.55, 0).applyMatrix4(handG.matrixWorld);
   if (cutting && T) trailPts.unshift({ tip, mid, a: 1 }); else if (trailPts.length) trailPts.unshift({ tip, mid, a: 0 });
@@ -203,7 +207,7 @@ function placeHands(dt, now, bob, lag) {
     const t = trailPts[Math.min(i, trailPts.length - 1)];
     if (!t) { trailA[i * 2] = trailA[i * 2 + 1] = 0; continue; }
     trailPos.set([t.tip.x, t.tip.y, t.tip.z], i * 6); trailPos.set([t.mid.x, t.mid.y, t.mid.z], i * 6 + 3);
-    const fa = t.a * (1 - i / TRAIL_N); trailA[i * 2] = fa; trailA[i * 2 + 1] = fa * 0.15;
+    const fa = t.a * Math.pow(1 - i / TRAIL_N, 1.4); trailA[i * 2] = fa; trailA[i * 2 + 1] = fa * 0.3;
   }
   trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.ta.needsUpdate = true;
 }

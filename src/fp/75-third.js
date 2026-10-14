@@ -20,7 +20,8 @@ function thirdCamera(p, yaw, pitch, headY) {
     if (off < r) want = Math.min(want, Math.max(14, (t - Math.sqrt(r * r - off * off)) / Math.max(0.2, bl)));
   }
   TP.boom += (want - TP.boom) * (want < TP.boom ? 1 : 0.08);   // snap in, ease back out
-  cam.position.set(px - fx * TP.boom, Math.max(5, py - fy * TP.boom), pz - fz * TP.boom);
+  const cx = px - fx * TP.boom, cz = pz - fz * TP.boom;
+  cam.position.set(cx, Math.max(terrH(cx, cz) + 6, py - fy * TP.boom), cz);   // never down inside a hill
 }
 
 // you: posed from what the main game says you're doing

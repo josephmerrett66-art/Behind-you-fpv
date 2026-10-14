@@ -6434,8 +6434,51 @@ vec3 lightAt(vec3 p, vec3 n, float useN) {
   if (plN > 0.5) for (int i = 0; i < ${NL}; i++) { vec4 q = pl[i]; float k = clamp(1.0 - distance(p, q.xyz) / q.w, 0.0, 1.0); c += plc[i] * (k * k); }
   return c;
 }
+float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
 vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)); return mix(vec3(g), c, colourK); }
 vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, distance(p.xz, camPos.xz))); }`;
+
+// ---------------- the lie of the land: rolling hills ----------------
+// One height for every point of the woods, worked out the same way here and on the graphics card, so the ground, the grass,
+// every tree, the camp, the raiders and you all stand on the same slopes. A few broad swells with smaller rises over them;
+// the camp, the raiders' camps and the ponds sit on level ground let into the hillside.
+const TERR_N = 8;
+LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) };   // level places: x, y, radius, height
+function terrBase(x, z) {
+  return 24 * Math.sin(x * 0.0061 + 1.3) * Math.sin(z * 0.0053 + 0.4) + 11 * Math.sin(x * 0.013 + z * 0.0081) * Math.cos(z * 0.0117 - x * 0.004) + 3 * Math.sin(x * 0.031 + 2.0) * Math.sin(z * 0.027 + 1.0);
+}
+const _sst = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function terrH(x, z) {
+  let h = terrBase(x, z);
+  for (const f of LU.terrF.value) if (f.z > 0) h = lerp(h, f.w, _sst(f.z * 1.9, f.z, Math.hypot(x - f.x, z - f.y)));
+  return h;
+}
+const TERR_GLSL = `uniform vec4 terrF[${TERR_N}];
+float terrBase(vec2 p) { return 24.0 * sin(p.x * 0.0061 + 1.3) * sin(p.y * 0.0053 + 0.4) + 11.0 * sin(p.x * 0.013 + p.y * 0.0081) * cos(p.y * 0.0117 - p.x * 0.004) + 3.0 * sin(p.x * 0.031 + 2.0) * sin(p.y * 0.027 + 1.0); }
+float terrLevel(vec2 p, inout float h) {   // pulls h onto any level place here; returns how level it is
+  float lv = 0.0;
+  for (int i = 0; i < ${TERR_N}; i++) { vec4 f = terrF[i]; if (f.z <= 0.0) continue; float k = smoothstep(f.z * 1.9, f.z, distance(p, f.xy)); h = mix(h, f.w, k); lv = max(lv, k); }
+  return lv;
+}
+float terrH(vec2 p) { float h = terrBase(p); terrLevel(p, h); return h; }
+// the ground's slope as a normal (from the swells themselves; flat where the land's been levelled)
+vec3 terrN(vec2 p) {
+  float a = p.x * 0.0061 + 1.3, b = p.y * 0.0053 + 0.4, u = p.x * 0.013 + p.y * 0.0081, v = p.y * 0.0117 - p.x * 0.004, c = p.x * 0.031 + 2.0, d = p.y * 0.027 + 1.0;
+  float dx = 24.0 * 0.0061 * cos(a) * sin(b) + 11.0 * (0.013 * cos(u) * cos(v) + 0.004 * sin(u) * sin(v)) + 3.0 * 0.031 * cos(c) * sin(d);
+  float dz = 24.0 * 0.0053 * sin(a) * cos(b) + 11.0 * (0.0081 * cos(u) * cos(v) - 0.0117 * sin(u) * sin(v)) + 3.0 * 0.027 * sin(c) * cos(d);
+  float h = 0.0, lv = terrLevel(p, h);
+  return normalize(vec3(-dx * (1.0 - lv), 1.0, -dz * (1.0 - lv)));
+}`;
+// which places are level: the camp, the nearest raiders' camps and ponds (re-chosen as you move about)
+function terrLevelSync(px, py, lakes) {
+  const L = [];
+  L.push([0, 0, CAMP_R + 55, terrBase(0, 0)]);
+  for (const C of dayCampList()) { const o = C.parts && C.parts[0] ? C.parts[0] : C; L.push([o.x, o.y, 120, terrBase(o.x, o.y)]); }
+  for (const P of lakes || []) L.push([P.x, P.y, P.rad * 1.25 + 8, terrBase(P.x, P.y) - 3]);
+  L.sort((a, b) => Math.hypot(a[0] - px, a[1] - py) - a[2] - (Math.hypot(b[0] - px, b[1] - py) - b[2]));
+  LU.terrF.value.forEach((v, i) => { const q = L[i]; if (q && Math.hypot(q[0] - px, q[1] - py) - q[2] * 1.9 < VIEW + 300) v.set(q[0], q[1], q[2], q[3]); else v.set(0, 0, 0, 0); });
+}
+
 
 // ---------------- textures ----------------
 let pending = 2, ready = false;
@@ -6468,15 +6511,15 @@ const SKY = { top: new V3(), hor: new V3() };
 
 // ---------------- the ground ----------------
 {
-  const g = new THREE.PlaneGeometry(6000, 6000); g.rotateX(-Math.PI / 2);
+  const g = new THREE.PlaneGeometry(2800, 2800, 280, 280); g.rotateX(-Math.PI / 2);   // follows you, in 10-unit steps (90-main)
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
-    vertexShader: `varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: LIGHT_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms; varying vec3 vW;
+    vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: LIGHT_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms; varying vec3 vW, vTN;
       void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb;
         float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
         t = mix(t, vec3(0.34, 0.42, 0.19) * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm));
-        gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12), vW), 1.0); }`,
+        gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0); }`,
   });
   var groundMesh = new THREE.Mesh(g, m); groundMesh.frustumCulled = false; scene.add(groundMesh);
 }
@@ -6492,10 +6535,10 @@ pGeo.setAttribute('pcol', new THREE.BufferAttribute(pCol, 4).setUsage(THREE.Dyna
 pGeo.setAttribute('pdat', new THREE.BufferAttribute(pDat, 2).setUsage(THREE.DynamicDrawUsage));
 const PU = { uScale: { value: 400 }, colourK: null };
 const pMat = new THREE.ShaderMaterial({
-  uniforms: { uScale: PU.uScale, fogR: LU.fogR, camPos: LU.camPos }, transparent: true, depthWrite: false, depthTest: true,
+  uniforms: { uScale: PU.uScale, fogR: LU.fogR, camPos: LU.camPos, terrF: LU.terrF }, transparent: true, depthWrite: false, depthTest: true,
   blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
-  vertexShader: `attribute vec4 pcol; attribute vec2 pdat; uniform float uScale; uniform vec2 fogR; uniform vec3 camPos; varying vec4 vC; varying float vK;
-    void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(pdat.x * uScale / max(-mv.z, 1.0), 1.5, 512.0);
+  vertexShader: TERR_GLSL + `attribute vec4 pcol; attribute vec2 pdat; uniform float uScale; uniform vec2 fogR; uniform vec3 camPos; varying vec4 vC; varying float vK;
+    void main() { vec4 mv = viewMatrix * vec4(position + vec3(0.0, terrH(position.xz), 0.0), 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(pdat.x * uScale / max(-mv.z, 1.0), 1.5, 512.0);
       vC = pcol; vC.a *= 1.0 - smoothstep(fogR.x, fogR.y * 1.05, distance(position.xz, camPos.xz)); vK = pdat.y; }`,
   fragmentShader: `varying vec4 vC; varying float vK;
     void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float r = dot(q, q); float a;
@@ -6569,7 +6612,7 @@ class Board {
     const m = new THREE.ShaderMaterial({
       uniforms: Object.assign({ map: { value: tex }, cull: { value: cull }, near: { value: near }, now: { value: 0 } }, LU),
       defines: Object.assign(AA ? { A2C: 1 } : {}, cross ? { CROSS: cross } : {}), alphaToCoverage: AA, side: THREE.DoubleSide,   // a flipped sprite turns its back; draw both faces
-      vertexShader: `attribute vec4 iPos, iRect, iDim, iMisc; uniform vec3 camPos, camRight; uniform float time, cull, near, now;
+      vertexShader: TERR_GLSL + `attribute vec4 iPos, iRect, iDim, iMisc; uniform vec3 camPos, camRight; uniform float time, cull, near, now;
         varying vec2 vUv; varying vec3 vW; varying vec3 vNear; varying vec2 vSh;
         void main() {
           float d = distance(iPos.xz, camPos.xz);
@@ -6592,7 +6635,7 @@ class Board {
           float sw = sin(time * 0.7 + iMisc.w * 20.0) * 1.6 + sin(time * 1.9 + iMisc.w * 7.0) * 0.5;
           float st = now - iMisc.z; float shake = st >= 0.0 && st < 0.45 ? sin(st * 48.0) * (1.0 - st / 0.45) * 5.0 : 0.0;   // struck: it shudders
           sw = (sw * iMisc.y + shake) * up * up;
-          vec3 w = vec3(iPos.x, iPos.y, iPos.z) + off + R * lx + camRight * sw * s + vec3(0.0, ly, 0.0);
+          vec3 w = vec3(iPos.x, iPos.y + terrH(iPos.xz), iPos.z) + off + R * lx + camRight * sw * s + vec3(0.0, ly, 0.0);
           vSh = vec2(edge, card * mix(0.62, 1.0, smoothstep(0.0, 0.45, up)));   // darker down at the roots, where it meets the ground
           vUv = iRect.xy + vec2(position.x, 1.0 - position.y) * iRect.zw;
           vW = w;
@@ -6673,14 +6716,14 @@ vec3 paint(vec3 c, float mt, vec3 g, vec3 W, vec3 N) {
 }`;
 const kitMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ glow: { value: 0 } }, LU),
-  vertexShader: `attribute vec3 color, gu; attribute float em, mt; varying vec3 vC, vW, vN, vG; varying float vE, vM;
-    void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; vG = gu; vM = mt; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; varying vec3 vC, vW, vN, vG; varying float vE, vM;
+    void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; vG = gu; vM = mt; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG; varying float vE, vM;
     void main() { vec3 N = normalize(vN); vec3 base = paint(vC, vM, vG, vW, N); vec3 c = base * lightAt(vW, N, 1.0) * 1.05 + vC * vE; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
 });
 const kitEdge = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU), side: THREE.BackSide,
-  vertexShader: `attribute float ew; varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position + normal * ew, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute float ew; varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position + normal * ew, 1.0); w.y += terrH(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `varying vec3 vW;
     void main() { vec3 L = lightAt(vW, vec3(0.0), 0.0); float b = clamp(dot(L, vec3(0.34)) * 2.2, 0.0, 1.0); gl_FragColor = vec4(fogged(vec3(0.122, 0.114, 0.102) * b, vW), 1.0); }`,
 });
@@ -6866,7 +6909,7 @@ function yardKit(K) {
 const flagGeo = new THREE.BufferGeometry(); flagGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(7 * 2 * 3), 3));
 { const idx = []; for (let i = 0; i < 6; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } flagGeo.setIndex(idx); }
 const flagMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ col: { value: new V3(...hex('#625d55')) } }, LU), side: THREE.DoubleSide,
-  vertexShader: `varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `uniform vec3 col; varying vec3 vW; void main() { gl_FragColor = vec4(fogged(grey(col * lightAt(vW, vec3(0.0), 0.0)), vW), 1.0); }` });
 const flagMesh = new THREE.Mesh(flagGeo, flagMat); flagMesh.frustumCulled = false; scene.add(flagMesh);
 function flagStep(t) {
@@ -6890,7 +6933,7 @@ function raiderKit(K) {
 // ---------------- ponds: still water with a muddy bank and reeds; ripples cross it ----------------
 const pondMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ lt: { value: 1 }, now: { value: 0 }, sky: { value: SKY.hor } }, LU), transparent: false,
-  vertexShader: `attribute vec4 pdat; varying vec3 vW; varying vec4 vP; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vP = pdat; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec4 pdat; varying vec3 vW; varying vec4 vP; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(pdat.xy); vW = w.xyz; vP = pdat; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `uniform float lt, now; uniform vec3 sky; varying vec3 vW; varying vec4 vP;
     void main() {
       vec2 d = vW.xz - vP.xy; float a = atan(d.y, d.x), r = length(d) / (vP.z * (1.0 + sin(a * 3.0 + vP.w) * 0.08 + sin(a * 5.0 - vP.w) * 0.04));
@@ -6924,7 +6967,7 @@ shGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, 0, -1, 1, 0
 const shDat = new Float32Array(MAXSH * 4); { const b = new THREE.InstancedBufferAttribute(shDat, 4); b.setUsage(THREE.DynamicDrawUsage); shGeo.setAttribute('sd', b); }
 shGeo.instanceCount = 0;
 const shMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ k: { value: 0.3 }, lean: { value: new THREE.Vector2(0.3, 0.3) } }, LU), transparent: true, depthWrite: false,
-  vertexShader: `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float near = sd.w < 0.0 ? shC.w * smoothstep(shC.z * 0.92, shC.z * 0.72, distance(sd.xy, shC.xy)) : 0.0, r = sd.z * mix(1.0, 0.5, near), len = abs(sd.w) * (1.0 - near); vK = 1.0 - 0.45 * near; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.2, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
+  vertexShader: TERR_GLSL + `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float near = sd.w < 0.0 ? shC.w * smoothstep(shC.z * 0.92, shC.z * 0.72, distance(sd.xy, shC.xy)) : 0.0, r = sd.z * mix(1.0, 0.5, near), len = abs(sd.w) * (1.0 - near); vK = 1.0 - 0.45 * near; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.0, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); w.y = terrH(w.xz) + 0.25; vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
   fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * vK * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, camPos.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
 const shMesh = new THREE.Mesh(shGeo, shMat); shMesh.frustumCulled = false; shMesh.renderOrder = 2; scene.add(shMesh);
 let shN = 0, shBase = 0;
@@ -6980,7 +7023,7 @@ function worldSync(force) {
     (k === 'bush' ? bushB : plant ? plantB : coverB).add(k, d.v, d.x, d.y, d.s * (k === 'log' ? 1.3 : k === 'bush' ? 1.1 : fl ? 0.72 : 1.15), (d.seed * 7919 % 1) < 0.5 ? 1 : -1, k === 'grass' || k === 'fern' || fl ? 1.2 : k === 'bush' ? 0.6 : 0, -99, d.seed);
   }
   coverB.end(); plantB.end(); bushB.end(); logK.set(LK); shBase = shN;   // the logs cast shadows too
-  WORLD.lakes = pondsSync(p.x, p.y);
+  WORLD.lakes = pondsSync(p.x, p.y); terrLevelSync(p.x, p.y, WORLD.lakes);
 }
 
 ;
@@ -6991,7 +7034,7 @@ function worldSync(force) {
 const TREE_R3D = SET.quality === 'fast' ? 600 : 1e9, TREE_NV = 3;
 const treeMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
-  vertexShader: `attribute vec3 color, gu; attribute float em, mt; uniform float time; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
+  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
     void main() {
       mat4 im = modelMatrix;
       #ifdef USE_INSTANCING
@@ -6999,7 +7042,7 @@ const treeMat = new THREE.ShaderMaterial({
       #endif
       vec4 w = im * vec4(position, 1.0);
       float k = max(0.0, position.y - 24.0) / 90.0, ph = im[3].x * 0.013 + im[3].z * 0.017;   // the crown sways in the breeze, the trunk stands
-      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0;
+      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0; w.y += terrH(im[3].xz);
       vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
@@ -7026,7 +7069,7 @@ const treeMat = new THREE.ShaderMaterial({
 });
 const treeEdge = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU), side: THREE.BackSide,
-  vertexShader: `attribute float ew; uniform float time; varying vec3 vW;
+  vertexShader: TERR_GLSL + `attribute float ew; uniform float time; varying vec3 vW;
     void main() {
       mat4 im = modelMatrix;
       #ifdef USE_INSTANCING
@@ -7034,7 +7077,7 @@ const treeEdge = new THREE.ShaderMaterial({
       #endif
       vec4 w = im * vec4(position + normal * ew, 1.0);
       float k = max(0.0, position.y - 24.0) / 90.0, ph = im[3].x * 0.013 + im[3].z * 0.017;
-      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0;
+      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0; w.y += terrH(im[3].xz);
       vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: LIGHT_GLSL + `varying vec3 vW;
@@ -7175,8 +7218,8 @@ const grassMaskData = new Uint8Array(GM_N * GM_N).fill(255);
 const grassMaskTex = new THREE.DataTexture(grassMaskData, GM_N, GM_N, THREE.RedFormat, THREE.UnsignedByteType);
 grassMaskTex.magFilter = grassMaskTex.minFilter = THREE.LinearFilter; grassMaskTex.needsUpdate = true;
 const grassU = { mask: { value: grassMaskTex }, mo: { value: new THREE.Vector2(-GM_S / 2, -GM_S / 2) }, ms: { value: GM_S }, gmap: { value: floorTex } };
-const GRASS_V = `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms, ring; uniform vec2 mo; uniform sampler2D mask;
-  varying vec3 vW; varying float vUp, vTone, vRoot;
+const GRASS_V = TERR_GLSL + `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms, ring; uniform vec2 mo; uniform sampler2D mask;
+  varying vec3 vW, vTN; varying float vUp, vTone, vRoot;
   const float R0 = ${GR_RINGS[0].toFixed(1)}, R1 = ${GR_RINGS[1].toFixed(1)}, R2 = ${GR_RINGS[2].toFixed(1)};
   float fin(float R, float d) { return smoothstep(R, R * 0.7, d); }   // 1 well inside a field, 0 at its edge
   void main() {
@@ -7191,20 +7234,20 @@ const GRASS_V = `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms,
     float shrink = 1.0 / (1.0 + d / 260.0), widen = 1.0 + d / 140.0;      // smaller further off, but never thinner than a hair
     float up = position.y * shrink * k;
     float c = cos(bd.z), s = sin(bd.z);
-    vec3 w = vec3(rt.x + position.x * widen * c, up, rt.y + position.x * widen * s);
+    vec3 w = vec3(rt.x + position.x * widen * c, up + terrH(rt), rt.y + position.x * widen * s); vTN = terrN(rt);
     // a breeze that runs across the turf, and a little shiver of its own
     float br = sin(time * 1.3 + rt.x * 0.05 + rt.y * 0.035) * 0.5 + sin(time * 2.7 + rt.x * 0.3 + bd.w * 6.0) * 0.25;
     w.x += br * 0.35 * up; w.z += br * 0.2 * up;
     vW = w; vUp = position.y / 3.3; vTone = fract(bd.w * 7.13); vRoot = position.y;
     gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
   }`;
-const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW; varying float vUp, vTone, vRoot;
+const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; varying float vUp, vTone, vRoot;
   void main() {
     vec3 g = texture2D(gmap, vW.xz / 384.0).rgb;
     vec3 turf = mix(vec3(0.36, 0.46, 0.2), vec3(0.56, 0.62, 0.3), vTone) * (0.85 + 0.3 * g.r);   // a short, slightly dry green
     vec3 c = mix(turf * 0.62, turf * 1.15, smoothstep(0.0, 0.8, vUp));
     c *= mix(0.75, 1.0, smoothstep(0.0, 1.2, vRoot));                          // shaded down among the roots
-    gl_FragColor = vec4(fogged(grey(c * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12), vW), 1.0);
+    gl_FragColor = vec4(fogged(grey(c * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0);
   }`;
 {
   const pos = new Float32Array(GR_N * 9), bd = new Float32Array(GR_N * 12);
@@ -7277,6 +7320,15 @@ const SUN = (() => {
   rt.depthTexture = new THREE.DepthTexture(N, N); rt.depthTexture.minFilter = rt.depthTexture.magFilter = THREE.NearestFilter;
   const cam = new THREE.OrthographicCamera(-R, R, R, -R, 10, 2600); cam.layers.set(1);
   const mat = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide });
+  mat.onBeforeCompile = sh => {   // lifted onto the hills, as everything is in its own shader
+    sh.uniforms.terrF = LU.terrF;
+    sh.vertexShader = TERR_GLSL + '\n' + sh.vertexShader.replace('#include <project_vertex>', `vec4 wpos = vec4(transformed, 1.0);
+      #ifdef USE_INSTANCING
+        wpos = instanceMatrix * wpos;
+      #endif
+      wpos = modelMatrix * wpos; wpos.y += terrH(wpos.xz);
+      vec4 mvPosition = viewMatrix * wpos; gl_Position = projectionMatrix * mvPosition;`);
+  };
   LU.shMap.value = rt.depthTexture; LU.shP.value.set(0, 1.1 / N, 1.6 / 2590, 0);
   return { N, R, rt, cam, mat, c: new V3(), v: new V3(), d: new V3() };
 })();
@@ -7290,7 +7342,7 @@ function sunShadows() {
   const { R, N, cam: sc, c, v, d } = SUN, p = S.p;
   // centred a little ahead of where you look, so more of what you can see is covered
   const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
-  c.set(p.x + fx * R * 0.35, 0, p.y + fz * R * 0.35);
+  c.set(p.x + fx * R * 0.35, 0, p.y + fz * R * 0.35); c.y = terrH(c.x, c.z);
   d.copy(LU.sunDir.value); if (d.y < 0.3) { d.y = 0.3; d.normalize(); }   // a low sun's shadows run long, but not off the map
   sc.position.copy(c).addScaledVector(d, 1300); sc.up.set(0, 1, 0); sc.lookAt(c); sc.updateMatrixWorld();
   // keep the map's texels fixed on the ground as you walk, so the edges don't crawl
@@ -7314,15 +7366,15 @@ function sunShadows() {
 const MAXF = 160;
 const figMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
-  vertexShader: `attribute vec4 iCol; varying vec4 vC; varying vec3 vW, vN;
-    void main() { vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix * instanceMatrix) * normal); vC = iCol; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec4 iCol; varying vec4 vC; varying vec3 vW, vN;
+    void main() { vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix * instanceMatrix) * normal); vC = iCol; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `varying vec4 vC; varying vec3 vW, vN;
     void main() { vec3 c = vC.rgb * lightAt(vW, normalize(vN), 1.0) * 1.05 + vC.rgb * vC.a; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
 });
 const figEdge = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU), side: THREE.BackSide,
-  vertexShader: `attribute vec4 iCol; varying vec3 vW; varying float vE;
-    void main() { vec3 n = normalize(mat3(instanceMatrix) * normal); vec4 w = modelMatrix * (instanceMatrix * vec4(position, 1.0) + vec4(n * 0.7, 0.0)); vW = w.xyz; vE = iCol.a; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec4 iCol; varying vec3 vW; varying float vE;
+    void main() { vec3 n = normalize(mat3(instanceMatrix) * normal); vec4 w = modelMatrix * (instanceMatrix * vec4(position, 1.0) + vec4(n * 0.7, 0.0)); w.y += terrH(w.xz); vW = w.xyz; vE = iCol.a; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `varying vec3 vW; varying float vE;
     void main() { vec3 L = lightAt(vW, vec3(0.0), 0.0); float b = clamp(dot(L, vec3(0.34)) * 2.2 + vE * 0.6, 0.0, 1.0); gl_FragColor = vec4(fogged(vec3(0.15, 0.15, 0.14) * b, vW), 1.0); }`,
 });
@@ -7382,7 +7434,7 @@ const KIT_WEAR = { shade: { coat: 1 }, tall: { coat: 2 }, archer: { coat: 1 }, b
 const FOE_SKIN = { shade: [176, 150, 132], stalker: [168, 140, 128], brute: [184, 140, 108], tall: [150, 122, 108], bomber: [190, 150, 118], laser: [178, 150, 130], kamikaze: [196, 160, 120],
   splitter: [186, 152, 136], spear: [176, 132, 98], archer: [188, 156, 120], woodcutter: [184, 140, 108], lamplighter: [196, 160, 124], huntsman: [176, 140, 110], warden: [170, 136, 112] };
 function foeDress(type) {
-  const t = FOE_TINT[type] || [170, 150, 120];
+  const t0 = FOE_TINT[type] || [170, 150, 120], m = (t0[0] + t0[1] + t0[2]) / 3, t = t0.map(v => clamp(m + (v - m) * 1.6, 0, 255));   // a touch richer than the top-down tint
   return { shirt: mixc(t, [150, 140, 125], 0.05), trou: mixc(t.map(v => v * 0.5), [64, 56, 46], 0.55), skin: FOE_SKIN[type] || [182, 148, 120], deep: mixc(t.map(v => v * 0.42), [40, 36, 32], 0.4) };
 }
 const KIT_HEAD = { shade: 'hood', stalker: 'goggles', brute: 'helmet', tall: 'hood', bomber: 'helmet', laser: 'visor', kamikaze: 'goggles', splitter: 'hood', spear: 'helmet', archer: 'hood' };
@@ -7609,8 +7661,8 @@ function extrudeIcon(id) {
   g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('sd', new THREE.Float32BufferAttribute(SD, 1));
   g.computeBoundingSphere(); XGEO.set(id, g); return g;
 }
-const XGLSL_V = `attribute float sd; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
-  void main() { vUv = uv; vS = sd; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`;
+const XGLSL_V = TERR_GLSL + `attribute float sd; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
+  void main() { vUv = uv; vS = sd; vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`;
 const dropMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ map: { value: iconTex } }, LU),
   vertexShader: XGLSL_V,
@@ -7631,8 +7683,8 @@ const thingsK = new KitMesh(true), dynK = new KitMesh(true);
 // a ghost: what you'd build, green where it fits and red where it won't; a blueprint glows like a plan
 const ghostMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ tint: { value: new V3(0.6, 0.92, 0.55) }, alpha: { value: 0.5 } }, LU), transparent: true, depthWrite: false,
-  vertexShader: `attribute vec3 color; attribute float em; varying vec3 vC, vW, vN; varying float vE;
-    void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec3 color; attribute float em; varying vec3 vC, vW, vN; varying float vE;
+    void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `uniform vec3 tint; uniform float alpha; varying vec3 vC, vW, vN; varying float vE;
     void main() { vec3 c = mix(vC, tint, 0.65) * (0.6 + 0.5 * max(dot(normalize(vN), vec3(0.3, 0.8, 0.2)), 0.0)) + tint * 0.25; gl_FragColor = vec4(c, alpha); }`,
 });
@@ -8398,7 +8450,7 @@ addEventListener('resize', fxcSize); fxcSize();
 // a world point on the screen, and how many pixels one world unit is out there
 const _cv = new V3();
 function scr(x, h, y, out) {
-  _cv.set(x, h, y).applyMatrix4(cam.matrixWorldInverse);
+  _cv.set(x, h + terrH(x, y), y).applyMatrix4(cam.matrixWorldInverse);   // heights are above the ground there
   const z = -_cv.z; if (z < 3) return null;
   _cv.applyMatrix4(cam.projectionMatrix);
   out = out || [0, 0, 0];
@@ -9064,7 +9116,8 @@ function thirdCamera(p, yaw, pitch, headY) {
     if (off < r) want = Math.min(want, Math.max(14, (t - Math.sqrt(r * r - off * off)) / Math.max(0.2, bl)));
   }
   TP.boom += (want - TP.boom) * (want < TP.boom ? 1 : 0.08);   // snap in, ease back out
-  cam.position.set(px - fx * TP.boom, Math.max(5, py - fy * TP.boom), pz - fz * TP.boom);
+  const cx = px - fx * TP.boom, cz = pz - fz * TP.boom;
+  cam.position.set(cx, Math.max(terrH(cx, cz) + 6, py - fy * TP.boom), cz);   // never down inside a hill
 }
 
 // you: posed from what the main game says you're doing
@@ -9190,6 +9243,7 @@ function buildBody() {
   return g;
 }
 const BODY_V = (outline) => `#include <common>
+  ${TERR_GLSL}
   #include <skinning_pars_vertex>
   attribute vec3 tone; varying vec3 vC, vW, vN;
   void main() {
@@ -9199,7 +9253,7 @@ const BODY_V = (outline) => `#include <common>
     #include <begin_vertex>
     #include <skinning_vertex>
     ${outline ? 'transformed += normalize(objectNormal) * 0.5;' : ''}
-    vec4 w = modelMatrix * vec4(transformed, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * objectNormal); vC = tone;
+    vec4 w = modelMatrix * vec4(transformed, 1.0); w.y += terrH(modelMatrix[3].xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * objectNormal); vC = tone;
     gl_Position = projectionMatrix * viewMatrix * w;
   }`;
 const bodyMat = new THREE.ShaderMaterial({
@@ -9381,7 +9435,7 @@ function posePlayer(now) {
   const hand = bow ? X.B.handL : X.B.handR;
   if (id && TP.items.has(id)) {
     TP.items.get(id).position.set(0, 0, 0); TP.items.get(id).rotation.set(0, 0, 0);
-    TP.hold.matrix.copy(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3)).multiply(_bm.makeRotationFromEuler(_be.set(bow ? 0 : Math.PI / 2, bow ? Math.PI / 2 : 0, 0)));
+    TP.hold.matrix.makeTranslation(0, terrH(X.mesh.position.x, X.mesh.position.z), 0).multiply(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3)).multiply(_bm.makeRotationFromEuler(_be.set(bow ? 0 : Math.PI / 2, bow ? Math.PI / 2 : 0, 0)));
     TP.hold.matrixWorldNeedsUpdate = true; TP.hold.visible = true;
   } else TP.hold.visible = false;
   // the torch in your left fist, its lens glowing
@@ -9395,6 +9449,7 @@ function posePlayer(now) {
   if (TP.hold.visible || kind) {
     const L = T && (T.wpn === 'spear' || T.thr === 'jav') ? 30 : T && T.wpn === 'sword' ? 17 : TP.hold.visible ? 14 : 4;
     const m = TP.hold.visible ? TP.hold.matrix : hand.matrixWorld, tip = new V3(0, TP.hold.visible ? L : -3, 0).applyMatrix4(m), mid = new V3(0, TP.hold.visible ? L * 0.6 : -1, 0).applyMatrix4(m);
+    if (!TP.hold.visible) { const ty = terrH(X.mesh.position.x, X.mesh.position.z); tip.y += ty; mid.y += ty; }   // the item's matrix is already lifted onto the ground
     smPts.unshift({ tip, mid, a: cutting ? 1 : 0 });
   } else smPts.unshift({ tip: new V3(), mid: new V3(), a: 0 });
   if (smPts.length > SMEAR_N) smPts.length = SMEAR_N;
@@ -9432,7 +9487,7 @@ function weatherFrame(now) {
     const o = i * 6;
     if (i >= n) { rainPos.fill(0, o, o + 6); continue; }
     const a = rainSeed[i * 3], b = rainSeed[i * 3 + 1], c = rainSeed[i * 3 + 2];
-    const y = 220 - ((now * fall * (0.85 + c * 0.3) + c * 2200) % 240);
+    const y = cam.position.y - EYE + 220 - ((now * fall * (0.85 + c * 0.3) + c * 2200) % 240);
     const x = cx + (((a * RAIN_BOX + now * sx - cx) % RAIN_BOX + RAIN_BOX) % RAIN_BOX) - RAIN_BOX / 2;
     const z = cz + (((b * RAIN_BOX + now * sz - cz) % RAIN_BOX + RAIN_BOX) % RAIN_BOX) - RAIN_BOX / 2;
     rainPos[o] = x; rainPos[o + 1] = y; rainPos[o + 2] = z;
@@ -9493,7 +9548,7 @@ const _lights = [];
 function lightsFrame(now, dt) {
   const L = LU.pl.value, C = LU.plc.value, p = S.p, D = S.day, rg = S.rg, night = 1 - ENV.lt * 0.85;
   _lights.length = 0;
-  const add = (x, h, y, r, cr, cg, cb, pri = 0) => { const d = Math.hypot(x - p.x, y - p.y); if (d - r > 700) return; _lights.push({ x, h, y, r, cr, cg, cb, w: pri - d / (r + 1) }); };
+  const add = (x, h, y, r, cr, cg, cb, pri = 0) => { const d = Math.hypot(x - p.x, y - p.y); if (d - r > 700) return; _lights.push({ x, h: h + terrH(x, y), y, r, cr, cg, cb, w: pri - d / (r + 1) }); };
   const fk = s => 0.85 + 0.1 * Math.sin(now * 7.3 + s) + 0.06 * Math.sin(now * 13.1 + s * 2) + 0.05 * Math.random();
   const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 520 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
   // the camp's own fire, and your campfires
@@ -9569,7 +9624,7 @@ function placeCamera(dt, rdt, now) {
   const kx = S.kick ? S.kick.x * 0.4 : 0, ky = S.kick ? S.kick.y * 0.4 : 0;
   // fallen: the view drops to the ground and tips over onto its side
   const fallK = rg.phase === 'dead' ? smooth(Math.min(1, (rg.deadT || 0) / 1.1)) : 0;
-  cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, EYE - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
+  cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, terrH(p.x, p.y) + EYE - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
   const side = (p.vx * -Math.sin(S.aimW) + p.vy * Math.cos(S.aimW)) / RUN;
   cam.rotation.set(lerp(look.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + nz(6) * sh * 0.06 - side * 0.012 + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
   cam.fov = baseFov() + VIEW_FX.fov; cam.updateProjectionMatrix(); cam.updateMatrixWorld();
@@ -9682,7 +9737,7 @@ function frame(t) {
   pollPad(rdt);
   LU.time.value = now;
   if (state === 'title' || !S) {
-    titleYaw += rdt * 0.04; cam.position.set(0, EYE, 0); cam.rotation.set(0.05, titleYaw, 0); cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);
+    titleYaw += rdt * 0.04; cam.position.set(0, terrH(0, 0) + EYE, 0); cam.rotation.set(0.05, titleYaw, 0); cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);
     envFrame(); IN.lx = IN.ly = 0;
     renderer.clear(); renderer.render(scene, cam); return;
   }
@@ -9729,6 +9784,7 @@ function frame(t) {
   document.body.classList.toggle('fallen', S.rg.phase === 'dead');
   buildbarEl.hidden = hotbarEl.hidden || dayTool() !== 'build' || !craftEl.hidden;
   drawHud(); audioFrame();
+  groundMesh.position.set(Math.round(S.p.x / 10) * 10, 0, Math.round(S.p.y / 10) * 10);   // the ground's grid rides along with you
   sunShadows();
   renderer.clear();
   renderer.render(scene, cam);

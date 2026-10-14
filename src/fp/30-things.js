@@ -48,8 +48,8 @@ function extrudeIcon(id) {
   g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('sd', new THREE.Float32BufferAttribute(SD, 1));
   g.computeBoundingSphere(); XGEO.set(id, g); return g;
 }
-const XGLSL_V = `attribute float sd; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
-  void main() { vUv = uv; vS = sd; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`;
+const XGLSL_V = TERR_GLSL + `attribute float sd; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
+  void main() { vUv = uv; vS = sd; vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`;
 const dropMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ map: { value: iconTex } }, LU),
   vertexShader: XGLSL_V,
@@ -70,8 +70,8 @@ const thingsK = new KitMesh(true), dynK = new KitMesh(true);
 // a ghost: what you'd build, green where it fits and red where it won't; a blueprint glows like a plan
 const ghostMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ tint: { value: new V3(0.6, 0.92, 0.55) }, alpha: { value: 0.5 } }, LU), transparent: true, depthWrite: false,
-  vertexShader: `attribute vec3 color; attribute float em; varying vec3 vC, vW, vN; varying float vE;
-    void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec3 color; attribute float em; varying vec3 vC, vW, vN; varying float vE;
+    void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `uniform vec3 tint; uniform float alpha; varying vec3 vC, vW, vN; varying float vE;
     void main() { vec3 c = mix(vC, tint, 0.65) * (0.6 + 0.5 * max(dot(normalize(vN), vec3(0.3, 0.8, 0.2)), 0.0)) + tint * 0.25; gl_FragColor = vec4(c, alpha); }`,
 });

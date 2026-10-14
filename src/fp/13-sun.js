@@ -9,6 +9,15 @@ const SUN = (() => {
   rt.depthTexture = new THREE.DepthTexture(N, N); rt.depthTexture.minFilter = rt.depthTexture.magFilter = THREE.NearestFilter;
   const cam = new THREE.OrthographicCamera(-R, R, R, -R, 10, 2600); cam.layers.set(1);
   const mat = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide });
+  mat.onBeforeCompile = sh => {   // lifted onto the hills, as everything is in its own shader
+    sh.uniforms.terrF = LU.terrF;
+    sh.vertexShader = TERR_GLSL + '\n' + sh.vertexShader.replace('#include <project_vertex>', `vec4 wpos = vec4(transformed, 1.0);
+      #ifdef USE_INSTANCING
+        wpos = instanceMatrix * wpos;
+      #endif
+      wpos = modelMatrix * wpos; wpos.y += terrH(wpos.xz);
+      vec4 mvPosition = viewMatrix * wpos; gl_Position = projectionMatrix * mvPosition;`);
+  };
   LU.shMap.value = rt.depthTexture; LU.shP.value.set(0, 1.1 / N, 1.6 / 2590, 0);
   return { N, R, rt, cam, mat, c: new V3(), v: new V3(), d: new V3() };
 })();
@@ -22,7 +31,7 @@ function sunShadows() {
   const { R, N, cam: sc, c, v, d } = SUN, p = S.p;
   // centred a little ahead of where you look, so more of what you can see is covered
   const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
-  c.set(p.x + fx * R * 0.35, 0, p.y + fz * R * 0.35);
+  c.set(p.x + fx * R * 0.35, 0, p.y + fz * R * 0.35); c.y = terrH(c.x, c.z);
   d.copy(LU.sunDir.value); if (d.y < 0.3) { d.y = 0.3; d.normalize(); }   // a low sun's shadows run long, but not off the map
   sc.position.copy(c).addScaledVector(d, 1300); sc.up.set(0, 1, 0); sc.lookAt(c); sc.updateMatrixWorld();
   // keep the map's texels fixed on the ground as you walk, so the edges don't crawl

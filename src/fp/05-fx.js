@@ -8,10 +8,10 @@ pGeo.setAttribute('pcol', new THREE.BufferAttribute(pCol, 4).setUsage(THREE.Dyna
 pGeo.setAttribute('pdat', new THREE.BufferAttribute(pDat, 2).setUsage(THREE.DynamicDrawUsage));
 const PU = { uScale: { value: 400 }, colourK: null };
 const pMat = new THREE.ShaderMaterial({
-  uniforms: { uScale: PU.uScale, fogR: LU.fogR, camPos: LU.camPos }, transparent: true, depthWrite: false, depthTest: true,
+  uniforms: { uScale: PU.uScale, fogR: LU.fogR, camPos: LU.camPos, terrF: LU.terrF }, transparent: true, depthWrite: false, depthTest: true,
   blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
-  vertexShader: `attribute vec4 pcol; attribute vec2 pdat; uniform float uScale; uniform vec2 fogR; uniform vec3 camPos; varying vec4 vC; varying float vK;
-    void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(pdat.x * uScale / max(-mv.z, 1.0), 1.5, 512.0);
+  vertexShader: TERR_GLSL + `attribute vec4 pcol; attribute vec2 pdat; uniform float uScale; uniform vec2 fogR; uniform vec3 camPos; varying vec4 vC; varying float vK;
+    void main() { vec4 mv = viewMatrix * vec4(position + vec3(0.0, terrH(position.xz), 0.0), 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(pdat.x * uScale / max(-mv.z, 1.0), 1.5, 512.0);
       vC = pcol; vC.a *= 1.0 - smoothstep(fogR.x, fogR.y * 1.05, distance(position.xz, camPos.xz)); vK = pdat.y; }`,
   fragmentShader: `varying vec4 vC; varying float vK;
     void main() { vec2 q = gl_PointCoord * 2.0 - 1.0; float r = dot(q, q); float a;

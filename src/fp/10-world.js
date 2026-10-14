@@ -17,7 +17,7 @@ class Board {
     const m = new THREE.ShaderMaterial({
       uniforms: Object.assign({ map: { value: tex }, cull: { value: cull }, near: { value: near }, now: { value: 0 } }, LU),
       defines: Object.assign(AA ? { A2C: 1 } : {}, cross ? { CROSS: cross } : {}), alphaToCoverage: AA, side: THREE.DoubleSide,   // a flipped sprite turns its back; draw both faces
-      vertexShader: `attribute vec4 iPos, iRect, iDim, iMisc; uniform vec3 camPos, camRight; uniform float time, cull, near, now;
+      vertexShader: TERR_GLSL + `attribute vec4 iPos, iRect, iDim, iMisc; uniform vec3 camPos, camRight; uniform float time, cull, near, now;
         varying vec2 vUv; varying vec3 vW; varying vec3 vNear; varying vec2 vSh;
         void main() {
           float d = distance(iPos.xz, camPos.xz);
@@ -40,7 +40,7 @@ class Board {
           float sw = sin(time * 0.7 + iMisc.w * 20.0) * 1.6 + sin(time * 1.9 + iMisc.w * 7.0) * 0.5;
           float st = now - iMisc.z; float shake = st >= 0.0 && st < 0.45 ? sin(st * 48.0) * (1.0 - st / 0.45) * 5.0 : 0.0;   // struck: it shudders
           sw = (sw * iMisc.y + shake) * up * up;
-          vec3 w = vec3(iPos.x, iPos.y, iPos.z) + off + R * lx + camRight * sw * s + vec3(0.0, ly, 0.0);
+          vec3 w = vec3(iPos.x, iPos.y + terrH(iPos.xz), iPos.z) + off + R * lx + camRight * sw * s + vec3(0.0, ly, 0.0);
           vSh = vec2(edge, card * mix(0.62, 1.0, smoothstep(0.0, 0.45, up)));   // darker down at the roots, where it meets the ground
           vUv = iRect.xy + vec2(position.x, 1.0 - position.y) * iRect.zw;
           vW = w;
@@ -121,14 +121,14 @@ vec3 paint(vec3 c, float mt, vec3 g, vec3 W, vec3 N) {
 }`;
 const kitMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ glow: { value: 0 } }, LU),
-  vertexShader: `attribute vec3 color, gu; attribute float em, mt; varying vec3 vC, vW, vN, vG; varying float vE, vM;
-    void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; vG = gu; vM = mt; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; varying vec3 vC, vW, vN, vG; varying float vE, vM;
+    void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; vG = gu; vM = mt; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG; varying float vE, vM;
     void main() { vec3 N = normalize(vN); vec3 base = paint(vC, vM, vG, vW, N); vec3 c = base * lightAt(vW, N, 1.0) * 1.05 + vC * vE; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
 });
 const kitEdge = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU), side: THREE.BackSide,
-  vertexShader: `attribute float ew; varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position + normal * ew, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute float ew; varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position + normal * ew, 1.0); w.y += terrH(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `varying vec3 vW;
     void main() { vec3 L = lightAt(vW, vec3(0.0), 0.0); float b = clamp(dot(L, vec3(0.34)) * 2.2, 0.0, 1.0); gl_FragColor = vec4(fogged(vec3(0.122, 0.114, 0.102) * b, vW), 1.0); }`,
 });
@@ -314,7 +314,7 @@ function yardKit(K) {
 const flagGeo = new THREE.BufferGeometry(); flagGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(7 * 2 * 3), 3));
 { const idx = []; for (let i = 0; i < 6; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } flagGeo.setIndex(idx); }
 const flagMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ col: { value: new V3(...hex('#625d55')) } }, LU), side: THREE.DoubleSide,
-  vertexShader: `varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `uniform vec3 col; varying vec3 vW; void main() { gl_FragColor = vec4(fogged(grey(col * lightAt(vW, vec3(0.0), 0.0)), vW), 1.0); }` });
 const flagMesh = new THREE.Mesh(flagGeo, flagMat); flagMesh.frustumCulled = false; scene.add(flagMesh);
 function flagStep(t) {
@@ -338,7 +338,7 @@ function raiderKit(K) {
 // ---------------- ponds: still water with a muddy bank and reeds; ripples cross it ----------------
 const pondMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ lt: { value: 1 }, now: { value: 0 }, sky: { value: SKY.hor } }, LU), transparent: false,
-  vertexShader: `attribute vec4 pdat; varying vec3 vW; varying vec4 vP; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vP = pdat; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec4 pdat; varying vec3 vW; varying vec4 vP; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(pdat.xy); vW = w.xyz; vP = pdat; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `uniform float lt, now; uniform vec3 sky; varying vec3 vW; varying vec4 vP;
     void main() {
       vec2 d = vW.xz - vP.xy; float a = atan(d.y, d.x), r = length(d) / (vP.z * (1.0 + sin(a * 3.0 + vP.w) * 0.08 + sin(a * 5.0 - vP.w) * 0.04));
@@ -372,7 +372,7 @@ shGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, 0, -1, 1, 0
 const shDat = new Float32Array(MAXSH * 4); { const b = new THREE.InstancedBufferAttribute(shDat, 4); b.setUsage(THREE.DynamicDrawUsage); shGeo.setAttribute('sd', b); }
 shGeo.instanceCount = 0;
 const shMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ k: { value: 0.3 }, lean: { value: new THREE.Vector2(0.3, 0.3) } }, LU), transparent: true, depthWrite: false,
-  vertexShader: `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float near = sd.w < 0.0 ? shC.w * smoothstep(shC.z * 0.92, shC.z * 0.72, distance(sd.xy, shC.xy)) : 0.0, r = sd.z * mix(1.0, 0.5, near), len = abs(sd.w) * (1.0 - near); vK = 1.0 - 0.45 * near; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.2, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
+  vertexShader: TERR_GLSL + `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float near = sd.w < 0.0 ? shC.w * smoothstep(shC.z * 0.92, shC.z * 0.72, distance(sd.xy, shC.xy)) : 0.0, r = sd.z * mix(1.0, 0.5, near), len = abs(sd.w) * (1.0 - near); vK = 1.0 - 0.45 * near; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.0, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); w.y = terrH(w.xz) + 0.25; vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
   fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * vK * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, camPos.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
 const shMesh = new THREE.Mesh(shGeo, shMat); shMesh.frustumCulled = false; shMesh.renderOrder = 2; scene.add(shMesh);
 let shN = 0, shBase = 0;
@@ -428,5 +428,5 @@ function worldSync(force) {
     (k === 'bush' ? bushB : plant ? plantB : coverB).add(k, d.v, d.x, d.y, d.s * (k === 'log' ? 1.3 : k === 'bush' ? 1.1 : fl ? 0.72 : 1.15), (d.seed * 7919 % 1) < 0.5 ? 1 : -1, k === 'grass' || k === 'fern' || fl ? 1.2 : k === 'bush' ? 0.6 : 0, -99, d.seed);
   }
   coverB.end(); plantB.end(); bushB.end(); logK.set(LK); shBase = shN;   // the logs cast shadows too
-  WORLD.lakes = pondsSync(p.x, p.y);
+  WORLD.lakes = pondsSync(p.x, p.y); terrLevelSync(p.x, p.y, WORLD.lakes);
 }

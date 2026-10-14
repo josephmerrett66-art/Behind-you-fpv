@@ -32,7 +32,7 @@ const _lights = [];
 function lightsFrame(now, dt) {
   const L = LU.pl.value, C = LU.plc.value, p = S.p, D = S.day, rg = S.rg, night = 1 - ENV.lt * 0.85;
   _lights.length = 0;
-  const add = (x, h, y, r, cr, cg, cb, pri = 0) => { const d = Math.hypot(x - p.x, y - p.y); if (d - r > 700) return; _lights.push({ x, h, y, r, cr, cg, cb, w: pri - d / (r + 1) }); };
+  const add = (x, h, y, r, cr, cg, cb, pri = 0) => { const d = Math.hypot(x - p.x, y - p.y); if (d - r > 700) return; _lights.push({ x, h: h + terrH(x, y), y, r, cr, cg, cb, w: pri - d / (r + 1) }); };
   const fk = s => 0.85 + 0.1 * Math.sin(now * 7.3 + s) + 0.06 * Math.sin(now * 13.1 + s * 2) + 0.05 * Math.random();
   const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 520 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
   // the camp's own fire, and your campfires
@@ -108,7 +108,7 @@ function placeCamera(dt, rdt, now) {
   const kx = S.kick ? S.kick.x * 0.4 : 0, ky = S.kick ? S.kick.y * 0.4 : 0;
   // fallen: the view drops to the ground and tips over onto its side
   const fallK = rg.phase === 'dead' ? smooth(Math.min(1, (rg.deadT || 0) / 1.1)) : 0;
-  cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, EYE - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
+  cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, terrH(p.x, p.y) + EYE - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
   const side = (p.vx * -Math.sin(S.aimW) + p.vy * Math.cos(S.aimW)) / RUN;
   cam.rotation.set(lerp(look.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + nz(6) * sh * 0.06 - side * 0.012 + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
   cam.fov = baseFov() + VIEW_FX.fov; cam.updateProjectionMatrix(); cam.updateMatrixWorld();
@@ -221,7 +221,7 @@ function frame(t) {
   pollPad(rdt);
   LU.time.value = now;
   if (state === 'title' || !S) {
-    titleYaw += rdt * 0.04; cam.position.set(0, EYE, 0); cam.rotation.set(0.05, titleYaw, 0); cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);
+    titleYaw += rdt * 0.04; cam.position.set(0, terrH(0, 0) + EYE, 0); cam.rotation.set(0.05, titleYaw, 0); cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);
     envFrame(); IN.lx = IN.ly = 0;
     renderer.clear(); renderer.render(scene, cam); return;
   }
@@ -268,6 +268,7 @@ function frame(t) {
   document.body.classList.toggle('fallen', S.rg.phase === 'dead');
   buildbarEl.hidden = hotbarEl.hidden || dayTool() !== 'build' || !craftEl.hidden;
   drawHud(); audioFrame();
+  groundMesh.position.set(Math.round(S.p.x / 10) * 10, 0, Math.round(S.p.y / 10) * 10);   // the ground's grid rides along with you
   sunShadows();
   renderer.clear();
   renderer.render(scene, cam);

@@ -5,7 +5,7 @@
 const TREE_R3D = SET.quality === 'fast' ? 600 : 1e9, TREE_NV = 3;
 const treeMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
-  vertexShader: `attribute vec3 color, gu; attribute float em, mt; uniform float time; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
+  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
     void main() {
       mat4 im = modelMatrix;
       #ifdef USE_INSTANCING
@@ -13,7 +13,7 @@ const treeMat = new THREE.ShaderMaterial({
       #endif
       vec4 w = im * vec4(position, 1.0);
       float k = max(0.0, position.y - 24.0) / 90.0, ph = im[3].x * 0.013 + im[3].z * 0.017;   // the crown sways in the breeze, the trunk stands
-      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0;
+      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0; w.y += terrH(im[3].xz);
       vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
@@ -40,7 +40,7 @@ const treeMat = new THREE.ShaderMaterial({
 });
 const treeEdge = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU), side: THREE.BackSide,
-  vertexShader: `attribute float ew; uniform float time; varying vec3 vW;
+  vertexShader: TERR_GLSL + `attribute float ew; uniform float time; varying vec3 vW;
     void main() {
       mat4 im = modelMatrix;
       #ifdef USE_INSTANCING
@@ -48,7 +48,7 @@ const treeEdge = new THREE.ShaderMaterial({
       #endif
       vec4 w = im * vec4(position + normal * ew, 1.0);
       float k = max(0.0, position.y - 24.0) / 90.0, ph = im[3].x * 0.013 + im[3].z * 0.017;
-      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0;
+      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0; w.y += terrH(im[3].xz);
       vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: LIGHT_GLSL + `varying vec3 vW;

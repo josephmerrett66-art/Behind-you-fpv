@@ -99,6 +99,7 @@ function buildBody() {
   return g;
 }
 const BODY_V = (outline) => `#include <common>
+  ${TERR_GLSL}
   #include <skinning_pars_vertex>
   attribute vec3 tone; varying vec3 vC, vW, vN;
   void main() {
@@ -108,7 +109,7 @@ const BODY_V = (outline) => `#include <common>
     #include <begin_vertex>
     #include <skinning_vertex>
     ${outline ? 'transformed += normalize(objectNormal) * 0.5;' : ''}
-    vec4 w = modelMatrix * vec4(transformed, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * objectNormal); vC = tone;
+    vec4 w = modelMatrix * vec4(transformed, 1.0); w.y += terrH(modelMatrix[3].xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * objectNormal); vC = tone;
     gl_Position = projectionMatrix * viewMatrix * w;
   }`;
 const bodyMat = new THREE.ShaderMaterial({
@@ -290,7 +291,7 @@ function posePlayer(now) {
   const hand = bow ? X.B.handL : X.B.handR;
   if (id && TP.items.has(id)) {
     TP.items.get(id).position.set(0, 0, 0); TP.items.get(id).rotation.set(0, 0, 0);
-    TP.hold.matrix.copy(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3)).multiply(_bm.makeRotationFromEuler(_be.set(bow ? 0 : Math.PI / 2, bow ? Math.PI / 2 : 0, 0)));
+    TP.hold.matrix.makeTranslation(0, terrH(X.mesh.position.x, X.mesh.position.z), 0).multiply(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3)).multiply(_bm.makeRotationFromEuler(_be.set(bow ? 0 : Math.PI / 2, bow ? Math.PI / 2 : 0, 0)));
     TP.hold.matrixWorldNeedsUpdate = true; TP.hold.visible = true;
   } else TP.hold.visible = false;
   // the torch in your left fist, its lens glowing
@@ -304,6 +305,7 @@ function posePlayer(now) {
   if (TP.hold.visible || kind) {
     const L = T && (T.wpn === 'spear' || T.thr === 'jav') ? 30 : T && T.wpn === 'sword' ? 17 : TP.hold.visible ? 14 : 4;
     const m = TP.hold.visible ? TP.hold.matrix : hand.matrixWorld, tip = new V3(0, TP.hold.visible ? L : -3, 0).applyMatrix4(m), mid = new V3(0, TP.hold.visible ? L * 0.6 : -1, 0).applyMatrix4(m);
+    if (!TP.hold.visible) { const ty = terrH(X.mesh.position.x, X.mesh.position.z); tip.y += ty; mid.y += ty; }   // the item's matrix is already lifted onto the ground
     smPts.unshift({ tip, mid, a: cutting ? 1 : 0 });
   } else smPts.unshift({ tip: new V3(), mid: new V3(), a: 0 });
   if (smPts.length > SMEAR_N) smPts.length = SMEAR_N;

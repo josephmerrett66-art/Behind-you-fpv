@@ -20,7 +20,7 @@ function weatherFrame(now) {
     const o = i * 6;
     if (i >= n) { rainPos.fill(0, o, o + 6); continue; }
     const a = rainSeed[i * 3], b = rainSeed[i * 3 + 1], c = rainSeed[i * 3 + 2];
-    const y = 220 - ((now * fall * (0.85 + c * 0.3) + c * 2200) % 240);
+    const y = cam.position.y - EYE + 220 - ((now * fall * (0.85 + c * 0.3) + c * 2200) % 240);
     const x = cx + (((a * RAIN_BOX + now * sx - cx) % RAIN_BOX + RAIN_BOX) % RAIN_BOX) - RAIN_BOX / 2;
     const z = cz + (((b * RAIN_BOX + now * sz - cz) % RAIN_BOX + RAIN_BOX) % RAIN_BOX) - RAIN_BOX / 2;
     rainPos[o] = x; rainPos[o + 1] = y; rainPos[o + 2] = z;

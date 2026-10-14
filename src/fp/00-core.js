@@ -89,8 +89,51 @@ vec3 lightAt(vec3 p, vec3 n, float useN) {
   if (plN > 0.5) for (int i = 0; i < ${NL}; i++) { vec4 q = pl[i]; float k = clamp(1.0 - distance(p, q.xyz) / q.w, 0.0, 1.0); c += plc[i] * (k * k); }
   return c;
 }
+float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
 vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)); return mix(vec3(g), c, colourK); }
 vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, distance(p.xz, camPos.xz))); }`;
+
+// ---------------- the lie of the land: rolling hills ----------------
+// One height for every point of the woods, worked out the same way here and on the graphics card, so the ground, the grass,
+// every tree, the camp, the raiders and you all stand on the same slopes. A few broad swells with smaller rises over them;
+// the camp, the raiders' camps and the ponds sit on level ground let into the hillside.
+const TERR_N = 8;
+LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) };   // level places: x, y, radius, height
+function terrBase(x, z) {
+  return 24 * Math.sin(x * 0.0061 + 1.3) * Math.sin(z * 0.0053 + 0.4) + 11 * Math.sin(x * 0.013 + z * 0.0081) * Math.cos(z * 0.0117 - x * 0.004) + 3 * Math.sin(x * 0.031 + 2.0) * Math.sin(z * 0.027 + 1.0);
+}
+const _sst = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function terrH(x, z) {
+  let h = terrBase(x, z);
+  for (const f of LU.terrF.value) if (f.z > 0) h = lerp(h, f.w, _sst(f.z * 1.9, f.z, Math.hypot(x - f.x, z - f.y)));
+  return h;
+}
+const TERR_GLSL = `uniform vec4 terrF[${TERR_N}];
+float terrBase(vec2 p) { return 24.0 * sin(p.x * 0.0061 + 1.3) * sin(p.y * 0.0053 + 0.4) + 11.0 * sin(p.x * 0.013 + p.y * 0.0081) * cos(p.y * 0.0117 - p.x * 0.004) + 3.0 * sin(p.x * 0.031 + 2.0) * sin(p.y * 0.027 + 1.0); }
+float terrLevel(vec2 p, inout float h) {   // pulls h onto any level place here; returns how level it is
+  float lv = 0.0;
+  for (int i = 0; i < ${TERR_N}; i++) { vec4 f = terrF[i]; if (f.z <= 0.0) continue; float k = smoothstep(f.z * 1.9, f.z, distance(p, f.xy)); h = mix(h, f.w, k); lv = max(lv, k); }
+  return lv;
+}
+float terrH(vec2 p) { float h = terrBase(p); terrLevel(p, h); return h; }
+// the ground's slope as a normal (from the swells themselves; flat where the land's been levelled)
+vec3 terrN(vec2 p) {
+  float a = p.x * 0.0061 + 1.3, b = p.y * 0.0053 + 0.4, u = p.x * 0.013 + p.y * 0.0081, v = p.y * 0.0117 - p.x * 0.004, c = p.x * 0.031 + 2.0, d = p.y * 0.027 + 1.0;
+  float dx = 24.0 * 0.0061 * cos(a) * sin(b) + 11.0 * (0.013 * cos(u) * cos(v) + 0.004 * sin(u) * sin(v)) + 3.0 * 0.031 * cos(c) * sin(d);
+  float dz = 24.0 * 0.0053 * sin(a) * cos(b) + 11.0 * (0.0081 * cos(u) * cos(v) - 0.0117 * sin(u) * sin(v)) + 3.0 * 0.027 * sin(c) * cos(d);
+  float h = 0.0, lv = terrLevel(p, h);
+  return normalize(vec3(-dx * (1.0 - lv), 1.0, -dz * (1.0 - lv)));
+}`;
+// which places are level: the camp, the nearest raiders' camps and ponds (re-chosen as you move about)
+function terrLevelSync(px, py, lakes) {
+  const L = [];
+  L.push([0, 0, CAMP_R + 55, terrBase(0, 0)]);
+  for (const C of dayCampList()) { const o = C.parts && C.parts[0] ? C.parts[0] : C; L.push([o.x, o.y, 120, terrBase(o.x, o.y)]); }
+  for (const P of lakes || []) L.push([P.x, P.y, P.rad * 1.25 + 8, terrBase(P.x, P.y) - 3]);
+  L.sort((a, b) => Math.hypot(a[0] - px, a[1] - py) - a[2] - (Math.hypot(b[0] - px, b[1] - py) - b[2]));
+  LU.terrF.value.forEach((v, i) => { const q = L[i]; if (q && Math.hypot(q[0] - px, q[1] - py) - q[2] * 1.9 < VIEW + 300) v.set(q[0], q[1], q[2], q[3]); else v.set(0, 0, 0, 0); });
+}
+
 
 // ---------------- textures ----------------
 let pending = 2, ready = false;
@@ -123,15 +166,15 @@ const SKY = { top: new V3(), hor: new V3() };
 
 // ---------------- the ground ----------------
 {
-  const g = new THREE.PlaneGeometry(6000, 6000); g.rotateX(-Math.PI / 2);
+  const g = new THREE.PlaneGeometry(2800, 2800, 280, 280); g.rotateX(-Math.PI / 2);   // follows you, in 10-unit steps (90-main)
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
-    vertexShader: `varying vec3 vW; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: LIGHT_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms; varying vec3 vW;
+    vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: LIGHT_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms; varying vec3 vW, vTN;
       void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb;
         float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
         t = mix(t, vec3(0.34, 0.42, 0.19) * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm));
-        gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12), vW), 1.0); }`,
+        gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0); }`,
   });
   var groundMesh = new THREE.Mesh(g, m); groundMesh.frustumCulled = false; scene.add(groundMesh);
 }

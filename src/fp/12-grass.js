@@ -8,8 +8,8 @@ const grassMaskData = new Uint8Array(GM_N * GM_N).fill(255);
 const grassMaskTex = new THREE.DataTexture(grassMaskData, GM_N, GM_N, THREE.RedFormat, THREE.UnsignedByteType);
 grassMaskTex.magFilter = grassMaskTex.minFilter = THREE.LinearFilter; grassMaskTex.needsUpdate = true;
 const grassU = { mask: { value: grassMaskTex }, mo: { value: new THREE.Vector2(-GM_S / 2, -GM_S / 2) }, ms: { value: GM_S }, gmap: { value: floorTex } };
-const GRASS_V = `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms, ring; uniform vec2 mo; uniform sampler2D mask;
-  varying vec3 vW; varying float vUp, vTone, vRoot;
+const GRASS_V = TERR_GLSL + `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms, ring; uniform vec2 mo; uniform sampler2D mask;
+  varying vec3 vW, vTN; varying float vUp, vTone, vRoot;
   const float R0 = ${GR_RINGS[0].toFixed(1)}, R1 = ${GR_RINGS[1].toFixed(1)}, R2 = ${GR_RINGS[2].toFixed(1)};
   float fin(float R, float d) { return smoothstep(R, R * 0.7, d); }   // 1 well inside a field, 0 at its edge
   void main() {
@@ -24,20 +24,20 @@ const GRASS_V = `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms,
     float shrink = 1.0 / (1.0 + d / 260.0), widen = 1.0 + d / 140.0;      // smaller further off, but never thinner than a hair
     float up = position.y * shrink * k;
     float c = cos(bd.z), s = sin(bd.z);
-    vec3 w = vec3(rt.x + position.x * widen * c, up, rt.y + position.x * widen * s);
+    vec3 w = vec3(rt.x + position.x * widen * c, up + terrH(rt), rt.y + position.x * widen * s); vTN = terrN(rt);
     // a breeze that runs across the turf, and a little shiver of its own
     float br = sin(time * 1.3 + rt.x * 0.05 + rt.y * 0.035) * 0.5 + sin(time * 2.7 + rt.x * 0.3 + bd.w * 6.0) * 0.25;
     w.x += br * 0.35 * up; w.z += br * 0.2 * up;
     vW = w; vUp = position.y / 3.3; vTone = fract(bd.w * 7.13); vRoot = position.y;
     gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
   }`;
-const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW; varying float vUp, vTone, vRoot;
+const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; varying float vUp, vTone, vRoot;
   void main() {
     vec3 g = texture2D(gmap, vW.xz / 384.0).rgb;
     vec3 turf = mix(vec3(0.36, 0.46, 0.2), vec3(0.56, 0.62, 0.3), vTone) * (0.85 + 0.3 * g.r);   // a short, slightly dry green
     vec3 c = mix(turf * 0.62, turf * 1.15, smoothstep(0.0, 0.8, vUp));
     c *= mix(0.75, 1.0, smoothstep(0.0, 1.2, vRoot));                          // shaded down among the roots
-    gl_FragColor = vec4(fogged(grey(c * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12), vW), 1.0);
+    gl_FragColor = vec4(fogged(grey(c * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0);
   }`;
 {
   const pos = new Float32Array(GR_N * 9), bd = new Float32Array(GR_N * 12);

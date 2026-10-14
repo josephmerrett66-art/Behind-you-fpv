@@ -4,15 +4,15 @@
 const MAXF = 160;
 const figMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
-  vertexShader: `attribute vec4 iCol; varying vec4 vC; varying vec3 vW, vN;
-    void main() { vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix * instanceMatrix) * normal); vC = iCol; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec4 iCol; varying vec4 vC; varying vec3 vW, vN;
+    void main() { vec4 w = modelMatrix * instanceMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix * instanceMatrix) * normal); vC = iCol; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `varying vec4 vC; varying vec3 vW, vN;
     void main() { vec3 c = vC.rgb * lightAt(vW, normalize(vN), 1.0) * 1.05 + vC.rgb * vC.a; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
 });
 const figEdge = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU), side: THREE.BackSide,
-  vertexShader: `attribute vec4 iCol; varying vec3 vW; varying float vE;
-    void main() { vec3 n = normalize(mat3(instanceMatrix) * normal); vec4 w = modelMatrix * (instanceMatrix * vec4(position, 1.0) + vec4(n * 0.7, 0.0)); vW = w.xyz; vE = iCol.a; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  vertexShader: TERR_GLSL + `attribute vec4 iCol; varying vec3 vW; varying float vE;
+    void main() { vec3 n = normalize(mat3(instanceMatrix) * normal); vec4 w = modelMatrix * (instanceMatrix * vec4(position, 1.0) + vec4(n * 0.7, 0.0)); w.y += terrH(w.xz); vW = w.xyz; vE = iCol.a; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: LIGHT_GLSL + `varying vec3 vW; varying float vE;
     void main() { vec3 L = lightAt(vW, vec3(0.0), 0.0); float b = clamp(dot(L, vec3(0.34)) * 2.2 + vE * 0.6, 0.0, 1.0); gl_FragColor = vec4(fogged(vec3(0.15, 0.15, 0.14) * b, vW), 1.0); }`,
 });
@@ -72,7 +72,7 @@ const KIT_WEAR = { shade: { coat: 1 }, tall: { coat: 2 }, archer: { coat: 1 }, b
 const FOE_SKIN = { shade: [176, 150, 132], stalker: [168, 140, 128], brute: [184, 140, 108], tall: [150, 122, 108], bomber: [190, 150, 118], laser: [178, 150, 130], kamikaze: [196, 160, 120],
   splitter: [186, 152, 136], spear: [176, 132, 98], archer: [188, 156, 120], woodcutter: [184, 140, 108], lamplighter: [196, 160, 124], huntsman: [176, 140, 110], warden: [170, 136, 112] };
 function foeDress(type) {
-  const t = FOE_TINT[type] || [170, 150, 120];
+  const t0 = FOE_TINT[type] || [170, 150, 120], m = (t0[0] + t0[1] + t0[2]) / 3, t = t0.map(v => clamp(m + (v - m) * 1.6, 0, 255));   // a touch richer than the top-down tint
   return { shirt: mixc(t, [150, 140, 125], 0.05), trou: mixc(t.map(v => v * 0.5), [64, 56, 46], 0.55), skin: FOE_SKIN[type] || [182, 148, 120], deep: mixc(t.map(v => v * 0.42), [40, 36, 32], 0.4) };
 }
 const KIT_HEAD = { shade: 'hood', stalker: 'goggles', brute: 'helmet', tall: 'hood', bomber: 'helmet', laser: 'visor', kamikaze: 'goggles', splitter: 'hood', spear: 'helmet', archer: 'hood' };

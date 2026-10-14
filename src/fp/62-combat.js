@@ -11,7 +11,7 @@ addEventListener('resize', fxcSize); fxcSize();
 // a world point on the screen, and how many pixels one world unit is out there
 const _cv = new V3();
 function scr(x, h, y, out) {
-  _cv.set(x, h, y).applyMatrix4(cam.matrixWorldInverse);
+  _cv.set(x, h + terrH(x, y), y).applyMatrix4(cam.matrixWorldInverse);   // heights are above the ground there
   const z = -_cv.z; if (z < 3) return null;
   _cv.applyMatrix4(cam.projectionMatrix);
   out = out || [0, 0, 0];

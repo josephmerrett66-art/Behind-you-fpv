@@ -7626,6 +7626,16 @@ function dayPlaceSpot(t) {
   return { x, y, a, ok };
 }
 
+// Cooking and the other fire recipes are done at a fire: the camp's own fire in the middle of the yard, or a campfire
+// you've built, not from anywhere inside the palisade (the main game lets the whole camp count as "at the fire").
+// Close enough to sit by it: a couple of steps from the stones.
+const COOK_R = 60;
+function stationHere(at) {
+  const p = S.p;
+  if (at === 'fire') return Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
+  return at === 'hand' || (at === 'bench' && dayBenchNear(p.x, p.y)) || (at === 'furnace' && dayFurnNear(p.x, p.y)) || (at === 'rack' && dayRackNear(p.x, p.y)) || (at === 'anvil' && dayAnvilNear(p.x, p.y));
+}
+
 ;
 // ================= sound: the main game's own voices, placed around your head =================
 // The main game's sounds (src/ported.js) all play through actx, sfxGain and OUT, and ask monOut() where a thing is. Here monOut

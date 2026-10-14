@@ -67,13 +67,13 @@ const flyMesh = lifeMesh(lifeQuads([
   { p: -1, c: [[0, -0.85, 0, -1], [-1, -0.85, 1, -1], [-1, 0.85, 1, 1], [0, 0.85, 0, 1]] },
   { p: 1, c: [[0, -0.85, 0, -1], [1, -0.85, 1, -1], [1, 0.85, 1, 1], [0, 0.85, 0, 1]] },
   { p: 0, y: 0.05, c: [[-0.08, -0.6, 0, -1], [0.08, -0.6, 1, -1], [0.08, 0.6, 1, 1], [-0.08, 0.6, 0, 1]] }]),
-  Math.round(46 * LIFE_FEW), (a, i) => a.set([Math.random(), Math.random(), Math.random(), Math.random()], i * 4), `
+  Math.round(28 * LIFE_FEW), (a, i) => a.set([Math.random(), Math.random(), Math.random(), Math.random()], i * 4), `
   attribute float part;
   vec2 path(float t) { return vec2(sin(t * 0.31 + sd.w * 20.0) * 38.0 + sin(t * 0.83 + sd.x * 9.0) * 11.0, cos(t * 0.27 + sd.z * 20.0) * 38.0 + cos(t * 0.91 + sd.y * 9.0) * 11.0); }
   void main() {
     float B = lifeB;
     vec2 h0 = home(sd.xy, B), h = h0 + path(time), dh = path(time + 0.08) - path(time);
-    float k = edge(h, B) * lifeK;
+    float k = edge(h, B) * lifeK * smoothstep(${CAMP_R + 15}.0, ${CAMP_R + 90}.0, length(h));   // they keep out over the open ground, not in the camp
     float beat = fract(time * 0.35 + sd.w) < 0.3 ? 0.15 : 1.0;   // now and then a glide
     float flap = (sin(time * (13.0 + sd.z * 5.0) + sd.w * 30.0) * 0.85 + 0.35) * beat + (1.0 - beat) * 0.25;
     vec3 p = position;

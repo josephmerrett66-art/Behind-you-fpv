@@ -52,7 +52,7 @@ function buildBody() {
   const blend = (a, b, y0, y1) => (x, y) => { const k = smooth(clamp((y - y0) / (y1 - y0), 0, 1)); return [[a, 1 - k], [b, k]]; };
   const R = BREST;
   // the torso, hips to the base of the neck: broad at the chest, in at the waist
-  const torsoProf = t => { const y = 14 + t * 17.2, r = y < 17 ? lerp(3.6, 4.9, (y - 14) / 3) : y < 21 ? lerp(4.9, 4.3, (y - 17) / 4) : y < 28.5 ? lerp(4.3, 5.7, smooth((y - 21) / 7.5)) : lerp(5.7, 3.2, (y - 28.5) / 2.7); return [r * (t < 0.02 || t > 0.98 ? 0.6 : 1), r * 0.68]; };
+  const torsoProf = t => { const y = 14 + t * 17.2, r = y < 17 ? lerp(3.6, 4.9, (y - 14) / 3) : y < 21 ? lerp(4.9, 4.3, (y - 17) / 4) : y < 28 ? lerp(4.3, 5.7, smooth((y - 21) / 7))  : y < 28 ? 5.7 : lerp(3.0, 5.7, Math.sqrt(Math.max(0, 1 - ((y - 28) / 3.3) ** 2))); return [r * (t < 0.02 || t > 0.98 ? 0.6 : 1), r * 0.68]; };
   tube([0, 31.2, 0], [0, 14, 0], t => torsoProf(1 - t), (x, y) => {
     const w = []; const kS = smooth(clamp((y - 19) / 3, 0, 1)), kC = smooth(clamp((y - 24) / 3, 0, 1));
     w.push(['hips', 1 - kS], ['spine', kS * (1 - kC)], ['chest', kC]); return w.filter(q => q[1] > 0.001);
@@ -76,20 +76,24 @@ function buildBody() {
   // arms: the shirt's sleeve to the elbow, rolled up in a thick band, a bare forearm and a bare hand
   for (const s of [1, -1]) {
     const S = s > 0 ? 'R' : 'L', sh = R['arm' + S], el = R['fore' + S], wr = R['hand' + S];
-    lump([sh[0] - s * 0.4, sh[1] - 0.6, sh[2]], [2.9, 2.8, 2.6], (x, y) => [['chest', 0.45], ['arm' + S, 0.55]], col('tunic'), 12, 10);
-    tube(sh, el, t => [2.05 - 0.3 * t, 1.95 - 0.3 * t], (x, y) => { const k = smooth(clamp((sh[1] - y) / 2.2, 0, 1)); return [['chest', (1 - k) * 0.5], ['arm' + S, 1 - (1 - k) * 0.5]]; }, col('tunic'));
+    tube([s * 1.6, 31.7, -0.3], [sh[0] - s * 0.6, sh[1] - 0.2, sh[2] - 0.1], t => [1.5 + 0.55 * t, 1.55 + 0.45 * t], one('chest'), col('tunic'), 6, 10);   // the slope from neck to shoulder
+    lump([sh[0] - s * 0.2, sh[1] - 1.0, sh[2]], [2.45, 2.65, 2.4], (x, y) => [['chest', 0.4], ['arm' + S, 0.6]], col('tunic'), 14, 12);   // a rounded shoulder
+    tube(sh, el, t => [1.95 + 0.16 * Math.sin(Math.PI * t) - 0.25 * t, 1.88 + 0.12 * Math.sin(Math.PI * t) - 0.25 * t], (x, y) => { const k = smooth(clamp((sh[1] - y) / 2.2, 0, 1)); return [['chest', (1 - k) * 0.5], ['arm' + S, 1 - (1 - k) * 0.5]]; }, col('tunic'));
     tube([el[0], el[1] + 1.2, el[2]], [el[0], el[1] - 1.3, el[2]], () => [2.05, 2.0], (x, y) => { const k = smooth(clamp((el[1] + 0.4 - y) / 1.6, 0, 1)); return [['arm' + S, 1 - k], ['fore' + S, k]]; }, () => [222, 210, 186], 3, 12);   // the roll
-    tube([el[0], el[1] + 0.6, el[2]], wr, t => [1.45 - 0.25 * t, 1.35 - 0.25 * t], (x, y) => { const k = smooth(clamp((el[1] - y) / 1.8, 0, 1)); return [['arm' + S, 1 - k], ['fore' + S, k]]; }, col('skin'));
-    lump([wr[0] + s * 0.1, wr[1] - 1.4, wr[2] + 0.3], [1.55, 1.85, 1.65], one('hand' + S), col('skin'), 12, 10);
-    lump([wr[0] - s * 0.2, wr[1] - 1.0, wr[2] + 1.6], [0.6, 0.9, 0.6], one('hand' + S), col('skin'), 6, 6);   // the thumb
+    tube([el[0], el[1] + 0.6, el[2]], wr, t => [1.5 + 0.14 * Math.sin(Math.PI * Math.min(1, t * 1.4)) - 0.38 * t, 1.38 + 0.1 * Math.sin(Math.PI * Math.min(1, t * 1.4)) - 0.32 * t], (x, y) => { const k = smooth(clamp((el[1] - y) / 1.8, 0, 1)); return [['arm' + S, 1 - k], ['fore' + S, k]]; }, col('skin'));
+    // a mitten of a hand: a palm that widens to the knuckles and rounds off, curled a little forward, and a thumb along the front
+    const handProf = t => { const r = t < 0.55 ? 1 : Math.sqrt(Math.max(0.04, 1 - ((t - 0.55) / 0.45) ** 2)); return [lerp(1.2, 1.5, Math.min(1, t / 0.55)) * r, lerp(1.0, 1.15, Math.min(1, t / 0.55)) * r]; };
+    tube([wr[0], wr[1] + 0.3, wr[2]], [wr[0] + s * 0.1, wr[1] - 3.5, wr[2] + 0.7], handProf, one('hand' + S), col('skin'), 10, 12);
+    tube([wr[0] - s * 0.55, wr[1] - 0.6, wr[2] + 0.8], [wr[0] - s * 0.75, wr[1] - 2.3, wr[2] + 1.55], t => { const r = Math.sqrt(Math.max(0.05, 1 - ((t - 0.35) / 0.65) ** 2)); return [0.62 * r, 0.6 * r]; }, one('hand' + S), col('skin'), 6, 8);   // the thumb
   }
   // legs: cargo trousers with a pocket on each thigh, turned up at the ankle over brown lace-up boots with a dark sole
   for (const s of [1, -1]) {
     const S = s > 0 ? 'R' : 'L', hp = R['leg' + S], kn = R['shin' + S], an = R['foot' + S];
-    tube([hp[0], hp[1] + 1.2, hp[2]], kn, t => [2.6 - 0.55 * t, 2.5 - 0.5 * t], (x, y) => { const k = smooth(clamp((hp[1] + 1 - y) / 3, 0, 1)); return [['hips', 1 - k], ['leg' + S, k]]; }, col('trou'));
+    tube([hp[0], hp[1] + 1.2, hp[2]], kn, t => [2.6 + 0.12 * Math.sin(Math.PI * t * 0.8) - 0.62 * t, 2.55 + 0.18 * Math.sin(Math.PI * t * 0.8) - 0.6 * t], (x, y) => { const k = smooth(clamp((hp[1] + 1 - y) / 3, 0, 1)); return [['hips', 1 - k], ['leg' + S, k]]; }, col('trou'));
+    lump([kn[0], kn[1] + 0.3, kn[2] + 1.15], [1.55, 1.6, 1.05], (x, y) => [['leg' + S, 0.5], ['shin' + S, 0.5]], col('trou'), 8, 6);   // the knee, a soft bump in the cloth
     lump([hp[0] + s * 2.15, (hp[1] + kn[1]) / 2 - 0.6, hp[2] + 0.2], [0.75, 2.0, 1.7], one('leg' + S), col('trouL'), 8, 6);   // the cargo pocket
     lump([hp[0] + s * 2.45, (hp[1] + kn[1]) / 2 + 1.0, hp[2] + 0.2], [0.45, 0.6, 1.75], one('leg' + S), col('trou'), 6, 4);    // its flap
-    tube([kn[0], kn[1] + 0.8, kn[2]], [an[0], an[1] + 2.5, an[2]], t => [2.0 - 0.15 * t, 1.95 - 0.12 * t], (x, y) => { const k = smooth(clamp((kn[1] + 0.5 - y) / 1.8, 0, 1)); return [['leg' + S, 1 - k], ['shin' + S, k]]; }, col('trou'));
+    tube([kn[0], kn[1] + 0.8, kn[2]], [an[0], an[1] + 2.5, an[2]], t => [1.98 + 0.14 * Math.sin(Math.PI * Math.min(1, t * 1.6)) - 0.3 * t, 1.95 + 0.22 * Math.sin(Math.PI * Math.min(1, t * 1.6)) - 0.3 * t], (x, y) => { const k = smooth(clamp((kn[1] + 0.5 - y) / 1.8, 0, 1)); return [['leg' + S, 1 - k], ['shin' + S, k]]; }, col('trou'));
     tube([an[0], an[1] + 6.6, an[2]], [an[0], an[1] + 4.9, an[2]], () => [2.35, 2.3], one('shin' + S), col('trouL'), 3, 14);   // turned up
     tube([an[0], an[1] + 5.0, an[2]], [an[0], an[1] + 0.2, an[2] + 0.2], () => [2.1, 2.1], (x, y) => { const k = smooth(clamp((an[1] + 3 - y) / 2.5, 0, 1)); return [['shin' + S, 1 - k], ['foot' + S, k]]; }, col('boot'), 6, 12);
     lump([an[0], an[1] - 0.2, an[2] + 1.7], [2.15, 1.45, 3.45], one('foot' + S), col('boot'), 12, 8);
@@ -204,16 +208,23 @@ function posePlayer(now) {
     P.legL[0] = -sw * 0.85 * k; P.legR[0] = sw * 0.85 * k;
     P.shinL[0] = 0.2 + 1.35 * k * Math.max(0, cw) ** 1.5 + 0.15 * k; P.shinR[0] = 0.2 + 1.35 * k * Math.max(0, -cw) ** 1.5 + 0.15 * k;
     P.footL[0] = -P.legL[0] * 0.5 - P.shinL[0] * 0.55 + 0.15; P.footR[0] = -P.legR[0] * 0.5 - P.shinR[0] * 0.55 + 0.15;
-    P.armL[0] = sw * 0.8 * k; P.armR[0] = -sw * 0.8 * k; P.armL[2] = -0.12; P.armR[2] = 0.12;
-    P.foreL[0] = -0.5 - 0.7 * k; P.foreR[0] = -0.5 - 0.7 * k;
-    P.hips[1] = sw * 0.22 * k; P.chest[1] = -sw * 0.32 * k; P.hips[2] = -cw * 0.06 * k; P.head[1] = sw * 0.08 * k;
-    lean(0.15 + 0.35 * gk); P.head[0] -= 0.2 * gk;
-    rootY = Math.abs(cw) * 1.8 * k - 0.6 * k;
+    // arms swing from the shoulder against the legs, the elbow bending more as each comes forward, a little out from the body
+    P.armL[0] = sw * (0.55 + 0.3 * gk) * k; P.armR[0] = -sw * (0.55 + 0.3 * gk) * k; P.armL[2] = -0.13 - 0.04 * Math.max(0, -sw) * k; P.armR[2] = 0.13 + 0.04 * Math.max(0, sw) * k;
+    P.foreL[0] = -0.35 - 0.55 * k - 0.45 * k * Math.max(0, -sw); P.foreR[0] = -0.35 - 0.55 * k - 0.45 * k * Math.max(0, sw);
+    P.armL[1] = 0.1 * sw * k; P.armR[1] = 0.1 * sw * k;
+    // the hips turn with the leading leg and the shoulders against them; the weight rocks over onto each foot as it lands
+    P.hips[1] = sw * 0.22 * k; P.chest[1] = -sw * 0.32 * k; P.hips[2] = -cw * 0.09 * k; P.chest[2] = cw * 0.05 * k; P.head[1] = sw * 0.08 * k; P.head[2] = -cw * 0.03 * k;
+    lean(0.12 + 0.35 * gk); P.head[0] -= 0.2 * gk;
+    rootY = Math.abs(cw) * (1.5 + 0.8 * (1 - gk)) * k - 0.6 * k;   // a springy bounce: more of it at a walk
     P.pack[0] = -Math.abs(cw) * 0.12 * k; P.cap[0] = -0.1 * k;
   } else {   // idle: breathing, weight on one hip, hands loose
-    const br = Math.sin(t * 1.9);
-    P.chest[0] = br * 0.025; P.head[0] = -br * 0.02; P.hips[2] = 0.04; P.legL[2] = -0.04; P.legR[2] = 0.02; P.shinL[0] = 0.12;
-    P.armL[2] = -0.14 - br * 0.02; P.armR[2] = 0.14 + br * 0.02; P.foreL[0] = -0.35; P.foreR[0] = -0.45; rootY = -0.3;
+    // breathing lifts the chest and shoulders; every so often the weight drifts from one hip to the other and the head looks round
+    const br = Math.sin(t * 1.9), shift = Math.sin(t * 0.33) * 0.7 + Math.sin(t * 0.13 + 1) * 0.3, look = Math.sin(t * 0.21) * 0.6 + Math.sin(t * 0.53 + 2) * 0.4;
+    P.chest[0] = br * 0.03; P.spine[0] = -br * 0.01; P.head[0] = -br * 0.02 + 0.03 * Math.sin(t * 0.4); P.head[1] = look * 0.22;
+    P.hips[2] = 0.05 * shift; P.chest[2] = -0.035 * shift; P.legL[2] = -0.04 + 0.03 * shift; P.legR[2] = 0.02 + 0.03 * shift;
+    P.shinL[0] = 0.1 + 0.08 * Math.max(0, shift); P.shinR[0] = 0.04 + 0.08 * Math.max(0, -shift);
+    P.armL[2] = -0.14 - br * 0.025; P.armR[2] = 0.14 + br * 0.025; P.armL[0] = 0.04 * shift; P.armR[0] = -0.04 * shift;
+    P.foreL[0] = -0.35; P.foreR[0] = -0.45; rootY = -0.3 + br * 0.08 - 0.15 * Math.abs(shift);
   }
   // ---- sneaking: low, knees bent, weight forward ----
   const cr = D.crK || 0;
@@ -292,6 +303,12 @@ function posePlayer(now) {
   // ease every joint toward the pose
   const k = 1 - Math.exp(-stiff * dt);
   for (const [n] of BONES) { const c = X.cur[n], q = P[n]; for (let i = 0; i < 3; i++) c[i] += (q[i] - c[i]) * k; X.B[n].rotation.set(c[0], c[1], c[2], 'YXZ'); }
+  // the pack rides on a spring: it lags the bounce, sways as your weight rocks and swings out a little as you turn
+  { const pk = X.pk || (X.pk = { a: [0, 0], v: [0, 0], y: X.root[1], f: X.face });
+    const vy = (X.root[1] - pk.y) / Math.max(dt, 1e-3), turn = angDiff(X.face, pk.f) / Math.max(dt, 1e-3); pk.y = X.root[1]; pk.f = X.face;
+    const want = [clamp(vy * 0.012, -0.12, 0.12), clamp(-X.cur.hips[2] * 0.8 - turn * 0.04, -0.2, 0.2)];
+    for (let i = 0; i < 2; i++) { pk.v[i] += ((want[i] - pk.a[i]) * 120 - pk.v[i] * 9) * dt; pk.a[i] += pk.v[i] * dt; }
+    X.B.pack.rotation.x += pk.a[0]; X.B.pack.rotation.z += pk.a[1]; }
   // the pack and cap swing a beat behind you
   X.root[0] += (lunge - X.root[0]) * (1 - Math.exp(-(kind ? 30 : 12) * dt)); X.root[1] += (rootY - X.root[1]) * (1 - Math.exp(-20 * dt));
   const fx = Math.cos(X.face), fy = Math.sin(X.face);

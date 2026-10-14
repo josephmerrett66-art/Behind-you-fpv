@@ -38,12 +38,16 @@ const LIFE_FEW = SET.quality === 'fast' ? 0.5 : 1;
 
 // ---- leaves: tumbling down from up in the canopy, drifting on the breeze, a few colours of autumn and summer ----
 const leafMesh = lifeMesh(lifeQuads([{ p: 0, c: [[-1, -0.6, 0, 0], [1, -0.6, 1, 0], [1, 0.6, 1, 1], [-1, 0.6, 0, 1]] }]),
-  Math.round(200 * LIFE_FEW), (a, i) => a.set([Math.random(), Math.random(), Math.random(), Math.random()], i * 4), `
+  Math.round(140 * LIFE_FEW), (a, i) => a.set([Math.random(), Math.random(), Math.random(), Math.random()], i * 4), `
   attribute float part;
+  // (Joe) not all the time: the leaves mostly come down in a gust now and then, with only the odd one in between
+  float gust(float t) { float g = sin(t * 0.061) * 0.5 + sin(t * 0.137 + 1.7) * 0.3 + sin(t * 0.29 + 4.1) * 0.2; return smoothstep(0.42, 0.62, g); }
   void main() {
     float B = lifeB * 0.8, T = 13.0 + 9.0 * sd.z, ph = fract(time / T + sd.w), H = 70.0 + 70.0 * sd.z;
     vec2 h = home(sd.xy, B) + vec2(ph * 40.0 + sin(time * 1.2 + sd.w * 40.0) * 7.0, sin(time * 0.9 + sd.x * 30.0) * 5.0);
-    float k = edge(h, B) * smoothstep(1.0, 0.94, ph) * smoothstep(0.0, 0.05, ph) * lifeK;
+    float start = time - ph * T;                                         // when this leaf let go: it falls if that was in a gust
+    float on = max(step(fract(sd.y * 7.3), gust(start) * 0.75), step(fract(sd.x * 13.1), 0.06));
+    float k = edge(h, B) * smoothstep(1.0, 0.94, ph) * smoothstep(0.0, 0.05, ph) * lifeK * on;
     float a = time * (1.6 + sd.x * 2.4) + sd.y * 9.0, b = time * (0.8 + sd.z * 1.5) + sd.x * 7.0;
     vec3 p = rY(b) * rX(a) * rZ(sin(time * 2.0 + sd.w * 9.0) * 0.6) * (position * 1.6 * k);
     vec3 w = vec3(h.x, terrH(h) + 1.0 + H * (1.0 - ph), h.y) + p;

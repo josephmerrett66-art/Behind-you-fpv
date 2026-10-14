@@ -7608,13 +7608,13 @@ const figEdge = new THREE.ShaderMaterial({
     void main() { vec3 L = lightAt(vW, vec3(0.0), 0.0); float b = clamp(dot(L, vec3(0.34)) * 2.2 + vE * 0.6, 0.0, 1.0); gl_FragColor = vec4(fogged(vec3(0.15, 0.15, 0.14) * b, vW), 1.0); }`,
 });
 class Part {
-  constructor(geo, cap = MAXF, edge = true) {
+  constructor(geo, cap = MAXF, edge = true, emat = figEdge) {
     this.cap = cap;
     this.col = new THREE.InstancedBufferAttribute(new Float32Array(cap * 4), 4); this.col.setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('iCol', this.col);
     this.mesh = new THREE.InstancedMesh(geo, figMat, cap); this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false; this.mesh.count = 0; scene.add(castsShadow(this.mesh));
-    if (edge) { this.edge = new THREE.InstancedMesh(geo, figEdge, cap); this.edge.instanceMatrix = this.mesh.instanceMatrix; this.edge.frustumCulled = false; this.edge.count = 0; scene.add(this.edge); }
+    if (edge) { this.edge = new THREE.InstancedMesh(geo, emat, cap); this.edge.instanceMatrix = this.mesh.instanceMatrix; this.edge.frustumCulled = false; this.edge.count = 0; scene.add(this.edge); }
     this.n = 0;
   }
   push(m, c, e = 0) { if (this.n >= this.cap) return; const i = this.n++; this.mesh.setMatrixAt(i, m); this.col.setXYZW(i, c[0], c[1], c[2], e); }
@@ -7636,6 +7636,9 @@ const ballG = new THREE.SphereGeometry(0.5, 12, 8), limbG = (() => { const g = n
 const boxG = new THREE.BoxGeometry(1, 1, 1), coneG = (() => { const g = new THREE.ConeGeometry(0.5, 1, 8); g.translate(0, 0.5, 0); return g; })();
 const PT = { torso: new Part(torsoG, 96), head: new Part(headG, 96), face: new Part(faceG, 96), arm: new Part(capG(1.2, 13.4, true), 192), leg: new Part(capG(1.65, 13.6, true), 192),
   ball: new Part(ballG, 1800), limb: new Part(limbG, 1500), rod: new Part(rodG, 700), box: new Part(boxG, 700), cone: new Part(coneG, 300) };
+// the animals' own: the same shapes with a finer outline, so a body of several rounded parts reads as one animal, not a bundle of balloons
+const figEdgeFine = new THREE.ShaderMaterial({ uniforms: figEdge.uniforms, side: THREE.BackSide, vertexShader: figEdge.vertexShader.replace('n * 0.7', 'n * 0.32'), fragmentShader: figEdge.fragmentShader });
+PT.aBall = new Part(ballG, 1400, true, figEdgeFine); PT.aLimb = new Part(limbG, 900, true, figEdgeFine); PT.aLimb.geoDown = true; PT.aRod = new Part(rodG, 300, true, figEdgeFine); PT.aCone = new Part(coneG, 500, true, figEdgeFine);
 const _base = new M4(), _torso = new M4(), _m = new M4(), _t = new M4(), _t2 = new M4(), _p = new V3(), _s = new V3(1, 1, 1), _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ'), _u = new V3();
 function rot(rx, ry, rz) { _e.set(rx, ry, rz, 'YXZ'); return _t.makeRotationFromEuler(_e); }
 function child(out, parent, x, y, z, rx, ry, rz) { rot(rx, ry, rz); _t.setPosition(x, y, z); return out.multiplyMatrices(parent, _t); }
@@ -7767,69 +7770,184 @@ const arr3 = v => [v.x, v.y, v.z];
 
 // ---------------- animals ----------------
 const BCOL = {   // colour, belly, back (from the 2D game's beast art)
-  deer: ['#8e6542', '#d9c6a6', '#61412a'], rabbit: ['#8c7c68', '#e6dccb', '#665846'], boar: ['#4e3d31', '#6e5a4a', '#2e241e'], wolf: ['#6a665e', '#b8b2a4', '#3c3a35'], bear: ['#4a3426', '#6a4c38', '#2c1e16'],
+  deer: ['#8e6542', '#d9c6a6', '#61412a'], rabbit: ['#8c7c68', '#e6dccb', '#665846'], boar: ['#7d6450', '#9c846e', '#4e3e32'], wolf: ['#9a958b', '#d8d1c2', '#625e57'], bear: ['#7a5940', '#97765c', '#4a3324'],
 };
 const BDIM = {   // body length, shoulder height, hip height, body width, leg width, neck forward, neck up, head size, muzzle
   deer: [25, 21, 20, 8.5, 2.2, 5, 12, 3.2, 4.6], rabbit: [9, 6.5, 7.5, 5.8, 1.8, 1, 2.5, 2.5, 1.6], boar: [22, 14.5, 12.5, 10.5, 3, 2, 0, 4.3, 5.4],
   wolf: [23, 16, 15, 7.6, 2.3, 4, 4.5, 3.3, 5.2], bear: [32, 23, 20, 15, 5, 3, 2.5, 5.4, 4.4],
 };
-function poseBeast(o, now, dt) {
-  const D = BDIM[o.k], C = BCOL[o.k]; if (!D) return;
-  const [len, sh, hip, bw, lw, nF, nH, hr, mz] = D;
-  const col = hexK(C[0]), belly = hexK(C[1]), back = hexK(C[2]);
-  const gdt = Math.max(dt, 1e-4), mdx = o.x - (o.fgx ?? o.x), mdy = o.y - (o.fgy ?? o.y); o.fgx = o.x; o.fgy = o.y;
-  const v0 = Math.hypot(mdx, mdy) / gdt; o.fgv = (o.fgv || 0) + (Math.min(v0, 400) - (o.fgv || 0)) * Math.min(1, gdt * 10); if (v0 > 4) o.fgHead = Math.atan2(mdy, mdx);
-  const v = o.fgv, still = v < 6, want = !still && o.fgHead !== undefined ? o.fgHead : o.dir || 0;
-  o.fgFace = o.fgFace === undefined ? want : o.fgFace + clamp(angDiff(want, o.fgFace), -7 * gdt, 7 * gdt);
-  const run = v > (o.k === 'rabbit' ? 30 : 70), stride = o.k === 'rabbit' ? 4 : o.k === 'boar' ? 5.5 : 8;
-  o.fgPh = (o.fgPh ?? (o.seed || 0) * 7) + gdt * (still ? 0 : (run ? 2.2 : 1.4) * v / Math.max(4, stride * 1.6));
-  const st = o.dead ? 'dead' : o.st, angry = st === 'hunt' || st === 'charge' || st === 'back' || st === 'wind' || st === 'snap';
-  const graze = !angry && still && st === 'graze' && o.k !== 'bear' ? Math.max(0, Math.min(1, Math.sin(now * 0.55 + (o.seed || 0) * 9) * 2.2 - 0.4)) : 0;
-  const rear = o.k === 'bear' && st === 'wind' ? clamp((0.6 - (o.t || 0)) / 0.25 + 0.2, 0, 1) : 0;
-  const deadK = o.dead ? 1 : 0, fl = o.flash > 0 ? o.flash : 0, em = fl * 0.7;
-  const ph = o.fgPh, gk = still ? 0 : Math.min(1, v / (run ? 100 : 40)), lift = (o.k === 'rabbit' ? 2 : 4) * gk;
-  const yaw = faceYaw(o.fgFace), fx = Math.cos(o.fgFace), fy = Math.sin(o.fgFace), rx = -fy, ry = fx;
-  const P = (f, s, h) => [o.x + fx * f + rx * s, h, o.y + fy * f + ry * s];   // forward, side, height -> 3D
-  const hop = o.k === 'rabbit' && run ? Math.abs(Math.sin(ph)) * 5 : 0;
-  const bodyH = (sh + hip) / 2 * (1 - deadK * 0.75) + hop + rear * 8, pitch = rear * -0.9 + (deadK ? 0 : 0);
-  const roll = deadK * 1.45;
-  // the body
-  const bc = P(0, 0, bodyH);
-  blob(PT.ball, bc[0], bc[1], bc[2], bw, bw * (o.k === 'rabbit' ? 1.05 : 0.95), len, yaw, col.map(v => lerp(v, 1.5, fl)), em, pitch, roll);
-  blob(PT.ball, bc[0], bc[1] + bw * 0.25, bc[2], bw * 0.7, bw * 0.55, len * 0.9, yaw, back, em, pitch, roll);
-  blob(PT.ball, bc[0], bc[1] - bw * 0.2, bc[2], bw * 0.8, bw * 0.6, len * 0.75, yaw, belly, em, pitch, roll);
-  if (deadK) { const hc = P(len * 0.55, bw * 0.4, 4); blob(PT.ball, hc[0], hc[1], hc[2], hr * 2, hr * 1.8, hr * 2.6, yaw, col, 0, 0, roll); return; }
-  // legs: front pair swing against back pair
-  for (const [f, s, k] of [[len * 0.36, 1, 0], [len * 0.36, -1, Math.PI], [-len * 0.36, 1, Math.PI], [-len * 0.36, -1, 0]]) {
-    const top = P(f, s * bw * 0.32, bodyH - bw * 0.15), a = Math.sin(ph + k) * 0.5 * gk, up = Math.max(0, Math.sin(ph + k + Math.PI / 2)) * lift;
-    if (rear && f > 0) { const ft = P(f + 6, s * bw * 0.4, bodyH + 6); between(PT.limb, ...top, ...ft, lw, col, em); continue; }
-    const foot = P(f + Math.sin(a) * (f > 0 ? sh : hip) * 0.6, s * bw * 0.32, up);
-    between(PT.limb, ...top, ...foot, lw * (o.k === 'rabbit' ? 0.9 : 1), col.map(v => v * 0.88), em);
-  }
-  // neck and head: down to graze, up and forward when alert, low and out when it means you harm
-  const low = angry ? 0.6 : 0, nk = P(len * 0.42, 0, bodyH + bw * 0.2);
-  const hx = len * 0.5 + nF + (angry ? 3 : 0), hh = graze ? 3 : bodyH + nH * (1 - low) + bw * 0.3 - low * 4;
-  const hd = P(hx, 0, hh);
-  if (nH > 1 || graze) between(PT.limb, ...nk, ...hd, Math.max(2, bw * 0.28), col, em);
-  const snap = (o.bite || 0) > 0 && st === 'snap' ? 1 : 0;
-  blob(PT.ball, hd[0], hd[1], hd[2], hr * 2, hr * 1.9, hr * 2.2, yaw, col.map(v => lerp(v, 1.5, fl)), em, graze ? 0.9 : -0.1 * snap);
-  const mzp = P(hx + hr * 0.9 + mz * 0.4, 0, hh - (graze ? 1 : hr * 0.35));
-  blob(PT.ball, mzp[0], mzp[1], mzp[2], hr * 1.2, hr * 1.1, mz * 1.6, yaw, o.k === 'deer' || o.k === 'rabbit' ? belly : back, em, graze ? 0.9 : 0);
-  // eyes catch your torch at night
-  if (dayLight() < 0.6 && (o.k === 'wolf' || o.k === 'boar' || o.k === 'bear')) for (const s of [-1, 1]) { const ep = P(hx + hr * 0.7, s * hr * 0.55, hh + hr * 0.35); stat(ep[0], ep[1], ep[2], 1.8, 0.85, 0.79, 0.54, 0.8 * (1 - dayLight()), 0); }
-  // ears, antlers, tusks, tails
-  if (o.k === 'rabbit') for (const s of [-1, 1]) { const a = P(hx - hr * 0.3, s * hr * 0.4, hh + hr * 0.6), b = P(hx - hr * 1.3, s * hr * 0.6, hh + hr * 3.2); between(PT.limb, ...a, ...b, 0.75, col, em); }
-  else if (o.k === 'wolf') for (const s of [-1, 1]) { const a = P(hx - hr * 0.2, s * hr * 0.55, hh + hr * 0.5); blob(PT.cone, a[0], a[1], a[2], 2, 3.2, 1.4, yaw, back, em); }
-  else if (o.k === 'deer' && !o.doe) for (const s of [-1, 1]) {
-    const a = P(hx - hr * 0.2, s * hr * 0.45, hh + hr * 0.7), b = P(hx - hr * 1.2, s * hr * 2.2, hh + hr * 3.6), c = P(hx + hr * 0.2, s * hr * 1.8, hh + hr * 2.9);
-    between(PT.rod, ...a, ...b, 0.45, hexK('#d9c6a6'), 0); between(PT.rod, ...P(hx - hr * 0.7, s * hr * 1.3, hh + hr * 2.1), ...c, 0.4, hexK('#d9c6a6'), 0);
-  } else if (o.k === 'boar') for (const s of [-1, 1]) { const a = P(hx + hr * 0.9 + mz * 0.6, s * hr * 0.6, hh - hr * 0.4), b = P(hx + hr * 1.2 + mz * 0.6, s * hr * 0.8, hh + hr * 0.4); between(PT.rod, ...a, ...b, 0.55, hexK('#e6dfcc'), 0); }
-  if (o.k === 'bear') for (const s of [-1, 1]) { const a = P(hx - hr * 0.2, s * hr * 0.75, hh + hr * 0.75); blob(PT.ball, a[0], a[1], a[2], 2.6, 2.6, 1.6, yaw, col, em); }
-  const tl = P(-len * 0.52, 0, bodyH + bw * 0.2), tt = P(-len * 0.52 - (o.k === 'wolf' ? 9 : 3), 0, bodyH + (o.k === 'wolf' ? -3 + Math.sin(now * 3) * 2 : 3));
-  if (o.k !== 'bear') between(PT.limb, ...tl, ...tt, o.k === 'wolf' ? 1.6 : 1.2, o.k === 'rabbit' || o.k === 'deer' ? belly : back, em);
-  if (o.tame) { const tg = P(len * 0.35, 0, bodyH + bw * 0.5); stat(tg[0], tg[1] + 3, tg[2], 2.4, 1, 0.85, 0.55, 0.6, 0); }   // the one you tamed: a warm mark over its shoulders
+// Each animal is a proper four-legged body: a deep chest, a waist, haunches; legs in three parts that bend the way real ones do
+// (a front leg's elbow back, a hind leg's stifle forward and hock back), with each foot planted on the ground and lifted in an
+// arc in time with a real gait: a four-beat walk, a trot on the diagonals, a gallop, a rabbit's hop. Worked out in the animal's
+// own frame (x across, y up, z forward) and turned into the woods by one matrix, so it can roll over dead or rear up as one.
+const ANAT = {   // shoulder & hip height, body length, width, chest depth, waist tuck, leg thickness, neck length & rise, head length & size,
+                 // muzzle length & thickness, ear length, tail; speeds at which it trots and gallops
+  deer:   { sh: 22, hp: 22.5, len: 26, bw: 8, dp: 10.5, tuck: 0.72, lr: 1.25, nk: 13, nA: 1.0, hl: 4.6, hs: 3.4, mzl: 4.8, mzr: 1.7, ear: 4.2, earW: 1.9, tail: 'flag', trot: 55, gal: 120, nod: 1 },
+  rabbit: { sh: 6.5, hp: 8.5, len: 9.5, bw: 5.6, dp: 5.4, tuck: 0.95, lr: 0.75, nk: 2.2, nA: 0.7, hl: 2.6, hs: 2.6, mzl: 1.6, mzr: 1.3, ear: 6.2, earW: 1.5, tail: 'puff', trot: 999, gal: 999, hop: 1 },
+  boar:   { sh: 17, hp: 15.5, len: 23, bw: 9.5, dp: 10.5, tuck: 0.92, lr: 1.25, nk: 4.5, nA: 0.05, hl: 5.5, hs: 4.3, mzl: 5.6, mzr: 2.1, ear: 3, earW: 2.2, tail: 'thin', trot: 60, gal: 125, mane: 1 },
+  wolf:   { sh: 17, hp: 16, len: 24, bw: 7.2, dp: 9.5, tuck: 0.66, lr: 1.3, nk: 5.5, nA: 0.3, hl: 4.4, hs: 3.4, mzl: 5.8, mzr: 1.35, ear: 3.6, earW: 2.2, tail: 'bush', trot: 60, gal: 135 },
+  bear:   { sh: 24, hp: 21.5, len: 31, bw: 14, dp: 13.5, tuck: 0.95, lr: 3.1, nk: 6, nA: 0.25, hl: 6, hs: 6.2, mzl: 4.8, mzr: 2.6, ear: 2.4, earW: 2.6, tail: 'stub', trot: 999, gal: 90, hump: 1, paw: 1 },
+};
+const GAIT = {   // when each foot (left fore, right fore, left hind, right hind) leaves off in the cycle, and how long it's on the ground
+  walk: { o: [0.25, 0.75, 0, 0.5], duty: 0.66, stride: 0.6, lift: 0.16, bob: 0.03 },
+  trot: { o: [0, 0.5, 0.5, 0], duty: 0.48, stride: 0.95, lift: 0.22, bob: 0.05 },
+  gallop: { o: [0.5, 0.6, 0, 0.1], duty: 0.36, stride: 1.75, lift: 0.3, bob: 0.08 },
+  hop: { o: [0.45, 0.5, 0, 0.03], duty: 0.38, stride: 1.4, lift: 0.5, bob: 0.25 },
+};
+const _B = new M4(), _L = new M4(), _aM = new M4(), _X = new V3(), _Y = new V3(), _Z = new V3(), _UP = new V3(0, 1, 0), _aQ = new THREE.Quaternion(), _aV = new V3(), _aS = new V3();
+// an oval from a to b (local points [x, y, z]), w wide and h deep across that line
+function bOval(part, a, b, w, h, col, em, ext = 1) {
+  _Z.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]); const L = _Z.length() || 0.001; _Z.divideScalar(L);
+  _X.crossVectors(_UP, _Z); if (_X.lengthSq() < 1e-6) _X.set(1, 0, 0); _X.normalize(); _Y.crossVectors(_Z, _X);
+  _L.makeBasis(_X.multiplyScalar(w), _Y.multiplyScalar(h), _Z.multiplyScalar(L * ext)); _L.setPosition((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+  part.push(_aM.multiplyMatrices(_B, _L), col, em);
 }
-
+// a ball at p, w × h × l, turned by pitch and yaw in the animal's frame
+function bBall(part, p, w, h, l, pitch, yaw, col, em) { _L.compose(_aV.set(p[0], p[1], p[2]), _aQ.setFromEuler(_e.set(pitch, yaw, 0, 'YXZ')), _aS.set(w, h, l)); part.push(_aM.multiplyMatrices(_B, _L), col, em); }
+// a limb (rounded) or a cone from a toward b
+function bSeg(part, a, b, r, col, em, r2) {
+  _aV.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]); const L = _aV.length() || 0.001; _aV.divideScalar(L);
+  _aQ.setFromUnitVectors(part.geoDown ? _u.set(0, -1, 0) : _u.set(0, 1, 0), _aV);
+  _L.compose(_aS.set(a[0], a[1], a[2]), _aQ, _p.set(r * 2, L, (r2 ?? r) * 2)); part.push(_aM.multiplyMatrices(_B, _L), col, em);
+}
+const v3 = (x, y, z) => [x, y, z], addv = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k], lerpv = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+// two bones from root to end, lengths l1 and l2, the joint bending toward +z (fwd 1) or -z (fwd -1) in the leg's own up-forward plane
+function ik2(root, end, l1, l2, fwd) {
+  const dy = end[1] - root[1], dz = end[2] - root[2], d0 = Math.hypot(dy, dz) || 0.001, d = Math.min(d0, (l1 + l2) * 0.999), uy = dy / d0, uz = dz / d0;
+  const a = (l1 * l1 - l2 * l2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+  // perpendicular in the y-z plane, pointing forward (+z) when fwd is 1
+  let py = -uz, pz = uy; if (pz * fwd < 0 || (Math.abs(pz) < 1e-4 && fwd < 0)) { py = -py; pz = -pz; }
+  return [lerp(root[0], end[0], a / d), root[1] + uy * a + py * h, root[2] + uz * a + pz * h];
+}
+const _sm = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+function poseBeast(o, now, dt) {
+  const A = ANAT[o.k], C = BCOL[o.k]; if (!A) return;
+  const fl = o.flash > 0 ? o.flash : 0, em = fl * 0.7, tint = c => fl ? c.map(v => lerp(v, 1.5, fl)) : c;
+  const col = tint(hexK(C[0])), belly = tint(hexK(C[1])), back = tint(hexK(C[2])), hoof = hexK(o.k === 'bear' || o.k === 'wolf' ? '#2a2420' : '#2b241e'), dark = hexK('#1d1916');
+  const legC = col.map(v => v * 0.9), legLo = mixc(col, back, 0.5).map(v => v * 0.85);
+  // how it's moving: speed from where it actually went, facing turned smoothly toward that
+  const gdt = Math.max(dt, 1e-4), mdx = o.x - (o.fgx ?? o.x), mdy = o.y - (o.fgy ?? o.y); o.fgx = o.x; o.fgy = o.y;
+  const v0 = Math.hypot(mdx, mdy) / gdt; o.fgv = (o.fgv || 0) + (Math.min(v0, 400) - (o.fgv || 0)) * Math.min(1, gdt * 8); if (v0 > 4) o.fgHead = Math.atan2(mdy, mdx);
+  const v = o.fgv, still = v < 5, want = !still && o.fgHead !== undefined ? o.fgHead : o.dir ?? o.fgFace ?? 0;
+  const turn = o.fgFace === undefined ? 0 : clamp(angDiff(want, o.fgFace), -6 * gdt, 6 * gdt);
+  o.fgFace = o.fgFace === undefined ? want : o.fgFace + turn; o.fgTurn = lerp(o.fgTurn || 0, turn / gdt, Math.min(1, gdt * 6));
+  const st = o.dead ? 'dead' : o.st, angry = st === 'hunt' || st === 'charge' || st === 'back' || st === 'wind' || st === 'snap';
+  // the gait it's in, and how far through its cycle each foot is
+  const G = A.hop ? GAIT.hop : v > A.gal ? GAIT.gallop : v > A.trot ? GAIT.trot : GAIT.walk;
+  if (o.fgG !== G) { o.fgG = G; }
+  const S = Math.min(A.len * G.stride * (A.hop ? 1 : clamp(0.55 + v / (A.gal * 1.6), 0.6, 1.25)), A.sh * (A.hop ? 1.6 : 1.05)), gk = still ? 0 : _sm(5, 25, v);
+  o.fgPh = ((o.fgPh ?? (o.seed || 0) * 3.7) + gdt * (still ? 0 : v * G.duty / S)) % 1;
+  o.fgGk = lerp(o.fgGk || 0, gk, Math.min(1, gdt * 8)); const mk = o.fgGk;   // eased in and out, so starting and stopping don't snap
+  const ph = o.fgPh, seed = (o.fgSeed ?? (o.fgSeed = Math.random() * 50));
+  // its body: position and turn in the woods, rearing (a bear stands up to strike), lying on its side when dead
+  const rear = o.k === 'bear' && st === 'wind' ? clamp((0.6 - (o.t || 0)) / 0.25 + 0.2, 0, 1) : 0, dead = o.dead ? 1 : 0;
+  const bobW = A.hop ? Math.max(0, Math.sin(ph * Math.PI * 2 - 0.6)) * A.hp * 0.55 * mk : (G === GAIT.gallop ? Math.sin(ph * 6.283 + 1) : Math.cos(ph * 12.566)) * A.sh * G.bob * mk;
+  const lean = clamp(-o.fgTurn * 0.04 * mk, -0.25, 0.25);   // leaning into a turn
+  _B.compose(_aV.set(o.x, 0, o.y), _aQ.setFromEuler(_e.set(0, faceYaw(o.fgFace), lean + dead * 1.5, 'YXZ')), _aS.set(1, 1, 1));
+  if (dead) _B.multiply(_t.makeTranslation(A.bw * 0.45, -A.sh * 0.12, 0));   // on its side, resting on its flank
+  // pivoting up on its hind legs
+  if (rear) { const hz = -A.len * 0.34; _B.multiply(_t.makeTranslation(0, 0, hz)).multiply(_t2.makeRotationX(-rear * 1.05)).multiply(_t.makeTranslation(0, 0, -hz)); }
+  const breathe = Math.sin(now * (angry ? 5 : 1.6) + seed) * (angry ? 0.035 : 0.02);
+  // the spine: withers over the front legs, the croup over the hind; galloping, it flexes and stretches
+  const flex = G === GAIT.gallop || A.hop ? Math.sin(ph * 6.283 + 0.4) * 0.08 * mk : 0;
+  const crouchK = o.k === 'wolf' && (st === 'hunt' || st === 'wind') ? 0.12 : 0;   // a wolf stalking you goes low
+  const shY = A.sh * (1 - crouchK) + bobW + (G === GAIT.gallop ? Math.sin(ph * 6.283 + 2.2) * A.sh * 0.04 * mk : 0), hpY = A.hp * (1 - crouchK * 0.6) + bobW + (G === GAIT.gallop ? Math.sin(ph * 6.283 - 0.5) * A.sh * 0.04 * mk : 0);
+  const fz = A.len * (0.33 + flex), hz = -A.len * (0.34 + flex);
+  const wither = v3(0, shY, fz), croup = v3(0, hpY, hz);
+  const chest = v3(0, shY - A.dp * 0.5, fz - A.len * 0.04), haunch = v3(0, hpY - A.dp * 0.45, hz + A.len * 0.03);
+  const mid = lerpv(chest, haunch, 0.5); mid[1] += A.dp * (1 - A.tuck) * 0.4;
+  // the trunk: chest, waist and haunches, then a darker back and paler underside over them
+  const bw = A.bw * (1 + breathe);
+  bOval(PT.aBall, addv(chest, v3(0, 0, -A.len * 0.18)), addv(chest, v3(0, 0, A.len * 0.2)), bw, A.dp * (1 + breathe), col, em, 1.15);
+  bOval(PT.aBall, addv(mid, v3(0, 0, A.len * 0.25)), addv(mid, v3(0, 0, -A.len * 0.25)), bw * (0.5 + A.tuck * 0.45), A.dp * A.tuck, col, em, 1.05);
+  bOval(PT.aBall, addv(haunch, v3(0, 0, A.len * 0.16)), addv(haunch, v3(0, 0, -A.len * 0.16)), bw * 0.95, A.dp * 0.92, col, em, 1.2);
+  bOval(PT.aBall, addv(chest, v3(0, -A.dp * 0.3, -A.len * 0.02)), addv(mid, v3(0, -A.dp * 0.32 * A.tuck, -A.len * 0.08)), bw * 0.7, A.dp * 0.45, belly, em, 1.2);
+  if (A.hump) bOval(PT.aBall, addv(wither, v3(0, -A.dp * 0.3, -A.len * 0.2)), addv(wither, v3(0, -A.dp * 0.28, A.len * 0.1)), bw * 0.82, A.dp * 0.6, col, em, 1.1);
+  if (A.mane) for (let i = 0; i < 6; i++) { const p = lerpv(addv(wither, v3(0, -1, A.len * 0.05)), addv(croup, v3(0, -1.5, A.len * 0.15)), i / 7); bSeg(PT.aCone, p, addv(p, v3(0, 2.2 - i * 0.25, -1.4)), 0.7, back, em, 0.35); }
+  // the legs
+  const legs = [[1, 1, 0], [1, -1, 1], [-1, 1, 2], [-1, -1, 3]];   // front or hind, which side, gait slot
+  for (const [fh, sd, gi] of legs) {
+    const front = fh > 0, root = front ? v3(sd * bw * 0.33, shY - A.dp * 0.32, fz + A.len * 0.02) : v3(sd * bw * 0.36, hpY - A.dp * 0.3, hz - A.len * 0.02);
+    const H = root[1], l1 = H * (front ? 0.42 : 0.4), l2 = H * (front ? 0.36 : 0.38), l3 = H * (A.paw ? 0.14 : A.hop && !front ? 0.34 : 0.26);
+    let foot;
+    if (dead) foot = addv(root, v3(sd * 1, -(l1 + l2 + l3) * 0.98, front ? 3 : -2));
+    else if (rear && front) foot = addv(root, v3(sd * 1.5, -l1 * 0.6, l1 * 0.9 + Math.sin(now * 9) * 1.5));
+    else {
+      const u = ((ph - G.o[gi]) % 1 + 1) % 1, d = G.duty;
+      let fz2, fy;
+      if (u < d) { fz2 = S * (0.5 - u / d); fy = 0; }
+      else { const t = (u - d) / (1 - d), e = t * t * (3 - 2 * t); fz2 = S * (-0.5 + e); fy = Math.sin(t * Math.PI) * H * G.lift * (t < 0.5 ? 1.2 : 0.8); }
+      foot = v3(root[0], fy * mk, root[2] + (fz2 * mk) + (front ? 0.5 : -0.5));
+      if (A.hop && !front) foot[2] -= 1.5;
+    }
+    // the lowest bone: a hoof's cannon nearly upright, a hind one slanted back to the hock; tucked up under it in the swing
+    const swingK = foot[1] > 0.3 && !dead ? clamp(foot[1] / (H * G.lift + 0.01), 0, 1) : 0;
+    const tilt = front ? -0.05 - swingK * 1.25 : (A.hop ? 0.9 : A.paw ? 0.15 : 0.32) + swingK * 0.5;
+    const ank = addv(foot, v3(0, Math.cos(tilt) * l3, -Math.sin(tilt) * l3 * (front ? -1 : 1)));
+    const knee = ik2(root, ank, l1, l2, front ? -1 : 1);
+    const r = A.lr * (front ? 1 : 1.08);
+    // the top of the leg is muscle (the shoulder, the thigh), then thinner bone down to the foot
+    bOval(PT.aBall, addv(root, v3(0, l1 * 0.3, 0)), lerpv(root, knee, 0.8), r * (front ? 2.3 : 2.9), r * (front ? 3 : 3.9), col, em, 1.05);
+    bSeg(PT.aLimb, root, knee, r * 1.25, legC, em);
+    bSeg(PT.aLimb, knee, ank, r * 0.85, legLo, em);
+    bSeg(PT.aLimb, ank, foot, r * 0.62, legLo, em);
+    if (A.paw || o.k === 'wolf' || o.k === 'rabbit') bBall(PT.aBall, addv(foot, v3(0, r * 0.4, r * 0.7)), r * 2, r * 1.1, r * (A.hop && !front ? 4.6 : 2.6), 0, 0, A.paw ? hoof : legLo, em);
+    else bBall(PT.aBall, addv(foot, v3(0, r * 0.45, r * 0.25)), r * 1.5, r * 1.2, r * 1.8, 0, 0, hoof, em);
+  }
+  // neck and head: grazing, it goes right down to the ground; alert, it's up and turning to look; hunting, low and out
+  const grazeK = !angry && still && st === 'graze' && o.k !== 'bear' ? _sm(0.2, 0.7, Math.sin(now * 0.45 + seed) * 0.5 + 0.5) : 0;
+  o.fgGr = lerp(o.fgGr || 0, grazeK, Math.min(1, gdt * 3)); const gr = dead ? 0 : o.fgGr;
+  const look = still && !angry ? Math.sin(now * 0.7 + seed * 2) * 0.6 * (1 - gr) : 0, nod = A.nod && !still ? Math.sin(ph * 12.566) * 0.08 * mk : 0;
+  const nA = dead ? -0.25 : lerp(A.nA * (angry ? (o.k === 'deer' ? 1 : 0.2) : 1) - (G === GAIT.gallop ? 0.25 : 0) + nod, -1.05, gr);
+  const nb = addv(wither, v3(0, -A.dp * 0.18, A.len * 0.08));
+  const nDir = v3(Math.sin(look) * Math.cos(nA), Math.sin(nA), Math.cos(look) * Math.cos(nA)), nLen = A.nk * (gr > 0 ? 1 + gr * 0.5 : 1);
+  const ne = addv(nb, nDir, nLen + A.hs * 0.3);
+  if (A.nk > 3) bOval(PT.aBall, addv(nb, nDir, -A.dp * 0.15), ne, A.bw * 0.48, A.dp * 0.5 * (o.k === 'deer' ? 0.75 : 1), col, em, 1.05);
+  // the head tips down along the muzzle; the jaw drops open when it bites
+  const hp = dead ? 0.25 : lerp(o.k === 'deer' ? 0.55 : 0.35, 1.25, gr) - (angry && o.k === 'wolf' ? 0.15 : 0) + nod * 0.5;
+  const hDir = v3(Math.sin(look) * Math.cos(hp), -Math.sin(hp), Math.cos(look) * Math.cos(hp));
+  const skull = addv(ne, hDir, A.hs * 0.2), snout = addv(skull, hDir, A.hl * 0.45 + A.mzl * 0.55), tip = addv(skull, hDir, A.hl * 0.45 + A.mzl);
+  bOval(PT.aBall, addv(skull, hDir, -A.hs * 0.55), addv(skull, hDir, A.hs * 0.6), A.hs * 1.15, A.hs * 1.05, col, em);
+  bOval(PT.aBall, addv(skull, hDir, A.hs * 0.2), tip, A.mzr * 2, A.mzr * 2.1, o.k === 'deer' || o.k === 'rabbit' ? mixc(col, belly, 0.35) : o.k === 'wolf' ? mixc(col, belly, 0.5) : col, em, 1.05);
+  bBall(PT.aBall, addv(tip, v3(0, A.mzr * 0.25, 0)), A.mzr * 1.15, A.mzr * 0.9, A.mzr * 0.7, hp, look, o.k === 'boar' ? hexK('#6e4d42') : dark, 0);   // nose
+  const bite = (o.bite || 0) > 0 && st === 'snap' ? 1 : st === 'snap' || st === 'charge' && o.k === 'wolf' ? 0.6 : 0;
+  if (o.k === 'wolf' || o.k === 'bear' || o.k === 'boar') {
+    const jDir = v3(hDir[0], hDir[1] - 0.5 * bite - 0.1, hDir[2]), jb = addv(skull, v3(0, -A.hs * 0.35, 0));
+    bOval(PT.aBall, addv(jb, jDir, A.hs * 0.1), addv(jb, jDir, A.hl * 0.4 + A.mzl * 0.8), A.mzr * 1.7, A.mzr * 0.9, mixc(col, belly, 0.4), em);
+  }
+  // eyes, and at night the animals that might hunt you catch your torch
+  const side = v3(Math.cos(look), 0, -Math.sin(look));
+  for (const s of [-1, 1]) {
+    const ep = addv(skull, hDir, A.hs * 0.35), e2 = addv(addv(ep, side, s * A.hs * 0.52), v3(0, A.hs * 0.3, 0));
+    bBall(PT.aBall, e2, A.hs * 0.32, A.hs * 0.32, A.hs * 0.25, 0, look, dark, 0);
+    if (dayLight() < 0.6 && (o.k === 'wolf' || o.k === 'boar' || o.k === 'bear')) { _aV.set(e2[0], e2[1], e2[2]).applyMatrix4(_B); stat(_aV.x, _aV.y, _aV.z, 1.6, 0.85, 0.79, 0.54, 0.8 * (1 - dayLight()), 0); }
+  }
+  // ears: they turn about and flick; laid back flat when it means you harm
+  const flick = Math.max(0, Math.sin(now * 0.9 + seed * 3) - 0.94) * 12;
+  for (const s of [-1, 1]) {
+    const eb = addv(addv(skull, side, s * A.hs * 0.42), v3(0, A.hs * 0.42, 0), 1), back2 = angry && o.k !== 'deer' ? 1 : 0;
+    const ed = A.hop ? v3(s * 0.15, 0.9 - gr * 0.3, -0.4 - mk * 0.5) : o.k === 'deer' ? v3(s * 0.85, 0.45 + flick * 0.05 * s, -0.3) : o.k === 'boar' ? v3(s * 0.6, 0.35, 0.55) : v3(s * 0.25, 1 - back2 * 0.6, -0.15 - back2 * 0.8);
+    const L = Math.hypot(...ed), et = addv(eb, ed, A.ear / L);
+    if (A.hop || o.k === 'deer') bOval(PT.aBall, eb, et, A.earW, A.earW * 0.45, mixc(col, belly, 0.2), em, 1.1);
+    else bSeg(PT.aCone, eb, et, A.earW * 0.5, o.k === 'wolf' ? back : col, em, A.earW * 0.25);
+  }
+  // antlers on a stag; tusks on a boar
+  if (o.k === 'deer' && !o.doe) for (const s of [-1, 1]) {
+    const bone = hexK('#d9c6a6'), a = addv(addv(skull, side, s * A.hs * 0.3), v3(0, A.hs * 0.55, 0)), b = addv(a, v3(s * 2.6, 4.5, -1.5)), c = addv(b, v3(s * 1.6, 4, -2.2)), d = addv(c, v3(s * 0.4, 3, 0.8));
+    bSeg(PT.aRod, a, b, 0.42, bone, 0); bSeg(PT.aRod, b, c, 0.36, bone, 0); bSeg(PT.aRod, c, d, 0.3, bone, 0);
+    bSeg(PT.aRod, b, addv(b, v3(s * 0.4, 2.6, 2.4)), 0.3, bone, 0); bSeg(PT.aRod, c, addv(c, v3(s * 1.4, 2.2, 1.6)), 0.26, bone, 0);
+  } else if (o.k === 'boar') for (const s of [-1, 1]) { const a = addv(addv(snout, side, s * A.mzr * 0.9), v3(0, -A.mzr * 0.4, 0)); bSeg(PT.aCone, a, addv(a, v3(s * 0.8, 2.6, -0.4)), 0.5, hexK('#e6dfcc'), 0, 0.5); }
+  // the tail
+  const swish = Math.sin(now * (angry ? 9 : 2.2) + seed) * (angry ? 0.3 : 0.15), tb = addv(croup, v3(0, -A.dp * 0.1, -A.len * 0.08));
+  if (A.tail === 'bush') {   // a wolf's: hanging low as it walks, straight out at a run, raised when it means you harm
+    const up = angry ? 0.25 : G === GAIT.gallop ? -0.15 : -0.85 + 0.1 * Math.sin(now * 1.5 + seed), t1 = addv(tb, v3(Math.sin(swish) * 3, Math.sin(up) * 5.5, -Math.cos(up) * 5.5)), t2 = addv(t1, v3(Math.sin(swish) * 4, Math.sin(up - 0.3) * 6, -Math.cos(up - 0.3) * 6));
+    bOval(PT.aBall, tb, t1, 2.4, 2.4, col, em, 1.2); bOval(PT.aBall, t1, t2, 2.9, 2.9, back, em, 1.15); bBall(PT.aBall, t2, 1.8, 1.8, 2.4, 0, 0, dark, em);
+  } else if (A.tail === 'flag') { const up = st === 'flee' ? 1.1 : 0.15; const t1 = addv(tb, v3(Math.sin(swish) * 1.5, Math.sin(up) * 3.6, -Math.cos(up) * 3.6)); bOval(PT.aBall, tb, t1, 2.6, 1.5, st === 'flee' ? belly : col, em, 1.2); if (st === 'flee') bOval(PT.aBall, addv(tb, v3(0, 0, 0.6)), t1, 2.1, 1.2, hexK('#f1ece2'), em, 0.9); }
+  else if (A.tail === 'puff') bBall(PT.aBall, addv(tb, v3(0, 0.6, -0.8)), 2.6, 2.6, 2.6, 0, 0, hexK('#ede6d9'), em);
+  else if (A.tail === 'thin') { const t1 = addv(tb, v3(Math.sin(swish * 3) * 2, -3.5, -2)); bSeg(PT.aLimb, tb, t1, 0.5, back, em); bBall(PT.aBall, t1, 1.2, 1.8, 1.2, 0, 0, dark, em); }
+  else bBall(PT.aBall, addv(tb, v3(0, 0, -0.6)), 3, 2.4, 2.4, 0, 0, back, em);
+  if (o.tame) { _aV.set(0, shY + 3, fz).applyMatrix4(_B); stat(_aV.x, _aV.y + 3, _aV.z, 2.4, 1, 0.85, 0.55, 0.6, 0); }   // the one you tamed: a warm mark over its shoulders
+}
 function drawFigures(now, dt) {
   const rg = S.rg, D = S.day, p = S.p;
   for (const e of rg.enemies) if (!e.dead && Math.abs(e.x - p.x) < VIEW && Math.abs(e.y - p.y) < VIEW && e.type !== 'centi') poseFoe(e, now, dt, false);

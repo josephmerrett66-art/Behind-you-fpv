@@ -395,12 +395,12 @@ function worldSync(force) {
   if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < 70 && gen === WORLD.gen) return;
   WORLD.x = p.x; WORLD.y = p.y; WORLD.gen = gen; worldDirty = false;
   // trees, rocks, posts
-  tallB.begin(); shN = 0;
+  tallB.begin(); treesBegin(); shN = 0;
   const props = propsNear(p.x, p.y, VIEW + 60); WORLD.props = props;
   for (const o of props) {
     if (o.kind === 'tree') {
       const kind = kindOfTree(o), M = ATLAS.meta[kind], v = (o.seed * 997 | 0) % M.length, m = (o.seed * 7919 % 1) < 0.5 ? 1 : -1;
-      tallB.add(kind, v, o.x, o.y, o.s * TREE_K, m, kind === 'dead' ? 0.4 : 1, o.shakeT ?? -99, o.seed);
+      if (!treeAdd(o, kind, Math.hypot(o.x - p.x, o.y - p.y))) tallB.add(kind, v, o.x, o.y, o.s * TREE_K, m, kind === 'dead' ? 0.4 : 1, o.shakeT ?? -99, o.seed);
       shadow(o.x, o.y, (kind === 'pine' ? 15 : kind === 'dead' ? 10 : 20) * o.s * 1.2, (kind === 'pine' ? 90 : 70) * o.s);
     } else if (o.kind === 'rock') {
       tallB.add('rock', (hash(o.x * 0.37, o.y * 0.91) * 50 | 0), o.x, o.y, o.s * ROCK_K, 1, 0, o.shakeT ?? -99, 0);
@@ -409,7 +409,7 @@ function worldSync(force) {
   }
   // the camp's storage box, water barrel and woodpile are solid (yardKit); they only need their shadows here
   for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, 10);
-  tallB.end(); shBase = shN;
+  tallB.end(); treesEnd(); shBase = shN;
   // ground cover
   // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's
   const LK = new Kit();

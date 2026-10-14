@@ -290,10 +290,7 @@ function thingsFrame(now) {
   }
   dropB.end(); for (let i = dn; i < dropPool.length; i++) dropPool[i].visible = false;
   // the tree you just felled, toppling
-  for (const g of D.logs) if (g.kind === 'poof') {
-    const u = Math.min(1, g.t / POOF_T), a = (g.seed * 7.3) % 6.283, h = 70 * (g.s || 1), tilt = u * u * 1.5;
-    K.rod(P_CYL(8), g.x, 0, g.y, g.x + Math.cos(a) * Math.sin(tilt) * h, Math.cos(tilt) * h, g.y + Math.sin(a) * Math.sin(tilt) * h, 4 * (g.s || 1), hex('#5a4030'));
-  }
+  // (drawn with the standing trees: treesFrame)
   // what's in the air: your arrows, stones, spears, axes; theirs too
   for (const q of rg.dshots || []) {
     if (q.f) continue;

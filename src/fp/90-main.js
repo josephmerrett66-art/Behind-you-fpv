@@ -249,7 +249,7 @@ function frame(t) {
   const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? 0 : rdt) : 0;
   lightsFrame(now, fdt);
   placeCamera(fdt, rdt, now);
-  thingsFrame(now); hintsFrame(now);
+  thingsFrame(now); treesFrame(); hintsFrame(now);
   drawFigures(now, fdt);
   fxFrame(fdt, now);
   if (state === 'play') combatFrame(fdt, rdt, now); else combatDraw(rdt, now);

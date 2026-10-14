@@ -6494,6 +6494,19 @@ vec3 terrN(vec2 p) {
   float h = 0.0, lv = terrLevel(p, h);
   return normalize(vec3(-dx * (1.0 - lv), 1.0, -dz * (1.0 - lv)));
 }`;
+// The soil changes as you walk: broad patches of dry sandy ground, dark rich loam, a reddish clay and stony bare ground,
+// laid out by slow noise so each patch runs a long way. The bare ground and the turf over it (12-grass) read the same patches,
+// so dry ground grows short straw-coloured grass, loam grows it deep and green, and the stony bits are thin.
+const SOIL_GLSL = `float sHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float sNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(sHash(i), sHash(i + vec2(1.0, 0.0)), f.x), mix(sHash(i + vec2(0.0, 1.0)), sHash(i + vec2(1.0)), f.x), f.y); }
+vec4 soilW(vec2 p) {   // how much of each soil is here: dry, loam, clay, stony
+  float a = sNoise(p * 0.0042) * 0.7 + sNoise(p * 0.013 + 5.1) * 0.3;
+  float b = sNoise(p * 0.0035 + 11.7) * 0.7 + sNoise(p * 0.011 + 2.3) * 0.3;
+  float c = sNoise(p * 0.0021 - 7.3) * 0.8 + sNoise(p * 0.009 + 1.7) * 0.2;
+  float e = sNoise(p * 0.0075 + 31.0) * 0.75 + sNoise(p * 0.03 + 8.0) * 0.25;
+  return vec4(smoothstep(0.52, 0.72, a), smoothstep(0.54, 0.72, b), smoothstep(0.56, 0.76, c), smoothstep(0.6, 0.76, e));
+}`;
 // which places are level: the camp, the nearest raiders' camps and ponds (re-chosen as you move about)
 function terrLevelSync(px, py, lakes) {
   const L = [];
@@ -6540,10 +6553,20 @@ const SKY = { top: new V3(), hor: new V3() };
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: LIGHT_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms; varying vec3 vW, vTN;
+    fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms; varying vec3 vW, vTN;
       void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb;
+        vec4 s = soilW(vW.xz);
+        t *= 0.86 + 0.28 * sNoise(vW.xz * 0.006 + 40.0);                              // broad light and dark, so the texture never reads as tiles
+        t = mix(t, t * vec3(1.22, 1.1, 0.8) + vec3(0.05, 0.04, 0.0), s.x);            // dry, sandy
+        t = mix(t, t * vec3(0.6, 0.55, 0.5), s.y);                                    // dark loam
+        t = mix(t, t * vec3(1.2, 0.8, 0.62) + vec3(0.03, 0.0, 0.0), s.z);             // reddish clay
+        float sp = sNoise(vW.xz * 0.45), sp2 = sNoise(vW.xz * 1.3 + 9.0);              // stony: pebbles and grit
+        t = mix(t, mix(t * 0.9, vec3(0.6, 0.57, 0.52) * (0.7 + 0.5 * sp2), smoothstep(0.55, 0.7, sp) * 0.75), s.w);
+        float st = 1.0 - normalize(vTN).y;                                             // the steeper slopes wear through to stone
+        t = mix(t, vec3(0.44, 0.41, 0.37) * (0.75 + 0.5 * sp2), smoothstep(0.02, 0.07, st) * 0.45);
         float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
-        t = mix(t, vec3(0.34, 0.42, 0.19) * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm));
+        vec3 under = mix(vec3(0.34, 0.42, 0.19), vec3(0.5, 0.47, 0.24), s.x); under = mix(under, vec3(0.22, 0.34, 0.13), s.y);
+        t = mix(t, under * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm) * (1.0 - 0.75 * s.w));
         gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0); }`,
   });
   var groundMesh = new THREE.Mesh(g, m); groundMesh.frustumCulled = false; scene.add(groundMesh);
@@ -7251,8 +7274,8 @@ const grassMaskData = new Uint8Array(GM_N * GM_N).fill(255);
 const grassMaskTex = new THREE.DataTexture(grassMaskData, GM_N, GM_N, THREE.RedFormat, THREE.UnsignedByteType);
 grassMaskTex.magFilter = grassMaskTex.minFilter = THREE.LinearFilter; grassMaskTex.needsUpdate = true;
 const grassU = { mask: { value: grassMaskTex }, mo: { value: new THREE.Vector2(-GM_S / 2, -GM_S / 2) }, ms: { value: GM_S }, gmap: { value: floorTex } };
-const GRASS_V = TERR_GLSL + `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms, ring; uniform vec2 mo; uniform sampler2D mask;
-  varying vec3 vW, vTN; varying float vUp, vTone, vRoot;
+const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms, ring; uniform vec2 mo; uniform sampler2D mask;
+  varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
   const float R0 = ${GR_RINGS[0].toFixed(1)}, R1 = ${GR_RINGS[1].toFixed(1)}, R2 = ${GR_RINGS[2].toFixed(1)};
   float fin(float R, float d) { return smoothstep(R, R * 0.7, d); }   // 1 well inside a field, 0 at its edge
   void main() {
@@ -7264,6 +7287,12 @@ const GRASS_V = TERR_GLSL + `attribute vec4 bd; uniform vec3 camPos; uniform flo
     float share = ring < 0.5 ? fin(R0, d) : ring < 1.5 ? fin(R1, d) - fin(R0, d) : fin(R2, d) - fin(R1, d);
     float m = texture2D(mask, (rt - mo) / ms).r;
     float k = (bd.w < want * dens * share ? 1.0 : 0.0) * smoothstep(0.35, 0.7, m);
+    vS = vec4(0.0);
+    if (k > 0.0) {                                                     // (only for the blades that stand: most are hidden)
+      vec4 sw = soilW(rt); vS = sw;
+      k *= step(sw.w * 0.85, fract(bd.w * 13.7));                       // thin on stony ground
+      k *= 1.0 - 0.35 * sw.x + 0.4 * sw.y;                              // short and dry on sand, long on loam
+    }
     float shrink = 1.0 / (1.0 + d / 260.0), widen = 1.0 + d / 140.0;      // smaller further off, but never thinner than a hair
     float up = position.y * shrink * k;
     float c = cos(bd.z), s = sin(bd.z);
@@ -7274,10 +7303,14 @@ const GRASS_V = TERR_GLSL + `attribute vec4 bd; uniform vec3 camPos; uniform flo
     vW = w; vUp = position.y / 3.3; vTone = fract(bd.w * 7.13); vRoot = position.y;
     gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
   }`;
-const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; varying float vUp, vTone, vRoot;
+const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
   void main() {
     vec3 g = texture2D(gmap, vW.xz / 384.0).rgb;
-    vec3 turf = mix(vec3(0.36, 0.46, 0.2), vec3(0.56, 0.62, 0.3), vTone) * (0.85 + 0.3 * g.r);   // a short, slightly dry green
+    vec3 lo = vec3(0.36, 0.46, 0.2), hi = vec3(0.56, 0.62, 0.3);                // a short, slightly dry green...
+    lo = mix(lo, vec3(0.54, 0.5, 0.25), vS.x); hi = mix(hi, vec3(0.74, 0.68, 0.38), vS.x);   // ...straw on dry ground
+    lo = mix(lo, vec3(0.2, 0.35, 0.12), vS.y); hi = mix(hi, vec3(0.34, 0.52, 0.18), vS.y);   // ...deep green on loam
+    lo = mix(lo, vec3(0.42, 0.42, 0.2), vS.z * 0.6); hi = mix(hi, vec3(0.6, 0.56, 0.3), vS.z * 0.6);   // ...olive on clay
+    vec3 turf = mix(lo, hi, vTone) * (0.85 + 0.3 * g.r);
     vec3 c = mix(turf * 0.62, turf * 1.15, smoothstep(0.0, 0.8, vUp));
     c *= mix(0.75, 1.0, smoothstep(0.0, 1.2, vRoot));                          // shaded down among the roots
     gl_FragColor = vec4(fogged(grey(c * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0);

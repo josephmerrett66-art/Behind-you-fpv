@@ -44,7 +44,7 @@ const faceG = new THREE.SphereGeometry(2.8, 10, 7); faceG.scale(1, 1.25, 0.45);
 const ballG = new THREE.SphereGeometry(0.5, 12, 8), limbG = (() => { const g = new THREE.CapsuleGeometry(0.5, 1, 3, 8); g.scale(1, 0.5, 1); g.translate(0, -0.5, 0); return g; })(), rodG = (() => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 7); g.translate(0, 0.5, 0); return g; })();
 const boxG = new THREE.BoxGeometry(1, 1, 1), coneG = (() => { const g = new THREE.ConeGeometry(0.5, 1, 8); g.translate(0, 0.5, 0); return g; })();
 const PT = { torso: new Part(torsoG, 96), head: new Part(headG, 96), face: new Part(faceG, 96), arm: new Part(capG(1.2, 13.4, true), 192), leg: new Part(capG(1.65, 13.6, true), 192),
-  ball: new Part(ballG, 900), limb: new Part(limbG, 900), rod: new Part(rodG, 500), box: new Part(boxG, 300), cone: new Part(coneG, 200) };
+  ball: new Part(ballG, 1800), limb: new Part(limbG, 1500), rod: new Part(rodG, 700), box: new Part(boxG, 700), cone: new Part(coneG, 300) };
 const _base = new M4(), _torso = new M4(), _m = new M4(), _t = new M4(), _t2 = new M4(), _p = new V3(), _s = new V3(1, 1, 1), _q = new THREE.Quaternion(), _e = new THREE.Euler(0, 0, 0, 'YXZ'), _u = new V3();
 function rot(rx, ry, rz) { _e.set(rx, ry, rz, 'YXZ'); return _t.makeRotationFromEuler(_e); }
 function child(out, parent, x, y, z, rx, ry, rz) { rot(rx, ry, rz); _t.setPosition(x, y, z); return out.multiplyMatrices(parent, _t); }
@@ -66,6 +66,7 @@ const mixc = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], 
 // ---------------- raiders ----------------
 // ground (x, y) facing angle a -> the yaw a figure turns to so its front (+z) faces that way
 const faceYaw = a => Math.PI / 2 - a;
+const KIT_WEAR = { shade: { coat: 1 }, tall: { coat: 2 }, archer: { coat: 1 }, brute: { vest: 1 }, bomber: { vest: 1, pack: 1 }, laser: { vest: 1 }, splitter: { vest: 1 }, spear: { vest: 1 }, kamikaze: { charges: 1 } };
 const KIT_HEAD = { shade: 'hood', stalker: 'goggles', brute: 'helmet', tall: 'hood', bomber: 'helmet', laser: 'visor', kamikaze: 'goggles', splitter: 'hood', spear: 'helmet', archer: 'hood' };
 function poseFoe(e, now, dt, dying) {
   const F = FOES[e.type], sc = foeScale(e), tint = COLOUR ? (FOE_TINT[e.type] || [200, 200, 195]) : [200, 200, 195];
@@ -124,11 +125,40 @@ function poseFoe(e, now, dt, dying) {
   // eyes: two points on the front of the head, in its colour, bright in the dark
   const ec = EYES[e.type] ? EYES[e.type].split(',').map(v => +v / 255) : [0.94, 0.94, 0.92], dk = 1 - dayLight() * 0.75;
   for (const x of [-1.15, 1.15]) { _p.set(x, 0.5, 3.75).applyMatrix4(hm); stat(_p.x, _p.y, _p.z, 2.4 * sc, ec[0], ec[1], ec[2], (0.75 * dk + 0.15) * (1 - die), 0); }
-  // arms and legs
-  child(_m, _torso, -5.4, 12.2, 0, armL, 0, -armZ); PT.arm.push(_m, body.map(v => v * 0.95), em);
-  const armRm = child(new M4(), _torso, 5.4, 12.2, 0, armR, 0, armZ); PT.arm.push(armRm, body.map(v => v * 0.95), em);
-  child(_m, _base, -2.1, 17, 0, sw, 0, 0); PT.leg.push(_m, legs, em);
-  child(_m, _base, 2.1, 17, 0, -sw, 0, 0); PT.leg.push(_m, legs, em);
+  // arms and legs in two parts each, bending at the elbow and the knee, with hands and boots
+  const sleeve = body.map(v => v * 0.95), skin = mixc(head, [0.55, 0.5, 0.46], 0.3), boot = mixc(legs, [0.1, 0.1, 0.09], 0.6), dk2 = mixc(legs, [0.1, 0.1, 0.09], 0.4);
+  const jt = (m, x, y, z) => _p.set(x, y, z).applyMatrix4(m).clone();
+  const winding = s && s.ph === 'wind' ? Math.min(1, s.t / (s.T * 0.6)) : 0, striking = s && s.ph === 'strike';
+  const limb = (sx, ang, z, bend) => {
+    const sm = child(new M4(), _torso, sx, 12.2, 0, ang, 0, z), sh = jt(sm, 0, 0, 0), el = jt(sm, 0, -6.7, 0), fm = child(new M4(), sm, 0, -6.7, 0, -bend, 0, 0), hd = jt(fm, 0, -6.3, 0);
+    blob(PT.ball, sh.x, sh.y, sh.z, 3.2 * sc, 3 * sc, 3 * sc, 0, sleeve, em);
+    between(PT.limb, sh.x, sh.y, sh.z, el.x, el.y, el.z, 1.45 * sc, sleeve, em); between(PT.limb, el.x, el.y, el.z, hd.x, hd.y, hd.z, 1.2 * sc, sleeve, em);
+    blob(PT.ball, hd.x, hd.y, hd.z, 2.4 * sc, 2.6 * sc, 2.4 * sc, 0, skin, em);
+    return fm.multiply(_t.makeTranslation(0, 8.7, 0));   // a frame whose (0, -15, 0) is the hand, for what it holds
+  };
+  const walkB = 0.35 + 0.25 * Math.min(1, g), bendL = pain > 0.05 ? 1.3 : winding ? 0.4 + 1.2 * winding : striking ? 0.15 : e.type === 'archer' && e.ai === 'draw' ? 0.1 : walkB + 0.3 * Math.max(0, -sw);
+  const bendR = pain > 0.05 ? 1.1 : winding ? 0.4 + 1.2 * winding : striking ? 0.15 : e.type === 'archer' && e.ai === 'draw' ? 1.7 : e.type === 'spear' && e.ai === 'wind' ? 0.6 : walkB + 0.3 * Math.max(0, sw);
+  limb(-5.4, armL, -armZ, bendL);
+  const armRm = limb(5.4, armR, armZ, bendR);
+  const leg = (hx, ang, kb) => {
+    const tm = child(new M4(), _base, hx, 17, 0, ang, 0, 0), hp = jt(tm, 0, 0, 0), kn = jt(tm, 0, -8, 0), sm = child(new M4(), tm, 0, -8, 0, kb, 0, 0), ft = jt(sm, 0, -7.6, 0), toe = jt(sm, 0, -8.4, 1.6);
+    between(PT.limb, hp.x, hp.y, hp.z, kn.x, kn.y, kn.z, 1.9 * sc, legs, em); between(PT.limb, kn.x, kn.y, kn.z, ft.x, ft.y, ft.z, 1.6 * sc, legs, em);
+    blob(PT.ball, toe.x, toe.y, toe.z, 3.4 * sc, 2.6 * sc, 5.2 * sc, faceYaw(face), boot, em);
+  };
+  const gk = Math.min(1, g);
+  leg(-2.2, sw, 0.12 + 0.95 * gk * Math.max(0, Math.cos(ph)) + rock * 0.4);
+  leg(2.2, -sw, 0.12 + 0.95 * gk * Math.max(0, -Math.cos(ph)) + rock * 0.4);
+  // the hips, the belt, the neck, and what it wears: a long coat, a padded vest, a pack, charges strapped across its chest
+  child(_m, _base, 0, 17.5, 0, lean * 0.3, twist * 0.5, 0); scaled(_m, 9.2, 5, 6); PT.ball.push(_m, legs, em);
+  child(_m, _torso, 0, 0.8, 0, 0, 0, 0); scaled(_m, 7.4, 1.6, 4.9); PT.box.push(_m, dk2, em);
+  child(_m, _torso, 0, 13.5, 0.4, 0, 0, 0); scaled(_m, 2.6, 4.5, 2.6); PT.rod.push(_m, skin, em);
+  const K = KIT_WEAR[e.type] || {};
+  if (K.coat) { child(_m, _base, 0, 4 - K.coat * 2, 0, lean * 0.3, 0, 0); scaled(_m, 12 + 2 * K.coat, 26 + 3 * K.coat, 8.6); PT.cone.push(_m, mixc(dark, body, 0.25), em); }
+  if (K.vest) { child(_m, _torso, 0, 8, 0.15, 0, 0, 0); scaled(_m, 9.4, 10.5, 6.3); PT.box.push(_m, mixc([0.34, 0.33, 0.3], body, 0.2), em); }
+  if (K.pack) { child(_m, _torso, 0, 8.5, -3.9, -0.08, 0, 0); scaled(_m, 7.4, 9.5, 3.6); PT.box.push(_m, hexK('#5a4a36'), em); }
+  if (K.charges) for (const x of [-2.6, 0, 2.6]) { child(_m, _torso, x, 8.5, 3.3, 0, 0, 0); scaled(_m, 2, 3.6, 1.6); PT.box.push(_m, hexK('#a8352a'), em + (Math.sin(now * 12) > 0.6 ? 0.8 : 0)); }
+  if (hk === 'helmet') { child(_m, hm, 0, 1.4, 0, -0.1, 0, 0); scaled(_m, 10.4, 1.2, 10.6); PT.ball.push(_m, rgb([90, 92, 86]), em); }
+  if (hk === 'goggles') { child(_m, hm, 0, 0.9, 0, 0, 0, 0); scaled(_m, 7.4, 1, 7.6); PT.ball.push(_m, [0.14, 0.13, 0.12], em); }
   // what it carries
   if (e.type === 'spear') { child(_m, armRm, 0, -15, 0, 1.45, 0, 0); _m.multiply(_t.makeTranslation(0, -14, 0)); scaled(_m, 1.3, 40, 1.3); PT.rod.push(_m, hexK('#6e5235'), 0); child(_m, armRm, 0, -15, 0, 1.45, 0, 0); _m.multiply(_t.makeTranslation(0, 26, 0)); scaled(_m, 2.6, 6, 1); PT.cone.push(_m, hexK('#9a9a92'), 0); }
   else if (e.type === 'archer') { const am = child(new M4(), _torso, -5.4, 12.2, 0, armL, 0, -armZ), h = new V3(0, -15, 0).applyMatrix4(am); between(PT.rod, h.x, h.y - 10 * sc, h.z, h.x, h.y + 10 * sc, h.z, 0.7 * sc, hexK('#6b4a2e')); }

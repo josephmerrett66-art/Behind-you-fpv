@@ -43,7 +43,7 @@ const MK = {}, B_SLAM = 0, bK = () => 1, miniShield = () => 1;
 function bossSay() {} function arenaClamp() {} function lampBreak() {} function duneHitBy() {} function duneCloneCopy() {} function srchDown() {} function stkBlow() {}
 // Nightfall's waves and the streak counter belong to other modes
 function startWave() {} function endWave() {} function openPicker() {} function pickFoe() { return 'shade'; } const rgMaxAlive = () => 0;
-function rdStep() {} function rdHitBy() {}
+function rdStep() {}
 function lifeMax() {}   // the streak counter is real (src/ported.js); only its lifetime records stay behind
 function lifeAdd() {} function lifeTally() {} function submitScore() {}
 function exStep(dt) { FP.exStep(dt); }   // the woods' own step, Daylight's part of it (src/fp/sim.js)

@@ -21,7 +21,7 @@ function scr(x, h, y, out) {
 const onScr = (q, m = 80) => q && q[0] > -m && q[0] < FW + m && q[1] > -m && q[1] < FH + m;
 
 // ---- what the fight feels like in your hands and eyes ----
-const CFX = { recoil: 0, marks: [], kflash: null, rings: [], pillars: [], tint: '255,200,130', lastStop: -9, atk: null, wact: null, seen: new WeakSet(), sl: [] };
+const CFX = { recoil: 0, marks: [], kflash: null, rings: [], pillars: [], tint: '255,200,130', lastStop: -9, atk: null, wact: null, seen: new WeakSet(), sl: [], hurt: null, threats: [], warned: new WeakSet() };
 const rgbOf = s => s.split(',').map(v => +v / 255);
 function fxTint() {   // the colour of what you're swinging: its own if it has one, else torchlight
   const rg = S.rg, sl = rg.slashes && rg.slashes[rg.slashes.length - 1];
@@ -70,6 +70,7 @@ function fxKill(g) {   // a kill: it blows apart in its colour, a ring of light 
 function combatFrame(dt, rdt, now) {
   const rg = S.rg; if (!rg) return;
   CFX.tint = fxTint();
+  threatScan(rdt);
   for (const e of rg.enemies) { if (e.dead || e.kHitT === undefined || e.kHitT === e.fxSeen) continue; e.fxSeen = e.kHitT; if (S.t - e.kHitT < 0.2) fxHit(e); }
   for (const g of rg.dying) if (!CFX.seen.has(g)) { CFX.seen.add(g); fxKill(g); }
   // a new swing: the view leans into it and widens a touch
@@ -110,7 +111,7 @@ function fxText(txt, x, y, size, rgb, a, opt = {}) {   // slanted arcade numeral
 const _q0 = [0, 0, 0], _q1 = [0, 0, 0];
 function combatDraw(rdt, now) {
   const g = fx2, rg = S.rg, p = S.p;
-  const busy = (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
+  const busy = CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
     || CFX.marks.length || CFX.kflash || (rg.stkfx && (rg.stk && rg.stk.n || rg.stkfx.pops.length || rg.stkfx.words.length || rg.stkfx.tier || rg.stkfx.cash || rg.stkfx.lost || rg.stkfx.drop));
   if (!busy && !fxDirty) return;
   g.setTransform(FD, 0, 0, FD, 0, 0); g.clearRect(0, 0, FW, FH); fxDirty = !!busy;
@@ -166,6 +167,7 @@ function combatDraw(rdt, now) {
     const u = w.t, pop = u < 0.12 ? 1.6 - 0.6 * (u / 0.12) : 1, a = u > 0.7 ? (1 - u) / 0.3 : 1, zk = Math.max(0.9, Math.min(1.6, q[2] * 0.9));
     fxText(w.text, q[0], q[1] - 18 * u * zk, 21 * (w.s || 1) * zk, w.col, a, { s: pop, glow: w.col, blur: 12 });
   }
+  drawThreats(g, rdt);
   stkDrawFp(rdt);
 }
 
@@ -306,4 +308,86 @@ function stkDrawFp(dt) {
   }
   if (F.drop) { F.drop.t += dt; if (F.drop.t < 0.6 && F.drop.name) fxText(F.drop.name, ax, ay - 46 - 34 * F.drop.t, 13, '255,90,70', 1 - F.drop.t / 0.6, { w: 700, s: 1 + 0.3 * F.drop.t }); else if (F.drop.t >= 0.6) F.drop = null; }
   if (F.lost) { F.lost.t += dt; const u = F.lost.t; fxText(`STREAK LOST · ${F.lost.n}`, ax, ay + 10 * u, 15, '255,90,70', Math.max(0, 1 - u / 1.4), { w: 700 }); if (u > 1.4) F.lost = null; }
+}
+
+// ---- what's behind you: the blow that got you, and what's coming that you can't see ----
+// Where something is, as an angle round the middle of the screen: straight ahead is up, behind you is down.
+function viewAngle(x, y) {
+  const dx = x - cam.position.x, dy = y - cam.position.z, yaw = look.yaw;
+  const fwd = -dx * Math.sin(yaw) - dy * Math.cos(yaw), right = dx * Math.cos(yaw) - dy * Math.sin(yaw);
+  return { th: Math.atan2(-fwd, right), off: Math.atan2(right, fwd), d: Math.hypot(dx, dy) };
+}
+const FP_NAME = { shade: 'SHADE', stalker: 'STALKER', brute: 'BRUTE', tall: 'TALL ONE', bomber: 'BOMB', laser: 'LASER', kamikaze: 'KAMIKAZE', splitter: 'SPLITTER', splitling: 'SPLITTER', centi: 'CENTIPEDE', spear: 'SPEAR', archer: 'ARROW', wolf: 'WOLF', boar: 'BOAR', bear: 'BEAR' };
+function rdHitBy(e, kind) {   // something got you: remember where from, and take the blow on the chin
+  const p = S.p, src = e && e.x !== undefined ? e : null, x = src ? src.x : p.x, y = src ? src.y : p.y + 1;
+  const col = kind === 'shield' ? '200,225,255' : kind === 'steel' ? '210,215,230' : '255,70,50';
+  CFX.hurt = { t: 0, x, y, ref: src, col, name: src ? FP_NAME[src.type || src.k] || '' : '', heart: kind === 'heart' };
+  const v = viewAngle(x, y), side = Math.cos(v.th) >= 0 ? 1 : -1, behind = Math.sin(v.th) > 0.3;
+  // your head snaps away from it, the view drops and staggers, the world goes tight for a beat
+  VIEW_FX.roll -= side * (kind === 'heart' ? 0.11 : 0.06); VIEW_FX.fov -= kind === 'heart' ? 7 : 4; VIEW_FX.dip += kind === 'heart' ? 9 : 5;
+  camKick(Math.atan2(p.y - y, p.x - x), kind === 'heart' ? 9 : 5);
+  if (behind) look.yaw += side * 0.06;   // hit from behind: it turns you a little toward it
+  if (actx && sfxGain) { const t = actx.currentTime; boomAt(t, 120, 38, 0.3, kind === 'heart' ? 0.55 : 0.3, sfxGain); noiseAt(t, 2200, 260, 0.16, kind === 'heart' ? 0.4 : 0.25, sfxGain); }
+}
+function foeWinding(e) { return (e.sw && e.sw.ph === 'wind') || e.ai === 'wind' || e.ai === 'draw' || e.ai === 'aim' || (e.type === 'kamikaze' && e.lit); }
+function threatScan(dt) {   // what's close and out of sight, nearest first
+  const rg = S.rg, T = CFX.threats; T.length = 0;
+  if (state !== 'play' || rg.phase === 'dead') return;
+  const hfov = Math.atan(Math.tan(cam.fov * Math.PI / 360) * cam.aspect) * 0.85;
+  for (const e of rg.enemies) {
+    if (e.dead) continue;
+    const v = viewAngle(e.x, e.y); if (v.d > 320) continue;
+    const wind = foeWinding(e);
+    if (Math.abs(v.off) < hfov && !(wind && v.d < 60 && Math.abs(v.off) > hfov * 0.7)) continue;
+    T.push({ e, th: v.th, d: v.d, wind, col: typeof rdCol === 'function' ? rdCol(e.type) : '236,226,210' });
+    if (wind && v.d < 200 && !CFX.warned.has(e.sw || e)) { CFX.warned.add(e.sw || e); warnCue(e); }
+  }
+  T.sort((a, b) => a.d - b.d); if (T.length > 6) T.length = 6;
+}
+function warnCue(e) {   // a sharp rising hiss from where it's winding up, so you hear it coming
+  if (!actx || !noiseBuf) return;
+  const out = placeOut(e.x, e.y, 0.9, 400); if (!out) return;
+  const t = actx.currentTime, src = actx.createBufferSource(), bp = actx.createBiquadFilter(), g = actx.createGain();
+  src.buffer = noiseBuf; bp.type = 'bandpass'; bp.Q.value = 4; bp.frequency.setValueAtTime(900, t); bp.frequency.exponentialRampToValueAtTime(4200, t + 0.28);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+  src.connect(bp); bp.connect(g); g.connect(out); src.start(t, Math.random() * 0.5); src.stop(t + 0.36);
+}
+function drawThreats(g, dt) {
+  const cx = FW / 2, cy = FH / 2, M = Math.min(FW, FH), RX = FW * 0.36, RY = FH * 0.29;   // a ring round where you aim, clear of the hotbar
+  // things you can't see: a chevron on the ring pointing at each, red and pulsing if it's about to strike
+  for (const q of CFX.threats) {
+    const near = 1 - Math.min(1, q.d / 320), u = q.wind ? 0.6 + 0.4 * Math.abs(Math.sin(S.t * 18)) : 0.35 + 0.5 * near;
+    const sz = (q.wind ? 16 : 10) + 8 * near, x = cx + Math.cos(q.th) * RX, y = cy + Math.sin(q.th) * RY, ca = Math.cos(q.th), sa = Math.sin(q.th);
+    const col = q.wind ? (Math.sin(S.t * 18) > 0 ? '255,70,50' : '255,235,220') : q.col;
+    g.save(); g.translate(x, y); g.rotate(q.th); g.globalAlpha = u;
+    g.lineJoin = 'round'; g.lineWidth = 6; g.strokeStyle = 'rgba(8,6,4,0.7)';
+    const path = () => { g.beginPath(); g.moveTo(sz, 0); g.lineTo(-sz * 0.4, -sz * 0.75); g.lineTo(0, 0); g.lineTo(-sz * 0.4, sz * 0.75); g.closePath(); };
+    path(); g.stroke(); g.fillStyle = `rgb(${col})`; path(); g.fill();
+    g.restore();
+    if (q.wind) { g.save(); g.globalCompositeOperation = 'lighter'; const gr = g.createRadialGradient(cx + ca * FW, cy + sa * FH, 0, cx + ca * FW, cy + sa * FH, M * 0.9); gr.addColorStop(0, `rgba(255,60,40,${0.28 * u})`); gr.addColorStop(1, 'rgba(255,60,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, FW, FH); g.restore(); }
+  }
+  // the blow that got you: an arc on the ring pointing back at it (following it if it's still about), its name, that edge of the view red
+  const H = CFX.hurt;
+  if (H) {
+    H.t += dt; const u = H.t / 1.6, a = u < 0.7 ? 1 : Math.max(0, (1 - u) / 0.3), src = H.ref && !H.ref.dead ? H.ref : H;
+    const th = viewAngle(src.x, src.y).th, pop = 1 + 0.25 * Math.max(0, 1 - H.t / 0.15), rx = RX * pop, ry = RY * pop;
+    g.save(); g.globalAlpha = a; g.lineCap = 'round';
+    g.strokeStyle = 'rgba(8,6,5,0.75)'; g.lineWidth = 14; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, th - 0.42, th + 0.42); g.stroke();
+    g.strokeStyle = `rgb(${H.col})`; g.lineWidth = 8; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, th - 0.42, th + 0.42); g.stroke();
+    if (H.name) fxText(H.name, cx + Math.cos(th) * (rx - 30), cy + Math.sin(th) * (ry - 24), 13, H.col, a, { w: 700 });
+    if (H.t < 0.5) { const k = 1 - H.t / 0.5, ex = cx + Math.cos(th) * FW * 0.75, ey = cy + Math.sin(th) * FH * 0.75, gr = g.createRadialGradient(ex, ey, 0, ex, ey, M);
+      gr.addColorStop(0, `rgba(${H.col},${(H.heart ? 0.55 : 0.3) * k})`); gr.addColorStop(1, `rgba(${H.col},0)`); g.globalAlpha = 1; g.fillStyle = gr; g.fillRect(0, 0, FW, FH); }
+    // three raking claw marks across the view from the side it came, for a heart lost
+    if (H.heart && H.t < 0.7) {
+      const k = 1 - H.t / 0.7, sd = Math.cos(th) >= 0 ? 1 : -1, L = Math.min(FW * 0.5, M * 0.9); g.globalAlpha = k;
+      for (let i = 0; i < 3; i++) {
+        const x0 = cx + sd * L * 0.55 + sd * i * 14, y0 = cy - M * 0.3 + i * M * 0.09, x1 = x0 - sd * L, y1 = y0 + M * 0.32, mx = (x0 + x1) / 2, my = (y0 + y1) / 2 - M * 0.04, w = 9 - i * 1.5;
+        const nx = -(y1 - y0), ny = x1 - x0, nl = Math.hypot(nx, ny), ox = nx / nl * w, oy = ny / nl * w;
+        g.fillStyle = 'rgba(120,8,4,0.9)'; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx + ox, my + oy, x1, y1); g.quadraticCurveTo(mx - ox, my - oy, x0, y0); g.fill();
+        g.fillStyle = 'rgba(255,90,60,0.8)'; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx + ox * 0.3, my + oy * 0.3, x1, y1); g.quadraticCurveTo(mx - ox * 0.3, my - oy * 0.3, x0, y0); g.fill();
+      }
+    }
+    g.restore();
+    if (u >= 1) CFX.hurt = null;
+  }
 }

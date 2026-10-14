@@ -67,9 +67,17 @@ const mixc = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], 
 // ground (x, y) facing angle a -> the yaw a figure turns to so its front (+z) faces that way
 const faceYaw = a => Math.PI / 2 - a;
 const KIT_WEAR = { shade: { coat: 1 }, tall: { coat: 2 }, archer: { coat: 1 }, brute: { vest: 1 }, bomber: { vest: 1, pack: 1 }, laser: { vest: 1 }, splitter: { vest: 1 }, spear: { vest: 1 }, kamikaze: { charges: 1 } };
+// each kind dressed in its own colour, as in the top-down game: a shirt in its colour, trousers a dark earthy shade of it,
+// a weathered skin tone, and its coat or hood a deep shade of the same
+const FOE_SKIN = { shade: [176, 150, 132], stalker: [168, 140, 128], brute: [184, 140, 108], tall: [150, 122, 108], bomber: [190, 150, 118], laser: [178, 150, 130], kamikaze: [196, 160, 120],
+  splitter: [186, 152, 136], spear: [176, 132, 98], archer: [188, 156, 120], woodcutter: [184, 140, 108], lamplighter: [196, 160, 124], huntsman: [176, 140, 110], warden: [170, 136, 112] };
+function foeDress(type) {
+  const t = FOE_TINT[type] || [170, 150, 120];
+  return { shirt: mixc(t, [150, 140, 125], 0.05), trou: mixc(t.map(v => v * 0.5), [64, 56, 46], 0.55), skin: FOE_SKIN[type] || [182, 148, 120], deep: mixc(t.map(v => v * 0.42), [40, 36, 32], 0.4) };
+}
 const KIT_HEAD = { shade: 'hood', stalker: 'goggles', brute: 'helmet', tall: 'hood', bomber: 'helmet', laser: 'visor', kamikaze: 'goggles', splitter: 'hood', spear: 'helmet', archer: 'hood' };
 function poseFoe(e, now, dt, dying) {
-  const F = FOES[e.type], sc = foeScale(e), tint = COLOUR ? (FOE_TINT[e.type] || [200, 200, 195]) : [200, 200, 195];
+  const F = FOES[e.type], sc = foeScale(e), dr = foeDress(e.type);
   // walk like the 2D figure: face the way it is really moving, turning smoothly, and plant each step in time
   if (!dying) {
     const gdt = Math.max(dt, 1e-4), mdx = e.x - (e.fgx ?? e.x), mdy = e.y - (e.fgy ?? e.y); e.fgx = e.x; e.fgy = e.y;
@@ -82,13 +90,12 @@ function poseFoe(e, now, dt, dying) {
   const face = dying ? e.dir : e.fgFace, gv = dying ? 0 : e.fgv || 0, ph = dying ? e.phase || 0 : e.fgPh || 0;
   const die = dying ? Math.min(1, e.t / 0.6) : 0, burn = dying ? 1 : 1 - Math.max(0, e.hp) / e.maxHp, pain = dying ? 0 : e.pain || 0;
   const b = Math.min(1, burn * 1.2 + pain * (0.12 + 0.18 * Math.random()) + die);
-  const cl = (c, a) => c.map((v, i) => v + (tint[i] - v) * a);
-  const hot = (c, k, h) => rgb(c.map((v, i) => lerp(v, h[i], k)));
+    const hot = (c, k, h) => rgb(c.map((v, i) => lerp(v, h[i], k)));
   // a blow: it flares white, squashes and springs back, rocks away from you and shudders
   const hkT = !dying && e.kHitT !== undefined ? S.t - e.kHitT : 9, rock = hkT < 0.4 ? Math.exp(-9 * hkT) : 0;
   const sq = hkT < 0.4 ? 0.22 * Math.exp(-10 * hkT) * Math.cos(26 * hkT) : 0;
   const fl = Math.max(e.flash || 0, hkT < 0.14 ? 1 - hkT / 0.14 : 0, dying ? Math.max(0, 1 - e.t / 0.1) : 0);
-  let body = hot(cl([218, 218, 211], 0.45), b, [255, 150, 60]), head = hot(cl([228, 228, 222], 0.12), b, [255, 175, 90]), legs = hot(cl([158, 158, 152], 0.5), b, [200, 90, 30]), fc = hot([70, 70, 68], b, [120, 40, 10]);
+  let body = hot(dr.shirt, b, [255, 150, 60]), head = hot(dr.skin, b, [255, 175, 90]), legs = hot(dr.trou, b, [200, 90, 30]), fc = hot(dr.skin.map(v => v * 0.82), b, [120, 40, 10]);
   if (fl > 0) { body = body.map(v => lerp(v, 1.6, fl)); head = head.map(v => lerp(v, 1.6, fl)); }
   const em = b * (0.22 + 0.16 * Math.sin(now * 23 + (e.fgSeed ?? (e.fgSeed = Math.random() * 9)))) + fl * 0.8 + (dying ? 0.6 * (1 - die) : 0);
   const jit = (pain * 1.6 + rock * 3 + (e.sw && e.sw.ph === 'wind' && e.sw.t > e.sw.T * 0.6 ? 0.8 : 0)) * sc, jx = (Math.random() - 0.5) * jit, jz = (Math.random() - 0.5) * jit;
@@ -118,7 +125,7 @@ function poseFoe(e, now, dt, dying) {
   const hm = _t2.copy(_m);
   child(_t, hm, 0, -0.2, 2.4, 0, 0, 0); PT.face.push(_t, fc, em * 0.5);
   // what it wears on its head, so each kind reads at a glance
-  const hk = KIT_HEAD[e.type], dark = mixc(legs, [0.12, 0.12, 0.11], 0.35);
+  const hk = KIT_HEAD[e.type], dark = hot(dr.deep, b, [200, 90, 30]);
   if (hk === 'hood') { child(_m, hm, 0, 1.2, -0.6, -0.25, 0, 0); scaled(_m, 8.6, 9.4, 8.8); PT.ball.push(_m, dark, em); }
   else if (hk === 'helmet') { child(_m, hm, 0, 2.1, -0.2, -0.1, 0, 0); scaled(_m, 8.4, 5.6, 8.6); PT.ball.push(_m, rgb([110, 112, 106]).map((v, i) => lerp(v, body[i], 0.25)), em); }
   else if (hk === 'goggles' || hk === 'visor') { child(_m, hm, 0, 0.9, 3.0, 0, 0, 0); scaled(_m, hk === 'visor' ? 6.4 : 6, 1.7, 1.2); PT.box.push(_m, hk === 'visor' ? rgb([80, 150, 240]) : [0.16, 0.16, 0.15], hk === 'visor' ? 0.6 : 0); }
@@ -126,7 +133,7 @@ function poseFoe(e, now, dt, dying) {
   const ec = EYES[e.type] ? EYES[e.type].split(',').map(v => +v / 255) : [0.94, 0.94, 0.92], dk = 1 - dayLight() * 0.75;
   for (const x of [-1.15, 1.15]) { _p.set(x, 0.5, 3.75).applyMatrix4(hm); stat(_p.x, _p.y, _p.z, 2.4 * sc, ec[0], ec[1], ec[2], (0.75 * dk + 0.15) * (1 - die), 0); }
   // arms and legs in two parts each, bending at the elbow and the knee, with hands and boots
-  const sleeve = body.map(v => v * 0.95), skin = mixc(head, [0.55, 0.5, 0.46], 0.3), boot = mixc(legs, [0.1, 0.1, 0.09], 0.6), dk2 = mixc(legs, [0.1, 0.1, 0.09], 0.4);
+  const sleeve = body.map(v => v * 0.95), skin = head, boot = mixc(legs, [0.1, 0.1, 0.09], 0.6), dk2 = mixc(legs, [0.1, 0.1, 0.09], 0.4);
   const jt = (m, x, y, z) => _p.set(x, y, z).applyMatrix4(m).clone();
   const winding = s && s.ph === 'wind' ? Math.min(1, s.t / (s.T * 0.6)) : 0, striking = s && s.ph === 'strike';
   const limb = (sx, ang, z, bend) => {
@@ -153,8 +160,8 @@ function poseFoe(e, now, dt, dying) {
   child(_m, _torso, 0, 0.8, 0, 0, 0, 0); scaled(_m, 7.4, 1.6, 4.9); PT.box.push(_m, dk2, em);
   child(_m, _torso, 0, 13.5, 0.4, 0, 0, 0); scaled(_m, 2.6, 4.5, 2.6); PT.rod.push(_m, skin, em);
   const K = KIT_WEAR[e.type] || {};
-  if (K.coat) { child(_m, _base, 0, 4 - K.coat * 2, 0, lean * 0.3, 0, 0); scaled(_m, 12 + 2 * K.coat, 26 + 3 * K.coat, 8.6); PT.cone.push(_m, mixc(dark, body, 0.25), em); }
-  if (K.vest) { child(_m, _torso, 0, 8, 0.15, 0, 0, 0); scaled(_m, 9.4, 10.5, 6.3); PT.box.push(_m, mixc([0.34, 0.33, 0.3], body, 0.2), em); }
+  if (K.coat) { child(_m, _base, 0, 4 - K.coat * 2, 0, lean * 0.3, 0, 0); scaled(_m, 12 + 2 * K.coat, 26 + 3 * K.coat, 8.6); PT.cone.push(_m, mixc(dark, body, 0.3), em); }
+  if (K.vest) { child(_m, _torso, 0, 8, 0.15, 0, 0, 0); scaled(_m, 9.4, 10.5, 6.3); PT.box.push(_m, mixc(hexK('#5e4632'), body, 0.3), em); }
   if (K.pack) { child(_m, _torso, 0, 8.5, -3.9, -0.08, 0, 0); scaled(_m, 7.4, 9.5, 3.6); PT.box.push(_m, hexK('#5a4a36'), em); }
   if (K.charges) for (const x of [-2.6, 0, 2.6]) { child(_m, _torso, x, 8.5, 3.3, 0, 0, 0); scaled(_m, 2, 3.6, 1.6); PT.box.push(_m, hexK('#a8352a'), em + (Math.sin(now * 12) > 0.6 ? 0.8 : 0)); }
   if (hk === 'helmet') { child(_m, hm, 0, 1.4, 0, -0.1, 0, 0); scaled(_m, 10.4, 1.2, 10.6); PT.ball.push(_m, rgb([90, 92, 86]), em); }

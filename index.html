@@ -525,6 +525,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
   <div class="set">
     <label>Look speed <input type="range" id="sSens" min="0.4" max="2.2" step="0.05"></label>
     <label><span>Field of view · <b id="sFovV" style="font-weight:inherit;color:#f1b77a"></b></span><input type="range" id="sFov" min="80" max="120" step="1"></label>
+    <label><span>Isometric zoom · <b id="sZoomV" style="font-weight:inherit;color:#f1b77a"></b></span><input type="range" id="sZoom" min="1" max="3" step="0.05"></label>
     <label>Picture
       <span class="tabs" id="sQual">
         <button class="tab" data-q="auto">Auto</button>
@@ -6358,7 +6359,7 @@ const hex = (h, k = 1) => { const c = new THREE.Color(h); return [c.r * k, c.g *
 function rng(seed) { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 // ---------------- settings ----------------
-const SET = { sens: 1, invert: false, fps: false, quality: 'auto', sound: true, colour: true, fov: 104, view: 'first' };
+const SET = { sens: 1, invert: false, fps: false, quality: 'auto', sound: true, colour: true, fov: 104, view: 'first', isoZoom: 1.7 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('behind-you-fp') || '{}')); } catch (e) {}
 const saveSet = () => { try { localStorage.setItem('behind-you-fp', JSON.stringify(SET)); } catch (e) {} };
 COLOUR = SET.colour !== false;
@@ -7352,17 +7353,19 @@ function sunShadows() {
   if (!on) return;
   const { R, N, cam: sc, c, v, d } = SUN, p = S.p;
   // centred a little ahead of where you look, so more of what you can see is covered
-  const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
+  const iso = isoP(), Rk = iso ? Math.max(1, (SET.isoZoom || 1.7) * 0.75) : 1;   // from above, round you and as wide as you can see
+  if (sc.right !== R * Rk) { sc.left = sc.bottom = -R * Rk; sc.right = sc.top = R * Rk; sc.updateProjectionMatrix(); LU.shP.value.y = 1.1 / N * Math.min(1.6, Rk); }
+  const fx = iso ? 0 : -Math.sin(look.yaw), fz = iso ? 0 : -Math.cos(look.yaw);
   c.set(p.x + fx * R * 0.35, 0, p.y + fz * R * 0.35); c.y = terrH(c.x, c.z);
   d.copy(LU.sunDir.value); if (d.y < 0.3) { d.y = 0.3; d.normalize(); }   // a low sun's shadows run long, but not off the map
   sc.position.copy(c).addScaledVector(d, 1300); sc.up.set(0, 1, 0); sc.lookAt(c); sc.updateMatrixWorld();
   // keep the map's texels fixed on the ground as you walk, so the edges don't crawl
-  const tx = 2 * R / N; v.copy(c).applyMatrix4(sc.matrixWorldInverse);
+  const tx = 2 * R * Rk / N; v.copy(c).applyMatrix4(sc.matrixWorldInverse);
   const ox = v.x - Math.round(v.x / tx) * tx, oy = v.y - Math.round(v.y / tx) * tx;
   const right = new V3().setFromMatrixColumn(sc.matrixWorld, 0), up = new V3().setFromMatrixColumn(sc.matrixWorld, 1);
   sc.position.addScaledVector(right, -ox).addScaledVector(up, -oy); sc.updateMatrixWorld();
   LU.shM.value.multiplyMatrices(sc.projectionMatrix, sc.matrixWorldInverse);
-  LU.shC.value.set(c.x, c.z, R, 1);
+  LU.shC.value.set(c.x, c.z, R * Rk, 1);
   // the depth from the sun's side: only things marked as casting
   const prevT = renderer.getRenderTarget();
   scene.overrideMaterial = SUN.mat;
@@ -8265,7 +8268,7 @@ addEventListener('mousedown', e => {
 });
 addEventListener('mouseup', e => { if (e.button === 0) rngUp(); });
 addEventListener('wheel', e => {
-  if (!playing()) return;
+  if (!playing() || (e.ctrlKey && isoP())) return;   // ctrl and the wheel zoom from above (77-iso.js)
   if (dayTool() === 'build' && held.has('ShiftLeft')) { stRot(e.deltaY > 0 ? 1 : -1); return; }
   daySelect((S.day.hot + (e.deltaY > 0 ? 1 : -1) + HOTN) % HOTN);
 }, { passive: true });
@@ -8290,6 +8293,10 @@ function onMove(e) {
     stick.x = clamp(dx / R, -1, 1); stick.y = clamp(dy / R, -1, 1); showStick(); return;
   }
   const L = looks.get(e.pointerId);
+  if (L && looks.size === 2 && isoP()) {   // two thumbs on the right pinch to zoom from above
+    const [A, B] = [...looks.values()], d0 = Math.hypot(A.x - B.x, A.y - B.y); L.x = e.clientX; L.y = e.clientY;
+    const d1 = Math.hypot(A.x - B.x, A.y - B.y); if (d0 > 20 && d1 > 20) isoZoomBy(d0 / d1); return;
+  }
   if (L) { const k = 0.0058 * SET.sens; IN.lx += (e.clientX - L.x) * k; IN.ly += (e.clientY - L.y) * k; L.x = e.clientX; L.y = e.clientY; }
 }
 function onUp(e) {
@@ -9515,7 +9522,7 @@ function isoMoveDir(mx, my) {
 
 // the camera: high up behind you at a fixed angle, a narrow lens so it reads like the top-down game
 function isoCamera(p, rdt) {
-  const port = cam.aspect < 1, fov = port ? 50 : 30, dist = port ? 330 : 300;
+  const port = cam.aspect < 1, fov = port ? 50 : 30, dist = (port ? 330 : 300) * (SET.isoZoom || 1.7);   // the zoom setting pulls the camera back
   const gy = terrH(p.x, p.y) + 14, cp = Math.cos(ISO.pitch), fx = -Math.sin(ISO.yaw) * cp, fy = Math.sin(ISO.pitch), fz = -Math.cos(ISO.yaw) * cp;
   const sh = VIEW_FX.trauma * VIEW_FX.trauma * 3, nz = s => Math.sin(VIEW_FX.shakeT * 37 + s) * sh;
   cam.position.set(p.x - fx * dist + nz(1), gy - fy * dist + nz(2), p.y - fz * dist + nz(3));
@@ -9525,6 +9532,11 @@ function isoCamera(p, rdt) {
   ISO.fogAdd = Math.hypot(fx, fz) * dist; LU.fogR.value.x += ISO.fogAdd; LU.fogR.value.y += ISO.fogAdd;
   LU.occ.value.set(p.x, gy - 10, p.y, 1);
 }
+// how far out the zoom is, as the menu says it: 1 is right in close
+const isoZoomName = () => (SET.isoZoom || 1.7) <= 1.05 ? 'close' : (SET.isoZoom || 1.7) >= 2.95 ? 'far' : (SET.isoZoom || 1.7).toFixed(1) + '×';
+// pinch with two thumbs, or ctrl and the mouse wheel, to zoom from above
+function isoZoomBy(k) { SET.isoZoom = clamp((SET.isoZoom || 1.7) * k, 1, 3); saveSet(); }
+addEventListener('wheel', e => { if (isoP() && state === 'play' && e.ctrlKey) { e.preventDefault(); isoZoomBy(e.deltaY > 0 ? 1.08 : 1 / 1.08); } }, { passive: false });
 function isoOff() { LU.occ.value.w = 0; if (ISO.fogAdd) { cam.fov = baseFov(); cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; ISO.fogAdd = 0; } }
 addEventListener('mousemove', e => { ISO.mx = e.clientX; ISO.my = e.clientY; });
 
@@ -9753,6 +9765,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sta
 addEventListener('pagehide', () => { if (S && S.day && state !== 'title') try { daySave(); } catch (e) {} });
 function syncSet() {
   $('sSens').value = SET.sens; $('sFov').value = SET.fov; $('sFovV').textContent = SET.fov + '°';
+  $('sZoom').value = SET.isoZoom; $('sZoomV').textContent = isoZoomName();
   for (const b of document.querySelectorAll('#sQual .tab')) b.setAttribute('aria-pressed', b.dataset.q === SET.quality ? 'true' : 'false');
   $('sInv').setAttribute('aria-pressed', SET.invert ? 'true' : 'false');
   $('sFps').setAttribute('aria-pressed', SET.fps ? 'true' : 'false');
@@ -9764,6 +9777,7 @@ function syncSet() {
   document.body.classList.toggle('showfps', SET.fps);
 }
 $('sSens').addEventListener('input', e => { SET.sens = +e.target.value; saveSet(); });
+$('sZoom').addEventListener('input', e => { SET.isoZoom = +e.target.value; $('sZoomV').textContent = isoZoomName(); saveSet(); });
 $('sFov').addEventListener('input', e => { SET.fov = +e.target.value; $('sFovV').textContent = SET.fov + '°'; saveSet(); resize(); });
 for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('click', () => {
   SET.quality = b.dataset.q; saveSet();

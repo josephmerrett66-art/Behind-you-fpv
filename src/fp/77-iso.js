@@ -34,7 +34,7 @@ function isoMoveDir(mx, my) {
 
 // the camera: high up behind you at a fixed angle, a narrow lens so it reads like the top-down game
 function isoCamera(p, rdt) {
-  const port = cam.aspect < 1, fov = port ? 50 : 30, dist = port ? 330 : 300;
+  const port = cam.aspect < 1, fov = port ? 50 : 30, dist = (port ? 330 : 300) * (SET.isoZoom || 1.7);   // the zoom setting pulls the camera back
   const gy = terrH(p.x, p.y) + 14, cp = Math.cos(ISO.pitch), fx = -Math.sin(ISO.yaw) * cp, fy = Math.sin(ISO.pitch), fz = -Math.cos(ISO.yaw) * cp;
   const sh = VIEW_FX.trauma * VIEW_FX.trauma * 3, nz = s => Math.sin(VIEW_FX.shakeT * 37 + s) * sh;
   cam.position.set(p.x - fx * dist + nz(1), gy - fy * dist + nz(2), p.y - fz * dist + nz(3));
@@ -44,5 +44,10 @@ function isoCamera(p, rdt) {
   ISO.fogAdd = Math.hypot(fx, fz) * dist; LU.fogR.value.x += ISO.fogAdd; LU.fogR.value.y += ISO.fogAdd;
   LU.occ.value.set(p.x, gy - 10, p.y, 1);
 }
+// how far out the zoom is, as the menu says it: 1 is right in close
+const isoZoomName = () => (SET.isoZoom || 1.7) <= 1.05 ? 'close' : (SET.isoZoom || 1.7) >= 2.95 ? 'far' : (SET.isoZoom || 1.7).toFixed(1) + '×';
+// pinch with two thumbs, or ctrl and the mouse wheel, to zoom from above
+function isoZoomBy(k) { SET.isoZoom = clamp((SET.isoZoom || 1.7) * k, 1, 3); saveSet(); }
+addEventListener('wheel', e => { if (isoP() && state === 'play' && e.ctrlKey) { e.preventDefault(); isoZoomBy(e.deltaY > 0 ? 1.08 : 1 / 1.08); } }, { passive: false });
 function isoOff() { LU.occ.value.w = 0; if (ISO.fogAdd) { cam.fov = baseFov(); cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; ISO.fogAdd = 0; } }
 addEventListener('mousemove', e => { ISO.mx = e.clientX; ISO.my = e.clientY; });

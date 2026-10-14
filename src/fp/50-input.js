@@ -50,7 +50,7 @@ addEventListener('mousedown', e => {
 });
 addEventListener('mouseup', e => { if (e.button === 0) rngUp(); });
 addEventListener('wheel', e => {
-  if (!playing()) return;
+  if (!playing() || (e.ctrlKey && isoP())) return;   // ctrl and the wheel zoom from above (77-iso.js)
   if (dayTool() === 'build' && held.has('ShiftLeft')) { stRot(e.deltaY > 0 ? 1 : -1); return; }
   daySelect((S.day.hot + (e.deltaY > 0 ? 1 : -1) + HOTN) % HOTN);
 }, { passive: true });
@@ -75,6 +75,10 @@ function onMove(e) {
     stick.x = clamp(dx / R, -1, 1); stick.y = clamp(dy / R, -1, 1); showStick(); return;
   }
   const L = looks.get(e.pointerId);
+  if (L && looks.size === 2 && isoP()) {   // two thumbs on the right pinch to zoom from above
+    const [A, B] = [...looks.values()], d0 = Math.hypot(A.x - B.x, A.y - B.y); L.x = e.clientX; L.y = e.clientY;
+    const d1 = Math.hypot(A.x - B.x, A.y - B.y); if (d0 > 20 && d1 > 20) isoZoomBy(d0 / d1); return;
+  }
   if (L) { const k = 0.0058 * SET.sens; IN.lx += (e.clientX - L.x) * k; IN.ly += (e.clientY - L.y) * k; L.x = e.clientX; L.y = e.clientY; }
 }
 function onUp(e) {

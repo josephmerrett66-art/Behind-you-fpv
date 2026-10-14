@@ -30,17 +30,19 @@ function sunShadows() {
   if (!on) return;
   const { R, N, cam: sc, c, v, d } = SUN, p = S.p;
   // centred a little ahead of where you look, so more of what you can see is covered
-  const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
+  const iso = isoP(), Rk = iso ? Math.max(1, (SET.isoZoom || 1.7) * 0.75) : 1;   // from above, round you and as wide as you can see
+  if (sc.right !== R * Rk) { sc.left = sc.bottom = -R * Rk; sc.right = sc.top = R * Rk; sc.updateProjectionMatrix(); LU.shP.value.y = 1.1 / N * Math.min(1.6, Rk); }
+  const fx = iso ? 0 : -Math.sin(look.yaw), fz = iso ? 0 : -Math.cos(look.yaw);
   c.set(p.x + fx * R * 0.35, 0, p.y + fz * R * 0.35); c.y = terrH(c.x, c.z);
   d.copy(LU.sunDir.value); if (d.y < 0.3) { d.y = 0.3; d.normalize(); }   // a low sun's shadows run long, but not off the map
   sc.position.copy(c).addScaledVector(d, 1300); sc.up.set(0, 1, 0); sc.lookAt(c); sc.updateMatrixWorld();
   // keep the map's texels fixed on the ground as you walk, so the edges don't crawl
-  const tx = 2 * R / N; v.copy(c).applyMatrix4(sc.matrixWorldInverse);
+  const tx = 2 * R * Rk / N; v.copy(c).applyMatrix4(sc.matrixWorldInverse);
   const ox = v.x - Math.round(v.x / tx) * tx, oy = v.y - Math.round(v.y / tx) * tx;
   const right = new V3().setFromMatrixColumn(sc.matrixWorld, 0), up = new V3().setFromMatrixColumn(sc.matrixWorld, 1);
   sc.position.addScaledVector(right, -ox).addScaledVector(up, -oy); sc.updateMatrixWorld();
   LU.shM.value.multiplyMatrices(sc.projectionMatrix, sc.matrixWorldInverse);
-  LU.shC.value.set(c.x, c.z, R, 1);
+  LU.shC.value.set(c.x, c.z, R * Rk, 1);
   // the depth from the sun's side: only things marked as casting
   const prevT = renderer.getRenderTarget();
   scene.overrideMaterial = SUN.mat;

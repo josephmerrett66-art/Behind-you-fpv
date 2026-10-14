@@ -173,6 +173,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && sta
 addEventListener('pagehide', () => { if (S && S.day && state !== 'title') try { daySave(); } catch (e) {} });
 function syncSet() {
   $('sSens').value = SET.sens; $('sFov').value = SET.fov; $('sFovV').textContent = SET.fov + '°';
+  $('sZoom').value = SET.isoZoom; $('sZoomV').textContent = isoZoomName();
   for (const b of document.querySelectorAll('#sQual .tab')) b.setAttribute('aria-pressed', b.dataset.q === SET.quality ? 'true' : 'false');
   $('sInv').setAttribute('aria-pressed', SET.invert ? 'true' : 'false');
   $('sFps').setAttribute('aria-pressed', SET.fps ? 'true' : 'false');
@@ -184,6 +185,7 @@ function syncSet() {
   document.body.classList.toggle('showfps', SET.fps);
 }
 $('sSens').addEventListener('input', e => { SET.sens = +e.target.value; saveSet(); });
+$('sZoom').addEventListener('input', e => { SET.isoZoom = +e.target.value; $('sZoomV').textContent = isoZoomName(); saveSet(); });
 $('sFov').addEventListener('input', e => { SET.fov = +e.target.value; $('sFovV').textContent = SET.fov + '°'; saveSet(); resize(); });
 for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('click', () => {
   SET.quality = b.dataset.q; saveSet();

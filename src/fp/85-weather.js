@@ -11,6 +11,7 @@ const WXV = { rain: 0, fog: 0, flash: 0 };
 function weatherFrame(now) {
   const w = S && S.wx, rain = S ? wxK('rain') : 0, fog = S ? wxK('fog') : 0, storm = w && w.kind === 'storm' ? w.k : 0;
   WXV.rain = rain; WXV.fog = fog; WXV.flash = w ? w.flash || 0 : 0;
+  SKY.cover.value = 0.42 + 0.12 * Math.sin((S && S.day ? S.day.n : 1) * 2.1) + 0.5 * rain + 0.25 * fog;   // some days clearer than others; rain fills it in
   rainMesh.visible = rain > 0.02;
   if (!rainMesh.visible) return;
   // drops wrap round a box that follows you, so the rain never runs out; a storm slants them on the wind

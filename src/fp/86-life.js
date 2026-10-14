@@ -123,6 +123,29 @@ const beeMesh = lifeMesh(lifeQuads([
     gl_FragColor = vec4(lit(c), 1.0);
   }`);
 
+// ---- birds: small flocks wheeling high over the woods, dark against the sky, now flapping, now gliding ----
+const birdMesh = lifeMesh(lifeQuads([
+  { p: -1, c: [[0, -0.3, 0, -1], [-1, 0.1, 1, -1], [-1, 0.45, 1, 1], [0, 0.35, 0, 1]] },
+  { p: 1, c: [[0, -0.3, 0, -1], [1, 0.1, 1, -1], [1, 0.45, 1, 1], [0, 0.35, 0, 1]] },
+  { p: 0, c: [[-0.12, -0.7, 0, -1], [0.12, -0.7, 1, -1], [0.12, 0.6, 1, 1], [-0.12, 0.6, 0, 1]] }]),
+  18, (a, i) => { const f = Math.floor(i / 6); a.set([f * 0.37 % 1, f * 0.61 % 1, Math.random(), (i % 6) / 6], i * 4); }, `
+  attribute float part;
+  void main() {
+    float B = lifeB * 3.0, R = 140.0 + 90.0 * sd.x, sp = 0.09 + 0.03 * sd.y, t = time * sp + sd.x * 20.0;
+    float lag = sd.w * 0.35;                                                  // each one a little behind the bird ahead
+    vec2 c0 = home(sd.xy, B), h = c0 + vec2(cos(t - lag), sin(t - lag)) * R + vec2(sin(sd.w * 40.0), cos(sd.w * 31.0)) * 12.0;
+    vec2 dh = vec2(-sin(t - lag), cos(t - lag));
+    float k = smoothstep(B * 0.5, B * 0.3, max(abs(h.x - lifeC.x), abs(h.y - lifeC.z))) * lifeK;
+    float glide = step(0.55, fract(time * 0.12 + sd.z)), flap = mix(sin(time * 9.0 + sd.w * 6.0) * 0.7, 0.08, glide);
+    vec3 p = position;
+    if (part != 0.0) { float x = abs(p.x); p = vec3(sign(p.x) * cos(flap) * x, sin(flap) * x, p.z); }
+    p *= 5.0 * k;
+    vec3 w = vec3(h.x, terrH(c0) + 230.0 + 40.0 * sd.x + sin(time * 0.3 + sd.w * 9.0) * 6.0, h.y) + rY(atan(dh.x, dh.y)) * rZ(0.25) * p;
+    vW = w; vUv = uv; vSd = sd; vPart = part;
+    gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
+  }`, `
+  void main() { gl_FragColor = vec4(lit(vec3(0.16, 0.15, 0.15)), 1.0); }`);
+
 let lifeOut = 1, lifeLeaf = 1;
 function lifeFrame(rdt) {
   const on = !!(S && S.day && state !== 'title');
@@ -131,7 +154,7 @@ function lifeFrame(rdt) {
   lifeLeaf += clamp((on ? 0.45 + 0.55 * ENV.lt : 0) - lifeLeaf, -rdt * 0.4, rdt * 0.4);
   const p = S ? S.p : { x: 0, y: 0 };
   LIFE_U.lifeC.value.set(p.x, 0, p.y); LIFE_U.lifeB.value = isoP() ? 640 : 420;
-  flyMesh.visible = beeMesh.visible = lifeOut > 0.01; leafMesh.visible = lifeLeaf > 0.01;
-  flyMesh.material.uniforms.lifeK.value = beeMesh.material.uniforms.lifeK.value = lifeOut;
+  flyMesh.visible = beeMesh.visible = birdMesh.visible = lifeOut > 0.01; leafMesh.visible = lifeLeaf > 0.01;
+  flyMesh.material.uniforms.lifeK.value = beeMesh.material.uniforms.lifeK.value = birdMesh.material.uniforms.lifeK.value = lifeOut;
   leafMesh.material.uniforms.lifeK.value = lifeLeaf;
 }

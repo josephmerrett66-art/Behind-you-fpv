@@ -17,10 +17,10 @@ class Board {
     const m = new THREE.ShaderMaterial({
       uniforms: Object.assign({ map: { value: tex }, cull: { value: cull }, near: { value: near }, now: { value: 0 } }, LU),
       defines: Object.assign(AA ? { A2C: 1 } : {}, cross ? { CROSS: cross } : {}), alphaToCoverage: AA, side: THREE.DoubleSide,   // a flipped sprite turns its back; draw both faces
-      vertexShader: TERR_GLSL + `attribute vec4 iPos, iRect, iDim, iMisc; uniform vec3 camPos, camRight; uniform float time, cull, near, now;
+      vertexShader: TERR_GLSL + `attribute vec4 iPos, iRect, iDim, iMisc; uniform vec3 camPos, camRight, fogC; uniform float time, cull, near, now;
         varying vec2 vUv; varying vec3 vW; varying vec3 vNear; varying vec2 vSh;
         void main() {
-          float d = distance(iPos.xz, camPos.xz);
+          float d = distance(iPos.xz, fogC.xz);
           vec3 R = camRight, off = vec3(0.0); float edge = 1.0, card = 1.0, sc = 1.0;
           #ifdef CROSS
             float q = position.z, a = iMisc.w * 6.2832 + q * 2.39996; R = vec3(cos(a), 0.0, sin(a));   // each card turned by the golden angle
@@ -356,7 +356,7 @@ const pondMat = new THREE.ShaderMaterial({
 const pondMesh = new THREE.Mesh(new THREE.BufferGeometry(), pondMat); pondMesh.frustumCulled = false; pondMesh.renderOrder = 1; scene.add(pondMesh);
 let pondKey = '';
 function pondsSync(px, py) {
-  const L = lakesNear(px, py, VIEW + 100), key = L.map(P => P.x | 0).join();
+  const L = lakesNear(px, py, drawR() + 100), key = L.map(P => P.x | 0).join();
   if (key === pondKey) return L; pondKey = key;
   const pos = [], dat = [];
   for (const P of L) { const R = P.rad * 1.2, y = 0.35; for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]]) { pos.push(P.x + a * R, y, P.y + b * R); dat.push(P.x, P.y, P.rad, P.seed); } }
@@ -373,7 +373,7 @@ const shDat = new Float32Array(MAXSH * 4); { const b = new THREE.InstancedBuffer
 shGeo.instanceCount = 0;
 const shMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ k: { value: 0.3 }, lean: { value: new THREE.Vector2(0.3, 0.3) } }, LU), transparent: true, depthWrite: false,
   vertexShader: TERR_GLSL + `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float near = sd.w < 0.0 ? shC.w * smoothstep(shC.z * 0.92, shC.z * 0.72, distance(sd.xy, shC.xy)) : 0.0, r = sd.z * mix(1.0, 0.5, near), len = abs(sd.w) * (1.0 - near); vK = 1.0 - 0.45 * near; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.0, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); w.y = terrH(w.xz) + 0.25; vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
-  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * vK * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, camPos.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
+  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * vK * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, fogC.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
 const shMesh = new THREE.Mesh(shGeo, shMat); shMesh.frustumCulled = false; shMesh.renderOrder = 2; scene.add(shMesh);
 let shN = 0, shBase = 0;
 function shadow(x, y, r, len = 0) { if (shN >= MAXSH) return; const i = shN++ * 4; shDat[i] = x; shDat[i + 1] = y; shDat[i + 2] = r; shDat[i + 3] = len; }
@@ -392,11 +392,11 @@ function worldSync(force) {
   const p = S.p, D = S.day;
   if (!staticK) { const K = new Kit(); campKit(K); raiderKit(K); staticK = new KitMesh(); staticK.set(K); }
   const gen = D.felled.size * 7 + D.nodes.size * 3 + (D.bchunks ? D.bchunks.size : 0);
-  if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < 70 && gen === WORLD.gen) return;
-  WORLD.x = p.x; WORLD.y = p.y; WORLD.gen = gen; worldDirty = false;
+  if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < 70 && gen === WORLD.gen && drawR() === WORLD.vr) return;
+  WORLD.x = p.x; WORLD.y = p.y; WORLD.gen = gen; WORLD.vr = drawR(); worldDirty = false;
   // trees, rocks, posts
   tallB.begin(); treesBegin(); propsW.begin(); shN = 0;
-  const props = propsNear(p.x, p.y, VIEW + 60); WORLD.props = props;
+  const props = propsNear(p.x, p.y, drawR() + 60); WORLD.props = props;
   for (const o of props) {
     if (o.kind === 'tree') {
       const kind = kindOfTree(o), M = ATLAS.meta[kind], v = (o.seed * 997 | 0) % M.length, m = (o.seed * 7919 % 1) < 0.5 ? 1 : -1;

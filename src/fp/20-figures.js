@@ -382,9 +382,9 @@ function poseBeast(o, now, dt) {
 }
 function drawFigures(now, dt) {
   const rg = S.rg, D = S.day, p = S.p;
-  for (const e of rg.enemies) if (!e.dead && Math.abs(e.x - p.x) < VIEW && Math.abs(e.y - p.y) < VIEW && e.type !== 'centi') poseFoe(e, now, dt, false);
+  for (const e of rg.enemies) if (!e.dead && Math.abs(e.x - p.x) < drawR() && Math.abs(e.y - p.y) < drawR() && e.type !== 'centi') poseFoe(e, now, dt, false);
   for (const g of rg.dying) if (g.type !== 'centi') poseFoe(g, now, dt, true);
   if (outsideP() && state === 'play') posePlayer(now);
-  for (const o of D.beasts) if (Math.abs(o.x - p.x) < VIEW && Math.abs(o.y - p.y) < VIEW) poseBeast(o, now, dt);
+  for (const o of D.beasts) if (Math.abs(o.x - p.x) < drawR() && Math.abs(o.y - p.y) < drawR()) poseBeast(o, now, dt);
 }
 function figuresEnd() { for (const k in PT) PT[k].done(); }

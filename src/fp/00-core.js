@@ -17,7 +17,8 @@ const saveSet = () => { try { localStorage.setItem('behind-you-fp', JSON.stringi
 COLOUR = SET.colour !== false;
 
 // ---------------- the numbers that are the first-person view's own ----------------
-const EYE = 35, TREE_K = 1.75, ROCK_K = 1.5, VIEW = 950;
+const EYE = 35, TREE_K = 1.75, ROCK_K = 1.5, VIEW = 950, VIEW_ISO = 1500;
+const drawR = () => SET.view === 'iso' ? VIEW_ISO : VIEW;   // how far the woods are drawn: further from above, where you see more of them
 const FOE_SIZE = 1;   // figures are drawn at the game's own heights
 
 // ---------------- renderer ----------------
@@ -63,10 +64,10 @@ const LU = {
   shMap: { value: null }, shM: { value: new M4() }, shP: { value: new V4(0, 1 / 2048, 0.002, 0) }, shC: { value: new V4(0, 0, 1, 0) },
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(420, 950) },
-  time: { value: 0 }, camPos: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
+  time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
-uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK;
+uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK;
 uniform vec4 pl[${NL}]; uniform vec3 plc[${NL}];
 uniform sampler2D shMap; uniform mat4 shM; uniform vec4 shP, shC;
 // the sun's shadow (13-sun.js): 1 in the open, down toward shP.x's share in the shade of whatever stands between here and the sun
@@ -94,7 +95,7 @@ vec3 lightAt(vec3 p, vec3 n, float useN) {
 }
 float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
 vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)); return mix(vec3(g), c, colourK); }
-vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, distance(p.xz, camPos.xz))); }`;
+vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, distance(p.xz, fogC.xz))); }`;   // the haze is measured from you (from above, not from the camera)
 
 // ---------------- the lie of the land: rolling hills ----------------
 // One height for every point of the woods, worked out the same way here and on the graphics card, so the ground, the grass,
@@ -148,7 +149,7 @@ function terrLevelSync(px, py, lakes) {
   for (const C of dayCampList()) { const o = C.parts && C.parts[0] ? C.parts[0] : C; L.push([o.x, o.y, 120, terrBase(o.x, o.y)]); }
   for (const P of lakes || []) L.push([P.x, P.y, P.rad * 1.25 + 8, terrBase(P.x, P.y) - 3]);
   L.sort((a, b) => Math.hypot(a[0] - px, a[1] - py) - a[2] - (Math.hypot(b[0] - px, b[1] - py) - b[2]));
-  LU.terrF.value.forEach((v, i) => { const q = L[i]; if (q && Math.hypot(q[0] - px, q[1] - py) - q[2] * 1.9 < VIEW + 300) v.set(q[0], q[1], q[2], q[3]); else v.set(0, 0, 0, 0); });
+  LU.terrF.value.forEach((v, i) => { const q = L[i]; if (q && Math.hypot(q[0] - px, q[1] - py) - q[2] * 1.9 < drawR() + 300) v.set(q[0], q[1], q[2], q[3]); else v.set(0, 0, 0, 0); });
 }
 
 
@@ -167,23 +168,64 @@ function texFrom(src, repeat) {
 const atlasTex = texFrom(ATLAS_SRC, false), floorTex = texFrom(FLOOR_SRC, true);
 
 // ---------------- the sky: a dome that follows you, from haze at the horizon to clear overhead ----------------
-const SKY = { top: new V3(), hor: new V3() };
+// Drawn round the camera wherever it goes (only its turn is used, never where it stands). Over the gradient: the sun with its
+// glow, and a warm band along the horizon on its side as it sets; drifting clouds, lit on the side toward the sun and grey
+// underneath, pink and gold at dusk, filling in to a low grey lid when it rains; and by night a moon and a sky of stars.
+const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value: 0 } };
 {
-  const g = new THREE.SphereGeometry(1200, 24, 12);
+  const g = new THREE.SphereGeometry(1200, 32, 16);
   const m = new THREE.ShaderMaterial({
-    uniforms: { top: { value: SKY.top }, hor: { value: SKY.hor }, sunDir: LU.sunDir, sunK: LU.sunK, colourK: LU.colourK }, side: THREE.BackSide, depthWrite: false,
-    vertexShader: `varying vec3 vD; void main() { vD = normalize(position); vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }`,
-    fragmentShader: `uniform vec3 top, hor, sunDir; uniform float sunK, colourK; varying vec3 vD;
-      void main() { float h = clamp(vD.y, 0.0, 1.0); vec3 c = mix(hor, top, pow(h, 0.6));
-        float s = max(dot(vD, sunDir), 0.0); c += vec3(1.0, 0.85, 0.6) * (pow(s, 600.0) * 1.5 + pow(s, 12.0) * 0.18) * sunK;
-        float g = dot(c, vec3(0.3, 0.55, 0.15)); gl_FragColor = vec4(mix(vec3(g), c, colourK), 1.0); }`,
+    uniforms: { top: { value: SKY.top }, hor: { value: SKY.hor }, sunDir: LU.sunDir, sunK: LU.sunK, colourK: LU.colourK, time: LU.time, cover: SKY.cover, dusk: SKY.set }, side: THREE.BackSide, depthWrite: false,
+    vertexShader: `varying vec3 vD; void main() { vD = normalize(position); vec4 p = projectionMatrix * vec4(mat3(viewMatrix) * position, 1.0); gl_Position = p.xyww; }`,
+    fragmentShader: `uniform vec3 top, hor, sunDir; uniform float sunK, colourK, time, cover, dusk; varying vec3 vD;
+      float hs(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float vn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hs(i), hs(i + vec2(1.0, 0.0)), f.x), mix(hs(i + vec2(0.0, 1.0)), hs(i + vec2(1.0)), f.x), f.y); }
+      float fbm(vec2 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
+      void main() {
+        vec3 d = normalize(vD); float h = clamp(d.y, 0.0, 1.0), night = 1.0 - sunK;
+        vec3 c = mix(hor, top, pow(h, 0.55));
+        float s = max(dot(d, sunDir), 0.0);
+        // the sun's side of the sky warms at dusk, low along the horizon
+        float side = pow(max(dot(normalize(vec3(d.x, 0.0, d.z)), normalize(vec3(sunDir.x, 0.0, sunDir.z))), 0.0), 3.0);
+        c += vec3(1.0, 0.45, 0.2) * dusk * side * exp(-h * 6.0) * 0.55;
+        c += vec3(1.0, 0.85, 0.6) * (pow(s, 12.0) * 0.18 + pow(s, 80.0) * 0.25) * sunK;
+        // stars, by night: a fine grid of points, only some lit, each twinkling at its own pace
+        if (night > 0.02 && d.y > 0.0) {
+          vec2 sp = vec2(atan(d.z, d.x) * 120.0, d.y * 190.0), si = floor(sp), sf = fract(sp) - 0.5;
+          float r = hs(si), lit = step(0.93, r) * smoothstep(0.18, 0.0, length(sf)) * (0.6 + 0.4 * sin(time * (1.0 + r * 3.0) + r * 60.0));
+          c += vec3(0.85, 0.88, 1.0) * lit * night * smoothstep(0.0, 0.25, d.y) * (0.5 + r * 0.8);
+          float band = exp(-pow(dot(d, normalize(vec3(0.5, 0.3, 0.8))) * 3.2, 2.0));   // a faint river of stars across the sky
+          c += vec3(0.12, 0.13, 0.18) * band * night * fbm(sp * 0.08) * smoothstep(0.0, 0.3, d.y);
+        }
+        // the moon, across the sky from where the sun went down
+        vec3 md = normalize(vec3(-sunDir.x, 0.62, -sunDir.z)); float mc = dot(d, md);
+        float disc = smoothstep(0.99935, 0.99955, mc);
+        c += night * (vec3(0.92, 0.94, 1.0) * disc * (0.85 + 0.15 * vn(d.xz * 900.0)) + vec3(0.25, 0.3, 0.42) * pow(max(mc, 0.0), 60.0) * 0.5);
+        // the clouds: a layer overhead seen in perspective, drifting on the wind, thinning toward the horizon
+        if (d.y > 0.0) {
+          vec2 uv = d.xz / (d.y + 0.12) * 1.6 + vec2(time * 0.006, time * 0.0025);
+          uv += 0.5 * vec2(fbm(uv * 0.5 + 3.1), fbm(uv * 0.5 + 7.7));                       // warped, so they billow instead of streaking
+          float n = fbm(uv), k = smoothstep(1.0 - cover - 0.02, 1.0 - cover + 0.16, n);
+          float n2 = fbm(uv + normalize(sunDir.xz + 1e-4) * 0.09);                          // a step toward the sun: is it thicker there?
+          float lightK = clamp(0.62 + (n - n2) * 4.0, 0.25, 1.15);
+          vec3 lit = mix(vec3(1.0, 0.98, 0.95), vec3(1.0, 0.72, 0.5), dusk);                // the sunlit tops, gold as it sets
+          vec3 shade = mix(vec3(0.62, 0.66, 0.74), vec3(0.55, 0.42, 0.5), dusk);            // the grey undersides, mauve at dusk
+          vec3 cc = mix(shade, lit, lightK) * mix(0.55, 1.0, sunK) + vec3(1.0, 0.9, 0.7) * pow(s, 8.0) * 0.35 * sunK * (1.0 - k);   // a silver edge against the sun
+          cc = mix(cc, vec3(0.06, 0.07, 0.1) + vec3(0.1, 0.11, 0.14) * pow(max(mc, 0.0), 8.0), night * 0.92);   // by night: dark shapes, a little moonlit
+          cc = mix(cc, mix(hor, vec3(0.6, 0.62, 0.64) * (0.4 + 0.6 * sunK), 0.6), smoothstep(0.65, 1.0, cover) * 0.6);   // rain: a flat grey lid
+          float fade = smoothstep(0.0, 0.22, d.y);
+          c = mix(c, cc, k * fade * 0.95);
+        }
+        c += vec3(1.0, 0.92, 0.75) * pow(s, 700.0) * 2.0 * sunK;                             // the sun's disc, through thin cloud
+        float gy = dot(c, vec3(0.3, 0.55, 0.15)); gl_FragColor = vec4(mix(vec3(gy), c, colourK), 1.0); }`,
   });
   var skyMesh = new THREE.Mesh(g, m); skyMesh.frustumCulled = false; skyMesh.renderOrder = -10; scene.add(skyMesh);
 }
 
 // ---------------- the ground ----------------
 {
-  const g = new THREE.PlaneGeometry(2800, 2800, 280, 280); g.rotateX(-Math.PI / 2);   // follows you, in 10-unit steps (90-main)
+  const g = new THREE.PlaneGeometry(3400, 3400, 340, 340); g.rotateX(-Math.PI / 2);   // follows you, in 10-unit steps (90-main)
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,

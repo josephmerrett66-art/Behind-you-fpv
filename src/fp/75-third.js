@@ -41,6 +41,7 @@ function thirdFrame(rdt, now, headY) {
   if (isoP()) isoCamera(S.p, rdt); else thirdCamera(S.p, look.yaw, look.pitch, headY);
   cam.rotation.z *= 0.25;   // fallen: the camera stays upright and watches you go down
   cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);
+  if (isoP()) LU.fogC.value.set(S.p.x, cam.position.y, S.p.y); else LU.fogC.value.copy(cam.position);
   return true;
 }
 addEventListener('keydown', e => {

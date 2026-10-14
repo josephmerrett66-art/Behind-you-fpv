@@ -15,7 +15,7 @@ function envFrame() {
   LU.sunDir.value.set(Math.cos(sa) * 0.9, el, -0.45).normalize();
   const top = mix3([0.02, 0.025, 0.05], mix3([0.42, 0.6, 0.84], [0.35, 0.3, 0.5], set), lt);
   const hor = mix3([0.035, 0.04, 0.06], mix3([0.8, 0.83, 0.82], [0.95, 0.56, 0.32], set), lt);
-  SKY.top.set(...top); SKY.hor.set(...hor);
+  SKY.top.set(...top); SKY.hor.set(...hor); SKY.set.value = set;
   LU.fogCol.value.set(...hor);
   LU.fogR.value.set(lerp(150, 430, lt), lerp(560, 950, lt));
   const tl = S ? S.torchLvl * (S.torchOn ? 1 : 0) : 0;
@@ -113,7 +113,7 @@ function placeCamera(dt, rdt, now) {
   const side = (p.vx * -Math.sin(S.aimW) + p.vy * Math.cos(S.aimW)) / RUN;
   cam.rotation.set(lerp(look.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + nz(6) * sh * 0.06 - side * 0.012 + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
   cam.fov = baseFov() + VIEW_FX.fov; cam.updateProjectionMatrix(); cam.updateMatrixWorld();
-  LU.camPos.value.copy(cam.position); LU.camRight.value.set(RX, 0, RZ);
+  LU.camPos.value.copy(cam.position); LU.fogC.value.copy(cam.position); LU.camRight.value.set(RX, 0, RZ);
   // the torch's light comes from your left hand and aims where you look, a beat behind
   look.tYaw += angDiff(look.yaw, look.tYaw) * Math.min(1, rdt * 15); look.tPitch += (look.pitch - look.tPitch) * Math.min(1, rdt * 15);
   const cp = Math.cos(look.tPitch), tdx = -Math.sin(look.tYaw) * cp, tdy = Math.sin(look.tPitch), tdz = -Math.cos(look.tYaw) * cp;
@@ -233,7 +233,7 @@ function frame(t) {
   pollPad(rdt);
   LU.time.value = now;
   if (state === 'title' || !S) {
-    titleYaw += rdt * 0.04; cam.position.set(0, terrH(0, 0) + EYE, 0); cam.rotation.set(0.05, titleYaw, 0); cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);
+    titleYaw += rdt * 0.04; cam.position.set(0, terrH(0, 0) + EYE, 0); cam.rotation.set(0.05, titleYaw, 0); cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position); LU.fogC.value.copy(cam.position);
     envFrame(); IN.lx = IN.ly = 0;
     renderer.clear(); renderer.render(scene, cam); return;
   }
@@ -260,6 +260,7 @@ function frame(t) {
   envFrame(); weatherFrame(now); weatherLight(); lifeFrame(rdt);
   worldSync(false); thingsSync(false);
   for (const b of [tallB, coverB, plantB, bushB, nodeB, dropB]) b.m.uniforms.now.value = S.t;
+  tallB.m.uniforms.cull.value = drawR();
   grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);
   flagStep(now);
   const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? 0 : rdt) : 0;

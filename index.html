@@ -544,7 +544,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
       </span>
     </label>
   </div>
-  <div class="row"><button id="resume">Resume</button><button class="alt" id="quit">Save and quit</button></div>
+  <div class="row"><button id="resume">Resume</button><button class="alt" id="pWisps">Wisp upgrades</button><button class="alt" id="quit">Save and quit</button></div>
   <p class="note">Your run saves when you open this menu and every so often as you play. Auto keeps the frame rate up by lowering the picture's sharpness a little when the phone is working hard.</p>
 </div>
 
@@ -2948,7 +2948,7 @@ function dayUseTarget() {                        // the nearest thing in reach y
   return best;
 }
 const STN_N = { bench: 'Workbench', furnace: 'Furnace', rack: 'Drying rack', fire: 'Fire', anvil: 'Forge' };
-const useLabel = o => o === EX_FIRE ? 'Wisps' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
+const useLabel = o => o === EX_FIRE ? 'Cook' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
 function openStation(t) {                         // v163: the craft tab, opened on what this station makes (ready ones first)
   const D = S.day, at = t === 'fire' ? 'fire' : t, known = DREC.filter(r => D.known.has(r.id) && r.at === at);
   const pick = known.find(r => canCraft(r) === true) || known[0];
@@ -2969,7 +2969,7 @@ function dayUse() {
   if (o === CAMP_BOX || o.t === 'chest') { openCraft(o); return; }
   if (STN_N[o.t]) { openStation(o.t); return; }   // v163
   if (o.kind === 'dst') { if (!S.p.act && dayStam(STA_CHOP)) { dayAct(10, 0.5); S.p.vx *= 0.4; S.p.vy *= 0.4; if (stHammer(o)) dayWear(); } return; }   // v186
-  if (o === EX_FIRE) { dayWispShop(); return; }   // v164
+  if (o === EX_FIRE) { openStation('fire'); return; }   // first person (Joe): the camp fire cooks; the wisp upgrades are in the pause menu
   dayAct(7, 0.42); S.p.vx *= 0.3; S.p.vy *= 0.3;
   if (o.kind === 'dday') { const got = dayGive(o.it, o.n, o.x, o.y, true, o.ex); if (got) { exNote(`+${got} ${DIT[o.it].n.toLowerCase()}`); pickSnd(); } o.n -= got; if (o.n <= 0) o.gone = true; D.drops = D.drops.filter(f => !f.gone); }
   else if (o.kind === 'dnode') { const it = o.t === 'shroom' ? 'mushroom' : o.t; if (dayRoom(it) <= 0) return dayNote('full', 'pack full', 1); o.gone = true; dayGive(it, o.n); pickSnd(); }
@@ -8555,7 +8555,7 @@ function drawHud() {
   // under the crosshair: what you'd use, or an animal you could take unawares
   let pr = '', sneak = false, hit = false;
   const o = dayUseTarget();
-  if (o) pr = (inputMode === 'kb' ? 'E · ' : inputMode === 'pad' ? 'X · ' : '') + useLabel(o).toUpperCase() + (STN_N[o.t] ? ' ' + STN_N[o.t].toUpperCase() : o.kind === 'dday' ? ' ' + DIT[o.it].n.toUpperCase() + (o.n > 1 ? ' ×' + o.n : '') : o.kind === 'dnode' ? ' ' + DIT[o.t === 'shroom' ? 'mushroom' : o.t].n.toUpperCase() : o === CAMP_BOX ? ' BOX' : o === EX_FIRE ? ` · ${stPool().w} TO SPEND` : '');
+  if (o) pr = (inputMode === 'kb' ? 'E · ' : inputMode === 'pad' ? 'X · ' : '') + useLabel(o).toUpperCase() + (STN_N[o.t] ? ' ' + STN_N[o.t].toUpperCase() : o.kind === 'dday' ? ' ' + DIT[o.it].n.toUpperCase() + (o.n > 1 ? ' ×' + o.n : '') : o.kind === 'dnode' ? ' ' + DIT[o.t === 'shroom' ? 'mushroom' : o.t].n.toUpperCase() : o === CAMP_BOX ? ' BOX' : o === EX_FIRE ? " AT THE FIRE" : '');
   else if (D.crouch) for (const b of D.beasts) if (!b.dead && !b.tame && b.st === 'graze' && Math.hypot(b.x - S.p.x, b.y - S.p.y) < 44 + BEAST[b.k].w) { pr = (inputMode === 'kb' ? 'CLICK · ' : '') + 'SNEAK KILL'; sneak = true; break; }
   if (!pr && !(T && (T.rng || T.thr))) { const h = dayHitTarget(); if (h) { pr = (inputMode === 'kb' ? 'CLICK · ' : '') + 'HIT FOR ' + (h.t === 'grass' ? 'FIBRE' : 'BERRIES'); hit = true; } }   // nothing to take: the grass or bush a swing would gather from
   const pk = pr + sneak;
@@ -9888,6 +9888,8 @@ function unpause() { state = 'play'; $('pause').classList.remove('show'); if (ac
 function quitToTitle() { try { daySave(); } catch (e) {} state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
 $('begin').addEventListener('click', () => startRun(false));
 // a pad can't answer the browser's own question, so on a controller the button asks a second press instead
+// the wisp upgrades, from the pause menu now the camp fire is for cooking
+$('pWisps').addEventListener('click', () => { if (state !== 'pause') return; unpause(); dayWispShop(); lockOff(); });
 $('beginNew').addEventListener('click', () => {
   const b = $('beginNew'), t = b.querySelector('b'), s = t.nextElementSibling;
   if (inputMode !== 'pad') { if (confirm('Start a new Daylight run? Your saved run will be lost.')) startRun(true); return; }

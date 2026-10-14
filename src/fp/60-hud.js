@@ -49,7 +49,7 @@ function drawHud() {
   // under the crosshair: what you'd use, or an animal you could take unawares
   let pr = '', sneak = false, hit = false;
   const o = dayUseTarget();
-  if (o) pr = (inputMode === 'kb' ? 'E · ' : inputMode === 'pad' ? 'X · ' : '') + useLabel(o).toUpperCase() + (STN_N[o.t] ? ' ' + STN_N[o.t].toUpperCase() : o.kind === 'dday' ? ' ' + DIT[o.it].n.toUpperCase() + (o.n > 1 ? ' ×' + o.n : '') : o.kind === 'dnode' ? ' ' + DIT[o.t === 'shroom' ? 'mushroom' : o.t].n.toUpperCase() : o === CAMP_BOX ? ' BOX' : o === EX_FIRE ? ` · ${stPool().w} TO SPEND` : '');
+  if (o) pr = (inputMode === 'kb' ? 'E · ' : inputMode === 'pad' ? 'X · ' : '') + useLabel(o).toUpperCase() + (STN_N[o.t] ? ' ' + STN_N[o.t].toUpperCase() : o.kind === 'dday' ? ' ' + DIT[o.it].n.toUpperCase() + (o.n > 1 ? ' ×' + o.n : '') : o.kind === 'dnode' ? ' ' + DIT[o.t === 'shroom' ? 'mushroom' : o.t].n.toUpperCase() : o === CAMP_BOX ? ' BOX' : o === EX_FIRE ? " AT THE FIRE" : '');
   else if (D.crouch) for (const b of D.beasts) if (!b.dead && !b.tame && b.st === 'graze' && Math.hypot(b.x - S.p.x, b.y - S.p.y) < 44 + BEAST[b.k].w) { pr = (inputMode === 'kb' ? 'CLICK · ' : '') + 'SNEAK KILL'; sneak = true; break; }
   if (!pr && !(T && (T.rng || T.thr))) { const h = dayHitTarget(); if (h) { pr = (inputMode === 'kb' ? 'CLICK · ' : '') + 'HIT FOR ' + (h.t === 'grass' ? 'FIBRE' : 'BERRIES'); hit = true; } }   // nothing to take: the grass or bush a swing would gather from
   const pk = pr + sneak;

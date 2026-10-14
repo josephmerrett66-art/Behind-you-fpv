@@ -167,6 +167,8 @@ function unpause() { state = 'play'; $('pause').classList.remove('show'); if (ac
 function quitToTitle() { try { daySave(); } catch (e) {} state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
 $('begin').addEventListener('click', () => startRun(false));
 // a pad can't answer the browser's own question, so on a controller the button asks a second press instead
+// the wisp upgrades, from the pause menu now the camp fire is for cooking
+$('pWisps').addEventListener('click', () => { if (state !== 'pause') return; unpause(); dayWispShop(); lockOff(); });
 $('beginNew').addEventListener('click', () => {
   const b = $('beginNew'), t = b.querySelector('b'), s = t.nextElementSibling;
   if (inputMode !== 'pad') { if (confirm('Start a new Daylight run? Your saved run will be lost.')) startRun(true); return; }

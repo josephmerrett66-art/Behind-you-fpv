@@ -42,7 +42,7 @@ const P_BLADE = () => prim('blade', () => { const g = new THREE.ConeGeometry(0.5
 // the models, foot at the origin, in the pictures' own units (each is drawn at the scale its picture was)
 const PETAL = { flowerY: '#f2cf34', flowerB: '#8796ee', flowerR: '#e43c34', flowerW: '#f4f1e6', flowerV: '#9644cc' };
 const PROP_KIND = {
-  rock: { n: 3, mat: 'still', edge: true, shadow: true }, post: { n: 2, mat: 'still', edge: true, shadow: true },
+  rock: { n: 3, mat: 'still', edge: true, shadow: true }, rockIron: { n: 3, mat: 'still', edge: true, shadow: true }, post: { n: 2, mat: 'still', edge: true, shadow: true },
   bush: { n: 3, mat: 'plant', edge: true, shadow: true }, fern: { n: 3, mat: 'plant', edge: true, shadow: false },
   grass: { n: 3, mat: 'grass', edge: false, shadow: false }, pebbles: { n: 3, mat: 'still', edge: true, shadow: false },
   shrooms: { n: 2, mat: 'still', edge: true, shadow: false },
@@ -51,17 +51,22 @@ for (const k in PETAL) PROP_KIND[k] = { n: 2, mat: 'grass', edge: false, shadow:
 // what you gather, each one its own few models now rather than rebuilt by hand every time you walk on (30-things)
 Object.assign(PROP_KIND, { nsticks: { n: 3, mat: 'still', edge: true, shadow: false }, nstones: { n: 4, mat: 'still', edge: true, shadow: false },
   nshroom1: { n: 2, mat: 'still', edge: true, shadow: false }, nshroom2: { n: 2, mat: 'still', edge: true, shadow: false }, nshroom3: { n: 2, mat: 'still', edge: true, shadow: false },
-  nberries: { n: 1, mat: 'still', edge: true, shadow: false } });
+  nberries: { n: 3, mat: 'still', edge: true, shadow: false }, bbush: { n: 3, mat: 'plant', edge: true, shadow: true } });
 PROP_KIND.log = { n: 3, mat: 'still', edge: true, shadow: true };
 function propModel(kind, vi) {
   let s = 4211 + vi * 337 + kind.length * 59; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
   const pick = (list, j) => hex(list[((j % list.length) + list.length) % list.length]);
-  if (kind === 'rock') {   // a big dark boulder (36 wide, 26 high as drawn) with a stone or two leaning on it
+  if (kind === 'rock' || kind === 'rockIron') {   // a big dark boulder (36 wide, 26 high as drawn) with a stone or two leaning on it
+    const iron = kind === 'rockIron';   // out past where iron is found: warmer, rust-streaked stone studded with orange lumps of ore
     K.mt = 'stone';
-    K.add(P_BOULDER(vi), 0, 9, 0, 32, 24, 26, pick(['#5c5e63', '#65676c', '#56585d'], vi), R() * 6.28, (R() - 0.5) * 0.2, (R() - 0.5) * 0.2, 0, 0.55);
+    K.add(P_BOULDER(vi), 0, 9, 0, 32, 24, 26, pick(iron ? ['#6a5850', '#725e54', '#64534b'] : ['#5c5e63', '#65676c', '#56585d'], vi), R() * 6.28, (R() - 0.5) * 0.2, (R() - 0.5) * 0.2, 0, 0.55);
     const n = 1 + vi % 2;
-    for (let i = 0; i < n; i++) { const a = R() * 6.28, d = 15 + R() * 4, r = 7 + R() * 5; K.add(P_BOULDER(vi + 3 + i), Math.cos(a) * d, r * 0.3, Math.sin(a) * d, r * 1.3, r, r * 1.1, pick(['#6a6c70', '#5e6064'], i), R() * 6.28, 0, 0, 0, 0.45); }
+    for (let i = 0; i < n; i++) { const a = R() * 6.28, d = 15 + R() * 4, r = 7 + R() * 5; K.add(P_BOULDER(vi + 3 + i), Math.cos(a) * d, r * 0.3, Math.sin(a) * d, r * 1.3, r, r * 1.1, pick(iron ? ['#76625a', '#6a5a52'] : ['#6a6c70', '#5e6064'], i), R() * 6.28, 0, 0, 0, 0.45); }
     K.mt = null;
+    if (iron) for (let i = 0; i < 9; i++) {   // the ore: rusty knobs breaking the surface all round, a few with a bright glint
+      const a = i * 2.4 + vi, e = 0.15 + (i % 3) * 0.38, cx = Math.cos(a) * Math.cos(e), cz = Math.sin(a) * Math.cos(e), sz = 4.2 + (i % 4) * 1.1;
+      K.add(P_PEA(7, 5), cx * 14.5, 9 + Math.sin(e) * 11.5, cz * 12, sz, sz * 0.8, sz, hex(i % 3 ? '#b8622c' : '#d4823a'), a, 0, 0, i % 4 === 0 ? 0.25 : 0, 0.4);
+    }
   } else if (kind === 'post') {   // a squared-off stake with a strap of rope round it
     K.mt = 'bark'; K.add(P_CYL(6), 0, 0, 0, 8, 38, 8, hex(vi ? '#5a3e2a' : '#634530'), 0.3 * vi, 0, 0, 0, 0.5);
     K.add(P_CONE(6), 0, 38, 0, 8, 2.5, 8, hex('#6e4e36'), 0.3 * vi, 0, 0, 0, 0.4); K.mt = null;
@@ -134,8 +139,17 @@ function propModel(kind, vi) {
       K.mt = 'plain'; K.add(P_CYL(6), x, 0, y, 1.8, h, 1.8, hex('#e8dcc4')); K.add(P_PEA(10, 6), x, h, y, 7.2, 4, 7.2, hex('#b07848'));
       for (let f = 0; f < 4; f++) { const q = a * 3 + f * 1.6; K.add(P_PEA(5, 3), x + Math.cos(q) * 1.9, h + 1.55, y + Math.sin(q) * 1.9, 1, 0.5, 1, hex('#f2ead8')); } K.mt = null;
     }
-  } else if (kind === 'nberries') {   // red berries hung round a bush
-    for (let i = 0; i < 7; i++) { const a = i * 1.9; K.add(P_PEA(6, 4), Math.cos(a) * 7, 7 + (i % 3) * 2.6, Math.sin(a) * 7, 2, 2, 2, hex('#d0303e')); }
+  } else if (kind === 'bbush') {   // a berry bush: rounder and a cooler, glossier green than the woods' bushes, so you know one even picked bare
+    K.mt = 'plant';
+    const G = ['#245a44', '#2c6a50', '#347858', '#3c8460'], lumps = 6 + vi;
+    for (let i = 0; i < lumps; i++) { const a = i / lumps * 6.28 + R(), d = 6 + R() * 3, r = 12 + R() * 3; K.add(P_KNOB(i % 5), Math.cos(a) * d, 7 + R() * 3, Math.sin(a) * d, r, r * 0.95, r, pick(G, i + vi), R() * 6.28, 0, 0, 0, 0.35); }
+    K.add(P_KNOB(5), 0, 12, 0, 17, 15, 17, pick(G, 2 + vi), 0, 0, 0, 0, 0.35);
+    K.mt = null;
+  } else if (kind === 'nberries') {   // bunches of fat red berries all over the outside of a berry bush
+    for (let c = 0; c < 9; c++) {
+      const a = c * 2.1 + vi * 0.7, e = 0.1 + (c % 3) * 0.4, rr = 15.5 - (c % 3) * 2.5, cx = Math.cos(a) * Math.cos(e) * rr, cz = Math.sin(a) * Math.cos(e) * rr, cy = 7 + Math.sin(e) * 13;
+      for (let i = 0; i < 3; i++) { const q = a + i * 2.1; K.add(P_PEA(7, 5), cx + Math.cos(q) * 1.6, cy + (i - 1) * 1.2, cz + Math.sin(q) * 1.6, 3.4, 3.4, 3.4, hex(i === 1 ? '#a8182c' : '#dc2c3c'), 0, 0, 0, 0.12); }
+    }
   } else return null;
   return K.geometry();
 }

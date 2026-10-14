@@ -1,6 +1,5 @@
 // ================= what you can gather shows itself (the main game's v156 hints), and the signal fire's countdown =================
-// Everything Take picks up has a warm ring on the ground as you come near; grass and berry bushes, which you strike instead,
-// get a green ring close up. Once you're close enough, the button that gathers it floats over it. Until you've held your first sticks and stones an arrow by the
+// (Joe) no rings on the ground round what you can gather: once you're close enough, the button that gathers it floats over it. Until you've held your first sticks and stones an arrow by the
 // crosshair points the way to the nearest. While a signal fire burns, a bar across the top says how long you still have to stand.
 const hintB = new Board(240, 400, 0, true, iconTex, ISHEET);
 const guideEl = $('guide'), guideA = $('guideA'), guideT = $('guideT'), siegeEl = $('siege'), siegeI = $('siegeI'), siegeT = $('siegeT');
@@ -10,13 +9,6 @@ function hintsFrame(now) {
   const D = S.day, p = S.p, tgt = dayUseTarget(), lt = dayLight();
   hintB.begin(); hintB.m.uniforms.now.value = S.t;
   const play = state === 'play' && S.running && S.rg.phase === 'fight';
-  if (play) for (const { o, it, how } of dayPickables(PICK_SEE)) {
-    const R = how === 'take' ? PICK_SEE : PICK_HIT, d = Math.hypot(o.x - p.x, o.y - p.y), f = Math.max(0, 1 - d / R) * Math.max(lt, 1 - d / 90);   // in the dark, only what's at your feet
-    if (f <= 0.01) continue;
-    const pulse = 0.65 + 0.35 * Math.sin(S.t * 3 + o.x * 0.05), on = o === tgt, rr = on ? 15 : 12, a = how === 'take' ? (on ? 0.95 : 0.25 + 0.45 * f) * pulse : 0.5 * f * pulse;
-    const [cr, cg, cb] = how === 'take' ? [1, 0.88, 0.59] : [0.67, 0.88, 0.55];
-    for (let i = 0; i < 20; i++) { const q = i / 20 * 6.283 + now * 0.4; stat(o.x + Math.cos(q) * rr, 0.8, o.y + Math.sin(q) * rr, on ? 2.6 : 2, cr, cg, cb, a * 0.8, 0); }
-  }
   hintB.end();   // (Joe) no pictures floating over things any more: the button to press shows over the one you're close enough to gather
   useMarkFrame(play, tgt); homeFrame();
   // the first-time guide

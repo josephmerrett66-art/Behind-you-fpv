@@ -264,7 +264,7 @@ function thingsFrame(now) {
     if (o.gone) continue;
     const sh = o.shakeT !== undefined ? o.shakeT : -99, sd = o.seed || 0, v = sd * 9 | 0;
     if (o.t === 'grass') propsN.add('grass', v, o.x, o.y, 1.5, sd, sh);
-    else if (o.t === 'bush') { propsN.add('bush', v, o.x, o.y, 1.3, sd, sh); if (o.ber) { propsN.add('nberries', 0, o.x, o.y, 1, sd, sh); for (let i = 0; i < 7; i++) { const a = sd * 7 + i * 1.9; stat(o.x + Math.cos(a) * 6, 7 + (i % 3) * 2.3, o.y + Math.sin(a) * 6, 2.2, 0.82, 0.19, 0.24, 0.0, 0); } } }
+    else if (o.t === 'bush') { propsN.add('bbush', v, o.x, o.y, 1.15, sd, sh); if (o.ber) { propsN.add('nberries', v, o.x, o.y, 1.15, sd, sh); } }
     else if (o.t === 'sticks') propsN.add('nsticks', v, o.x, o.y, 1, sd);
     else if (o.t === 'stones') propsN.add('nstones', v, o.x, o.y, 1, sd);
     else if (o.t === 'shroom') propsN.add('nshroom' + clamp(o.n || 1, 1, 3), v, o.x, o.y, 1, sd);

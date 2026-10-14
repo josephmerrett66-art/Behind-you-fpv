@@ -403,7 +403,7 @@ function worldSync(force) {
       if (!treeAdd(o, kind, Math.hypot(o.x - p.x, o.y - p.y))) tallB.add(kind, v, o.x, o.y, o.s * TREE_K, m, kind === 'dead' ? 0.4 : 1, o.shakeT ?? -99, o.seed);
       shadow(o.x, o.y, (kind === 'pine' ? 15 : kind === 'dead' ? 10 : 20) * o.s * 1.2, -(kind === 'pine' ? 90 : 70) * o.s);
     } else if (o.kind === 'rock') {
-      propsW.add('rock', (hash(o.x * 0.37, o.y * 0.91) * 50 | 0), o.x, o.y, o.s * ROCK_K, hash(o.y * 0.7, o.x * 0.3));
+      propsW.add(Math.hypot(o.x, o.y) > IRON_FROM ? 'rockIron' : 'rock', (hash(o.x * 0.37, o.y * 0.91) * 50 | 0), o.x, o.y, o.s * ROCK_K, hash(o.y * 0.7, o.x * 0.3));   // out where iron is found, the rocks show their ore
       shadow(o.x, o.y, 15 * o.s, 10 * o.s);
     } else if (o.kind === 'post') { propsW.add('post', (hash(o.x * 0.53, o.y * 0.29) * 50 | 0), o.x, o.y, 1.4, hash(o.x, o.y)); shadow(o.x, o.y, 5, 18); }
   }

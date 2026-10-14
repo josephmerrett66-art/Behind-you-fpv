@@ -26,6 +26,7 @@ const TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in windo
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
 const AA = SET.quality !== 'fast';
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: AA, powerPreference: 'high-performance', stencil: false, alpha: false });
+renderer.debug.checkShaderErrors = /[?&]debug/.test(location.search);   // reading back each new shader's log stalls the frame it first appears in
 renderer.autoClear = false;
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;   // colours pass straight through, as in the 2D game
 const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();

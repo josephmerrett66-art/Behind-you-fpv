@@ -8,7 +8,7 @@ const iconCv = document.createElement('canvas'); iconCv.width = ISHEET.W; iconCv
 const iconTex = new THREE.CanvasTexture(iconCv);
 iconTex.flipY = false; iconTex.colorSpace = THREE.NoColorSpace; iconTex.generateMipmaps = true; iconTex.minFilter = THREE.LinearMipmapLinearFilter; iconTex.anisotropy = MAX_ANISO;
 {
-  const g = iconCv.getContext('2d'), ids = Object.keys(ICON), N = 32, CELL = 64;
+  const g = iconCv.getContext('2d', { willReadFrequently: true }), ids = Object.keys(ICON), N = 32, CELL = 64;   // kept in memory, so tracing a picture (extrudeIcon) never waits on the graphics card
   let loadedN = 0;
   ids.forEach((id, i) => {
     const x = (i % N) * CELL, y = Math.floor(i / N) * CELL;
@@ -42,7 +42,7 @@ function extrudeIcon(id) {
     if (!on(i, j - 1)) quad([x0, y1, h], [x1, y1, h], [x1, y1, -h], [x0, y1, -h], [0, 1, 0], uv, 0.8);
     if (!on(i, j + 1)) quad([x0, y0, -h], [x1, y0, -h], [x1, y0, h], [x0, y0, h], [0, -1, 0], uv, 0.55);
   }
-  if (!any) return null;
+  if (!any) { XGEO.set(id, null); return null; }   // nothing solid to trace (a glow, say): remembered, so the picture isn't read back off the card every frame
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nn, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('sd', new THREE.Float32BufferAttribute(SD, 1));

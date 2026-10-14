@@ -110,8 +110,8 @@ function fxText(txt, x, y, size, rgb, a, opt = {}) {   // slanted arcade numeral
 }
 const _q0 = [0, 0, 0], _q1 = [0, 0, 0];
 function combatDraw(rdt, now) {
-  const g = fx2, rg = S.rg, p = S.p;
-  const busy = CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
+  const g = fx2, rg = S.rg, p = S.p, alert = alertScan(rdt);
+  const busy = alert || CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
     || CFX.marks.length || CFX.kflash || (rg.stkfx && (rg.stk && rg.stk.n || rg.stkfx.pops.length || rg.stkfx.words.length || rg.stkfx.tier || rg.stkfx.cash || rg.stkfx.lost || rg.stkfx.drop));
   if (!busy && !fxDirty) return;
   g.setTransform(FD, 0, 0, FD, 0, 0); g.clearRect(0, 0, FW, FH); fxDirty = !!busy;
@@ -167,6 +167,7 @@ function combatDraw(rdt, now) {
     const u = w.t, pop = u < 0.12 ? 1.6 - 0.6 * (u / 0.12) : 1, a = u > 0.7 ? (1 - u) / 0.3 : 1, zk = Math.max(0.9, Math.min(1.6, q[2] * 0.9));
     fxText(w.text, q[0], q[1] - 18 * u * zk, 21 * (w.s || 1) * zk, w.col, a, { s: pop, glow: w.col, blur: 12 });
   }
+  alertDraw(g, rdt);
   drawThreats(g, rdt);
   stkDrawFp(rdt);
 }

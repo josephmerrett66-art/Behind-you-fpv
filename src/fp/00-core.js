@@ -48,6 +48,8 @@ function resize() {
   cam.updateProjectionMatrix(); vmCam.updateProjectionMatrix();
   PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5];
   ovResize();
+  // the menus are laid out for a phone; on a laptop or a TV they're scaled up to fill the screen so they can be read from a seat
+  document.documentElement.style.setProperty('--uiz', clamp(Math.min(VW / 920, VH / 560), 1, 2.4).toFixed(3));
 }
 
 // ---------------- light: one function every surface shares ----------------

@@ -438,6 +438,7 @@ button.mini:disabled { opacity: 0.35; cursor: default; }
 .chip .ic { width: 1.7rem; height: 1.7rem; border: 0; } .chip .ic svg { width: 1.1rem; height: 1.1rem; } .chip .x { color: var(--ash); }
 
 #craft, #camp, #stats { z-index: 30; touch-action: pan-y; }
+#craft > *, #camp > *, #stats > *, .screen > *, #deathCard > * { zoom: var(--uiz, 1); }   /* filled out on a big screen (00-core.js resize) */
 #craft *, #stats * { touch-action: manipulation; }
 #hotbar { z-index: 5; }
 body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { display: none !important; }
@@ -6420,6 +6421,8 @@ function resize() {
   cam.updateProjectionMatrix(); vmCam.updateProjectionMatrix();
   PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5];
   ovResize();
+  // the menus are laid out for a phone; on a laptop or a TV they're scaled up to fill the screen so they can be read from a seat
+  document.documentElement.style.setProperty('--uiz', clamp(Math.min(VW / 920, VH / 560), 1, 2.4).toFixed(3));
 }
 
 // ---------------- light: one function every surface shares ----------------

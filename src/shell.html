@@ -158,6 +158,7 @@ h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 6vw
 #loading { position: fixed; left: 0; right: 0; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.7rem; letter-spacing: 0.18em; color: var(--ash); text-transform: uppercase; }
 /*DAYCSS*/
 #craft, #camp, #stats { z-index: 30; touch-action: pan-y; }
+#craft > *, #camp > *, #stats > *, .screen > *, #deathCard > * { zoom: var(--uiz, 1); }   /* filled out on a big screen (00-core.js resize) */
 #craft *, #stats * { touch-action: manipulation; }
 #hotbar { z-index: 5; }
 body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { display: none !important; }

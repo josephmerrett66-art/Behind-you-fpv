@@ -80,15 +80,18 @@ function padMenu(dt, btn, press, ax, ay, ry) {
   // which way: the d-pad, or the left stick pushed well over; held, it repeats
   const sx = ax > 0.55 ? 1 : ax < -0.55 ? -1 : 0, sy = ay > 0.55 ? 1 : ay < -0.55 ? -1 : 0;
   const dir = btn(12) || sy < 0 ? 'u' : btn(13) || sy > 0 ? 'd' : btn(14) || sx < 0 ? 'l' : btn(15) || sx > 0 ? 'r' : '';
-  let go = false;
-  if (dir !== PM.dir) { PM.dir = dir; PM.rep = 0.38; go = !!dir; }
-  else if (dir) { PM.rep -= dt; if (PM.rep <= 0) { PM.rep = 0.11; go = true; } }
-  if (go) {
+  let step = false;
+  if (dir !== PM.dir) { PM.dir = dir; PM.rep = 0.38; step = !!dir; }
+  else if (dir) { PM.rep -= dt; if (PM.rep <= 0) { PM.rep = 0.11; step = true; } }
+  if (step) {
     const slider = PM.el.tagName === 'INPUT';
     if (slider && (dir === 'l' || dir === 'r')) pmSlide(PM.el, dir === 'l' ? -1 : 1);
     else { const n = pmMove(items, dir === 'l' ? -1 : dir === 'r' ? 1 : 0, dir === 'u' ? -1 : dir === 'd' ? 1 : 0); if (n) { pmSet(n); pmTick(); } }
   }
-  if (press(0)) pmPress(PM.el);
+  // on a recipe, A makes it (its Craft button) and X opens what it takes; everywhere else A presses what's picked
+  const go = PM.el.tagName !== 'BUTTON' && PM.el.querySelector('button.rgo1:not([disabled])');
+  if (press(0)) pmPress(go || PM.el);
+  else if (press(2) && go) pmPress(PM.el);
   else if (press(1)) pmBack(box);
   if (box === craftEl && (press(4) || press(5))) {   // LB RB: the pack's tabs
     const tabs = [...craftEl.querySelectorAll('.pktab')], i = tabs.findIndex(b => b.getAttribute('aria-pressed') === 'true');

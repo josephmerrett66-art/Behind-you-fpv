@@ -23,7 +23,7 @@ function vmPart(parent, geo, m, x, y, z, rx = 0, ry = 0, rz = 0, edge = true) {
   if (edge) o.add(new THREE.Mesh(geo, vmEdge));
   return o;
 }
-const SLEEVE = '#8a7556', GLOVE = '#8a6a4c', SKIN = '#c8a07a';
+const SLEEVE = '#d0a07a', GLOVE = '#daa880', SKIN = '#c8a07a';   // bare forearms and hands: the sleeves are rolled up (Joe's character sheet)
 const cyl = (r0, r1, h, n = 8) => new THREE.CylinderGeometry(r0, r1, h, n);
 const capsule = (r, h) => new THREE.CapsuleGeometry(r, h, 3, 8);
 

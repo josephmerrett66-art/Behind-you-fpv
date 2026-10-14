@@ -25,7 +25,8 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
     if (k > 0.0) {                                                     // (only for the blades that stand: most are hidden)
       vec4 sw = soilW(rt); vS = sw;
       k *= step(sw.w * 0.85, fract(bd.w * 13.7));                       // thin on stony ground
-      k *= 1.0 - 0.35 * sw.x + 0.4 * sw.y;                              // short and dry on sand, long on loam
+      k *= 1.0 - 0.35 * sw.x + 0.4 * sw.y;
+      vec4 L = landW(rt); k *= step(L.r * 0.6, fract(bd.w * 5.3)) * (1.0 + 0.25 * L.a);   // sparse in the thickets' shade, lush in the glades                              // short and dry on sand, long on loam
     }
     float shrink = 1.0 / (1.0 + d / 260.0), widen = 1.0 + d / 140.0;      // smaller further off, but never thinner than a hair
     float up = position.y * shrink * k;

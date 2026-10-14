@@ -695,10 +695,7 @@ function makeProp(i, j) {
   const h = hash(i, j);
   const x = i * T + 8 + hash(j, i) * (T - 16), y = j * T + 8 + hash(i + 7, j - 3) * (T - 16);
   const tv = hash(i * 1.7 + 3, j * 2.9 - 1);
-  if (h > 0.92) return { kind: 'tree', type: tv < 0.57 ? 'pine' : tv < 0.81 ? 'oak' : tv < 0.94 ? 'dead' : 'cherry', seed: hash(i + 0.3, j + 0.7), x, y, r: 10, s: 0.8 + hash(i * 3, j) * 0.6, key: i + ',' + j, birds: hash(i * 5.1, j * 2.3) < 0.3 };
-  if (h > 0.895) return { kind: 'rock', x, y, r: 9, s: 0.7 + hash(i, j * 5) * 0.7, key: i + ',' + j };
-  if (h > 0.885) return { kind: 'post', x, y, r: 4, s: 1 };
-  return null;
+  return landProp(i, j, h, tv, x, y);   // fp: thick woods, rocky ground, dry ground, glades and places with a story (00-areas)
 }
 function propsNear(x, y, R) {
   const out = [];
@@ -1128,12 +1125,12 @@ function decorAt(i, j) {
       const v = hash(i * 3.3, j * 5.1);
       d = { kind: 'decor', dk: fl, x, y, s: 1.1 + hash(j * 1.7, i) * 0.4, v: (v * 97 | 0) % 3, seed: v };
     }
-  } else if (h < 0.27 && !(Math.abs(i) < 2 && Math.abs(j) < 2) && !propAt(i, j)) {
-    const x = i * T + 6 + hash(j - 3, i + 5) * (T - 12), y = j * T + 6 + hash(i + 9, j * 2) * (T - 12);
-    if (!(S && S.mode === 'expedition' && (Math.hypot(x, y) < CAMP_R + 45 || nearPortal(x, y, 70)))) {
-      const r = h / 0.27, v = hash(i * 3.3, j * 5.1);
-      const kind = r < 0.36 ? 'grass' : r < 0.52 ? 'fern' : r < 0.64 ? 'pebbles' : r < 0.76 ? 'bush' : r < 0.85 ? 'shrooms' : 'log';
-      d = { kind: 'decor', dk: kind, x, y, s: 1 + hash(j * 1.7, i) * 0.55, v: (v * 97 | 0) % SPRITE_KINDS[kind][0], seed: v };
+  } else if (!(Math.abs(i) < 2 && Math.abs(j) < 2) && !propAt(i, j)) {
+    const L = landDecor(i, j, h);   // fp: what grows here by the lie of the land (00-areas)
+    const x = L && L.x !== undefined ? L.x : i * T + 6 + hash(j - 3, i + 5) * (T - 12), y = L && L.y !== undefined ? L.y : j * T + 6 + hash(i + 9, j * 2) * (T - 12);
+    if (L && !(S && S.mode === 'expedition' && (Math.hypot(x, y) < CAMP_R + 45 || nearPortal(x, y, 70)))) {
+      const kind = L.dk, v = hash(i * 3.3, j * 5.1);
+      d = { kind: 'decor', dk: kind, x, y, s: (kind.startsWith('flower') ? 1.1 : 1) + hash(j * 1.7, i) * (kind.startsWith('flower') ? 0.4 : 0.55), v: (v * 97 | 0) % (SPRITE_KINDS[kind] ? SPRITE_KINDS[kind][0] : 3), seed: v };
     }
   }
   decorCache.set(key, d);
@@ -1142,7 +1139,7 @@ function decorAt(i, j) {
 function flowerPatch(i, j) {                     // which colour of flower grows on this tile, if any
   const ci = Math.floor(i / 6), cj = Math.floor(j / 6);
   for (let a = ci - 1; a <= ci + 1; a++) for (let b = cj - 1; b <= cj + 1; b++) {   // patches near a cell edge can spill into the next cell
-    if (hash(a * 7.13 + 2.1, b * 3.37 - 5.3) > 0.2) continue;
+    if (hash(a * 7.13 + 2.1, b * 3.37 - 5.3) > flowerLand(a, b)) continue;
     const px = a * 6 + 3 + (hash(a + 0.5, b * 1.9) - 0.5) * 4, py = b * 6 + 3 + (hash(a * 2.3, b + 0.7) - 0.5) * 4, r = 1.4 + hash(a * 1.7, b * 4.1) * 1.1;
     if (Math.hypot(i + 0.5 - px, j + 0.5 - py) < r && hash(i * 0.91 + 3, j * 1.37 - 1) < 0.85) return ['flowerY', 'flowerB', 'flowerR', 'flowerW', 'flowerV'][hash(a * 5.5, b * 6.6) * 5 | 0];
   }
@@ -6365,6 +6362,139 @@ const ICONS = {
 const svgIcon = id => { const s = el('span', 'ic'); s.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[id] || ''}</svg>`; return s; };
 
 ;
+// ================= the lie of the land: areas of the woods with a character of their own =================
+// A map of the woods (repeating every 12288 units, far further than you'll ever notice) says how much each spot is
+// thick woods, rocky ground, dry ground or open glade. The trees, rocks and plants are set out by it (makeProp, decorAt),
+// and the ground and the turf are coloured by it (soilW reads the same map as a texture), so a thicket is dark and close
+// with fern and fungus underfoot, rocky ground is boulders and grit, dry ground is straw grass and dead trees, and a glade
+// is open meadow with oaks and flowers. Here and there a place with a story to it, made of things already in the woods:
+// a ring of standing stones round a dead tree, a grove of old oaks round a clearing, a stand of dead wood, a lone oak with
+// a fairy ring of mushrooms, trees brought down in a storm, and a field of boulders.
+const AREA_N = 256, AREA_CELL = 48, AREA_P = AREA_N * AREA_CELL, MARK_N = 8, MARK_CELL = AREA_P / MARK_N;
+const MARK_KINDS = ['stones', 'grove', 'deadwood', 'fairy', 'fallen', 'boulders'];
+const MARK_R = { stones: 140, grove: 200, deadwood: 300, fairy: 130, fallen: 240, boulders: 260 };
+const AREA = (() => {
+  const N = AREA_N, rnd = (a, b, s) => { const v = Math.sin(a * 127.1 + b * 311.7 + s * 74.7) * 43758.5453; return v - Math.floor(v); };
+  const sm = t => t * t * (3 - 2 * t);
+  const noise = (x, y, f, s) => {   // value noise with f cells across the map, wrapping at its edges
+    const fx = x / N * f, fy = y / N * f, i = Math.floor(fx), j = Math.floor(fy), u = sm(fx - i), v = sm(fy - j);
+    const g = (a, b) => rnd(((a % f) + f) % f, ((b % f) + f) % f, s);
+    return (g(i, j) * (1 - u) + g(i + 1, j) * u) * (1 - v) + (g(i, j + 1) * (1 - u) + g(i + 1, j + 1) * u) * v;
+  };
+  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  // the places with stories: at most one to a cell of the map, well inside it, never near the camp
+  const marks = [];
+  for (let a = 0; a < MARK_N; a++) for (let b = 0; b < MARK_N; b++) {
+    if (rnd(a, b, 91) > 0.62) continue;
+    const t = MARK_KINDS[Math.floor(rnd(a, b, 92) * MARK_KINDS.length)], x = (a + 0.5) * MARK_CELL + (rnd(a, b, 93) - 0.5) * 760, y = (b + 0.5) * MARK_CELL + (rnd(a, b, 94) - 0.5) * 760;
+    const dx = Math.min(x, AREA_P - x), dy = Math.min(y, AREA_P - y); if (Math.hypot(dx, dy) < 1300) continue;
+    marks.push({ t, x, y, r: MARK_R[t], a: rnd(a, b, 95) * 6.283, seed: rnd(a, b, 96), ci: a, cj: b });
+  }
+  const STAMP = { stones: [3, 0.7], grove: [3, 1], deadwood: [2, 1], fairy: [3, 1], fallen: [0, 0.85], boulders: [1, 1] };
+  const data = new Uint8Array(N * N * 4), w = [0, 0, 0, 0];
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const th = noise(i, j, 4, 1) * 0.6 + noise(i, j, 16, 2) * 0.4, ro = noise(i, j, 8, 3) * 0.6 + noise(i, j, 32, 4) * 0.4;
+    const dr = noise(i, j, 4, 5) * 0.65 + noise(i, j, 16, 6) * 0.35, gl = noise(i, j, 8, 7) * 0.6 + noise(i, j, 16, 8) * 0.4;
+    w[0] = ss(0.56, 0.7, th); w[1] = ss(0.6, 0.72, ro); w[2] = ss(0.58, 0.7, dr); w[3] = ss(0.58, 0.7, gl);
+    const px = (i + 0.5) * AREA_CELL, py = (j + 0.5) * AREA_CELL;
+    for (const M of marks) {   // each place has the ground to suit it
+      const dx = Math.abs(px - M.x), dy = Math.abs(py - M.y), d = Math.hypot(Math.min(dx, AREA_P - dx), Math.min(dy, AREA_P - dy)); if (d > M.r * 1.6) continue;
+      const [c, k] = STAMP[M.t], f = k * ss(M.r * 1.6, M.r * 0.7, d);
+      for (let q = 0; q < 4; q++) w[q] = q === c ? Math.max(w[q], f) : w[q] * (1 - f);
+    }
+    const cd = Math.hypot(Math.min(px, AREA_P - px), Math.min(py, AREA_P - py)), calm = ss(500, 1100, cd);   // round the camp the woods stay as they were
+    const sum = w[0] + w[1] + w[2] + w[3], k = (sum > 1 ? 1 / sum : 1) * calm, o = (j * N + i) * 4;
+    for (let q = 0; q < 4; q++) data[o + q] = Math.round(w[q] * k * 255);
+  }
+  const tex = new THREE.DataTexture(data, N, N, THREE.RGBAFormat); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
+  return { data, marks, tex };
+})();
+const _land = [0, 0, 0, 0];
+function landAt(x, y) {   // [thicket, rocky, dry, glade] here, 0 to 1: the same as the ground's shader reads
+  const N = AREA_N, D = AREA.data, fx = x / AREA_CELL - 0.5, fy = y / AREA_CELL - 0.5, i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j;
+  const i0 = ((i % N) + N) % N, j0 = ((j % N) + N) % N, i1 = (i0 + 1) % N, j1 = (j0 + 1) % N;
+  for (let q = 0; q < 4; q++) _land[q] = ((D[(j0 * N + i0) * 4 + q] * (1 - u) + D[(j0 * N + i1) * 4 + q] * u) * (1 - v) + (D[(j1 * N + i0) * 4 + q] * (1 - u) + D[(j1 * N + i1) * 4 + q] * u) * v) / 255;
+  return _land;
+}
+function landMark(x, y) {   // the place with a story whose ground this is, if any, where it stands in the world
+  const px = ((x % AREA_P) + AREA_P) % AREA_P, py = ((y % AREA_P) + AREA_P) % AREA_P, a = Math.floor(px / MARK_CELL), b = Math.floor(py / MARK_CELL);
+  for (const M of AREA.marks) if (M.ci === a && M.cj === b) {
+    const wx = x - px + M.x, wy = y - py + M.y, d = Math.hypot(x - wx, y - wy);
+    return d < M.r + 60 ? { t: M.t, x: wx, y: wy, r: M.r, a: M.a, seed: M.seed, d } : null;
+  }
+  return null;
+}
+const inTile = (px, py, i, j) => px >= i * AREA_CELL && px < (i + 1) * AREA_CELL && py >= j * AREA_CELL && py < (j + 1) * AREA_CELL;
+const mHash = (M, k) => { const v = Math.sin(M.seed * 913.7 + k * 71.3) * 43758.5453; return v - Math.floor(v); };
+function ringPt(M, n, R, i, j, jit = 0) {   // which of n points round a ring falls in tile (i, j)
+  for (let k = 0; k < n; k++) { const a = M.a + k / n * 6.283 + (mHash(M, k) - 0.5) * jit, r = R * (1 + (mHash(M, k + 50) - 0.5) * jit * 0.5), px = M.x + Math.cos(a) * r, py = M.y + Math.sin(a) * r; if (inTile(px, py, i, j)) return { x: px, y: py, k }; }
+  return null;
+}
+// the trees: which kind grows where (pine, oak, dead, cherry)
+const TREE_MIX = [[0.57, 0.24, 0.13, 0.06], [0.74, 0.13, 0.1, 0.03], [0.62, 0.14, 0.2, 0.04], [0.25, 0.08, 0.64, 0.03], [0.18, 0.5, 0.04, 0.28]];
+function landTree(A, tv) {
+  const s = A[0] + A[1] + A[2] + A[3], w = TREE_MIX[0].map((b, k) => b * Math.max(0, 1 - s) + A[0] * TREE_MIX[1][k] + A[1] * TREE_MIX[2][k] + A[2] * TREE_MIX[3][k] + A[3] * TREE_MIX[4][k]);
+  const tot = w[0] + w[1] + w[2] + w[3]; let c = 0;
+  for (let k = 0; k < 4; k++) { c += w[k] / tot; if (tv < c) return ['pine', 'oak', 'dead', 'cherry'][k]; }
+  return 'pine';
+}
+// what makeProp sets down on tile (i, j): a tree, a rock, a post or nothing, by the lie of the land
+function landProp(i, j, h, tv, x, y) {
+  const T = AREA_CELL, key = i + ',' + j, sc = hash(i * 3, j);
+  const tree = (type, s, px = x, py = y) => ({ kind: 'tree', type, seed: hash(i + 0.3, j + 0.7), x: px, y: py, r: 10, s, key, birds: hash(i * 5.1, j * 2.3) < 0.3 });
+  const rock = (s, px = x, py = y) => ({ kind: 'rock', x: px, y: py, r: 9, s, key });
+  const M = landMark(i * T + T / 2, j * T + T / 2);
+  if (M) {
+    const d = M.d;
+    if (M.t === 'stones') {   // standing stones in a ring round an old dead tree
+      if (inTile(M.x, M.y, i, j)) return tree('dead', 1.25, M.x, M.y);
+      const p = ringPt(M, 7, 92, i, j); if (p) return rock(0.85 + mHash(M, p.k + 9) * 0.35, p.x, p.y);
+      if (d < 150) return null;
+    } else if (M.t === 'grove') {   // old oaks and cherries round a clearing
+      const p = ringPt(M, 8, 150, i, j, 0.3); if (p) return tree(mHash(M, p.k + 3) < 0.65 ? 'oak' : 'cherry', 1.3 + mHash(M, p.k + 4) * 0.3, p.x, p.y);
+      if (d < 175) return null;
+    } else if (M.t === 'fairy') {   // a lone great oak in the open
+      if (inTile(M.x, M.y, i, j)) return tree('oak', 1.6, M.x, M.y);
+      if (d < M.r) return null;
+    } else if (d < M.r) {
+      const f = 1 - d / M.r;
+      if (M.t === 'deadwood') return h > 1 - 0.12 - 0.08 * f ? tree('dead', 0.8 + sc * 0.6) : h < 0.02 + 0.03 * f ? rock(0.6 + sc * 0.4) : null;   // a stand of dead trees on dry ground
+      if (M.t === 'fallen') return d < 60 ? null : h > 0.88 ? tree(tv < 0.8 ? 'pine' : 'dead', 0.9 + sc * 0.6) : null;   // the storm's clearing, the trees still standing round it
+      if (M.t === 'boulders') return h > 1 - 0.06 - 0.14 * f ? rock(0.9 + sc * 0.8 + f * 0.3) : h < 0.03 ? tree('dead', 0.7 + sc * 0.4) : null;   // great stones strewn about
+    }
+  }
+  const A = landAt(x, y), tp = Math.max(0.02, 0.08 + 0.13 * A[0] - 0.06 * A[3] - 0.03 * A[2] - 0.04 * A[1]), rp = Math.max(0.006, 0.025 + 0.055 * A[1] + 0.01 * A[2] - 0.015 * A[3] - 0.01 * A[0]);
+  if (h > 1 - tp) return tree(landTree(A, tv), 0.8 + sc * 0.6 + 0.25 * A[0]);
+  if (h > 1 - tp - rp) return rock(0.7 + hash(i, j * 5) * 0.7 + 0.35 * A[1]);
+  if (h > 1 - tp - rp - 0.01) return { kind: 'post', x, y, r: 4, s: 1 };
+  return null;
+}
+// what decorAt grows on tile (i, j): grass, fern, pebbles, bush, mushrooms or a log, by the lie of the land
+const DECOR_KINDS = ['grass', 'fern', 'pebbles', 'bush', 'shrooms', 'log'];
+const DECOR_MIX = [[0.36, 0.16, 0.12, 0.12, 0.09, 0.15], [0.1, 0.36, 0.03, 0.15, 0.2, 0.16], [0.22, 0.1, 0.48, 0.08, 0.04, 0.08], [0.56, 0.02, 0.2, 0.05, 0.02, 0.15], [0.44, 0.12, 0.04, 0.28, 0.08, 0.04]];
+function landDecor(i, j, h) {   // undefined: the ordinary rule; null: nothing here; else the kind to grow
+  const T = AREA_CELL, cx = i * T + T / 2, cy = j * T + T / 2, M = landMark(cx, cy);
+  if (M && M.d < M.r + 20) {
+    const at = (dk, px, py) => ({ dk, x: px, y: py });
+    if (M.t === 'fairy') { const p = ringPt(M, 12, 68, i, j); if (p) return at('shrooms', p.x, p.y); if (M.d < 60) return null; return h < 0.45 ? at(h < 0.2 ? 'bush' : 'grass') : null; }
+    if (M.t === 'fallen') { for (let k = 0; k < 6; k++) { const a = M.a + (mHash(M, k) - 0.5) * 0.7, r = 25 + k * 22 + mHash(M, k + 7) * 10, px = M.x + Math.cos(a + (k % 2) * Math.PI) * r, py = M.y + Math.sin(a + (k % 2) * Math.PI) * r; if (inTile(px, py, i, j)) return at('log', px, py); }
+      return h < 0.5 ? at(h < 0.22 ? 'fern' : h < 0.38 ? 'shrooms' : 'bush') : null; }
+    if (M.t === 'deadwood') return h < 0.34 ? at(h < 0.1 ? 'log' : h < 0.2 ? 'pebbles' : 'grass') : null;
+    if (M.t === 'stones') return M.d < 92 ? (h < 0.3 ? at(h < 0.12 ? 'flowerW' : 'grass') : null) : h < 0.3 ? at('pebbles') : null;
+    if (M.t === 'boulders') return h < 0.45 ? at(h < 0.3 ? 'pebbles' : 'grass') : null;
+    if (M.t === 'grove') return M.d < 150 ? (h < 0.4 ? at(h < 0.18 ? 'flowerY' : h < 0.26 ? 'flowerW' : 'grass') : null) : undefined;
+  }
+  const A = landAt(cx, cy), dens = 0.27 + 0.16 * A[0] + 0.12 * A[1] - 0.06 * A[2] + 0.04 * A[3];
+  if (h >= dens) return null;
+  const r = h / dens, s = A[0] + A[1] + A[2] + A[3];
+  let c = 0, tot = 0; const w = DECOR_MIX[0].map((b, k) => b * Math.max(0, 1 - s) + A[0] * DECOR_MIX[1][k] + A[1] * DECOR_MIX[2][k] + A[2] * DECOR_MIX[3][k] + A[3] * DECOR_MIX[4][k]);
+  for (const v of w) tot += v;
+  for (let k = 0; k < 6; k++) { c += w[k] / tot; if (r < c) return { dk: DECOR_KINDS[k] }; }
+  return { dk: 'log' };
+}
+const flowerLand = (a, b) => { const A = landAt((a * 6 + 3) * AREA_CELL, (b * 6 + 3) * AREA_CELL); return 0.2 + 0.32 * A[3] - 0.12 * A[2] - 0.14 * A[0] - 0.08 * A[1]; };   // how likely a patch of flowers is here
+
+;
 // ================= the first-person view of Daylight =================
 // Everything here draws, hears and steers. What happens in the woods is the main game's own code (src/ported.js).
 // Ground coordinates are the game's (x, y); in 3D they are (x, height, y). A person is 38 tall; your eyes are at 35.
@@ -6431,7 +6561,7 @@ const LU = {
   shMap: { value: null }, shM: { value: new M4() }, shP: { value: new V4(0, 1 / 2048, 0.002, 0) }, shC: { value: new V4(0, 0, 1, 0) },
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(420, 950) },
-  time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
+  landT: { value: AREA.tex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
 uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK;
@@ -6499,7 +6629,8 @@ vec3 terrN(vec2 p) {
 // The soil changes as you walk: broad patches of dry sandy ground, dark rich loam, a reddish clay and stony bare ground,
 // laid out by slow noise so each patch runs a long way. The bare ground and the turf over it (12-grass) read the same patches,
 // so dry ground grows short straw-coloured grass, loam grows it deep and green, and the stony bits are thin.
-const SOIL_GLSL = `float sHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+const SOIL_GLSL = `uniform sampler2D landT; vec4 landW(vec2 p) { return texture2D(landT, p / ${AREA_P.toFixed(1)}); }
+float sHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float sNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(sHash(i), sHash(i + vec2(1.0, 0.0)), f.x), mix(sHash(i + vec2(0.0, 1.0)), sHash(i + vec2(1.0)), f.x), f.y); }
 vec4 soilW(vec2 p) {   // how much of each soil is here: dry, loam, clay, stony
@@ -6507,7 +6638,10 @@ vec4 soilW(vec2 p) {   // how much of each soil is here: dry, loam, clay, stony
   float b = sNoise(p * 0.0035 + 11.7) * 0.7 + sNoise(p * 0.011 + 2.3) * 0.3;
   float c = sNoise(p * 0.0021 - 7.3) * 0.8 + sNoise(p * 0.009 + 1.7) * 0.2;
   float e = sNoise(p * 0.0075 + 31.0) * 0.75 + sNoise(p * 0.03 + 8.0) * 0.25;
-  return vec4(smoothstep(0.52, 0.72, a), smoothstep(0.54, 0.72, b), smoothstep(0.56, 0.76, c), smoothstep(0.6, 0.76, e));
+  vec4 s = vec4(smoothstep(0.52, 0.72, a), smoothstep(0.54, 0.72, b), smoothstep(0.56, 0.76, c), smoothstep(0.6, 0.76, e));
+  vec4 L = landW(p);                                                   // the lie of the land (00-areas): dry ground, rocky ground, the thickets' dark loam
+  s.x = max(s.x, L.b * 0.95); s.y = max(s.y * (1.0 - L.b), L.r * 0.75); s.w = max(s.w, L.g * 0.9); s.z *= 1.0 - 0.6 * L.a;
+  return s;
 }`;
 // which places are level: the camp, the nearest raiders' camps and ponds (re-chosen as you move about)
 function terrLevelSync(px, py, lakes) {
@@ -6607,6 +6741,8 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
         t = mix(t, mix(t * 0.9, vec3(0.6, 0.57, 0.52) * (0.7 + 0.5 * sp2), smoothstep(0.55, 0.7, sp) * 0.75), s.w);
         float st = 1.0 - normalize(vTN).y;                                             // the steeper slopes wear through to stone
         t = mix(t, vec3(0.44, 0.41, 0.37) * (0.75 + 0.5 * sp2), smoothstep(0.02, 0.07, st) * 0.45);
+        vec4 L = landW(vW.xz);
+        t = mix(t, t * vec3(0.66, 0.56, 0.44) + vec3(0.03, 0.015, 0.0) * sNoise(vW.xz * 0.2), L.r * 0.65);   // leaf litter under the thickets
         float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
         vec3 under = mix(vec3(0.34, 0.42, 0.19), vec3(0.5, 0.47, 0.24), s.x); under = mix(under, vec3(0.22, 0.34, 0.13), s.y);
         t = mix(t, under * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm) * (1.0 - 0.75 * s.w));
@@ -7334,7 +7470,8 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
     if (k > 0.0) {                                                     // (only for the blades that stand: most are hidden)
       vec4 sw = soilW(rt); vS = sw;
       k *= step(sw.w * 0.85, fract(bd.w * 13.7));                       // thin on stony ground
-      k *= 1.0 - 0.35 * sw.x + 0.4 * sw.y;                              // short and dry on sand, long on loam
+      k *= 1.0 - 0.35 * sw.x + 0.4 * sw.y;
+      vec4 L = landW(rt); k *= step(L.r * 0.6, fract(bd.w * 5.3)) * (1.0 + 0.25 * L.a);   // sparse in the thickets' shade, lush in the glades                              // short and dry on sand, long on loam
     }
     float shrink = 1.0 / (1.0 + d / 260.0), widen = 1.0 + d / 140.0;      // smaller further off, but never thinner than a hair
     float up = position.y * shrink * k;

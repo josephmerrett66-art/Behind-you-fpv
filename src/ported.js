@@ -63,10 +63,7 @@ function makeProp(i, j) {
   const h = hash(i, j);
   const x = i * T + 8 + hash(j, i) * (T - 16), y = j * T + 8 + hash(i + 7, j - 3) * (T - 16);
   const tv = hash(i * 1.7 + 3, j * 2.9 - 1);
-  if (h > 0.92) return { kind: 'tree', type: tv < 0.57 ? 'pine' : tv < 0.81 ? 'oak' : tv < 0.94 ? 'dead' : 'cherry', seed: hash(i + 0.3, j + 0.7), x, y, r: 10, s: 0.8 + hash(i * 3, j) * 0.6, key: i + ',' + j, birds: hash(i * 5.1, j * 2.3) < 0.3 };
-  if (h > 0.895) return { kind: 'rock', x, y, r: 9, s: 0.7 + hash(i, j * 5) * 0.7, key: i + ',' + j };
-  if (h > 0.885) return { kind: 'post', x, y, r: 4, s: 1 };
-  return null;
+  return landProp(i, j, h, tv, x, y);   // fp: thick woods, rocky ground, dry ground, glades and places with a story (00-areas)
 }
 function propsNear(x, y, R) {
   const out = [];
@@ -496,12 +493,12 @@ function decorAt(i, j) {
       const v = hash(i * 3.3, j * 5.1);
       d = { kind: 'decor', dk: fl, x, y, s: 1.1 + hash(j * 1.7, i) * 0.4, v: (v * 97 | 0) % 3, seed: v };
     }
-  } else if (h < 0.27 && !(Math.abs(i) < 2 && Math.abs(j) < 2) && !propAt(i, j)) {
-    const x = i * T + 6 + hash(j - 3, i + 5) * (T - 12), y = j * T + 6 + hash(i + 9, j * 2) * (T - 12);
-    if (!(S && S.mode === 'expedition' && (Math.hypot(x, y) < CAMP_R + 45 || nearPortal(x, y, 70)))) {
-      const r = h / 0.27, v = hash(i * 3.3, j * 5.1);
-      const kind = r < 0.36 ? 'grass' : r < 0.52 ? 'fern' : r < 0.64 ? 'pebbles' : r < 0.76 ? 'bush' : r < 0.85 ? 'shrooms' : 'log';
-      d = { kind: 'decor', dk: kind, x, y, s: 1 + hash(j * 1.7, i) * 0.55, v: (v * 97 | 0) % SPRITE_KINDS[kind][0], seed: v };
+  } else if (!(Math.abs(i) < 2 && Math.abs(j) < 2) && !propAt(i, j)) {
+    const L = landDecor(i, j, h);   // fp: what grows here by the lie of the land (00-areas)
+    const x = L && L.x !== undefined ? L.x : i * T + 6 + hash(j - 3, i + 5) * (T - 12), y = L && L.y !== undefined ? L.y : j * T + 6 + hash(i + 9, j * 2) * (T - 12);
+    if (L && !(S && S.mode === 'expedition' && (Math.hypot(x, y) < CAMP_R + 45 || nearPortal(x, y, 70)))) {
+      const kind = L.dk, v = hash(i * 3.3, j * 5.1);
+      d = { kind: 'decor', dk: kind, x, y, s: (kind.startsWith('flower') ? 1.1 : 1) + hash(j * 1.7, i) * (kind.startsWith('flower') ? 0.4 : 0.55), v: (v * 97 | 0) % (SPRITE_KINDS[kind] ? SPRITE_KINDS[kind][0] : 3), seed: v };
     }
   }
   decorCache.set(key, d);
@@ -510,7 +507,7 @@ function decorAt(i, j) {
 function flowerPatch(i, j) {                     // which colour of flower grows on this tile, if any
   const ci = Math.floor(i / 6), cj = Math.floor(j / 6);
   for (let a = ci - 1; a <= ci + 1; a++) for (let b = cj - 1; b <= cj + 1; b++) {   // patches near a cell edge can spill into the next cell
-    if (hash(a * 7.13 + 2.1, b * 3.37 - 5.3) > 0.2) continue;
+    if (hash(a * 7.13 + 2.1, b * 3.37 - 5.3) > flowerLand(a, b)) continue;
     const px = a * 6 + 3 + (hash(a + 0.5, b * 1.9) - 0.5) * 4, py = b * 6 + 3 + (hash(a * 2.3, b + 0.7) - 0.5) * 4, r = 1.4 + hash(a * 1.7, b * 4.1) * 1.1;
     if (Math.hypot(i + 0.5 - px, j + 0.5 - py) < r && hash(i * 0.91 + 3, j * 1.37 - 1) < 0.85) return ['flowerY', 'flowerB', 'flowerR', 'flowerW', 'flowerV'][hash(a * 5.5, b * 6.6) * 5 | 0];
   }

@@ -77,9 +77,9 @@ function onMove(e) {
   }
   const L = looks.get(e.pointerId);
   if (L && looks.size === 2 && isoP()) {   // two thumbs on the right pinch to zoom from above
-    const [A, B] = [...looks.values()], d0 = Math.hypot(A.x - B.x, A.y - B.y), a0 = Math.atan2(B.y - A.y, B.x - A.x); L.x = e.clientX; L.y = e.clientY;
-    const d1 = Math.hypot(A.x - B.x, A.y - B.y), a1 = Math.atan2(B.y - A.y, B.x - A.x);
-    if (d0 > 20 && d1 > 20) { isoZoomBy(d0 / d1); let da = a1 - a0; da = Math.atan2(Math.sin(da), Math.cos(da)); isoTurn(-da); }   // and twist to turn it round
+    const [A, B] = [...looks.values()], d0 = Math.hypot(A.x - B.x, A.y - B.y); L.x = e.clientX; L.y = e.clientY;
+    const d1 = Math.hypot(A.x - B.x, A.y - B.y);
+    if (d0 > 20 && d1 > 20) isoZoomBy(d0 / d1);
     return;
   }
   if (L) { const k = 0.0058 * SET.sens; IN.lx += (e.clientX - L.x) * k; IN.ly += (e.clientY - L.y) * k; L.x = e.clientX; L.y = e.clientY; }
@@ -149,7 +149,6 @@ function pollPad(dt) {
       if (press(11)) { if (SPR.on) SPR.on = false; dayCrouch(); }   // click the right stick to sneak
       if (press(12) && dayTool() === 'build') stCycle(-1); if (press(13) && dayTool() === 'build') stCycle(1);
       if (press(14) && dayTool() === 'build') stRot(-1); if (press(15) && dayTool() === 'build') stRot(1);
-      ISO.padSpin = isoP() && dayTool() !== 'build' ? (btn(15) ? 1 : 0) - (btn(14) ? 1 : 0) : 0;   // from above, the d-pad swings the view round
     }
     if (press(8)) packToggle();
     if (press(9)) { if (state === 'play') IN.pause = true; else if (state === 'pause') unpause(); else if (state === 'title' && ready) startRun(false); }

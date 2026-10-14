@@ -4,13 +4,16 @@
 // (standing still, you turn to the nearest raider in reach). Trees between the camera and you thin away so you're never lost.
 const isoP = () => SET.view === 'iso';
 const outsideP = () => SET.view === 'third' || SET.view === 'iso';   // you can see yourself
-const ISO = { padSpin: 0, yaw: Math.PI / 4, yawT: Math.PI / 4, pitch: -0.56, mx: -1, my: -1, fogAdd: 0 };
+const ISO = { yaw: Math.PI / 4, yawT: Math.PI / 4, pitch: -0.56, mx: -1, my: -1, fogAdd: 0 };
 const _isoR = new THREE.Raycaster(), _isoN = new THREE.Vector2();
 
-// where you face: the mouse over the ground, the way you push, or the nearest raider
+// where you face: the mouse over the ground, the way you push, or the nearest raider. The right stick (or a thumb dragging on
+// the right of a phone screen) doesn't aim from up here: it swings the camera round you, smoothly, the way it turns the view
+// in the other views (Joe)
 function isoAim(rdt) {
-  const p = S.p;
-  let a = aimOfYaw(look.yaw);   // already turned by a thumb dragging on the right of the screen, or a pad's right stick
+  const p = S.p, dl = look.yaw - (ISO.lastLook ?? look.yaw);
+  if (dl) { ISO.yaw += dl; ISO.yawT += dl; }
+  let a = ISO.face ?? aimOfYaw(look.yaw);
   if (inputMode === 'kb' && ISO.mx >= 0) {
     _isoN.set(ISO.mx / VW * 2 - 1, 1 - ISO.my / VH * 2); _isoR.setFromCamera(_isoN, cam);
     const o = _isoR.ray.origin, d = _isoR.ray.direction, h = terrH(p.x, p.y) + 18;
@@ -24,7 +27,7 @@ function isoAim(rdt) {
       if (best) a = Math.atan2(best.y - p.y, best.x - p.x);
     }
   }
-  look.yaw = look.tYaw = yawOfAim(a); look.pitch = -0.04;
+  ISO.face = a; look.yaw = look.tYaw = yawOfAim(a); look.pitch = -0.04; ISO.lastLook = look.yaw;
 }
 // the way a push on the screen goes on the ground: up the screen is away from the camera
 function isoMoveDir(mx, my) {
@@ -35,9 +38,8 @@ function isoMoveDir(mx, my) {
 // the camera: well back and up behind you at a fixed angle, tilted toward the horizon like a far-off third-person view,
 // looking a little past you so more of the woods ahead is in sight
 function isoCamera(p, rdt) {
-  const spin = (held.has('KeyR') ? -1 : 0) + (held.has('KeyT') ? 1 : 0) + ISO.padSpin;   // hold R or T (or the d-pad) to swing round
+  const spin = (held.has('KeyR') ? -1 : 0) + (held.has('KeyT') ? 1 : 0);   // on a keyboard, hold R or T to swing round
   if (spin) ISO.yawT += spin * rdt * 1.8;
-  if (!document.body.classList.contains('isoview')) document.body.classList.add('isoview');
   let dy = ISO.yawT - ISO.yaw; ISO.yaw += dy * Math.min(1, rdt * 10);
   const port = cam.aspect < 1, fov = port ? 62 : 46, dist = (port ? 320 : 290) * (SET.isoZoom || 1.7);   // the zoom setting pulls the camera back
   const gy = terrH(p.x, p.y) + 14, cp = Math.cos(ISO.pitch), fx = -Math.sin(ISO.yaw) * cp, fy = Math.sin(ISO.pitch), fz = -Math.cos(ISO.yaw) * cp;
@@ -57,18 +59,5 @@ const isoZoomName = () => (SET.isoZoom || 1.7) <= 1.05 ? 'close' : (SET.isoZoom 
 // pinch with two thumbs, or ctrl and the mouse wheel, to zoom from above
 function isoZoomBy(k) { SET.isoZoom = clamp((SET.isoZoom || 1.7) * k, 1, 3); saveSet(); }
 addEventListener('wheel', e => { if (isoP() && state === 'play' && e.ctrlKey) { e.preventDefault(); isoZoomBy(e.deltaY > 0 ? 1.08 : 1 / 1.08); } }, { passive: false });
-function isoOff() { LU.occ.value.w = 0; document.body.classList.remove('isoview'); if (ISO.fogAdd) { cam.fov = baseFov(); cam.far = 1400; cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; ISO.fogAdd = 0; } }
+function isoOff() { LU.occ.value.w = 0; ISO.lastLook = undefined; if (ISO.fogAdd) { cam.fov = baseFov(); cam.far = 1400; cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; ISO.fogAdd = 0; } }
 addEventListener('mousemove', e => { ISO.mx = e.clientX; ISO.my = e.clientY; });
-
-// turning the view round you: R and T on a keyboard (held), the d-pad left and right on a pad, two thumbs twisting on the right of
-// a phone screen, or the two arrow buttons that show at the top on a phone
-function isoTurn(a) { ISO.yawT += a; }
-const isoTurnEl = document.createElement('div'); isoTurnEl.id = 'isoTurn';
-isoTurnEl.innerHTML = '<button type="button" data-a="-1" aria-label="Turn the view left">&#x27F2;</button><button type="button" data-a="1" aria-label="Turn the view right">&#x27F3;</button>';
-document.body.appendChild(isoTurnEl);
-for (const b of isoTurnEl.querySelectorAll('button')) b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); isoTurn(+b.dataset.a * Math.PI / 4); });
-const isoTurnCss = document.createElement('style');
-isoTurnCss.textContent = `#isoTurn { position: fixed; top: calc(env(safe-area-inset-top) + 64px); right: 14px; display: none; gap: 8px; z-index: 30; }
-  body.playing.touch.isoview #isoTurn { display: flex; }
-  #isoTurn button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25); background: rgba(10,10,8,0.45); color: #efe6d2; font-size: 22px; line-height: 1; padding: 0; touch-action: none; }`;
-document.head.appendChild(isoTurnCss);

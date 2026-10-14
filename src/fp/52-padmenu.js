@@ -26,7 +26,7 @@ const pmMid = r => [r.left + r.width / 2, r.top + r.height / 2];
 function pmSet(e, scroll = true) {
   if (PM.el && PM.el !== e) PM.el.classList.remove('padfocus');
   PM.el = e; if (!e) return;
-  e.classList.add('padfocus');
+  e.classList.add('padfocus'); PM.home = e.closest('#statsBody, #pkBody');
   if (scroll) e.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   [PM.cx, PM.cy] = pmMid(e.getBoundingClientRect());
 }
@@ -44,9 +44,11 @@ function pmMove(items, dx, dy) {
     if (e === PM.el) continue;
     const r = e.getBoundingClientRect(), [x, y] = pmMid(r);
     let gap, side;
-    if (dx) { gap = dx > 0 ? r.left - cur.right : cur.left - r.right; side = Math.abs(y - PM.cy); if ((x - PM.cx) * dx <= 2 || r.bottom < cur.top - 6 || r.top > cur.bottom + 6) continue; }   // sideways stays on the row
-    else { gap = dy > 0 ? r.top - cur.bottom : cur.top - r.bottom; side = Math.abs(x - PM.cx); if ((y - PM.cy) * dy <= 2) continue; }
-    const s = Math.max(0, gap + 4) + side * (dx ? 3 : 1.2);
+    // how far off to the side: none if the two overlap at all (a button under a wide row is straight below it), with the centres to break ties
+    const off = (a0, a1, b0, b1) => Math.max(0, a0 - b1, b0 - a1);
+    if (dx) { gap = dx > 0 ? r.left - cur.right : cur.left - r.right; side = off(r.top, r.bottom, cur.top, cur.bottom) * 3 + Math.abs(y - PM.cy) * 0.1; if ((x - PM.cx) * dx <= 2 || r.bottom < cur.top - 6 || r.top > cur.bottom + 6) continue; }   // sideways stays on the row
+    else { gap = dy > 0 ? r.top - cur.bottom : cur.top - r.bottom; side = off(r.left, r.right, cur.left, cur.right) * 1.5 + Math.abs(x - PM.cx) * 0.1; if ((y - PM.cy) * dy <= 2) continue; }
+    const s = Math.max(0, gap + 4) + side;
     if (s < bs) { bs = s; best = e; }
   }
   return best;
@@ -61,7 +63,7 @@ function pmSlide(e, k) {
 }
 function pmBack(box) {
   if (box === statsEl) { if (statCat) { statCat = null; statOpen = null; renderStats(); } else $('statsGo').click(); }   // out of a group first
-  else if (box === craftEl) { if (PK.sel) { PK.sel = null; renderPack(); } else $('craftGo').click(); }   // put down what's picked first
+  else if (box === craftEl) { if (PK.tab === 'wisps' && statCat) { statCat = null; statOpen = null; renderStats(); } else if (PK.sel) { PK.sel = null; renderPack(); } else $('craftGo').click(); }   // put down what's picked first
   else if (box === campEl) { campEl.hidden = true; }
   else if (box.id === 'pause') unpause();
 }
@@ -73,7 +75,8 @@ function padMenu(dt, btn, press, ax, ay, ry) {
   const items = pmItems(box);
   if (!PM.el || !PM.el.isConnected || !items.includes(PM.el)) {   // the menu was redrawn: pick what now sits where the outline was
     let e = null;
-    if (PM.el) { let bd = Infinity; for (const c of items) { const [x, y] = pmMid(c.getBoundingClientRect()), d = Math.hypot(x - PM.cx, y - PM.cy); if (d < bd) { bd = d; e = c; } } }
+    // stay in the list that was redrawn (the wisp upgrades, the pack's own list) rather than jumping up to the header
+    if (PM.el) { const home = PM.home && PM.home.isConnected ? items.filter(c => PM.home.contains(c)) : [], pool = home.length ? home : items; let bd = Infinity; for (const c of pool) { const [x, y] = pmMid(c.getBoundingClientRect()), d = Math.hypot(x - PM.cx, y - PM.cy); if (d < bd) { bd = d; e = c; } } }
     pmSet(e || pmFirst(box, items), false);
     if (!PM.el) return true;
   } else PM.el.classList.add('padfocus');

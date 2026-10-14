@@ -109,6 +109,15 @@ body.playing:not(.touch) #bPack2 { display: block; }
 #knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(239,239,234,0.32); }
 #padHint { position: fixed; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.6rem; letter-spacing: 0.14em; color: rgba(138,138,138,0.9); pointer-events: none; display: none; text-transform: uppercase; }
 body.pad.playing #padHint { display: block; }
+/* the wisp upgrades, shown as a tab of the pack, styled as they are on their own */
+#pkBody .wispsTab h3 { margin: 0.4rem 0 0; font: 600 0.72rem var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone); display: flex; justify-content: space-between; gap: 1rem; }
+#pkBody .wispsTab h3 span { color: var(--ash); font-weight: 400; }
+#pkBody .wispsTab .ic { color: rgb(215,185,255); }
+#pkBody .wispsTab .pr.cost::after { color: rgb(185,130,255); }
+#pkBody .wispsTab .pips i.f { background: rgb(185,130,255); }
+#pkBody .wispsTab .item.own .ic { border-color: rgb(185,130,255); color: rgb(215,185,255); }
+#pkBody .wispsTab .small { color: var(--ash); }
+#pkBody .wispsTab .cathead h3 { margin: 0; font: 400 1.35rem var(--display); text-transform: none; letter-spacing: 0; }
 .padfocus { outline: 3px solid #f1b77a !important; outline-offset: 2px; box-shadow: 0 0 14px rgba(241,183,122,0.55) !important; }
 #hotbar, #buildbar { display: none; }
 body.playing #hotbar:not([hidden]), body.playing #buildbar:not([hidden]) { display: flex; }
@@ -490,7 +499,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
   <div class="pk">
     <div class="pkhead"><div><p class="eyebrow">Daylight · <span id="pkDay"></span></p><h2>Pack</h2></div><button id="craftGo" class="alt">Close</button></div>
     <div class="pkneeds" id="pkNeeds"></div>
-    <div class="pktabs"><button class="pktab" data-tab="pack" aria-pressed="true">Pack</button><button class="pktab" data-tab="craft" aria-pressed="false">Craft<span></span></button><button class="pktab" data-tab="book" aria-pressed="false">Book</button><button class="pktab" data-tab="log" aria-pressed="false">Journal</button></div>
+    <div class="pktabs"><button class="pktab" data-tab="pack" aria-pressed="true">Pack</button><button class="pktab" data-tab="craft" aria-pressed="false">Craft<span></span></button><button class="pktab" data-tab="book" aria-pressed="false">Book</button><button class="pktab" data-tab="log" aria-pressed="false">Journal</button><button class="pktab" data-tab="wisps" aria-pressed="false">Wisps</button></div>
     <div id="pkBody" class="pkbody"></div>
   </div>
   <div id="pkCard" hidden></div>
@@ -544,7 +553,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
       </span>
     </label>
   </div>
-  <div class="row"><button id="resume">Resume</button><button class="alt" id="pWisps">Wisp upgrades</button><button class="alt" id="quit">Save and quit</button></div>
+  <div class="row"><button id="resume">Resume</button><button class="alt" id="quit">Save and quit</button></div>
   <p class="note">Your run saves when you open this menu and every so often as you play. Auto keeps the frame rate up by lowering the picture's sharpness a little when the phone is working hard.</p>
 </div>
 
@@ -8480,7 +8489,7 @@ thumb(sneakBtn, () => { if (playing()) dayCrouch(); }, false);
 thumb(flaskBtn, () => { if (playing()) exDrink(); }, false);
 thumb($('bSpec'), () => wpSpecial());
 craftBtn.addEventListener('click', () => packToggle());
-campBtn.addEventListener('click', () => { if (playing()) { dayWispShop(); lockOff(); } });
+campBtn.addEventListener('click', () => { if (playing()) { openWisps(); lockOff(); } });
 $('bPack2').addEventListener('click', () => packToggle());
 $('craftGo').addEventListener('click', () => { closeCraft(); lockOn(); });
 $('statsGo').addEventListener('click', () => { closeStats(); lockOn(); });
@@ -8568,7 +8577,7 @@ const pmMid = r => [r.left + r.width / 2, r.top + r.height / 2];
 function pmSet(e, scroll = true) {
   if (PM.el && PM.el !== e) PM.el.classList.remove('padfocus');
   PM.el = e; if (!e) return;
-  e.classList.add('padfocus');
+  e.classList.add('padfocus'); PM.home = e.closest('#statsBody, #pkBody');
   if (scroll) e.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   [PM.cx, PM.cy] = pmMid(e.getBoundingClientRect());
 }
@@ -8586,9 +8595,11 @@ function pmMove(items, dx, dy) {
     if (e === PM.el) continue;
     const r = e.getBoundingClientRect(), [x, y] = pmMid(r);
     let gap, side;
-    if (dx) { gap = dx > 0 ? r.left - cur.right : cur.left - r.right; side = Math.abs(y - PM.cy); if ((x - PM.cx) * dx <= 2 || r.bottom < cur.top - 6 || r.top > cur.bottom + 6) continue; }   // sideways stays on the row
-    else { gap = dy > 0 ? r.top - cur.bottom : cur.top - r.bottom; side = Math.abs(x - PM.cx); if ((y - PM.cy) * dy <= 2) continue; }
-    const s = Math.max(0, gap + 4) + side * (dx ? 3 : 1.2);
+    // how far off to the side: none if the two overlap at all (a button under a wide row is straight below it), with the centres to break ties
+    const off = (a0, a1, b0, b1) => Math.max(0, a0 - b1, b0 - a1);
+    if (dx) { gap = dx > 0 ? r.left - cur.right : cur.left - r.right; side = off(r.top, r.bottom, cur.top, cur.bottom) * 3 + Math.abs(y - PM.cy) * 0.1; if ((x - PM.cx) * dx <= 2 || r.bottom < cur.top - 6 || r.top > cur.bottom + 6) continue; }   // sideways stays on the row
+    else { gap = dy > 0 ? r.top - cur.bottom : cur.top - r.bottom; side = off(r.left, r.right, cur.left, cur.right) * 1.5 + Math.abs(x - PM.cx) * 0.1; if ((y - PM.cy) * dy <= 2) continue; }
+    const s = Math.max(0, gap + 4) + side;
     if (s < bs) { bs = s; best = e; }
   }
   return best;
@@ -8603,7 +8614,7 @@ function pmSlide(e, k) {
 }
 function pmBack(box) {
   if (box === statsEl) { if (statCat) { statCat = null; statOpen = null; renderStats(); } else $('statsGo').click(); }   // out of a group first
-  else if (box === craftEl) { if (PK.sel) { PK.sel = null; renderPack(); } else $('craftGo').click(); }   // put down what's picked first
+  else if (box === craftEl) { if (PK.tab === 'wisps' && statCat) { statCat = null; statOpen = null; renderStats(); } else if (PK.sel) { PK.sel = null; renderPack(); } else $('craftGo').click(); }   // put down what's picked first
   else if (box === campEl) { campEl.hidden = true; }
   else if (box.id === 'pause') unpause();
 }
@@ -8615,7 +8626,8 @@ function padMenu(dt, btn, press, ax, ay, ry) {
   const items = pmItems(box);
   if (!PM.el || !PM.el.isConnected || !items.includes(PM.el)) {   // the menu was redrawn: pick what now sits where the outline was
     let e = null;
-    if (PM.el) { let bd = Infinity; for (const c of items) { const [x, y] = pmMid(c.getBoundingClientRect()), d = Math.hypot(x - PM.cx, y - PM.cy); if (d < bd) { bd = d; e = c; } } }
+    // stay in the list that was redrawn (the wisp upgrades, the pack's own list) rather than jumping up to the header
+    if (PM.el) { const home = PM.home && PM.home.isConnected ? items.filter(c => PM.home.contains(c)) : [], pool = home.length ? home : items; let bd = Infinity; for (const c of pool) { const [x, y] = pmMid(c.getBoundingClientRect()), d = Math.hypot(x - PM.cx, y - PM.cy); if (d < bd) { bd = d; e = c; } } }
     pmSet(e || pmFirst(box, items), false);
     if (!PM.el) return true;
   } else PM.el.classList.add('padfocus');
@@ -8647,6 +8659,29 @@ function padMenu(dt, btn, press, ax, ay, ry) {
   return true;
 }
 const pmTick = () => { try { sfx(2.2, 0.03, 'bandpass', 2400, 0.06); } catch (e) {} };
+
+;
+// ================= the wisp upgrades as a tab of the pack, beside Pack, Craft, Book and Journal =================
+// The main game shows them on a screen of their own (#stats). Here that same list is lifted into the pack while the Wisps tab
+// is up, and put back where it was if the screen of its own is ever opened.
+const wispBody = $('statsBody'), wispWrap = document.createElement('div'), wispHead = document.createElement('p');
+wispWrap.className = 'wispsTab'; wispHead.className = 'eyebrow';
+function wispHome() { if (wispBody.parentElement !== statsEl.querySelector('.pick')) statsEl.querySelector('.pickfoot').before(wispBody); }
+{
+  const basePack = renderPack, baseStats = renderStats, baseOpen = openStats;
+  renderPack = function () {
+    basePack();
+    if (PK.tab !== 'wisps') return;
+    const pc = $('pkCard'); pc.replaceChildren(); pc.hidden = true; craftEl.classList.remove('carded');
+    if (statsFrom !== 'pack') { statsFrom = 'pack'; statCat = null; statOpen = null; }
+    wispWrap.replaceChildren(wispHead, wispBody); $('pkBody').replaceChildren(wispWrap);
+    baseStats(); wispHead.textContent = `${stPool().w} wisps to spend · bring them home through the gate`;
+  };
+  renderStats = function () { baseStats(); if (wispBody.parentElement === wispWrap) wispHead.textContent = `${stPool().w} wisps to spend · bring them home through the gate`; };
+  openStats = function (from) { wispHome(); baseOpen(from); };
+}
+// the Wisps button in camp (on a phone) opens the pack on this tab
+function openWisps() { PK.tab = 'wisps'; statsFrom = null; openCraft(); }
 
 ;
 // ================= what's written on the screen: hearts, the day, your needs, what you can use, the woods' words =================
@@ -10033,8 +10068,6 @@ function unpause() { state = 'play'; $('pause').classList.remove('show'); if (ac
 function quitToTitle() { try { daySave(); } catch (e) {} state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
 $('begin').addEventListener('click', () => startRun(false));
 // a pad can't answer the browser's own question, so on a controller the button asks a second press instead
-// the wisp upgrades, from the pause menu now the camp fire is for cooking
-$('pWisps').addEventListener('click', () => { if (state !== 'pause') return; unpause(); dayWispShop(); lockOff(); });
 $('beginNew').addEventListener('click', () => {
   const b = $('beginNew'), t = b.querySelector('b'), s = t.nextElementSibling;
   if (inputMode !== 'pad') { if (confirm('Start a new Daylight run? Your saved run will be lost.')) startRun(true); return; }

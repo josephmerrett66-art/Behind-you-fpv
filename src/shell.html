@@ -109,6 +109,15 @@ body.playing:not(.touch) #bPack2 { display: block; }
 #knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(239,239,234,0.32); }
 #padHint { position: fixed; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.6rem; letter-spacing: 0.14em; color: rgba(138,138,138,0.9); pointer-events: none; display: none; text-transform: uppercase; }
 body.pad.playing #padHint { display: block; }
+/* the wisp upgrades, shown as a tab of the pack, styled as they are on their own */
+#pkBody .wispsTab h3 { margin: 0.4rem 0 0; font: 600 0.72rem var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone); display: flex; justify-content: space-between; gap: 1rem; }
+#pkBody .wispsTab h3 span { color: var(--ash); font-weight: 400; }
+#pkBody .wispsTab .ic { color: rgb(215,185,255); }
+#pkBody .wispsTab .pr.cost::after { color: rgb(185,130,255); }
+#pkBody .wispsTab .pips i.f { background: rgb(185,130,255); }
+#pkBody .wispsTab .item.own .ic { border-color: rgb(185,130,255); color: rgb(215,185,255); }
+#pkBody .wispsTab .small { color: var(--ash); }
+#pkBody .wispsTab .cathead h3 { margin: 0; font: 400 1.35rem var(--display); text-transform: none; letter-spacing: 0; }
 .padfocus { outline: 3px solid #f1b77a !important; outline-offset: 2px; box-shadow: 0 0 14px rgba(241,183,122,0.55) !important; }
 #hotbar, #buildbar { display: none; }
 body.playing #hotbar:not([hidden]), body.playing #buildbar:not([hidden]) { display: flex; }
@@ -210,7 +219,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
   <div class="pk">
     <div class="pkhead"><div><p class="eyebrow">Daylight · <span id="pkDay"></span></p><h2>Pack</h2></div><button id="craftGo" class="alt">Close</button></div>
     <div class="pkneeds" id="pkNeeds"></div>
-    <div class="pktabs"><button class="pktab" data-tab="pack" aria-pressed="true">Pack</button><button class="pktab" data-tab="craft" aria-pressed="false">Craft<span></span></button><button class="pktab" data-tab="book" aria-pressed="false">Book</button><button class="pktab" data-tab="log" aria-pressed="false">Journal</button></div>
+    <div class="pktabs"><button class="pktab" data-tab="pack" aria-pressed="true">Pack</button><button class="pktab" data-tab="craft" aria-pressed="false">Craft<span></span></button><button class="pktab" data-tab="book" aria-pressed="false">Book</button><button class="pktab" data-tab="log" aria-pressed="false">Journal</button><button class="pktab" data-tab="wisps" aria-pressed="false">Wisps</button></div>
     <div id="pkBody" class="pkbody"></div>
   </div>
   <div id="pkCard" hidden></div>
@@ -264,7 +273,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
       </span>
     </label>
   </div>
-  <div class="row"><button id="resume">Resume</button><button class="alt" id="pWisps">Wisp upgrades</button><button class="alt" id="quit">Save and quit</button></div>
+  <div class="row"><button id="resume">Resume</button><button class="alt" id="quit">Save and quit</button></div>
   <p class="note">Your run saves when you open this menu and every so often as you play. Auto keeps the frame rate up by lowering the picture's sharpness a little when the phone is working hard.</p>
 </div>
 

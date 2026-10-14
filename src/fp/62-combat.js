@@ -172,7 +172,7 @@ function combatDraw(rdt, now) {
 }
 
 function drawCrescent(g, s) {
-  if (thirdP()) return drawCrescentWorld(g, s);
+  if (thirdP()) return;   // in third person the blade itself leaves the smear (76-body.js)
   const k = s.t / s.life, fade = (1 - k * k) * (s.dim || 1), tint = s.tint || ['255,150,60', '255,200,120', '255,248,225'];
   const thrust = s.i === 3 || (s.cleave && !s.whirl && (s.life || 0) < 0.2), whirl = s.whirl || s.ring, chop = s.i === 2;
   const sweep = sEase(Math.min(1, s.t / (thrust ? 0.06 : 0.11))), M = Math.min(FW, FH);
@@ -391,30 +391,4 @@ function drawThreats(g, dt) {
     g.restore();
     if (u >= 1) CFX.hurt = null;
   }
-}
-
-// over the shoulder, the swing is a crescent round you at chest height, as the top-down game draws it
-function drawCrescentWorld(g, s) {
-  const k = s.t / s.life, fade = (1 - k * k) * (s.dim || 1), tint = s.tint || ['255,150,60', '255,200,120', '255,248,225'];
-  const p = s.o || S.p, n = 22, R = Math.max(30, (s.r || 40) * 1.05), side = s.side || 1;
-  const thrust = s.i === 3 || (s.cleave && !s.whirl && (s.life || 0) < 0.2), whirl = s.whirl || s.ring, chop = s.i === 2;
-  const sweep = sEase(Math.min(1, s.t / (thrust ? 0.06 : 0.1)));
-  const arc = whirl ? Math.PI * 2 : Math.min(Math.PI * 1.3, s.arc || 2.2), a0 = s.a - side * arc / 2, a1 = a0 + side * arc * sweep;
-  const outer = [], inner = [];
-  if (thrust) {
-    for (let j = 0; j <= n; j++) { const f = j / n, w = Math.sin(f * Math.PI) * 0.2, d = 4 + R * 1.15 * f; const q = scr(p.x + Math.cos(s.a + w) * d, 22, p.y + Math.sin(s.a + w) * d); if (q) outer.push(q.slice()); const r = scr(p.x + Math.cos(s.a - w) * d, 22, p.y + Math.sin(s.a - w) * d); if (r) inner.push(r.slice()); }
-  } else {
-    for (let j = 0; j <= n; j++) {
-      const f = j / n, an = a0 + (a1 - a0) * f, rr = R * (0.86 + 0.14 * Math.sin(f * Math.PI)), ri = R * (1 - 0.55 * (0.4 + 0.6 * f)), h = chop ? 34 - 26 * f : whirl ? 16 : 28 - 14 * f;
-      const q = scr(p.x + Math.cos(an) * rr, h, p.y + Math.sin(an) * rr); if (q) outer.push(q.slice());
-      const r = scr(p.x + Math.cos(an) * ri, h + 2, p.y + Math.sin(an) * ri); if (r) inner.push(r.slice());
-    }
-  }
-  if (outer.length < 2 || inner.length < 2) return;
-  const lead = outer[outer.length - 1], gr = g.createLinearGradient(outer[0][0], outer[0][1], lead[0], lead[1]);
-  gr.addColorStop(0, `rgba(${tint[0]},${0.2 * fade})`); gr.addColorStop(0.6, `rgba(${tint[1]},${0.7 * fade})`); gr.addColorStop(1, `rgba(${tint[2]},${fade})`);
-  g.fillStyle = gr; g.beginPath(); outer.concat(inner.slice().reverse()).forEach(([x, y], j) => j ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
-  const zk = Math.min(3, Math.max(1, lead[2] * 0.6));
-  const edge = (w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); outer.forEach(([x, y], j) => j ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
-  edge(12 * zk, `rgba(${tint[0]},${0.4 * fade})`); edge(4 * zk, `rgba(${tint[1]},${0.85 * fade})`); edge(1.8 * zk, `rgba(255,252,242,${fade})`);
 }

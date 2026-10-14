@@ -4,7 +4,7 @@
 // (standing still, you turn to the nearest raider in reach). Trees between the camera and you thin away so you're never lost.
 const isoP = () => SET.view === 'iso';
 const outsideP = () => SET.view === 'third' || SET.view === 'iso';   // you can see yourself
-const ISO = { yaw: Math.PI / 4, pitch: -0.86, mx: -1, my: -1, fogAdd: 0 };
+const ISO = { yaw: Math.PI / 4, pitch: -0.56, mx: -1, my: -1, fogAdd: 0 };
 const _isoR = new THREE.Raycaster(), _isoN = new THREE.Vector2();
 
 // where you face: the mouse over the ground, the way you push, or the nearest raider
@@ -32,12 +32,14 @@ function isoMoveDir(mx, my) {
   return Math.atan2(ry * mx + fy * my, rx * mx + fx * my);
 }
 
-// the camera: high up behind you at a fixed angle, a narrow lens so it reads like the top-down game
+// the camera: well back and up behind you at a fixed angle, tilted toward the horizon like a far-off third-person view,
+// looking a little past you so more of the woods ahead is in sight
 function isoCamera(p, rdt) {
-  const port = cam.aspect < 1, fov = port ? 50 : 30, dist = (port ? 330 : 300) * (SET.isoZoom || 1.7);   // the zoom setting pulls the camera back
+  const port = cam.aspect < 1, fov = port ? 62 : 46, dist = (port ? 320 : 290) * (SET.isoZoom || 1.7);   // the zoom setting pulls the camera back
   const gy = terrH(p.x, p.y) + 14, cp = Math.cos(ISO.pitch), fx = -Math.sin(ISO.yaw) * cp, fy = Math.sin(ISO.pitch), fz = -Math.cos(ISO.yaw) * cp;
   const sh = VIEW_FX.trauma * VIEW_FX.trauma * 3, nz = s => Math.sin(VIEW_FX.shakeT * 37 + s) * sh;
-  cam.position.set(p.x - fx * dist + nz(1), gy - fy * dist + nz(2), p.y - fz * dist + nz(3));
+  const ahead = dist * 0.14, tx = p.x + fx / cp * ahead, tz = p.y + fz / cp * ahead;   // the point looked at sits a little beyond you
+  cam.position.set(tx - fx * dist + nz(1), gy - fy * dist + nz(2), tz - fz * dist + nz(3));
   cam.rotation.set(ISO.pitch, ISO.yaw, VIEW_FX.roll * 0.3, 'YXZ');
   if (Math.abs(cam.fov - fov - VIEW_FX.fov * 0.4) > 0.01) { cam.fov = fov + VIEW_FX.fov * 0.4; cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; }
   // the haze starts out round you, not round the camera up there

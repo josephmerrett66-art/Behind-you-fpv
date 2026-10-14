@@ -179,20 +179,17 @@ FP.aimPt = (d0, d1) => {                    // the spot on the ground under your
 FP.monOut = (x, y, gain) => placeOut(x, y, gain);
 // Putting something down: the main game sets it a fixed step in front of you, which from eye height is down at your feet,
 // half off the bottom of the screen. Here it goes where you look on the ground, from that same step out to a little further;
-// the room it needs is checked exactly as the main game checks it.
+// almost nothing stops it.
 function dayPlaceSpot(t) {
   const p = S.p, a = S.aimW || 0, near = t === 'wall' ? 46 : t === 'bench' || t === 'furnace' || t === 'anvil' ? 38 : t === 'rack' || t === 'plot' ? 44 : 34;
   const { x, y } = FP.aimPt(near, near + 80);
-  const fake = dayMakeBuild(t, x, y, a, true), pad = t === 'spikes' ? 8 : 12;
+  const fake = dayMakeBuild(t, x, y, a, true);
   let ok = true;
-  for (const q of fake.parts) {
-    const d = Math.hypot(q.x, q.y), qa = Math.atan2(q.y, q.x);
-    if (Math.abs(d - CAMP_R) < 26 || (GATES.some(g => angD(qa, g) < 0.4) && Math.abs(d - CAMP_R) < 80)) { ok = false; break; }
-    if ([TELE, TELE2, CAMP_BOX, CAMP_BARREL, { x: -40, y: 60 }].some(o => dist2(o, q) < 46)) { ok = false; break; }
-    if (CAMP_SOLID.some(o => dist2(o, q) < o.r + pad + 4)) { ok = false; break; }
-    if (propsNear(q.x, q.y, 40).some(o => (o.kind === 'tree' || o.kind === 'rock' || o.camp) && dist2(o, q) < (o.r || 8) * (o.s || 1) + pad + 4)) { ok = false; break; }
-    if (S.day.builds.some(B => B.parts.some(o => dist2(o, q) < (o.r || 10) + pad + 2))) { ok = false; break; }
-    if (dist2(q, p) < 14) { ok = false; break; }
+  for (const q of fake.parts) {                 // almost anywhere: just not on the shrine stones, inside a trunk, on top of another one, or on yourself
+    if ([TELE, TELE2].some(o => dist2(o, q) < 24)) { ok = false; break; }
+    if (propsNear(q.x, q.y, 40).some(o => (o.kind === 'tree' || o.kind === 'rock' || o.kind === 'rockIron') && dist2(o, q) < (o.r || 8) * (o.s || 1) * 0.5)) { ok = false; break; }
+    if (S.day.builds.some(B => B.parts.some(o => dist2(o, q) < 4))) { ok = false; break; }
+    if (dist2(q, p) < 6) { ok = false; break; }
   }
   return { x, y, a, ok };
 }

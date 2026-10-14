@@ -2694,16 +2694,13 @@ function dayGhost() {                          // what you'd put down, shown whe
 const WALL_HP = 14, SPIKE_USES = 10, FIRE_R = 90, BENCH_R = 90;
 function dayPlaceSpot(t) {                     // where it would go, and whether there's room
   const p = S.p, a = S.aimW || 0, far = t === 'wall' ? 46 : t === 'bench' || t === 'furnace' || t === 'anvil' ? 38 : t === 'rack' || t === 'plot' ? 44 : 34, x = p.x + Math.cos(a) * far, y = p.y + Math.sin(a) * far;
-  const fake = dayMakeBuild(t, x, y, a, true), pad = t === 'spikes' ? 8 : 12;
+  const fake = dayMakeBuild(t, x, y, a, true);
   let ok = true;
-  for (const q of fake.parts) {
-    const d = Math.hypot(q.x, q.y), qa = Math.atan2(q.y, q.x);
-    if (Math.abs(d - CAMP_R) < 26 || (GATES.some(g => angD(qa, g) < 0.4) && Math.abs(d - CAMP_R) < 80)) { ok = false; break; }   // not on the palisade, not across a gate
-    if ([TELE, TELE2, CAMP_BOX, CAMP_BARREL, { x: -40, y: 60 }].some(o => dist2(o, q) < 46)) { ok = false; break; }
-    if (CAMP_SOLID.some(o => dist2(o, q) < o.r + pad + 4)) { ok = false; break; }
-    if (propsNear(q.x, q.y, 40).some(o => (o.kind === 'tree' || o.kind === 'rock' || o.camp) && dist2(o, q) < (o.r || 8) * (o.s || 1) + pad + 4)) { ok = false; break; }
-    if (S.day.builds.some(B => B.parts.some(o => dist2(o, q) < (o.r || 10) + pad + 2))) { ok = false; break; }
-    if (dist2(q, p) < 14) { ok = false; break; }
+  for (const q of fake.parts) {                 // v-free: put it down almost anywhere; just not on the shrine stones, inside a trunk, on top of another one, or on yourself
+    if ([TELE, TELE2].some(o => dist2(o, q) < 24)) { ok = false; break; }
+    if (propsNear(q.x, q.y, 40).some(o => (o.kind === 'tree' || o.kind === 'rock' || o.kind === 'rockIron') && dist2(o, q) < (o.r || 8) * (o.s || 1) * 0.5)) { ok = false; break; }
+    if (S.day.builds.some(B => B.parts.some(o => dist2(o, q) < 4))) { ok = false; break; }
+    if (dist2(q, p) < 6) { ok = false; break; }
   }
   return { x, y, a, ok };
 }
@@ -3333,19 +3330,18 @@ function stSnap(P, A) {                          // the nearest snap point to wh
 function stOverlap(P, sp, o) {                   // would P at sp clash with what's already standing at o?
   const Q = PC(o.id), d = Math.hypot(o.x - sp.x, o.y - sp.y);
   const inr = X => X.sh === 'sq' ? GRID / 2 : X.sh === 'tri' ? TRI_IN : 0;
-  if ((P.lay === 'floor' || P.lay === 'roof') && Q.lay === P.lay) return d < (inr(P) + inr(Q)) * 0.85;
+  if ((P.lay === 'floor' || P.lay === 'roof') && Q.lay === P.lay) return d < (inr(P) + inr(Q)) * 0.35;
   if (P.lay === 'edge' && Q.lay === 'edge') {      // two walls along the same line, overlapping
     const da = Math.abs(Math.sin(sp.a - o.a)); if (da > 0.25) return false;
     const ux = Math.cos(o.a), uy = Math.sin(o.a), rx = sp.x - o.x, ry = sp.y - o.y, along = rx * ux + ry * uy, perp = Math.abs(-rx * uy + ry * ux);
-    return perp < 8 && Math.abs(along) < ((P.L || GRID) + (Q.L || GRID)) / 2 - 10;
+    return perp < 4 && Math.abs(along) < 8;
   }
-  if (P.lay === 'post' && Q.lay === 'post') return d < 12;
-  if (P.lay === 'mount' && Q.lay === 'mount') return d < 14;
-  if (P.lay === 'flat' && Q.lay === 'flat') return d < ((P.r || 10) + (Q.r || 10)) * 0.7;
+  if (P.lay === 'post' && Q.lay === 'post') return d < 5;
+  if (P.lay === 'mount' && Q.lay === 'mount') return d < 6;
+  if (P.lay === 'flat' && Q.lay === 'flat') return d < ((P.r || 10) + (Q.r || 10)) * 0.25;
   const solidP = P.lay === 'free', solidQ = Q.lay === 'free' || Q.lay === 'post';
-  if (solidP && (solidQ || Q.lay === 'edge')) return stDistTo(o, sp.x, sp.y) < (P.r || 8) * 0.8 + (Q.lay === 'free' ? -2 : 3);
-  if (P.lay === 'edge' && (Q.lay === 'free' || Q.lay === 'post') && Q.blk && Q.lay !== 'post') { const f = stFoot({ id: P.id, x: sp.x, y: sp.y, a: sp.a }); return segD(o.x, o.y, f.ax, f.ay, f.bx, f.by) < (Q.r || 8) * 0.8; }
-  return false;
+  if (solidP && solidQ) return d < (P.r || 8) * 0.4;
+    return false;
 }
 function stFree(P, sp) {                         // is there room for it? true, or why not
   const D = S.day, pts = [[sp.x, sp.y]];
@@ -3353,17 +3349,14 @@ function stFree(P, sp) {                         // is there room for it? true, 
   if (P.lay === 'roof' && !sp.snap) return 'a roof needs a floor under it';
   if (P.sh === 'edge') { const f = stFoot({ id: P.id, x: sp.x, y: sp.y, a: sp.a }); pts.push([f.ax, f.ay], [f.bx, f.by]); }
   if (P.sh === 'sq' || P.sh === 'tri') pts.push(...stCorners({ id: P.id, x: sp.x, y: sp.y, a: sp.a }).map(([x, y]) => [(x + sp.x) / 2, (y + sp.y) / 2]));
-  for (const [x, y] of pts) {
-    if (Math.hypot(x, y) < CAMP_R + 60) return 'not against the old camp';
-    if (inPlaza(x, y) || [TELE, TELE2].some(o => Math.hypot(o.x - x, o.y - y) < 90)) return 'not on the shrines';
-    if (P.lay !== 'roof') for (const o of propsNear(x, y, 60)) if ((o.kind === 'tree' || o.kind === 'rock') && Math.hypot(o.x - x, o.y - y) < (o.r || 8) * (o.s || 1) + (P.lay === 'flat' || P.sh === 'sq' ? 14 : 10)) return 'a tree is in the way';
-    if (P.lay !== 'roof' && P.lay !== 'flat' && P.lay !== 'mount') for (const B of D.builds) if (B.parts.some(q => Math.hypot(q.x - x, q.y - y) < (P.sh === 'sq' ? 26 : 20))) return 'something is in the way';
+  for (const [x, y] of pts) {                    // v-free: build almost anywhere; only the shrine stones and tree trunks themselves are off limits
+    if ([TELE, TELE2].some(o => Math.hypot(o.x - x, o.y - y) < 24)) return 'not on the shrine stone';
   }
-  for (const o of stNear(sp.x, sp.y, (P.L || GRID) + 20)) if (stOverlap(P, sp, o)) return 'already something there';
+  if (P.lay === 'free' || P.lay === 'post') for (const o of propsNear(sp.x, sp.y, 40)) if ((o.kind === 'tree' || o.kind === 'rock' || o.kind === 'rockIron') && Math.hypot(o.x - sp.x, o.y - sp.y) < (o.r || 8) * (o.s || 1) * 0.5) return 'a tree is in the way';
   if (P.blk) {                                   // don't wall yourself in where you stand
     const f = P.sh === 'edge' ? stFoot({ id: P.id, x: sp.x, y: sp.y, a: sp.a }) : null;
     const d = f ? segD(S.p.x, S.p.y, f.ax, f.ay, f.bx, f.by) : Math.hypot(S.p.x - sp.x, S.p.y - sp.y) - (P.r || 6);
-    if (d < 12) return 'step back';
+    if (d < 5) return 'step back';
   }
   return true;
 }

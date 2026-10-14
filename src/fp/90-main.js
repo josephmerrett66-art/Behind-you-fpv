@@ -123,6 +123,7 @@ function placeCamera(dt, rdt, now) {
   LU.tCone.value.set(Math.cos(HALF * 1.12), Math.cos(HALF * 0.5));
   // hands
   const ly = angDiff(look.tYaw, look.yaw), lp = look.tPitch - look.pitch;
+  if (thirdFrame(rdt, now, cam.position.y)) return;
   handG.visible = torchG.visible = fallK < 0.3; if (fallK >= 0.3) return;
   placeHands(rdt, now, [Math.cos(p.phase) * 0.45 * VIEW_FX.bobAmt, Math.sin(p.phase * 2) * 0.55 * VIEW_FX.bobAmt], [ly, lp]);
 }
@@ -177,6 +178,7 @@ function syncSet() {
   $('sFps').setAttribute('aria-pressed', SET.fps ? 'true' : 'false');
   $('sSnd').setAttribute('aria-pressed', SET.sound ? 'true' : 'false');
   $('sCol').setAttribute('aria-pressed', COLOUR ? 'true' : 'false');
+  $('sView').setAttribute('aria-pressed', SET.view === 'third' ? 'true' : 'false');
   document.body.classList.toggle('showfps', SET.fps);
 }
 $('sSens').addEventListener('input', e => { SET.sens = +e.target.value; saveSet(); });
@@ -186,6 +188,7 @@ for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('cl
   pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.5);
   resize(); syncSet();
 });
+$('sView').addEventListener('click', () => { SET.view = SET.view === 'third' ? 'first' : 'third'; saveSet(); syncSet(); });
 $('sInv').addEventListener('click', () => { SET.invert = !SET.invert; saveSet(); syncSet(); });
 $('sFps').addEventListener('click', () => { SET.fps = !SET.fps; saveSet(); syncSet(); });
 $('sSnd').addEventListener('click', () => { SET.sound = !SET.sound; saveSet(); syncSet(); if (sfxGain) setSoundOn(SET.sound); });

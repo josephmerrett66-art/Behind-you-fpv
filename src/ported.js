@@ -661,7 +661,7 @@ function rgBurn0() {
   const rg = S.rg || {}, grow = 1 + 0.05 * Math.min(14, Math.max(0, (rg.wave || 1) - 1));   // the torch grows with the night
   return 1.05 * (1 + 0.1 * tu('heat')) * (isEx() ? 1 + 0.1 * sr('kindle') : 1) * grow * (1 + 0.35 * lv('sweep') * sweepK()) * (isEx() ? (exSpot() ? 2 : 1) : 1 + 0.5 * lv('spot') * spotK()) * ((rg.rushT || 0) > 0 ? 2 : 1) * (lastHeart() ? 2 : 1);
 }
-function rgSpeed() { return 1.4 * (1 + 0.04 * sr('swift')) * (S.rg && S.rg.adren > 0 ? 1.5 : 1); }
+function rgSpeed() { return 1.4 * (1 + 0.04 * Math.min(2, sr('swift'))) * (S.rg && S.rg.adren > 0 ? 1.5 : 1); }
 function haloR() { return lv('halo') ? 55 + 22 * (lv('halo') - 1) : 0; }
 function newRun() {
   return { wave: 0, hp: baseHearts(), maxHp: baseHearts(), kills: 0, up: {}, rerolls: 1, enemies: [], ash: [], candles: [], flares: [], echoes: [], shells: [], darts: [], blasts: [], embers: [], dying: [], beatT: 0, beatFx: 0, fires: [], nova: 0, sweepT: 0, still: 0, rushT: 0, blackT: 0,
@@ -1710,7 +1710,7 @@ function exWall(p, ox, oy) {                  // the palisade: you only get in o
 const stKey = () => stKeyOf(SV.active), WISP_COL = '185,130,255';
 const WISP = { shade: 1, stalker: 1, kamikaze: 1, laser: 1, bomber: 2, splitter: 2, brute: 3, tall: 10, splitling: 0, spear: 1, archer: 1 };
 const STATS = [
-  { id: 'swift', g: 'Body', name: 'Swift', get max() { return 5 + bx(3); }, sh: 'Walk and run faster', desc: 'You move 4% faster with each upgrade.' },
+  { id: 'swift', g: 'Body', name: 'Swift', get max() { return 2; }, sh: 'Walk and run faster', desc: 'You move 4% faster with each upgrade.' },
   { id: 'hardy', g: 'Body', name: 'Hardy', get max() { return 2 + bx(1); }, cost: [120, 300, 600], sh: 'One more heart', desc: 'One more heart with each upgrade, every run and every trip.' },
   { id: 'nimble', g: 'Body', name: 'Nimble', get max() { return 4 + bx(2); }, sh: 'Dodge again sooner', desc: 'Your dodge recharges 8% faster with each upgrade.' },
   { id: 'regen', g: 'Body', name: 'Regen', get max() { return 3 + bx(1); }, cost: [60, 140, 260, 500], sh: 'Hearts heal over time', desc: 'Go a while without being hit and you heal a heart: every 30 s, then 20 s, then 12 s, then 8 s.' },
@@ -1750,7 +1750,7 @@ const STAT_GROUPS = [
 function stRead() { try { const s = JSON.parse(localStorage.getItem(stKey())); if (s && typeof s.w === 'number' && s.r) return s; } catch (e) {} return { w: 0, r: {} }; }
 function stSave() { try { localStorage.setItem(stKey(), JSON.stringify(ST)); } catch (e) {} }
 let ST = stRead();
-function sr(id) { return stPool().r[id] || 0; }
+function sr(id) { const r = stPool().r[id] || 0; return id === 'swift' ? Math.min(2, r) : r; }   // Swift tops out at two (older saves may have bought more)
 function life() { return ST.life || (ST.life = { since: Date.now(), kt: {}, bt: {} }); }
 const statCost = (s, have) => (s.cost || STAT_COST)[have];
 const baseHearts = () => 3 + sr('hardy') + sr('heartwood');
@@ -4168,10 +4168,10 @@ function rmBlocked(e) {                           // trees, rocks and your own s
 function rmSees(e, d) {                           // how fast it is noticing you right now (0: not at all)
   const p = S.p, D = S.day, sp = Math.hypot(p.vx, p.vy), loud = (p.atk || p.act) && !D.crouch;
   const look = Math.abs(angDiff(e.look, Math.atan2(p.y - e.y, p.x - e.x)));
-  const crouch = D.crouch ? (sp > 10 ? 0.5 : 0.38) : 1, alert = e.st2 === 'search' ? 1.3 : e.st2 === 'sus' ? 1.15 : 1;
-  const hear = (loud ? 170 : sp > 60 ? 110 : RM_HEAR) * (D.crouch ? 0.35 : 1);
+  const crouch = D.crouch ? (sp > 10 ? 0.74 : 0.62) : 1, alert = e.st2 === 'search' ? 1.3 : e.st2 === 'sus' ? 1.15 : 1;
+  const hear = (loud ? 170 : sp > 60 ? 110 : RM_HEAR) * (D.crouch ? 0.65 : 1);
   let k = 0;
-  if (look < RM_HALF && d < RM_SEE * crouch * alert && !rmBlocked(e)) k = (0.35 + 2.4 * (1 - d / (RM_SEE * crouch * alert))) * (look < RM_HALF * 0.5 ? 1 : 0.6) * (D.crouch ? 0.7 : 1);
+  if (look < RM_HALF && d < RM_SEE * crouch * alert && !rmBlocked(e)) k = (0.35 + 2.4 * (1 - d / (RM_SEE * crouch * alert))) * (look < RM_HALF * 0.5 ? 1 : 0.6) * (D.crouch ? 0.85 : 1);
   if (d < hear) k = Math.max(k, 1.2 * (1 - d / hear) + 0.3);
   return k * alert;
 }
@@ -4210,7 +4210,7 @@ function rmStep(e, f, d, dt) {                    // true while it is roaming, w
   e.lastHp = e.hp;
   if (!rmOn()) { if (e.st2 !== 'hunt') { e.st2 = 'hunt'; } return false; }   // the night is theirs
   if (e.st2 === 'hunt') {                         // it can lose you: out of its sight long enough, or left far behind
-    const lost = d > 560 || rmBlocked(e) || (S.day.crouch && d > 200);
+    const lost = d > 560 || rmBlocked(e) || (S.day.crouch && d > 380);
     e.lostT = lost ? e.lostT + dt : Math.max(0, e.lostT - dt * 2);
     if (e.lostT > RM_LOSE) { e.st2 = 'search'; e.wt = RM_SEARCH; e.aw = 0.55; e.sx = p.x + (Math.random() - 0.5) * 60; e.sy = p.y + (Math.random() - 0.5) * 60; e.look = Math.atan2(e.sy - e.y, e.sx - e.x);
       if (!rg.enemies.some(o => o !== e && o.roam && o.st2 === 'hunt' && !o.dead)) { exNote('they lost you', true); if (actx) toneAt(actx.currentTime, 520, 0.25, 0.08, 'triangle', sfxGain); } }

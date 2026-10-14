@@ -109,6 +109,7 @@ body.playing:not(.touch) #bPack2 { display: block; }
 #knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(239,239,234,0.32); }
 #padHint { position: fixed; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.6rem; letter-spacing: 0.14em; color: rgba(138,138,138,0.9); pointer-events: none; display: none; text-transform: uppercase; }
 body.pad.playing #padHint { display: block; }
+.padfocus { outline: 3px solid #f1b77a !important; outline-offset: 2px; box-shadow: 0 0 14px rgba(241,183,122,0.55) !important; }
 #hotbar, #buildbar { display: none; }
 body.playing #hotbar:not([hidden]), body.playing #buildbar:not([hidden]) { display: flex; }
 body.playing #buildbar:not([hidden]) { display: grid; }

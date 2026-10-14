@@ -166,7 +166,14 @@ function pause() { if (state !== 'play') return; state = 'pause'; try { daySave(
 function unpause() { state = 'play'; $('pause').classList.remove('show'); if (actx) actx.resume(); last = performance.now(); lockOn(); }
 function quitToTitle() { try { daySave(); } catch (e) {} state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
 $('begin').addEventListener('click', () => startRun(false));
-$('beginNew').addEventListener('click', () => { if (confirm('Start a new Daylight run? Your saved run will be lost.')) startRun(true); });
+// a pad can't answer the browser's own question, so on a controller the button asks a second press instead
+$('beginNew').addEventListener('click', () => {
+  const b = $('beginNew'), t = b.querySelector('b'), s = t.nextElementSibling;
+  if (inputMode !== 'pad') { if (confirm('Start a new Daylight run? Your saved run will be lost.')) startRun(true); return; }
+  if (b.dataset.arm) { delete b.dataset.arm; t.textContent = 'new run'; s.textContent = 'Start again from nothing. Your saved run is lost.'; startRun(true); return; }
+  b.dataset.arm = 1; t.textContent = 'sure?'; s.textContent = 'Press A again to start over. Your saved run will be lost.';
+  setTimeout(() => { if (b.dataset.arm) { delete b.dataset.arm; t.textContent = 'new run'; s.textContent = 'Start again from nothing. Your saved run is lost.'; } }, 4000);
+});
 menuBtn.addEventListener('click', () => { if (state === 'play' && !menusOpen()) pause(); });
 $('resume').addEventListener('click', unpause);
 $('quit').addEventListener('click', quitToTitle);

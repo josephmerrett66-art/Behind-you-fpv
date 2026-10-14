@@ -2,6 +2,9 @@
 // ---- the few things the main game's Daylight code reaches for that belong to its 2D screen, its other modes or its bosses ----
 // Daylight runs here word for word (src/ported.js). These stand in for the parts that don't exist in first person: the iso camera,
 // the boss fights, the Dunes and the Frost, the lifetime record. Everything the woods themselves do is real.
+// note every element the game makes clickable, so a controller can reach the ones that aren't buttons (52-padmenu)
+{ const ael = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function (t, f, o) { if ((t === 'click' || t === 'pointerdown') && this instanceof Element && this.__tap !== 'click') this.__tap = t; return ael.call(this, t, f, o); }; }
 let S = null;
 let W = innerWidth, H = innerHeight, Z = 1, last = 0, COLOUR = true;
 const K = () => 1, keys = {};

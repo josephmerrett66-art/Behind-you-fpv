@@ -132,6 +132,7 @@ function pollPad(dt) {
     padTurn = mag > 0.92 ? Math.min(1, padTurn + dt * 2.2) : Math.max(0, padTurn - dt * 6);
     IN.lx += rx * curve * (3.1 + 1.6 * padTurn) * SET.sens * dt; IN.ly += ry * curve * 2.2 * SET.sens * dt;
     const press = i => btn(i) && !padPrev[i];
+    padMenu(dt, btn, press, gp.axes[0] || 0, gp.axes[1] || 0, ry);
     if (state === 'play' && !menusOpen()) {
       if (press(7) || press(0)) attack();
       const a = btn(7) || btn(0); if (padAtk && !a) rngUp(); padAtk = a;
@@ -148,8 +149,6 @@ function pollPad(dt) {
     }
     if (press(8)) packToggle();
     if (press(9)) { if (state === 'play') IN.pause = true; else if (state === 'pause') unpause(); else if (state === 'title' && ready) startRun(false); }
-    if (state === 'title' && press(0) && ready) startRun(false);
-    if (state === 'pause' && press(1)) unpause();
     for (let i = 0; i < gp.buttons.length; i++) padPrev[i] = btn(i);
   }
 }

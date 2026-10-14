@@ -109,6 +109,7 @@ body.playing:not(.touch) #bPack2 { display: block; }
 #knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(239,239,234,0.32); }
 #padHint { position: fixed; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.6rem; letter-spacing: 0.14em; color: rgba(138,138,138,0.9); pointer-events: none; display: none; text-transform: uppercase; }
 body.pad.playing #padHint { display: block; }
+.padfocus { outline: 3px solid #f1b77a !important; outline-offset: 2px; box-shadow: 0 0 14px rgba(241,183,122,0.55) !important; }
 #hotbar, #buildbar { display: none; }
 body.playing #hotbar:not([hidden]), body.playing #buildbar:not([hidden]) { display: flex; }
 body.playing #buildbar:not([hidden]) { display: grid; }
@@ -558,6 +559,9 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
 <script>// ---- the few things the main game's Daylight code reaches for that belong to its 2D screen, its other modes or its bosses ----
 // Daylight runs here word for word (src/ported.js). These stand in for the parts that don't exist in first person: the iso camera,
 // the boss fights, the Dunes and the Frost, the lifetime record. Everything the woods themselves do is real.
+// note every element the game makes clickable, so a controller can reach the ones that aren't buttons (52-padmenu)
+{ const ael = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function (t, f, o) { if ((t === 'click' || t === 'pointerdown') && this instanceof Element && this.__tap !== 'click') this.__tap = t; return ael.call(this, t, f, o); }; }
 let S = null;
 let W = innerWidth, H = innerHeight, Z = 1, last = 0, COLOUR = true;
 const K = () => 1, keys = {};
@@ -8363,6 +8367,7 @@ function pollPad(dt) {
     padTurn = mag > 0.92 ? Math.min(1, padTurn + dt * 2.2) : Math.max(0, padTurn - dt * 6);
     IN.lx += rx * curve * (3.1 + 1.6 * padTurn) * SET.sens * dt; IN.ly += ry * curve * 2.2 * SET.sens * dt;
     const press = i => btn(i) && !padPrev[i];
+    padMenu(dt, btn, press, gp.axes[0] || 0, gp.axes[1] || 0, ry);
     if (state === 'play' && !menusOpen()) {
       if (press(7) || press(0)) attack();
       const a = btn(7) || btn(0); if (padAtk && !a) rngUp(); padAtk = a;
@@ -8379,8 +8384,6 @@ function pollPad(dt) {
     }
     if (press(8)) packToggle();
     if (press(9)) { if (state === 'play') IN.pause = true; else if (state === 'pause') unpause(); else if (state === 'title' && ready) startRun(false); }
-    if (state === 'title' && press(0) && ready) startRun(false);
-    if (state === 'pause' && press(1)) unpause();
     for (let i = 0; i < gp.buttons.length; i++) padPrev[i] = btn(i);
   }
 }
@@ -8393,6 +8396,112 @@ function readMove() {
   MV.x = mx; MV.y = my;
 }
 FP.rumble = (k, ms) => { try { for (const gp of navigator.getGamepads ? navigator.getGamepads() : []) if (gp && gp.vibrationActuator) gp.vibrationActuator.playEffect('dual-rumble', { duration: ms, strongMagnitude: k, weakMagnitude: k * 0.6 }); } catch (e) {} };
+
+;
+// ================= the menus on a controller: every screen, button and slider within reach of the pad =================
+// While a menu is up (the title, pause, the pack, stats and the wisp shop, the death card) a lit outline marks what's picked.
+// The d-pad or left stick moves it to the nearest thing in that direction, A presses it, B goes back, left and right slide a
+// slider, LB and RB flip the pack's tabs and the right stick scrolls a long list. Anything the main game made clickable
+// counts, buttons or not (the shim notes every element that's given a click), so new menus come in on their own.
+const PM = { el: null, box: null, cx: 0, cy: 0, dir: '', rep: 0, armT: 0 };
+function pmBox() {
+  if (!deathCard.hidden) return deathCard;
+  if (!statsEl.hidden) return statsEl;
+  if (!campEl.hidden) return campEl;
+  if (!craftEl.hidden) return craftEl;
+  if (state === 'pause') return $('pause');
+  if (state === 'title') return $('title');
+  return null;
+}
+function pmItems(box) {
+  const out = [];
+  for (const e of box.querySelectorAll('button, input[type=range], *')) {
+    if (!(e.tagName === 'BUTTON' || (e.tagName === 'INPUT' && e.type === 'range') || e.__tap) || e.disabled) continue;
+    const r = e.getBoundingClientRect(); if (r.width < 2 || r.height < 2) continue;
+    out.push(e);
+  }
+  return out;
+}
+const pmMid = r => [r.left + r.width / 2, r.top + r.height / 2];
+function pmSet(e, scroll = true) {
+  if (PM.el && PM.el !== e) PM.el.classList.remove('padfocus');
+  PM.el = e; if (!e) return;
+  e.classList.add('padfocus');
+  if (scroll) e.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  [PM.cx, PM.cy] = pmMid(e.getBoundingClientRect());
+}
+// the first thing to pick when a menu opens: what the game itself put first, or the top of the list
+function pmFirst(box, items) {
+  const pref = { title: 'begin', pause: 'resume', deathCard: 'dcGo' }[box.id], p = pref ? $(pref) : box === craftEl ? craftEl.querySelector('.pktab[aria-pressed="true"]') : null;
+  if (p && items.includes(p)) return p;
+  if (items.includes(document.activeElement)) return document.activeElement;
+  return items[0] || null;
+}
+// the nearest thing in the way you pushed, favouring what's straight ahead over what's off to the side
+function pmMove(items, dx, dy) {
+  const cur = PM.el.getBoundingClientRect(); let best = null, bs = Infinity;
+  for (const e of items) {
+    if (e === PM.el) continue;
+    const r = e.getBoundingClientRect(), [x, y] = pmMid(r);
+    let gap, side;
+    if (dx) { gap = dx > 0 ? r.left - cur.right : cur.left - r.right; side = Math.abs(y - PM.cy); if ((x - PM.cx) * dx <= 2 || r.bottom < cur.top - 6 || r.top > cur.bottom + 6) continue; }   // sideways stays on the row
+    else { gap = dy > 0 ? r.top - cur.bottom : cur.top - r.bottom; side = Math.abs(x - PM.cx); if ((y - PM.cy) * dy <= 2) continue; }
+    const s = Math.max(0, gap + 4) + side * (dx ? 3 : 1.2);
+    if (s < bs) { bs = s; best = e; }
+  }
+  return best;
+}
+function pmPress(e) {
+  if (e.__tap === 'pointerdown') e.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+  else e.click();
+}
+function pmSlide(e, k) {
+  const st = parseFloat(e.step) || 1, v = clamp(parseFloat(e.value) + st * k, parseFloat(e.min), parseFloat(e.max));
+  e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function pmBack(box) {
+  if (box === statsEl) { if (statCat) { statCat = null; statOpen = null; renderStats(); } else $('statsGo').click(); }   // out of a group first
+  else if (box === craftEl) { if (PK.sel) { PK.sel = null; renderPack(); } else $('craftGo').click(); }   // put down what's picked first
+  else if (box === campEl) { campEl.hidden = true; }
+  else if (box.id === 'pause') unpause();
+}
+// called by pollPad every frame a pad is in use; returns true while a menu has the pad
+function padMenu(dt, btn, press, ax, ay, ry) {
+  const box = inputMode === 'pad' ? pmBox() : null;
+  if (box !== PM.box) { PM.box = box; pmSet(null); }
+  if (!box) { if (PM.el) pmSet(null); return false; }
+  const items = pmItems(box);
+  if (!PM.el || !PM.el.isConnected || !items.includes(PM.el)) {   // the menu was redrawn: pick what now sits where the outline was
+    let e = null;
+    if (PM.el) { let bd = Infinity; for (const c of items) { const [x, y] = pmMid(c.getBoundingClientRect()), d = Math.hypot(x - PM.cx, y - PM.cy); if (d < bd) { bd = d; e = c; } } }
+    pmSet(e || pmFirst(box, items), false);
+    if (!PM.el) return true;
+  } else PM.el.classList.add('padfocus');
+  // which way: the d-pad, or the left stick pushed well over; held, it repeats
+  const sx = ax > 0.55 ? 1 : ax < -0.55 ? -1 : 0, sy = ay > 0.55 ? 1 : ay < -0.55 ? -1 : 0;
+  const dir = btn(12) || sy < 0 ? 'u' : btn(13) || sy > 0 ? 'd' : btn(14) || sx < 0 ? 'l' : btn(15) || sx > 0 ? 'r' : '';
+  let go = false;
+  if (dir !== PM.dir) { PM.dir = dir; PM.rep = 0.38; go = !!dir; }
+  else if (dir) { PM.rep -= dt; if (PM.rep <= 0) { PM.rep = 0.11; go = true; } }
+  if (go) {
+    const slider = PM.el.tagName === 'INPUT';
+    if (slider && (dir === 'l' || dir === 'r')) pmSlide(PM.el, dir === 'l' ? -1 : 1);
+    else { const n = pmMove(items, dir === 'l' ? -1 : dir === 'r' ? 1 : 0, dir === 'u' ? -1 : dir === 'd' ? 1 : 0); if (n) { pmSet(n); pmTick(); } }
+  }
+  if (press(0)) pmPress(PM.el);
+  else if (press(1)) pmBack(box);
+  if (box === craftEl && (press(4) || press(5))) {   // LB RB: the pack's tabs
+    const tabs = [...craftEl.querySelectorAll('.pktab')], i = tabs.findIndex(b => b.getAttribute('aria-pressed') === 'true');
+    const t = tabs[(i + (press(5) ? 1 : tabs.length - 1)) % tabs.length]; if (t) { t.click(); pmSet(null); }
+  }
+  if (Math.abs(ry) > 0.2) {   // the right stick scrolls whatever long list holds the outline
+    let s = PM.el.parentElement;
+    while (s && s !== document.body) { const cs = getComputedStyle(s); if (/(auto|scroll)/.test(cs.overflowY) && s.scrollHeight > s.clientHeight + 2) break; s = s.parentElement; }
+    if (s && s !== document.body) { s.scrollTop += ry * 900 * dt; [PM.cx, PM.cy] = pmMid(PM.el.getBoundingClientRect()); }
+  }
+  return true;
+}
+const pmTick = () => { try { sfx(2.2, 0.03, 'bandpass', 2400, 0.06); } catch (e) {} };
 
 ;
 // ================= what's written on the screen: hearts, the day, your needs, what you can use, the woods' words =================
@@ -9773,7 +9882,14 @@ function pause() { if (state !== 'play') return; state = 'pause'; try { daySave(
 function unpause() { state = 'play'; $('pause').classList.remove('show'); if (actx) actx.resume(); last = performance.now(); lockOn(); }
 function quitToTitle() { try { daySave(); } catch (e) {} state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
 $('begin').addEventListener('click', () => startRun(false));
-$('beginNew').addEventListener('click', () => { if (confirm('Start a new Daylight run? Your saved run will be lost.')) startRun(true); });
+// a pad can't answer the browser's own question, so on a controller the button asks a second press instead
+$('beginNew').addEventListener('click', () => {
+  const b = $('beginNew'), t = b.querySelector('b'), s = t.nextElementSibling;
+  if (inputMode !== 'pad') { if (confirm('Start a new Daylight run? Your saved run will be lost.')) startRun(true); return; }
+  if (b.dataset.arm) { delete b.dataset.arm; t.textContent = 'new run'; s.textContent = 'Start again from nothing. Your saved run is lost.'; startRun(true); return; }
+  b.dataset.arm = 1; t.textContent = 'sure?'; s.textContent = 'Press A again to start over. Your saved run will be lost.';
+  setTimeout(() => { if (b.dataset.arm) { delete b.dataset.arm; t.textContent = 'new run'; s.textContent = 'Start again from nothing. Your saved run is lost.'; } }, 4000);
+});
 menuBtn.addEventListener('click', () => { if (state === 'play' && !menusOpen()) pause(); });
 $('resume').addEventListener('click', unpause);
 $('quit').addEventListener('click', quitToTitle);

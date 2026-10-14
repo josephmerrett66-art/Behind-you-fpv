@@ -1330,7 +1330,7 @@ function ashBurst(x, y, n, hgt = 20) {
     S.rg.ash.push({ x, y, z: Math.random() * hgt, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 30 + Math.random() * 60, life: 0.6 + Math.random() * 0.8 });
   }
 }
-function shove(e, amt) { if (e.type === 'centi') return;   // too long and dug in to be knocked about
+function shove(e, amt) { if (e.type === 'centi' || e.boss) return;   // too long and dug in to be knocked about
   const dx = e.x - S.p.x, dy = e.y - S.p.y, d = Math.hypot(dx, dy) || 1; e.x += dx / d * amt; e.y += dy / d * amt; }
 function laserHits(x, y, h) {               // is this spot (feet, middle or head) on the Red Laser's line?
   const bi = S.beamInfo; if (!bi) return false;
@@ -1412,6 +1412,7 @@ function rdKill(e) {                             // a kill is a crisp pop in its
 }
 function killFoe(e) {
   rdKill(e);   // v144
+  if (e.boss) bossDown(e);
   if (isEx() && sr('drink') && S.rg.hp < S.rg.maxHp && (S.rg.drinkN = (S.rg.drinkN || 0) + 1) >= [0, 30, 20, 12][sr('drink')]) { S.rg.drinkN = 0; S.rg.hp = Math.min(S.rg.maxHp, S.rg.hp + 0.5); S.rg.pop = { t: 0, gained: Math.ceil(S.rg.hp) - 1 }; }   // Soul Drink
   const rg = S.rg;
   if (lv('embers')) rg.fires.push({ x: e.x, y: e.y, r: 28 + 8 * lv('embers'), life: 2 + 1.5 * lv('embers'), max: 2 + 1.5 * lv('embers'), seed: Math.random() * 9, freeze: isEx() && rawLv('smoulder') > 2 });
@@ -2043,7 +2044,7 @@ function updateSurvive(dt) {
     e.reach = (e.reach || 0) + (reachTo - (e.reach || 0)) * Math.min(1, dt * 6);
     e.kick = Math.max(0, (e.kick || 0) - dt * 4);
     const farOff = !e.lit && d > Math.max(700, (e.spawnD || 500) + 300) && !seenAt(e.x, e.y);   // well out of reach and out of sight
-    if (S.mode === 'expedition' && farOff && d > 900 && !e.guard) { e.dead = e.gone = true; continue; }   // left far behind: gone, others will come
+    if (S.mode === 'expedition' && farOff && d > 900 && !e.guard && !e.boss) { e.dead = e.gone = true; continue; }   // left far behind: gone, others will come
     if (farOff && !e.guard && !(e.roam && e.st2 !== 'hunt')) { const at = spawnSpot(); e.x = at.x; e.y = at.y; e.spawnD = at.d; if (e.type === 'bomber') { e.ang = undefined; bomberReset(e); } if (e.type === 'laser' && e.ai !== 'fire') e.ai = 'move'; if (e.type === 'spear') spearInit(e); if (e.type === 'archer') archerInit(e); continue; }   // left far behind: bring it back around you
     let sp = f.sp * (inBeyond() ? DUNE_SP : 1) * (pact('hunted') ? 1.3 : 1) * (1 + 0.03 * Math.min(rg.wave, 15)) * (e.scarred ? Math.pow(0.8, lv('scar')) : 1) * (e.mire > S.t ? 0.4 : 1);
     if (S.mode === 'expedition' && !inBeyond()) { const k = EX_PACE[exRing(Math.hypot(S.p.x, S.p.y))]; sp = e.type === 'kamikaze' ? sp * k : Math.min(sp * k, Math.max(sp, EX_PACE_MAX)); }   // v122: deeper woods, quicker hunters (never quite your sprint)
@@ -2095,6 +2096,7 @@ const FOE_TINT = { shade: [118, 128, 168], stalker: [150, 112, 176], brute: [150
   woodcutter: [190, 55, 45], lamplighter: [215, 160, 70], huntsman: [80, 125, 70], warden: [100, 130, 80], dervish: [220, 180, 70], king: [200, 150, 70], mirage: [235, 225, 190] };
 const foeScale = e => FOES[e.type].h / 38 * (SCR_FACE[e.type] && e.k ? e.k : 1);
 function foeDir(e) {                          // which way the figure faces: its aim if it has one, else at you
+  if (e.faceA != null) return e.faceA;          // a boss turned to its own work (a tree, a swing)
   if (e.type === 'laser' && e.ai !== 'move' && e.dir !== undefined) return e.dir;
   if ((e.type === 'spear' && e.ai === 'wind' || e.type === 'archer' && e.ai === 'draw') && e.dir !== undefined) return e.dir;
   return Math.atan2(S.p.y - e.y, S.p.x - e.x);
@@ -2853,7 +2855,7 @@ function dayStep(dt, inCamp) {
   for (const o of dayNodesNear(p.x, p.y, 900)) if (o.t === 'bush' && !o.ber && (o.berT -= dt) <= 0) o.ber = true;   // berries grow back
   // trees going over, then the logs
   for (const g of D.logs) {
-    if (g.kind === 'poof') { if ((g.t += dt) >= POOF_T) g.done = true; continue; }
+    if (g.kind === 'poof') { if ((g.t += dt) >= (g.T || POOF_T)) g.done = true; continue; }
     if (g.fall < 1) { g.fall = Math.min(1, g.fall + dt * (0.5 + g.fall * 2.6)); if (g.fall >= 1) { addShake(0.35 * monNear(g, 500)); if (actx) boomAt(actx.currentTime, 70, 40, 0.5, 0.5 * monNear(g, 600), sfxGain); for (let i = 0; i < 5; i++) { ashBurst(g.bx + g.ux * g.len * i / 5, g.by + g.uy * g.len * i / 5, 4, 6); if (i > 1) dayChips(g.bx + g.ux * g.len * i / 5, g.by + g.uy * g.len * i / 5, 8, g.type === 'cherry' ? 'leaf' : 'wood', 4); } } }
     else if ((g.lie += dt) > 0.7 && (g.gone = (g.gone || 0) + dt * 2) >= 1) {
       g.done = true;
@@ -3191,15 +3193,16 @@ function dayWake() {                             // v152 (Joe's plan): with a be
   const lostW = rg.wispCarry || 0; rg.wispCarry = 0; rg.wisps = [];   // v164: wisps you carried are gone, as on an Expedition
   rg.enemies.length = 0; rg.hp = Math.max(1, Math.ceil(rg.maxHp / 2)); rg.steel = 0; D.steelSeen = 0; D.armT = 0;
   D.food = Math.min(D.food, 40); D.water = Math.min(D.water, 40); D.st = STA_MAX; D.sick = 0; D.starve = 0; D.warn = {};
-  p.x = D.bed.x; p.y = D.bed.y + 26; p.vx = p.vy = 0; p.act = null; p.atk = null; S.cam.x = p.x; S.cam.y = p.y;
+  if (D.bed) { p.x = D.bed.x; p.y = D.bed.y + 26; } else { p.x = 0; p.y = 60; }   // no bed yet: you come round by the fire. Your camp is left just as it was
+  p.vx = p.vy = 0; p.act = null; p.atk = null; S.cam.x = p.x; S.cam.y = p.y;
   rg.inCamp = Math.hypot(p.x, p.y) < CAMP_R; if (!rg.inCamp) rg.ringMax = exRing(Math.hypot(p.x, p.y));
-  S.msg = { text: 'you wake at your bed', sub: (n ? `Everything you carried lies where you fell · ${n} to fetch back` : 'You were carrying nothing') + (lostW ? ` · ${lostW} wisps lost` : ''), t: 0 };
+  S.msg = { text: D.bed ? 'you wake at your bed' : 'you wake by the fire', sub: (n ? `Everything you carried lies where you fell · ${n} to fetch back` : 'You were carrying nothing') + (lostW ? ` · ${lostW} wisps lost` : ''), t: 0 };
   addShake(0.3); daySave(); dayChanged();
   return true;
 }
 function dayDeath() {
   const rg = S.rg, D = S.day;
-  if (D.bed && rg.phase === 'fight') return dayWake();
+  if (rg.phase === 'fight') return dayWake();    // Joe: dying costs what you carried, never your base
   rg.phase = 'dead'; rg.deadT = 0; craftBtn.hidden = true; document.getElementById('hotbar').hidden = true; document.getElementById('buildbar').hidden = true;
   dayClearSave();
   const b = dayBest(); D.best = D.t > b.t;
@@ -3666,7 +3669,7 @@ function daySave() {
   d.felled = [...D.felled]; d.cut = [...D.cut]; d.bchunks = [...D.bchunks];
   d.nodes = [...D.nodes].map(([k, L]) => [k, L.filter(o => !o.gone).map(o => ({ t: o.t, x: Math.round(o.x), y: Math.round(o.y), n: o.n, ber: o.ber, berT: o.berT, seed: o.seed }))]);
   d.drops = D.drops.map(f => ({ it: f.it, n: f.n, ex: f.ex, x: Math.round(f.x), y: Math.round(f.y), t: f.t, keep: f.keep }));
-  d.camps = [...D.camps].map(([i, c]) => [i, { seen: c.seen, took: c.took }]);
+  d.camps = [...D.camps].map(([i, c]) => [i, { seen: c.seen, took: c.took, beat: c.beat }]);
   d.bld = [...D.bld.values()].map(stOut); d.brot = D.brot || 0; d.bsnap = D.bsnap !== false;
   d.logs = D.logs.flatMap(g => [['logs', g.give.logs], ['sticks', g.give.sticks]].filter(([, n]) => n).map(([it, n]) => ({ it, n, x: Math.round(g.bx + g.ux * g.len / 2), y: Math.round(g.by + g.uy * g.len / 2), t: 0 })));   // a tree still falling is saved as its logs
   d.beasts = D.beasts.filter(b => !b.dead).map(b => ({ k: b.k, x: Math.round(b.x), y: Math.round(b.y), hp: b.hp, stag: b.stag, chunk: b.chunk, tame: b.tame, fed: b.fed }));
@@ -4480,6 +4483,7 @@ function dayCampStep(dt) {
     if (st.took) continue;
     if (d < CAMP_WAKE && !st.up && !dayCampLive(C.i)) {   // the watch gets up
       st.up = 1;
+      if (C.i === BOSS_CAMP) { if (!st.beat) bossSpawn(C); continue; }   // the hunting camp is the Woodcutter's alone
       for (let k = 0; k < C.n; k++) { const t = Math.random() * 6.3, r = 40 + Math.random() * CAMP_RAD;
         spawnFoe(k ? (Math.random() < 0.3 ? (Math.random() < 0.6 ? 'archer' : 'spear') : exPickFoe(Math.min(2, exRing(C.d)))) : C.cap, { x: C.x + Math.cos(t) * r, y: C.y + Math.sin(t) * r * 0.7, d: 400 });
         const e = S.rg.enemies[S.rg.enemies.length - 1]; e.ci = C.i;
@@ -7436,7 +7440,7 @@ function treesFrame() {
   // the tree you just felled topples away from you, solid, the same tree it was
   for (const g of S.day.logs) if (g.kind === 'poof') {
     const kind = kindOfTree(g), B = TREES[kind][(g.seed * 997 | 0) % TREE_NV]; if (B.n >= TREE_CAP) continue;
-    const u = Math.min(1, g.t / POOF_T), a = g.fa ?? (g.fa = Math.atan2(g.y - S.p.y, g.x - S.p.x));
+    const u = Math.min(1, g.t / (g.T || POOF_T)), a = g.fa ?? (g.fa = Math.atan2(g.y - S.p.y, g.x - S.p.x));
     B.m.setMatrixAt(B.n++, treeMatrix(g, u * u * 1.5, a)); B.m.instanceMatrix.needsUpdate = true;
   }
   for (const k of TREE_KINDS) for (const B of TREES[k]) if (B.m.count !== B.n) { B.m.count = B.e.count = B.n; B.m.instanceMatrix.needsUpdate = true; }
@@ -7965,7 +7969,7 @@ function poseFoe(e, now, dt, dying) {
   if (fl > 0) { body = body.map(v => lerp(v, 1.6, fl)); head = head.map(v => lerp(v, 1.6, fl)); }
   const em = b * (0.22 + 0.16 * Math.sin(now * 23 + (e.fgSeed ?? (e.fgSeed = Math.random() * 9)))) + fl * 0.8 + (dying ? 0.6 * (1 - die) : 0);
   const jit = (pain * 1.6 + rock * 3 + (e.sw && e.sw.ph === 'wind' && e.sw.t > e.sw.T * 0.6 ? 0.8 : 0)) * sc, jx = (Math.random() - 0.5) * jit, jz = (Math.random() - 0.5) * jit;
-  const bulk = e.type === 'brute' ? 1.18 : e.type === 'stalker' ? 0.9 : 1;
+  const bulk = e.type === 'woodcutter' ? 1.22 : e.type === 'brute' ? 1.18 : e.type === 'stalker' ? 0.9 : 1;
   // a kill throws it back off its feet, away from you, before it falls
   const ka = dying ? (e.ka ?? Math.atan2(e.y - S.p.y, e.x - S.p.x)) : 0, fly = dying ? 26 * (1 - Math.pow(1 - Math.min(1, e.t / 0.35), 3)) : 0, hop = dying ? Math.sin(Math.PI * Math.min(1, e.t / 0.35)) * 9 : 0;
   _base.compose(_p.set(e.x + jx + Math.cos(ka) * fly, -die * 4 + hop, e.y + jz + Math.sin(ka) * fly), _q.setFromEuler(_e.set(-die * 1.45, faceYaw(face), 0, 'YXZ')), _s.set(sc * bulk * (1 + sq * 0.6), sc * (1 - die * 0.15) * (1 - sq), sc * bulk * (1 + sq * 0.6)));
@@ -7976,9 +7980,10 @@ function poseFoe(e, now, dt, dying) {
     let up, fw;
     if (s.ph === 'wind') { const k = Math.min(1, s.t / (s.T * 0.6)); up = 1 - (1 - k) * (1 - k); fw = 0; if (s.T - s.t < 0.2 && s.T - s.t > 0) { _p.set(0, 46, 0).applyMatrix4(_base); stat(_p.x, _p.y, _p.z, 9 + 6 * Math.sin(now * 40), 1, 1, 1, 1, 1); } }
     else if (s.ph === 'strike') { const k = Math.min(1, s.t / s.T); up = 1 - k; fw = k; }
-    else { const k = Math.min(1, s.t / s.T); up = 0; fw = (1 - k) * (1 - k); }
+    else { const k = Math.min(1, s.t / s.T); up = 0; fw = s.stuck ? (k < 0.8 ? 1 : (1 - k) / 0.2) : (1 - k) * (1 - k); }   // a stuck axe holds him bent over it
     lean = -0.15 * up + 0.55 * fw; armL = armR = lerp(lerp(-0.4, -2.75, up), -0.6, fw); armZ = 0.35 * up + 0.15 * fw;
-  } else if (e.type === 'spear' && e.ai === 'wind') { armR = -2.6; armL = -0.5; lean = -0.2; }
+  } else if (e.bpose) { const u = e.bpose; if (u <= 1) { armR = -2.7 * u; armL = -0.6 * u; lean = -0.2 * u; twist = -0.5 * u; } else { armR = -0.9; armL = -0.3; lean = 0.3; twist = 0.4; } }   // the hatchet back over his shoulder, then thrown
+  else if (e.type === 'spear' && e.ai === 'wind') { armR = -2.6; armL = -0.5; lean = -0.2; }
   else if (e.type === 'archer' && e.ai === 'draw') { armL = -1.55; armR = -1.5; armZ = -0.1; twist = 0.5; }
   if (pain > 0.05) {   // writhing in your light
     armL = lerp(armL, -1.9 + Math.sin(now * 17 + e.fgSeed) * 0.7, pain); armR = lerp(armR, -2.2 + Math.cos(now * 15 + e.fgSeed) * 0.7, pain);
@@ -7994,6 +7999,9 @@ function poseFoe(e, now, dt, dying) {
   const hk = KIT_HEAD[e.type], dark = hot(dr.deep, b, [200, 90, 30]);
   if (hk === 'hood') { child(_m, hm, 0, 1.2, -0.6, -0.25, 0, 0); scaled(_m, 8.6, 9.4, 8.8); PT.ball.push(_m, dark, em); }
   else if (hk === 'helmet') { child(_m, hm, 0, 2.1, -0.2, -0.1, 0, 0); scaled(_m, 8.4, 5.6, 8.6); PT.ball.push(_m, rgb([110, 112, 106]).map((v, i) => lerp(v, body[i], 0.25)), em); }
+  else if (hk === 'beanie') { child(_m, hm, 0, 2.2, -0.3, -0.12, 0, 0); scaled(_m, 8.8, 6.6, 9); PT.ball.push(_m, hot([150, 40, 34], b, [255, 120, 60]), em); child(_m, hm, 0, 0.6, -0.2, -0.12, 0, 0); scaled(_m, 9.4, 1.8, 9.6); PT.ball.push(_m, hot([110, 30, 26], b, [255, 120, 60]), em);
+    child(_m, hm, 0, 6, -0.8, 0, 0, 0); scaled(_m, 3, 3, 3); PT.ball.push(_m, hot([220, 200, 170], b, [255, 200, 120]), em);   // a bobble on top
+    child(_m, hm, 0, -2.6, 2.2, 0.2, 0, 0); scaled(_m, 7.4, 4.6, 5); PT.ball.push(_m, hot([96, 62, 40], b, [200, 90, 30]), em); }   // and a beard
   else if (hk === 'goggles' || hk === 'visor') { child(_m, hm, 0, 0.9, 3.0, 0, 0, 0); scaled(_m, hk === 'visor' ? 6.4 : 6, 1.7, 1.2); PT.box.push(_m, hk === 'visor' ? rgb([80, 150, 240]) : [0.16, 0.16, 0.15], hk === 'visor' ? 0.6 : 0); }
   // eyes: two points on the front of the head, in its colour, bright in the dark
   const ec = EYES[e.type] ? EYES[e.type].split(',').map(v => +v / 255) : [0.94, 0.94, 0.92], dk = 1 - dayLight() * 0.75;
@@ -8036,6 +8044,13 @@ function poseFoe(e, now, dt, dying) {
   if (e.type === 'spear') { child(_m, armRm, 0, -15, 0, 1.45, 0, 0); _m.multiply(_t.makeTranslation(0, -14, 0)); scaled(_m, 1.3, 40, 1.3); PT.rod.push(_m, hexK('#6e5235'), 0); child(_m, armRm, 0, -15, 0, 1.45, 0, 0); _m.multiply(_t.makeTranslation(0, 26, 0)); scaled(_m, 2.6, 6, 1); PT.cone.push(_m, hexK('#9a9a92'), 0); }
   else if (e.type === 'archer') { const am = child(new M4(), _torso, -5.4, 12.2, 0, armL, 0, -armZ), h = new V3(0, -15, 0).applyMatrix4(am); between(PT.rod, h.x, h.y - 10 * sc, h.z, h.x, h.y + 10 * sc, h.z, 0.7 * sc, hexK('#6b4a2e')); }
   else if (e.type === 'bomber') { child(_m, _torso, 0, 8, -4, 0.3, 0, 0); scaled(_m, 3, 18, 3); PT.rod.push(_m, hexK('#6a6a64'), 0); }
+  else if (e.type === 'woodcutter') {   // his felling axe: a long haft and a broad iron head, with a hatchet at his belt to throw
+    const sk = s ? (s.ph === 'strike' ? Math.min(1, s.t / s.T) : s.ph === 'rec' ? (s.stuck ? Math.min(1, (1 - s.t / s.T) * 5) : 1 - Math.min(1, s.t / s.T)) : 0) : 0, axR = 1.25 + 1.0 * sk;   // the blade swings through and buries itself
+    child(_m, armRm, 0, -15, 0, axR, 0, 0); _m.multiply(_t.makeTranslation(0, 4, 0)); scaled(_m, 1.6, 30, 1.6); PT.rod.push(_m, hexK('#6e5235'), 0);
+    child(_m, armRm, 0, -15, 0, axR, 0, 0); _m.multiply(_t.makeTranslation(0, 17, 2.4)); scaled(_m, 1.3, 6.5, 7); PT.box.push(_m, hexK('#9fa4a8'), 0.1);
+    child(_m, armRm, 0, -15, 0, axR, 0, 0); _m.multiply(_t.makeTranslation(0, 17, 6)); scaled(_m, 0.7, 8, 1.4); PT.box.push(_m, hexK('#d8dcdf'), 0.2);
+    if (!e.hatch && !(e.bpose > 1)) { child(_m, _torso, 4.6, 2, 3.6, 0, 0, 0.3); scaled(_m, 1, 8, 1); PT.rod.push(_m, hexK('#6e5235'), 0); child(_m, _torso, 4.6, 5.5, 4.8, 0, 0, 0.3); scaled(_m, 1, 3, 3.4); PT.box.push(_m, hexK('#b8bcc0'), 0); }   // the hatchet at his belt
+  }
   else if (e.type === 'brute' || e.type === 'tall') { child(_m, armRm, 0, -15, 0, 1.1, 0, 0); scaled(_m, 2.2, 16, 2.2); PT.rod.push(_m, hexK('#4f3a28'), 0); child(_m, armRm, 0, -15, 0, 1.1, 0, 0); _m.multiply(_t.makeTranslation(0, 15, 0)); scaled(_m, 4.4, 5, 4.4); PT.ball.push(_m, hexK('#5a4430'), 0); }
 }
 const arr3 = v => [v.x, v.y, v.z];
@@ -8247,6 +8262,7 @@ function drawFigures(now, dt) {
   const rg = S.rg, D = S.day, p = S.p;
   for (const e of rg.enemies) if (!e.dead && Math.abs(e.x - p.x) < drawR() && Math.abs(e.y - p.y) < drawR() && e.type !== 'centi') poseFoe(e, now, dt, false);
   for (const g of rg.dying) if (g.type !== 'centi') poseFoe(g, now, dt, true);
+  bossFigs(now);
   if (outsideP() && state === 'play') posePlayer(now);
   for (const o of D.beasts) if (Math.abs(o.x - p.x) < drawR() && Math.abs(o.y - p.y) < drawR()) poseBeast(o, now, dt);
 }
@@ -9339,7 +9355,7 @@ function fxText(txt, x, y, size, rgb, a, opt = {}) {   // slanted arcade numeral
 const _q0 = [0, 0, 0], _q1 = [0, 0, 0];
 function combatDraw(rdt, now) {
   const g = fx2, rg = S.rg, p = S.p, alert = alertScan(rdt);
-  const busy = alert || CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
+  const busy = alert || bossBusy() || CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
     || CFX.marks.length || CFX.kflash || (rg.stkfx && (rg.stk && rg.stk.n || rg.stkfx.pops.length || rg.stkfx.words.length || rg.stkfx.tier || rg.stkfx.cash || rg.stkfx.lost || rg.stkfx.drop));
   if (!busy && !fxDirty) return;
   g.setTransform(FD, 0, 0, FD, 0, 0); g.clearRect(0, 0, FW, FH); fxDirty = !!busy;
@@ -9395,6 +9411,7 @@ function combatDraw(rdt, now) {
     const u = w.t, pop = u < 0.12 ? 1.6 - 0.6 * (u / 0.12) : 1, a = u > 0.7 ? (1 - u) / 0.3 : 1, zk = Math.max(0.9, Math.min(1.6, q[2] * 0.9));
     fxText(w.text, q[0], q[1] - 18 * u * zk, 21 * (w.s || 1) * zk, w.col, a, { s: pop, glow: w.col, blur: 12 });
   }
+  bossDraw(g, rdt);
   alertDraw(g, rdt);
   drawThreats(g, rdt);
   stkDrawFp(rdt);
@@ -9780,6 +9797,246 @@ function alertDraw(g, dt) {
     const t = A.lost.t;
     fxText('LOST THEM', cx, Math.max(hy + 40, FH * 0.3), Math.min(40, FW * 0.08), '239,239,234', t < 1.3 ? 1 : 1 - (t - 1.3) / 0.6, { s: spotPopFp(t), glow: '255,200,140', blur: 12 });
   }
+}
+
+;
+// ---------------- the Woodcutter ----------------
+// The hunting camp's keeper, brought over from the main game's woods. He is a fight you learn, not a raider you outrun:
+// every move has a tell you can read. His overhead chop buries the axe in the ground and leaves him open; from range he
+// throws a hatchet that curves out and comes back to his hand; and when you stand near the trees he fells one onto you.
+// Below half his health he gets angry: quicker tells, and a second chop straight after the first. The relic is his to keep
+// until he falls, and he drops his iron war axe when he does.
+const BOSS_CAMP = 0, BOSS_HP = 18, BOSS_LEASH = 640;
+FOES.woodcutter = { hp: BOSS_HP, sp: 62, lightSp: 1, h: 46, w: 18 };
+FOE_AI.woodcutter = bossStep; NO_TOUCH.woodcutter = 1;
+KIT_WEAR.woodcutter = { vest: 1 }; KIT_HEAD.woodcutter = 'beanie';
+FP_NAME.woodcutter = 'WOODCUTTER'; MON_PITCH.woodcutter = 0.7; EYES.woodcutter = '255,120,90';
+const BM = {   // tell, act and recovery for each move (the main game's numbers, a touch quicker for first person)
+  chop:  { tell: 0.95, rec: 1.5, reach: 60, arc: 1.0, lunge: 24 },
+  throw: { tell: 0.7, rec: 0.7, sp: 430, max: 400 },
+  fell:  { tell: 1.75, fall: 0.75, rec: 1.0, near: 150 },
+};
+const bossK = e => e.rage ? 0.78 : 1;   // angry: every tell is shorter
+
+function bossSpawn(C) {
+  spawnFoe('woodcutter', { x: C.x, y: C.y + 20, d: 400 });
+  const e = S.rg.enemies[S.rg.enemies.length - 1];
+  Object.assign(e, { ci: C.i, boss: 1, cap: 1, hp: BOSS_HP, maxHp: BOSS_HP, bHp: BOSS_HP, bs: 'walk', bt: 0, bcd: 1.2, thCd: 2.5, flCd: 4, hx: C.x, hy: C.y });
+  S.rg.ringMsg = { text: 'the woodcutter', sub: 'He keeps the hunting camp · the relic is his', t: 0 }; playRingSting(); addShake(0.45);
+  BOSS.e = e; BOSS.show = 0; BOSS.trail = 1;
+  if (actx) { const t = actx.currentTime; boomAt(t, 70, 38, 0.9, 0.5, sfxGain); noiseAt(t + 0.05, 600, 200, 0.6, 0.3, sfxGain); }
+}
+const BOSS = { e: null, show: 0, trail: 1, roar: 0 };
+function bossSnd(e, kind) {
+  if (!actx) return; const t = actx.currentTime, v = monNear(e, 700); if (v <= 0.02) return;
+  if (kind === 'wind') { noiseAt(t, 500, 1400, 0.45, 0.22 * v, sfxGain); toneAt(t, 110, 0.5, 0.08 * v, 'sawtooth', sfxGain); }
+  else if (kind === 'chop') { boomAt(t, 140, 50, 0.35, 0.6 * v, sfxGain); noiseAt(t, 2200, 500, 0.18, 0.5 * v, sfxGain); }
+  else if (kind === 'thud') { boomAt(t, 220, 120, 0.12, 0.4 * v, sfxGain); noiseAt(t, 1500, 500, 0.08, 0.3 * v, sfxGain); }
+  else if (kind === 'throw') noiseAt(t, 3000, 900, 0.25, 0.3 * v, sfxGain);
+  else if (kind === 'whirr') noiseAt(t, 2600, 1800, 0.12, 0.08 * v, sfxGain);
+  else if (kind === 'crack') { noiseAt(t, 900, 250, 0.5, 0.55 * v, sfxGain); toneAt(t, 80, 0.6, 0.12 * v, 'sawtooth', sfxGain); }
+  else if (kind === 'roar') { toneAt(t, 92, 1.1, 0.22 * v, 'sawtooth', sfxGain); toneAt(t + 0.05, 61, 1.2, 0.18 * v, 'square', sfxGain); noiseAt(t, 700, 200, 1, 0.35 * v, sfxGain); }
+}
+function bossGo(e, bs, extra) { e.bs = bs; e.bt = 0; e.sw = null; e.faceA = null; if (extra) Object.assign(e, extra); }
+function bossWalk(e, tx, ty, sp, dt, stop = 0) {
+  const dx = tx - e.x, dy = ty - e.y, d = Math.hypot(dx, dy) || 1; if (d <= stop) return d;
+  const st = Math.min(d - stop, sp * dt); e.x += dx / d * st; e.y += dy / d * st; return d;
+}
+function bossTree(e) {   // a standing tree near him that would come down across you
+  const p = S.p; let best = null, bd = 1e9;
+  for (const t of propsNear(e.x, e.y, BM.fell.near)) {
+    if (t.kind !== 'tree') continue;
+    const de = dist2(t, e), dp = dist2(t, p), L = treeLen(t);
+    if (de < BM.fell.near && dp > 30 && dp < L * 0.85 && de < bd) { bd = de; best = t; }
+  }
+  return best;
+}
+function bossStep(e, sp0, d, dt) {
+  const p = S.p, rg = S.rg, C = dayCampAt(e.ci), k = bossK(e), sp = FOES.woodcutter.sp * (e.rage ? 1.15 : 1);
+  // what got through since last time: the axe stuck in the ground leaves him open, and every blow counts for more
+  const took = (e.bHp ?? e.hp) - e.hp;
+  if (took > 0 && e.stuck) { e.hp -= took * 0.6; if (!e.openPop) { e.openPop = 1; wpPop('OPEN', e.x, e.y, 60, '255,220,120', 1); } }
+  e.bHp = e.hp;
+  if (!e.rage && e.hp < e.maxHp * 0.5 && e.hp > 0) {   // the second half: he gets angry
+    e.rage = 1; BOSS.roar = 1; bossSnd(e, 'roar'); addShake(0.5); hitStop(0.08);
+    wpPop('ENRAGED', e.x, e.y, 62, '255,90,60', 1.2); exNote('the woodcutter is angry now', true);
+  }
+  if (e.hatch) bossHatch(e, dt);
+  if (e.frozen > 0) return;                          // parried: staggered for a beat
+  e.bt += dt; e.bcd -= dt; e.thCd -= dt; e.flCd -= dt;
+  const far = Math.hypot(p.x - C.x, p.y - C.y) > BOSS_LEASH;
+  if (e.bs === 'walk') {
+    e.faceA = null;
+    if (far || rg.phase !== 'fight') {                // you ran: he goes back to his camp and gets his breath back
+      bossWalk(e, e.hx, e.hy, sp, dt, 20); e.hp = Math.min(e.maxHp, e.hp + dt * 1.2); e.bHp = e.hp; e.rage = e.hp < e.maxHp * 0.5 ? e.rage : 0; return;
+    }
+    if (e.bcd <= 0 && d < BM.chop.reach + 14 && !e.hatch) return bossGo(e, 'chop', { sw: { ph: 'wind', t: 0, T: BM.chop.tell * k, a: Math.atan2(p.y - e.y, p.x - e.x) } }), bossSnd(e, 'wind');
+    if (e.bcd <= 0 && e.flCd <= 0 && d < 340) { const t = bossTree(e); if (t) return bossGo(e, 'tofell', { tree: t }); }
+    if (e.bcd <= 0 && e.thCd <= 0 && !e.hatch && d > 130 && d < BM.throw.max) return bossGo(e, 'throw');
+    bossWalk(e, p.x, p.y, sp * (e.hatch ? 0.7 : 1), dt, BM.chop.reach * 0.7);
+    return;
+  }
+  if (e.bs === 'chop') {
+    const s = e.sw; s.t += dt; e.faceA = s.a;
+    if (s.ph === 'wind') {
+      if (s.t < s.T * 0.7) s.a = Math.atan2(p.y - e.y, p.x - e.x);   // tracks you, then locks
+      if (s.t < s.T * 0.7 && d > BM.chop.reach * 0.6) bossWalk(e, p.x, p.y, sp * 0.45, dt, BM.chop.reach * 0.6);
+      if (s.t >= s.T) { s.ph = 'strike'; s.t = 0; s.T = 0.16; s.hit = false; }
+    } else if (s.ph === 'strike') {
+      const st = Math.min(dt, Math.max(0, s.T - (s.t - dt))) / s.T * BM.chop.lunge; e.x += Math.cos(s.a) * st; e.y += Math.sin(s.a) * st;
+      const dx = p.x - e.x, dy = p.y - e.y, dd = Math.hypot(dx, dy);
+      if (!s.hit && dd < BM.chop.reach && (dd < 14 || Math.abs(angDiff(Math.atan2(dy, dx), s.a)) < BM.chop.arc) && rg.inv <= 0 && rg.phase === 'fight') { s.hit = true; hurt(e); }
+      if (s.t >= s.T) {                                // the axe bites the ground
+        const ix = e.x + Math.cos(s.a) * 30, iy = e.y + Math.sin(s.a) * 30;
+        rg.blasts.push({ x: ix, y: iy, t: 0, life: 0.35, r: 40, col: 'white' }); ashBurst(ix, iy, 10, 14); dayChips(ix, iy, 2, 'stone', 10, undefined, 1.3);
+        (rg.wcracks = rg.wcracks || []).push({ x: ix - Math.cos(s.a) * 8, y: iy - Math.sin(s.a) * 8, a: s.a, len: 30, t: 0, life: 1.4, seed: Math.random() * 99 });
+        addShake(0.3 * monNear(e, 500) + 0.05); bossSnd(e, 'chop'); padRumble(0.4, 90);
+        const again = e.rage && !s.second;             // angry: a second blow straight after the first
+        s.ph = 'rec'; s.t = 0; s.T = again ? 0.35 : BM.chop.rec * (e.rage ? 0.85 : 1); s.stuck = !again; e.stuck = s.stuck; e.openPop = 0;
+        if (s.stuck) wpPop('AXE STUCK', ix, iy, 30, '255,220,120', 0.8);
+      }
+    } else if (s.t >= s.T) {
+      e.stuck = 0;
+      if (rg.phase === 'fight' && !s.stuck && !s.second) { e.sw = { ph: 'wind', t: 0, T: 0.55, a: Math.atan2(p.y - e.y, p.x - e.x), second: 1 }; bossSnd(e, 'wind'); }
+      else bossGo(e, 'walk', { bcd: 0.5 + Math.random() * 0.5 });
+    }
+    return;
+  }
+  if (e.bs === 'throw') {                              // the hatchet goes back over his shoulder, then out
+    e.faceA = Math.atan2(p.y - e.y, p.x - e.x); e.bpose = Math.min(1, e.bt / (BM.throw.tell * k));
+    if (e.bt >= BM.throw.tell * k && !e.hatch) {
+      const a = e.faceA, side = Math.random() < 0.5 ? -1 : 1, max = Math.min(BM.throw.max, d + 70);
+      e.hatch = { x: e.x + Math.cos(a) * 10, y: e.y + Math.sin(a) * 10, a, side, sp: BM.throw.sp * (e.rage ? 1.12 : 1), max, run: 0, back: 0, t: 0, hit: 0, whirr: 0 };
+      bossSnd(e, 'throw'); e.bpose = 2;
+    }
+    if (e.bt >= BM.throw.tell * k + BM.throw.rec) { e.bpose = 0; bossGo(e, 'walk', { thCd: 4 + Math.random() * 2, bcd: 0.4 }); }
+    return;
+  }
+  if (e.bs === 'tofell') {                             // he gets round behind the tree
+    const t = e.tree, a = Math.atan2(t.y - p.y, t.x - p.x), tx = t.x + Math.cos(a) * 26, ty = t.y + Math.sin(a) * 26;
+    if (S.day.felled.has(t.key) || e.bt > 3 || dist2(t, p) > treeLen(t) * 0.95) return bossGo(e, 'walk', { flCd: 2 });
+    if (bossWalk(e, tx, ty, sp * 1.8, dt, 2) < 9) bossGo(e, 'fell', { tree: t, fa: Math.atan2(p.y - t.y, p.x - t.x), cuts: 0 });
+    return;
+  }
+  if (e.bs === 'fell') {
+    const t = e.tree, tell = BM.fell.tell * k;
+    e.faceA = Math.atan2(t.y - e.y, t.x - e.x);
+    if (e.bt < tell * 0.7) e.fa = Math.atan2(p.y - t.y, p.x - t.x);   // it will come down where you are, until the last few blows
+    // three blows into the trunk, each one shaking the crown
+    const cut = Math.floor(e.bt / (tell / 3));
+    if (e.bt < tell) {
+      const u = (e.bt % (tell / 3)) / (tell / 3);
+      e.sw = { ph: u < 0.7 ? 'wind' : 'strike', t: u < 0.7 ? u * 0.4 : (u - 0.7) * 0.5, T: u < 0.7 ? 0.4 : 0.16, a: e.faceA };
+      if (cut > e.cuts) { e.cuts = cut; t.shakeT = S.t; dayChips(t.x, t.y, 10, 'wood', 10, e.faceA + Math.PI, 1.3); bossSnd(e, 'chop'); }
+    } else if (!e.log) {                               // it goes
+      e.cuts = 3; t.shakeT = S.t; e.sw = { ph: 'rec', t: 0, T: 1, a: e.faceA };
+      const D = S.day; D.felled.add(t.key); D.cut.delete(t.key);
+      e.log = { kind: 'poof', type: t.type, seed: t.seed, s: t.s, r: 0, x: t.x, y: t.y, t: 0, T: BM.fell.fall, fa: e.fa, shakeT: S.t, give: {} };
+      D.logs.push(e.log); bossSnd(e, 'crack'); addShake(0.2);
+      const leaf = t.type === 'pine' ? 'needle' : t.type === 'cherry' ? 'petal' : t.type === 'dead' ? 'twig' : 'crown', sc = t.s || 1;
+      dayLeaves(t.x, t.y, 30 * sc, 90 * sc, 18 * sc, leaf, 40);
+    } else if (e.log.t >= BM.fell.fall && !e.landed) {   // it lands: anything under it is hit hard
+      e.landed = 1; const L = treeLen(t), ca = Math.cos(e.fa), sa = Math.sin(e.fa);
+      const along = clamp((p.x - t.x) * ca + (p.y - t.y) * sa, 0, L), qx = t.x + ca * along, qy = t.y + sa * along;
+      if (Math.hypot(p.x - qx, p.y - qy) < 20 && rg.inv <= 0 && rg.phase === 'fight') hurt({ type: 'woodcutter', kind: 'shade', x: qx, y: qy, ref: e });
+      for (let i = 1; i <= 5; i++) { const x = t.x + ca * L * i / 5, y = t.y + sa * L * i / 5; ashBurst(x, y, 6, 8); dayChips(x, y, 4, 'wood', 6, undefined, 1.4); }
+      const leaf = t.type === 'pine' ? 'needle' : t.type === 'cherry' ? 'petal' : 'crown';
+      dayLeaves(t.x + ca * L * 0.8, t.y + sa * L * 0.8, 2, 30, 26, leaf, 60);
+      dayDrop(t.x + ca * L * 0.3, t.y + sa * L * 0.3, 'logs', 1); dayDrop(t.x + ca * L * 0.6, t.y + sa * L * 0.6, 'logs', 1);
+      addShake(0.6 * monNear({ x: t.x + ca * L / 2, y: t.y + sa * L / 2 }, 600) + 0.1); hitStop(0.06); padRumble(0.7, 200);
+      if (actx) { const t0 = actx.currentTime; boomAt(t0, 80, 32, 0.7, 0.75, sfxGain); noiseAt(t0, 4500, 1500, 0.9, 0.2, sfxGain); }
+    }
+    if (e.landed && e.bt >= tell + BM.fell.fall + BM.fell.rec) bossGo(e, 'walk', { tree: null, log: null, landed: 0, flCd: 7 + Math.random() * 3, bcd: 0.3 });
+    return;
+  }
+}
+function bossHatch(e, dt) {                            // out on a curve, then back to his hand
+  const h = e.hatch, p = S.p, rg = S.rg; h.t += dt;
+  if (!h.back) {
+    const st = h.sp * dt; h.run += st;
+    const a = h.a + h.side * 0.9 * (h.run / h.max - 0.4); h.x += Math.cos(a) * st; h.y += Math.sin(a) * st;
+    if (h.run >= h.max) h.back = 1;
+  } else {
+    const dx = e.x - h.x, dy = e.y - h.y, dd = Math.hypot(dx, dy) || 1, st = h.sp * 1.05 * dt;
+    if (dd < 18 || h.t > 4) { e.hatch = null; bossSnd(e, 'thud'); return; }
+    h.x += dx / dd * Math.min(dd, st) + (-dy / dd) * h.side * st * 0.35 * Math.min(1, dd / 200); h.y += dy / dd * Math.min(dd, st) + (dx / dd) * h.side * st * 0.35 * Math.min(1, dd / 200);
+  }
+  if ((h.whirr -= dt) <= 0) { h.whirr = 0.11; bossSnd(h, 'whirr'); }
+  if (!h.hit && Math.hypot(p.x - h.x, p.y - h.y) < 17 && rg.inv <= 0 && rg.phase === 'fight') { h.hit = 1; hurt({ type: 'half', kind: 'shade', x: h.x, y: h.y, ref: e }); }
+}
+function bossDown(e) {                                 // he falls: the camp is yours
+  const st = dayCampState(e.ci), rg = S.rg; st.beat = 1; e.hatch = null;
+  rg.ringMsg = { text: 'the woodcutter falls', sub: 'The hunting camp is yours · take the relic', t: 0 }; playRingSting();
+  addShake(0.9); hitStop(0.22); padRumble(1, 400); ashBurst(e.x, e.y, 60, 50);
+  rg.blasts.push({ x: e.x, y: e.y, t: 0, life: 0.6, r: 110, col: 'white' });
+  dayDrop(e.x, e.y, 'waxe4', 1, DIT.waxe4.dur); gainWisps(40);
+  dayJLog('felled the woodcutter'); lifeAdd('bosses'); dayChanged();
+  if (actx) { const t = actx.currentTime; boomAt(t, 60, 28, 1.4, 0.8, sfxGain); toneAt(t + 0.1, 196, 1.6, 0.12, 'triangle', sfxGain); toneAt(t + 0.25, 294, 1.6, 0.1, 'triangle', sfxGain); }
+}
+
+// ---- drawn: his hatchet in the air, the tells on the ground, his health bar ----
+function bossFigs(now) {
+  for (const e of S.rg.enemies) {
+    const h = e.hatch; if (!h || e.dead) continue;
+    const spin = now * 22, z = 22 + 4 * Math.sin(h.t * 5);
+    _base.compose(_p.set(h.x, z, h.y), _q.setFromEuler(_e.set(0, faceYaw(h.a), 0, 'YXZ')), _s.set(1, 1, 1));
+    child(_torso, _base, 0, 0, 0, spin, 0, 0);
+    child(_m, _torso, 0, -4, 0, 0, 0, 0); scaled(_m, 1.4, 16, 1.4); PT.rod.push(_m, hexK('#6e5235'), 0);
+    child(_m, _torso, 0, 4, 2.4, 0, 0, 0); scaled(_m, 1.2, 5, 5.4); PT.box.push(_m, hexK('#b8bcc0'), 0.15);
+  }
+}
+function wcLive() { const e = BOSS.e; return e && !e.dead && S.rg.enemies.includes(e) ? e : null; }
+function bossBusy() { return !!wcLive() || BOSS.show > 0; }
+function bossGround(g, pts, fill, stroke, lw) {
+  const q = pts.map(([x, y]) => scr(x, 0.8, y)); if (q.some(v => !v)) return;
+  g.beginPath(); q.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+  if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw || 2; g.stroke(); }
+}
+const _hb = { el: null };
+function bossBarY() {   // just above the hotbar, wherever the layout has put it
+  const el = _hb.el || (_hb.el = document.getElementById('hotbar')), r = el && !el.hidden ? el.getBoundingClientRect() : null;
+  return r && r.height ? Math.min(FH - 40, r.top - 18) : FH - 60;
+}
+function bossDraw(g, rdt) {
+  const e = wcLive(), now = S.t;
+  BOSS.show = Math.max(0, Math.min(1, BOSS.show + (e && dist2(e, S.p) < 560 ? rdt * 3 : -rdt * 2)));
+  if (e) {
+    g.globalCompositeOperation = 'source-over';
+    const s = e.sw;
+    if (e.bs === 'chop' && s && s.ph === 'wind') {     // where the axe will land: a wedge that fills as he winds up
+      const u = Math.min(1, s.t / s.T), R = BM.chop.reach, pts = [[e.x, e.y]], pts2 = [[e.x, e.y]];
+      for (let i = 0; i <= 12; i++) { const a = s.a - BM.chop.arc + 2 * BM.chop.arc * i / 12; pts.push([e.x + Math.cos(a) * R, e.y + Math.sin(a) * R]); pts2.push([e.x + Math.cos(a) * R * u, e.y + Math.sin(a) * R * u]); }
+      const pulse = 0.5 + 0.5 * Math.sin(now * 30);
+      bossGround(g, pts, `rgba(255,50,30,${0.16 + 0.1 * u})`, `rgba(255,90,60,${0.6 + 0.4 * u * pulse})`, 3);
+      bossGround(g, pts2, `rgba(255,60,30,${0.3 + 0.25 * u})`);
+    }
+    if (e.bs === 'fell' && e.tree && !e.landed) {      // the tree's line across the ground
+      const t = e.tree, L = treeLen(t), ca = Math.cos(e.fa), sa = Math.sin(e.fa), nx = -sa * 13, ny = ca * 13;
+      const u = Math.min(1, e.bt / (BM.fell.tell * bossK(e))), pulse = 0.5 + 0.5 * Math.sin(now * (14 + 20 * u));
+      const seg = 10;
+      for (let i = 0; i < seg; i++) {
+        const f0 = i / seg, f1 = (i + 1) / seg, x0 = t.x + ca * L * f0, y0 = t.y + sa * L * f0, x1 = t.x + ca * L * f1, y1 = t.y + sa * L * f1;
+        const lit = f1 <= u ? 1 : 0.35;
+        bossGround(g, [[x0 + nx, y0 + ny], [x1 + nx, y1 + ny], [x1 - nx, y1 - ny], [x0 - nx, y0 - ny]], `rgba(255,60,40,${(0.12 + 0.22 * lit) * (0.7 + 0.3 * pulse)})`);
+      }
+      bossGround(g, [[t.x + nx, t.y + ny], [t.x + ca * L + nx, t.y + sa * L + ny], [t.x + ca * L - nx, t.y + sa * L - ny], [t.x - nx, t.y - ny]], null, `rgba(255,90,60,${0.4 + 0.5 * pulse * u})`, 2);
+    }
+    if (e.bs === 'throw' && !e.hatch) {                // a flash on his raised hand
+      const q = scr(e.x, 60, e.y); if (q) { const u = Math.min(1, e.bt / (BM.throw.tell * bossK(e))); g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(255,200,140,${0.5 * u})`; g.beginPath(); g.arc(q[0], q[1], (6 + 10 * u) * Math.min(3, q[2]), 0, 7); g.fill(); g.globalCompositeOperation = 'source-over'; }
+    }
+    BOSS.trail = Math.max(e.hp / e.maxHp, BOSS.trail - rdt * 0.35);
+  }
+  if (BOSS.show <= 0) return;
+  // his name and health along the bottom, over the hotbar, a notch at half where he turns angry
+  const a = BOSS.show, w = Math.min(FW * 0.62, 460), x0 = (FW - w) / 2, y = bossBarY(), hp = e ? Math.max(0, e.hp / e.maxHp) : 0;
+  g.globalCompositeOperation = 'source-over'; g.globalAlpha = a;
+  g.fillStyle = 'rgba(10,8,6,0.72)'; g.fillRect(x0 - 3, y - 3, w + 6, 14);
+  g.fillStyle = 'rgba(255,230,190,0.75)'; g.fillRect(x0, y, w * BOSS.trail, 8);
+  const rage = e && e.rage, r = rage ? 0.5 + 0.5 * Math.sin(now * 10) : 0;
+  g.fillStyle = `rgb(${200 + 55 * r},${50 + 20 * r},${36})`; g.fillRect(x0, y, w * hp, 8);
+  g.fillStyle = 'rgba(10,8,6,0.9)'; g.fillRect(x0 + w / 2 - 1, y - 3, 2, 14);
+  g.globalAlpha = 1;
+  fxText('THE WOODCUTTER', FW / 2, y - 14, Math.min(20, FW * 0.045), rage ? '255,120,90' : '239,232,220', a, { w: 800 });
 }
 
 ;

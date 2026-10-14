@@ -182,7 +182,7 @@ function treesFrame() {
   // the tree you just felled topples away from you, solid, the same tree it was
   for (const g of S.day.logs) if (g.kind === 'poof') {
     const kind = kindOfTree(g), B = TREES[kind][(g.seed * 997 | 0) % TREE_NV]; if (B.n >= TREE_CAP) continue;
-    const u = Math.min(1, g.t / POOF_T), a = g.fa ?? (g.fa = Math.atan2(g.y - S.p.y, g.x - S.p.x));
+    const u = Math.min(1, g.t / (g.T || POOF_T)), a = g.fa ?? (g.fa = Math.atan2(g.y - S.p.y, g.x - S.p.x));
     B.m.setMatrixAt(B.n++, treeMatrix(g, u * u * 1.5, a)); B.m.instanceMatrix.needsUpdate = true;
   }
   for (const k of TREE_KINDS) for (const B of TREES[k]) if (B.m.count !== B.n) { B.m.count = B.e.count = B.n; B.m.instanceMatrix.needsUpdate = true; }

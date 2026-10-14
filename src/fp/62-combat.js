@@ -111,7 +111,7 @@ function fxText(txt, x, y, size, rgb, a, opt = {}) {   // slanted arcade numeral
 const _q0 = [0, 0, 0], _q1 = [0, 0, 0];
 function combatDraw(rdt, now) {
   const g = fx2, rg = S.rg, p = S.p;
-  const busy = CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
+  const busy = homeOn() || CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
     || CFX.marks.length || CFX.kflash || (rg.stkfx && (rg.stk && rg.stk.n || rg.stkfx.pops.length || rg.stkfx.words.length || rg.stkfx.tier || rg.stkfx.cash || rg.stkfx.lost || rg.stkfx.drop));
   if (!busy && !fxDirty) return;
   g.setTransform(FD, 0, 0, FD, 0, 0); g.clearRect(0, 0, FW, FH); fxDirty = !!busy;
@@ -167,7 +167,7 @@ function combatDraw(rdt, now) {
     const u = w.t, pop = u < 0.12 ? 1.6 - 0.6 * (u / 0.12) : 1, a = u > 0.7 ? (1 - u) / 0.3 : 1, zk = Math.max(0.9, Math.min(1.6, q[2] * 0.9));
     fxText(w.text, q[0], q[1] - 18 * u * zk, 21 * (w.s || 1) * zk, w.col, a, { s: pop, glow: w.col, blur: 12 });
   }
-  drawThreats(g, rdt);
+  drawThreats(g, rdt); drawHome(g);
   stkDrawFp(rdt);
 }
 
@@ -391,4 +391,35 @@ function drawThreats(g, dt) {
     g.restore();
     if (u >= 1) CFX.hurt = null;
   }
+}
+
+// ---- the way home: a little house over the camp, or on the ring pointing round to it when it's out of sight ----
+const homeOn = () => state === 'play' && S && S.rg && !S.rg.inCamp && S.rg.phase !== 'dead' && Math.hypot(S.p.x, S.p.y) > 200;
+const _hv = new V3();
+function houseIcon(g, x, y, sz, a) {   // a roof over a little square house with a door, dark-rimmed like the chevrons
+  const path = () => { g.beginPath(); g.moveTo(x, y - sz); g.lineTo(x + sz, y - sz * 0.05); g.lineTo(x + sz * 0.72, y - sz * 0.05); g.lineTo(x + sz * 0.72, y + sz * 0.8); g.lineTo(x - sz * 0.72, y + sz * 0.8); g.lineTo(x - sz * 0.72, y - sz * 0.05); g.lineTo(x - sz, y - sz * 0.05); g.closePath(); };
+  g.save(); g.globalAlpha = a; g.lineJoin = 'round';
+  g.lineWidth = 5; g.strokeStyle = 'rgba(8,6,4,0.75)'; path(); g.stroke();
+  g.fillStyle = 'rgb(255,214,140)'; path(); g.fill();
+  g.fillStyle = 'rgba(70,42,20,0.9)'; g.fillRect(x - sz * 0.2, y + sz * 0.25, sz * 0.4, sz * 0.55);
+  g.restore();
+}
+function drawHome(g) {
+  if (!homeOn()) return;
+  g.globalCompositeOperation = 'source-over';
+  const d = Math.hypot(S.p.x, S.p.y), m = Math.round(d / 20), label = `HOME · ${m} m`;
+  _hv.set(0, terrH(0, 0) + 70, 0).applyMatrix4(cam.matrixWorldInverse);
+  const fwd = -_hv.z, right = _hv.x, cx = FW / 2, cy = FH / 2;
+  if (fwd > 3) {   // in front: over the camp itself, if that's on the screen
+    _hv.applyMatrix4(cam.projectionMatrix);
+    const x = (_hv.x + 1) / 2 * FW, y = (1 - _hv.y) / 2 * FH;
+    if (x > 40 && x < FW - 40 && y > 50 && y < FH - 90) { houseIcon(g, x, y, 11, 0.9); fxText(label, x, y + 24, 11, '255,214,140', 0.85, { w: 700 }); return; }
+  }
+  // out of sight: on the ring round where you aim, the same as what's coming for you, pointing the way round
+  const th = Math.atan2(-fwd, right), RX = FW * 0.36, RY = FH * 0.29, x = cx + Math.cos(th) * RX * 1.12, y = Math.min(FH - 100, cy + Math.sin(th) * RY * 1.12);   // kept clear of the hotbar
+  g.save(); g.translate(x, y); g.rotate(th); g.globalAlpha = 0.85; g.lineJoin = 'round';
+  const tip = () => { g.beginPath(); g.moveTo(26, 0); g.lineTo(16, -7); g.lineTo(16, 7); g.closePath(); };
+  g.lineWidth = 5; g.strokeStyle = 'rgba(8,6,4,0.7)'; tip(); g.stroke(); g.fillStyle = 'rgb(255,214,140)'; tip(); g.fill();
+  g.restore();
+  houseIcon(g, x, y, 10, 0.85); fxText(label, x, y + 22, 10, '255,214,140', 0.75, { w: 700 });
 }

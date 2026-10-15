@@ -2287,6 +2287,7 @@ function exChestsNear(x, y, R) {
 }
 const GATES = [0, Math.PI / 2, Math.PI, Math.PI * 1.5];
 const GATE_HALF = 24 / CAMP_R, WALL_T = 9;
+const CAMP_GATES = false;   // Joe: no gate doors or archway over the gaps, just open gaps in the palisade between two posts
 const angD = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 const exAtGate = a => GATES.some(g => angD(a, g) < GATE_HALF - 7 / CAMP_R);
 const polar = (a, r) => ({ x: Math.cos(a) * r, y: Math.sin(a) * r });
@@ -2305,11 +2306,11 @@ const CAMP = [], CAMP_SOLID = [];
     for (let sd = 0; sd < 2; sd++) {
       const p = ps[sd], out = polar(g + (sd ? 1 : -1) * GATE_HALF * 0.45, CAMP_R + 24);
       CAMP.push({ camp: 'post', kind: 'gatepost', x: p.x, y: p.y, s: 1, cast: { r: 4, len: 90 } });
-      CAMP.push({ camp: 'door', kind: 'gatedoor', x: (p.x + out.x) / 2, y: (p.y + out.y) / 2, ax: p.x, ay: p.y, bx: out.x, by: out.y, s: 1 });
+      if (CAMP_GATES) CAMP.push({ camp: 'door', kind: 'gatedoor', x: (p.x + out.x) / 2, y: (p.y + out.y) / 2, ax: p.x, ay: p.y, bx: out.x, by: out.y, s: 1 });
       CAMP_SOLID.push({ x: p.x, y: p.y, r: 6 });
     }
     const c = polar(g, CAMP_R);
-    CAMP.push({ camp: 'beam', kind: 'gatebeam', x: c.x + 1, y: c.y + 1, ax: ps[0].x, ay: ps[0].y, bx: ps[1].x, by: ps[1].y, s: 1 });
+    if (CAMP_GATES) CAMP.push({ camp: 'beam', kind: 'gatebeam', x: c.x + 1, y: c.y + 1, ax: ps[0].x, ay: ps[0].y, bx: ps[1].x, by: ps[1].y, s: 1 });
   }
   for (const a of [Math.PI * 0.75, Math.PI * 1.25]) {   // watchtowers just inside the wall
     const p = polar(a, CAMP_R - 18);

@@ -25,6 +25,15 @@ function vmPart(parent, geo, m, x, y, z, rx = 0, ry = 0, rz = 0, edge = true) {
 }
 const SLEEVE = '#d0a07a', GLOVE = '#daa880', SKIN = '#c8a07a';   // bare forearms and hands: the sleeves are rolled up (Joe's character sheet)
 const cyl = (r0, r1, h, n = 8) => new THREE.CylinderGeometry(r0, r1, h, n);
+const _sa = new V3(), _sb = new V3(), _sUp = new V3(0, 1, 0);
+function vmString(G, c) {   // lay each half of the bowstring from its tip to the nock, drawn back by c
+  const nock = new V3(0, 0, -3.4 + 9 * c);
+  for (const [n, y] of [['strA', 10.6], ['strB', -10.6]]) {
+    const o = G.getObjectByName(n); if (!o) continue;
+    _sa.set(0, y, -3.4); _sb.subVectors(nock, _sa); const L = _sb.length();
+    o.position.copy(_sa).addScaledVector(_sb, 0.5); o.quaternion.setFromUnitVectors(_sUp, _sb.normalize()); o.scale.set(1, L, 1);
+  }
+}
 const capsule = (r, h) => new THREE.CapsuleGeometry(r, h, 3, 8);
 
 // ---------------- the left hand: the torch that comes on at dusk ----------------
@@ -96,10 +105,11 @@ function itemModel(id) {
     vmPart(G, new THREE.SphereGeometry(2.4, 9, 7).scale(1, 1.6, 1), mat(id === 'maul' ? '#8d8b85' : T.bc || '#6e5235'), 0, 10, 0);
     if (T.spikes) for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; vmPart(G, new THREE.ConeGeometry(0.45, 1.8, 5), mat(T.spikes), Math.cos(a) * 2.3, 10 + (i % 2) * 1.6, Math.sin(a) * 2.3, Math.sin(a) * 1.4, 0, -Math.cos(a) * 1.4, false); }
   } else if (tool === 'bow') {
-    const bw = T.bw || '#9a7040', arc = new THREE.TorusGeometry(11, 0.55, 6, 18, Math.PI * 0.9); arc.rotateZ(Math.PI * 0.55); arc.translate(-9.5, 0, 0); arc.rotateY(Math.PI / 2);
+    const bw = T.bw || '#9a7040', BR = 13.74, BA = 1.9, arc = new THREE.TorusGeometry(BR, 0.55, 6, 18, BA); arc.rotateZ(Math.PI - BA / 2); arc.translate(5.34, 0, 0); arc.rotateY(-Math.PI / 2);   // limbs bellied forward, tips at the string's ends
     const bo = vmPart(G, arc, mat(bw), 0, 0, 0); bo.name = 'bow';
-    const str = new THREE.BufferGeometry(); str.setAttribute('position', new THREE.Float32BufferAttribute([0, 10.6, -3.4, 0, 0, -3.4, 0, -10.6, -3.4], 3));
-    const sl = new THREE.Line(str, new THREE.LineBasicMaterial({ color: 0xefe6d2 })); sl.name = 'string'; G.add(sl);
+    // the string: two thin cords from the bow's tips to the nock (a THREE.Line drew as a long stray line across the view)
+    for (const n of ['strA', 'strB']) { const o = vmPart(G, cyl(0.14, 0.14, 1, 4), mat('#efe6d2', 0.3), 0, 0, 0, 0, 0, 0, false); o.name = n; }
+    vmString(G, 0);
     const ar = new THREE.Group(); ar.name = 'arrow'; G.add(ar);
     const sh = cyl(0.22, 0.22, 20, 5); sh.rotateX(Math.PI / 2); vmPart(ar, sh, mat('#a08a62'), 0, 0, -8, 0, 0, 0, false);
     vmPart(ar, new THREE.ConeGeometry(0.6, 2.2, 5).rotateX(-Math.PI / 2), mat('#4d5560'), 0, 0, -19, 0, 0, 0, false);
@@ -176,8 +186,8 @@ function placeHands(dt, now, bob, lag) {
   }
   if (bow && D.draw) { const c = clamp(D.draw.t / (RNG.bow ? RNG.bow.full : 0.8), 0, 1); cur = lerp6(base, [1.2, -4, -14, -0.02, -0.04, -0.06], Math.min(1, c * 3)); }
   if (G && bow) {   // the string comes back with the draw, the arrow on it
-    const c = D.draw ? clamp(D.draw.t / (RNG.bow ? RNG.bow.full : 0.8), 0, 1) : 0, sl = G.getObjectByName('string'), ar = G.getObjectByName('arrow');
-    const pa = sl.geometry.attributes.position; pa.setZ(1, -3.4 + 9 * c); pa.needsUpdate = true;
+    const c = D.draw ? clamp(D.draw.t / (RNG.bow ? RNG.bow.full : 0.8), 0, 1) : 0, ar = G.getObjectByName('arrow');
+    vmString(G, c);
     ar.visible = !!D.draw || dayAmmoN('bow') > 0; ar.position.z = 9 * c;
   }
   if (G && T.tool === 'sling') { const pu = G.getObjectByName('pouch'); if (D.draw) { const a = now * (8 + 10 * clamp(D.draw.t / 0.8, 0, 1)); pu.position.set(Math.cos(a) * 6, -4 + Math.sin(a) * 2, Math.sin(a) * 6); } else pu.position.set(0, -7, 0); }

@@ -10213,13 +10213,14 @@ function aimBusy() { return !!(S.day && S.day.draw && state === 'play' && !isoP(
 function aimDraw(g) {
   const W = S.day && S.day.draw; if (!W || isoP()) return;
   const R = RNG[W.kind], c = Math.min(1, W.t / R.full), p = S.p, a = S.aimW, s = aimSpread(c), L = aimReach(W.kind, c), now = S.t;
+  const d0 = thirdP() ? 48 : AIM_NEAR * 0.6, a0 = thirdP() ? 48 : 12;   // from behind, start clear of your own body
   const full = c >= 1, col = full ? '255,214,120' : '240,236,226', at = (ang, d, h) => scr(p.x + Math.cos(ang) * d, h, p.y + Math.sin(ang) * d);
   g.globalCompositeOperation = 'source-over'; g.lineCap = 'round';
   // the wedge it could stray across, on the ground
   if (s > 0.004) {
     const pts = [];
-    for (let i = 0; i <= 10; i++) { const q = at(a - s, AIM_NEAR * 0.6 + (L - AIM_NEAR * 0.6) * i / 10, 0.6); if (q) pts.push(q); }
-    for (let i = 10; i >= 0; i--) { const q = at(a + s, AIM_NEAR * 0.6 + (L - AIM_NEAR * 0.6) * i / 10, 0.6); if (q) pts.push(q); }
+    for (let i = 0; i <= 10; i++) { const q = at(a - s, d0 + (L - d0) * i / 10, 0.6); if (q) pts.push(q); }
+    for (let i = 10; i >= 0; i--) { const q = at(a + s, d0 + (L - d0) * i / 10, 0.6); if (q) pts.push(q); }
     if (pts.length > 4) {
       g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
       g.fillStyle = `rgba(${col},${0.07 + 0.08 * c})`; g.fill(); g.strokeStyle = `rgba(${col},0.35)`; g.lineWidth = 1.5; g.stroke();
@@ -10229,7 +10230,7 @@ function aimDraw(g) {
   g.setLineDash([7, 9]); g.lineDashOffset = -now * 60;
   g.strokeStyle = `rgba(${col},${0.25 + 0.35 * c})`; g.lineWidth = full ? 2.5 : 1.6;
   g.beginPath(); let on = false;
-  for (let i = 0; i <= 24; i++) { const u = i / 24, q = at(a, 12 + (L - 12) * u, shotZ(L, u)); if (!q) { on = false; continue; } on ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); on = true; }
+  for (let i = 0; i <= 24; i++) { const u = i / 24, d = 12 + (L - 12) * u; if (d < a0) continue; const q = at(a, d, shotZ(L, u)); if (!q) { on = false; continue; } on ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); on = true; }
   g.stroke(); g.setLineDash([]);
   // where it comes down: brackets either side as wide as it could stray there, closing in on the spot as you draw
   const lx = p.x + Math.cos(a) * L, ly = p.y + Math.sin(a) * L, w = Math.sin(s) * L, m = scr(lx, 1, ly), e = scr(lx - Math.sin(a) * w, 1, ly + Math.cos(a) * w);

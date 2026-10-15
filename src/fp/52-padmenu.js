@@ -3,15 +3,15 @@
 // The d-pad or left stick moves it to the nearest thing in that direction, A presses it, B goes back, left and right slide a
 // slider, LB and RB flip the pack's tabs and the right stick scrolls a long list. Anything the main game made clickable
 // counts, buttons or not (the shim notes every element that's given a click), so new menus come in on their own.
-const PM = { el: null, box: null, cx: 0, cy: 0, dir: '', rep: 0, armT: 0 };
+const PM = { el: null, box: null, cx: 0, cy: 0, dir: '', rep: 0, armT: 0, bar: false };
+// Joe: on a controller you couldn't get round the building menu. With the hammer out, Y now takes the pad into the build bar
+// along the bottom: the d-pad walks its kinds of building, the pieces, turning, snapping and pulling down; A picks, and
+// picking a piece (or B, or Y again) hands the pad back to the game with that piece ready to place.
+function pmBarOk() { return state === 'play' && !menusOpen() && dayTool() === 'build' && !buildbarEl.hidden; }
 function pmBox() {
-  if (!deathCard.hidden) return deathCard;
-  if (!statsEl.hidden) return statsEl;
-  if (!campEl.hidden) return campEl;
-  if (!craftEl.hidden) return craftEl;
-  if (state === 'pause') return $('pause');
-  if (state === 'title') return $('title');
-  return null;
+  const m = !deathCard.hidden ? deathCard : !statsEl.hidden ? statsEl : !campEl.hidden ? campEl : !craftEl.hidden ? craftEl : state === 'pause' ? $('pause') : state === 'title' ? $('title') : null;
+  if (m || !pmBarOk()) PM.bar = false;   // another menu, or the hammer put away, shuts the build bar's hold on the pad
+  return m || (PM.bar ? buildbarEl : null);
 }
 function pmItems(box) {
   const out = [];
@@ -32,7 +32,7 @@ function pmSet(e, scroll = true) {
 }
 // the first thing to pick when a menu opens: what the game itself put first, or the top of the list
 function pmFirst(box, items) {
-  const pref = { title: 'begin', pause: 'resume', deathCard: 'dcGo' }[box.id], p = pref ? $(pref) : box === craftEl ? craftEl.querySelector('.pktab[aria-pressed="true"]') : null;
+  const pref = { title: 'begin', pause: 'resume', deathCard: 'dcGo' }[box.id], p = pref ? $(pref) : box === craftEl ? craftEl.querySelector('.pktab[aria-pressed="true"]') : box === buildbarEl ? box.querySelector('.bp.sel') || box.querySelector('.bc.sel') : null;
   if (p && items.includes(p)) return p;
   if (items.includes(document.activeElement)) return document.activeElement;
   return items[0] || null;
@@ -66,6 +66,7 @@ function pmBack(box) {
   else if (box === craftEl) { if (PK.tab === 'wisps' && statCat) { statCat = null; statOpen = null; renderStats(); } else if (PK.sel) { PK.sel = null; renderPack(); } else $('craftGo').click(); }   // put down what's picked first
   else if (box === campEl) { campEl.hidden = true; }
   else if (box.id === 'pause') unpause();
+  else if (box === buildbarEl) PM.bar = false;
 }
 // called by pollPad every frame a pad is in use; returns true while a menu has the pad
 function padMenu(dt, btn, press, ax, ay, ry) {
@@ -93,9 +94,10 @@ function padMenu(dt, btn, press, ax, ay, ry) {
   }
   // on a recipe, A makes it (its Craft button) and X opens what it takes; everywhere else A presses what's picked
   const go = PM.el.tagName !== 'BUTTON' && PM.el.querySelector('button.rgo1:not([disabled])');
-  if (press(0)) pmPress(go || PM.el);
+  if (press(0)) { const piece = box === buildbarEl && PM.el.classList.contains('bp') && !PM.el.classList.contains('locked'); pmPress(go || PM.el); if (piece) { PM.bar = false; pmTick(); } }
   else if (press(2) && go) pmPress(PM.el);
-  else if (press(1)) pmBack(box);
+  else if (press(1) || (box === buildbarEl && press(3))) pmBack(box);
+  if (box === buildbarEl && (press(4) || press(5))) { stCatCycle(press(5) ? 1 : -1); pmSet(null); }   // LB RB: the kinds of building
   if (box === craftEl && (press(4) || press(5))) {   // LB RB: the pack's tabs
     const tabs = [...craftEl.querySelectorAll('.pktab')], i = tabs.findIndex(b => b.getAttribute('aria-pressed') === 'true');
     const t = tabs[(i + (press(5) ? 1 : tabs.length - 1)) % tabs.length]; if (t) { t.click(); pmSet(null); }
@@ -108,3 +110,20 @@ function padMenu(dt, btn, press, ax, ay, ry) {
   return true;
 }
 const pmTick = () => { try { sfx(2.2, 0.03, 'bandpass', 2400, 0.06); } catch (e) {} };
+
+// the line of controller help along the bottom: what each button does right now, in a menu, in the build bar or out in the world
+function padHintText() {
+  const box = PM.box;
+  if (box === buildbarEl) return 'D-pad move · A pick · LB RB kind of building · B done';
+  if (box === craftEl) return 'A select · X details · LB RB tabs · B back';
+  if (box) return 'A select · B back';
+  if (state !== 'play') return '';
+  if (dayTool() === 'build') return 'Y build menu · RT place · X build it · D-pad ↑↓ piece ←→ turn · LB RB hotbar · View pack';
+  return 'RT attack · B dodge · X use · Y special · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause';
+}
+function padHintStep() {
+  const el = $('padHint'); if (!el) return;
+  const t = inputMode === 'pad' ? padHintText() : '';
+  if (t !== el.textContent) el.textContent = t;
+  el.classList.toggle('show', !!t); el.classList.toggle('inmenu', !!PM.box && PM.box !== buildbarEl);
+}

@@ -129,19 +129,21 @@ function pollPad(dt) {
     for (let i = 0; i < gp.buttons.length; i++) if (btn(i)) any = true;
     if (any) setMode('pad');
     if (inputMode !== 'pad') continue;
-    IN.mx += mx; IN.my += my;
-    // the right stick turns straight away: a gentle curve keeps small pushes fine, and held right over it speeds up within a beat
-    const mag = Math.hypot(rx, ry), curve = mag > 0 ? Math.pow(mag, 1.3) / mag : 0;
-    padTurn = mag > 0.85 ? Math.min(1, padTurn + dt * 6) : Math.max(0, padTurn - dt * 8);
-    IN.lx += rx * curve * (3.8 + 1.8 * padTurn) * SET.sens * dt; IN.ly += ry * curve * 2.6 * SET.sens * dt;
     const press = i => btn(i) && !padPrev[i];
     const inMenu = padMenu(dt, btn, press, gp.axes[0] || 0, gp.axes[1] || 0, ry);
+    if (!inMenu) {   // in the build bar you stand still while the sticks pick
+      IN.mx += mx; IN.my += my;
+      // the right stick turns straight away: a gentle curve keeps small pushes fine, and held right over it speeds up within a beat
+      const mag = Math.hypot(rx, ry), curve = mag > 0 ? Math.pow(mag, 1.3) / mag : 0;
+      padTurn = mag > 0.85 ? Math.min(1, padTurn + dt * 6) : Math.max(0, padTurn - dt * 8);
+      IN.lx += rx * curve * (3.8 + 1.8 * padTurn) * SET.sens * dt; IN.ly += ry * curve * 2.6 * SET.sens * dt;
+    }
     if (state === 'play' && !menusOpen() && !inMenu) {   // a press that just shut a menu (B to back out) isn't also a dodge or a swing
       if (press(7) || press(0)) attack();
       const a = btn(7) || btn(0); if (padAtk && !a) rngUp(); padAtk = a;
       if (press(1)) dodge();
       if (press(2)) useNow();
-      if (press(3)) wpSpecial();
+      if (press(3)) { if (dayTool() === 'build') { if (pmBarOk()) PM.bar = true; } else wpSpecial(); }   // with the hammer, Y opens the build bar
       if (press(4)) daySelect((S.day.hot + HOTN - 1) % HOTN);
       if (press(5)) daySelect((S.day.hot + 1) % HOTN);
       if (press(6)) exDrink();
@@ -154,6 +156,7 @@ function pollPad(dt) {
     if (press(9)) { if (state === 'play') IN.pause = true; else if (state === 'pause') unpause(); else if (state === 'title' && ready) startRun(false); }
     for (let i = 0; i < gp.buttons.length; i++) padPrev[i] = btn(i);
   }
+  padHintStep();
 }
 // what your hands ask of you this frame
 function readMove() {

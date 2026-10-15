@@ -115,8 +115,10 @@ body.playing #bMenu:not([hidden]) { display: block; }
 body.playing:not(.touch) #bPack2 { display: block; }
 #stick { position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 1px solid rgba(239,239,234,0.28); background: rgba(5,5,5,0.25); pointer-events: none; display: none; }
 #knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(239,239,234,0.32); }
-#padHint { position: fixed; left: 0; right: 0; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 0.6rem; letter-spacing: 0.14em; color: rgba(138,138,138,0.9); pointer-events: none; display: none; text-transform: uppercase; }
-body.pad.playing #padHint { display: block; }
+#padHint { position: fixed; left: 50%; transform: translateX(-50%); top: calc(14px + env(safe-area-inset-top, 0px)); max-width: calc(100vw - 420px); text-align: center; font-size: 0.62rem; letter-spacing: 0.12em; line-height: 1.5; color: rgba(236,228,212,0.9); background: rgba(14,11,8,0.55); padding: 4px 12px; border-radius: 6px; pointer-events: none; display: none; text-transform: uppercase; z-index: 60; }
+@media (max-width: 760px) { #padHint { top: auto; bottom: calc(6px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 24px); } }
+#padHint.show { display: block; }
+#padHint.inmenu { background: rgba(14,11,8,0.85); }
 /* the wisp upgrades, shown as a tab of the pack, styled as they are on their own */
 #pkBody .wispsTab h3 { margin: 0.4rem 0 0; font: 600 0.72rem var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--bone); display: flex; justify-content: space-between; gap: 1rem; }
 #pkBody .wispsTab h3 span { color: var(--ash); font-weight: 400; }

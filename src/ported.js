@@ -4428,15 +4428,16 @@ function dayDrawRelease() {                       // let go: it flies
   const c = Math.max(0.2, Math.min(1, W.t / R.full));   // v192: a tap is a weak flick; the full draw is what pays
   const s = dayAmmo(W.kind); if (!s) return;
   D.st = Math.max(0, D.st - R.st); D.stT = 0;
-  dayLoose(W.kind, s, c, W.a, 0, 1);
+  const G = aimLooseAt(W.kind, c);   // the guide's sums (66-aim): it strays inside the wedge and comes down at the ring
+  dayLoose(W.kind, s, c, W.a, G.off, 1, G.L);
   dayWear(); S.rg.rngCd = W.kind === 'bow' ? 0.3 : 0.25;
 }
-function dayLoose(kind, s, c, a, spread, kk) {   // one arrow or one stone, from the stack s, drawn to c (0..1)
+function dayLoose(kind, s, c, a, spread, kk, L) {   // one arrow or one stone, from the stack s, drawn to c (0..1)
   const T = heldIt(), A = DIT[s.id], R = RNG[kind], p = S.p;
   const am = s.id === 'stones' ? 0.8 : A.am || 1, dmg = R.base * (T ? T.dmg * dayFgDmg() : 1) * am * (0.25 + 0.75 * c * c) * kk * (1 + 0.12 * sr('might'));
-  const sp = R.sp[0] + (R.sp[1] - R.sp[0]) * c, max = R.rng[0] + (R.rng[1] - R.rng[0]) * c, b = a + spread;
+  const sp = R.sp[0] + (R.sp[1] - R.sp[0]) * c, max = L || R.rng[0] + (R.rng[1] - R.rng[0]) * c, b = a + spread;
   (S.rg.dshots = S.rg.dshots || []).push({ kind: kind === 'bow' ? 'arrow' : 'stone', id: s.id, x: p.x + Math.cos(b) * 12, y: p.y + Math.sin(b) * 12, z: 22, a: b, d: 0, max, sp, dmg, c,
-    inf: dayInf(), named: T === DIT.nbow, pierce: T === DIT.nbow && c >= 0.95 ? 99 : A.pierce ? 1 : 0, fire: !!A.fire, bleed: !!A.bleed, stun: kind === 'sling' ? (0.25 + 0.4 * c) * kk : 0, knock: kind === 'sling' ? 10 + 22 * c * kk : 6 + 8 * c, hit: new Set(), t: 0, tr: [] });
+    inf: dayInf(), named: T === DIT.nbow, pierce: T === DIT.nbow && c >= 0.95 ? 99 : A.pierce ? 1 : 0, fire: !!A.fire, bleed: !!A.bleed, stun: kind === 'sling' ? (0.25 + 0.4 * c) * kk : 0, knock: kind === 'sling' ? 10 + 22 * c * kk : 6 + 8 * c, hit: new Set(), t: 0, tr: [], arc: 1 });
   dayAmmoUse(s);
   camKick(a, kind === 'bow' ? -2 - 3 * c : -2); addShake(0.04 + 0.08 * c);
   if (actx) { const t = actx.currentTime;
@@ -4504,12 +4505,12 @@ function dayShotStep(dt) {
     const st = q.sp * dt, n = Math.max(1, Math.ceil(st / 9));
     for (let k = 0; k < n && !q.done; k++) {
       q.x += Math.cos(q.a) * st / n; q.y += Math.sin(q.a) * st / n; q.d += st / n;
-      const u = Math.min(1, q.d / q.max); q.z = q.lob ? 24 + 70 * 4 * u * (1 - u) - 20 * u : 22 - (q.kind === 'stone' ? 14 : 10) * u * u;
+      const u = Math.min(1, q.d / q.max); q.z = q.lob ? 24 + 70 * 4 * u * (1 - u) - 20 * u : q.arc ? shotZ(q.max, u) : 22 - (q.kind === 'stone' ? 14 : 10) * u * u;
       if (q.lob) { if (u >= 1) q.done = true; continue; }
       for (const o of rg.enemies) if (!o.dead && !q.hit.has(o) && Math.hypot(o.x - q.x, o.y - q.y) < (FOES[o.type] ? FOES[o.type].w : 12) * 0.6 + 5) {
         q.hit.add(o); dayShotHit(q, o, false); if (q.pierce-- <= 0) { q.done = q.stop = true; break; }
       }
-      if (!q.done) for (const b of D.beasts) if (!b.dead && !b.tame && !q.hit.has(b) && Math.hypot(b.x - q.x, b.y - q.y) < BEAST[b.k].w * 0.6 + 5) {
+      if (!q.done) for (const b of D.beasts) if (!b.dead && !b.tame && !q.hit.has(b) && Math.hypot(b.x - q.x, b.y - q.y) < BEAST[b.k].w * 0.6 + (q.arc ? 8 : 5)) {
         q.hit.add(b); dayShotHit(q, b, true); if (q.pierce-- <= 0) { q.done = q.stop = true; break; }
       }
       if (!q.done && (q.d >= q.max || wpSolidAt(q.x, q.y, 2))) q.done = true;

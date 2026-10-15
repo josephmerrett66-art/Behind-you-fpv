@@ -1435,7 +1435,7 @@ function killFoe(e) {
   if (lv('embers')) rg.fires.push({ x: e.x, y: e.y, r: 28 + 8 * lv('embers'), life: 2 + 1.5 * lv('embers'), max: 2 + 1.5 * lv('embers'), seed: Math.random() * 9, freeze: isEx() && rawLv('smoulder') > 2 });
   if (lv('nova') && rg.nova < 12) { rg.nova++; if (rg.nova === 12) sfx(2.5, 0.4, 'bandpass', 2200, 0.3); }
   if (e.type === 'splitter') splitApart(e);
-  if (S.day && Math.random() < (e.type === 'brute' || e.type === 'tall' ? 0.8 : 0.3)) dayDrop(e.x, e.y, 'meat', e.type === 'brute' || e.type === 'tall' ? 2 : 1);   // Daylight: some leave meat
+  if (S.day && Math.random() < (e.type === 'brute' || e.type === 'tall' ? 0.25 : 0.1)) dayDrop(e.x, e.y, 'meat', 1);   // Daylight: now and then one leaves meat (Joe: about 1 in 10, so they're in the way, not a larder)
   e.dead = true; rg.kills++; rg.waveKills++; lifeAdd('kills'); lifeTally('kt', e.type);
   if (S.mode === 'survive' && rg.phase === 'fight' && rg.toSpawn <= 0 && !rg.enemies.some(o => !o.dead)) jfSlow(false);   // v202: the last of the wave
   rg.dying.push({ x: e.x, y: e.y, type: e.type, dir: e.dirFace ?? foeDir(e), phase: e.phase, t: 0, segs: e.type === 'centi' ? centiSegs(e).filter((q, i) => centiOut(e, i)) : null, hz: e.hz, k: e.k });
@@ -2240,7 +2240,7 @@ function exWeight() {                       // heavy loot slows you; a burning r
   return Math.max(0.6, 1 - 0.04 * exLoad() * (1 - 0.2 * (XS.frame || 0)));
 }
 function exSafeAt(x, y, pad = 0) {           // inside the camp fence or an outpost's light?
-  if (NO_CAMP) { if (Math.hypot(x, y) < PIT_R + pad) return { x: 0, y: 0, r: PIT_R }; }   // Joe: just the fire pit's light now
+  if (NO_CAMP) { if (Math.hypot(x, y) < PIT_R + pad) return { x: 0, y: 0, r: PIT_R }; const h = hearthAt(x, y, pad); if (h) return h; }   // Joe: just the fire pit's light now
   else if (Math.hypot(x, y) < CAMP_R + pad) return { x: 0, y: 0, r: CAMP_R };
   if (XS) for (const o of XS.outposts) if (Math.hypot(x - o.x, y - o.y) < OUT_R + pad) return { x: o.x, y: o.y, r: OUT_R };
   if (XS && XS.dgrace && S.rg && S.rg.beyond && !S.rg.next && Math.hypot(x - XS.dgrace.x, y - XS.dgrace.y) < OUT_R + pad) return { x: XS.dgrace.x, y: XS.dgrace.y, r: OUT_R };   // the lantern by a keeper's ground
@@ -2739,6 +2739,7 @@ function dayBegin() {
     camps: new Map(), heat: 0, raids: 0, caught: 0, away: 0, jlog: [], bag: {}, siege: null, won: 0, scout: null, scoutT: 55 };   // v155: the raider camps, the heat and the journal   // v153: the cold, your wounds and the night   // v152: what you've built on the grid, and where your bed is
   S.rg = exNewRun(); exPlaceHome(); wpInit(); S.day.baseHp = S.rg.maxHp;
   if (NO_CAMP) addTo(S.day.inv, 'tarp', 1, undefined, slotOrder(S.day, 'tarp'));   // all you start with
+  cacheSeed();   // the sealed caches, and what opens them (69-herd)
   S.msg = NO_CAMP ? { text: 'daylight', sub: 'You\'re thirsty', t: 0 } : { text: 'daylight', sub: 'Sticks and stones lie on the ground · walk up to them and press Take', t: 0 };
   dayChanged();
 }
@@ -2787,7 +2788,7 @@ function takeFrom(arr, id, n, order) {         // take up to n out of a set of s
 const dayRoom = k => roomIn(S.day.inv, k);
 function daySee(id, quiet) {                   // the first time you hold something, the recipes it finishes show up in your book
   const D = S.day; if (D.seen.has(id)) return; D.seen.add(id);
-  const found = DREC.filter(r => !D.known.has(r.id) && Object.keys(r.cost).every(k => D.seen.has(k)));
+  const found = DREC.filter(r => !D.known.has(r.id) && Object.keys(r.cost).every(k => D.seen.has(k)) && (!r.need || D.seen.has(r.need)));   // r.need: shows up only once you've held that
   if (!found.length) return;
   for (const r of found) { D.known.add(r.id); D.fresh.add(r.id); }
   if (quiet) return;
@@ -2949,6 +2950,7 @@ function dayVerb() {
   if (T.thr) return 'Throw';
   if (T.tool === 'build') { const D = S.day; if (D.bdel) return stAimed() ? 'Pull down' : 'Point at it'; const g = stGhost(); if (g && g.ok) return 'Place'; const o = stWorkTarget(); return o ? (o.done ? 'Mend' : 'Build') : 'Place'; }
   if (T.tool === 'rod') { const F = S.day.fish; return F ? (F.st === 'bite' ? 'Pull!' : 'Reel in') : 'Cast'; }
+  if (T.tool === 'bell') return 'Ring';
   if (T.k === 'med') return 'Bind';
   return T.k === 'food' ? 'Eat' : T.k === 'drink' ? 'Drink' : T.k === 'place' ? 'Place' : T.k === 'gear' ? 'Wear' : T.tool === 'axe' ? 'Chop' : T.tool === 'pick' ? 'Mine' : 'Attack';
 }
@@ -2969,6 +2971,7 @@ function dayPrimary() {                          // true when what you hold is u
     return true;
   }
   if (T.tool === 'rod') { if (!S.p.act) dayCast(); return true; }
+  if (T.tool === 'bell') { if (!S.p.act) herdRing(); return true; }
   if (T.k === 'med') { if (!S.p.act) dayBind(D.inv, D.hot); return true; }
   if (T.k === 'food') { dayEat(D.inv, D.hot); return true; }
   if (T.k === 'drink') { dayDrink(D.inv, D.hot); return true; }
@@ -2998,7 +3001,7 @@ function dayUseTarget() {                        // the nearest thing in reach y
   for (const f of D.drops) { const d = dist2(f, p); if (d < bd) { bd = d; best = f; } }
   for (const o of dayNodesNear(p.x, p.y, 60)) if ((o.t === 'sticks' || o.t === 'stones' || o.t === 'shroom') && !o.gone) { const d = dist2(o, p); if (d < bd) { bd = d; best = o; } }
   for (const c of exChestsNear(p.x, p.y, 60)) if (!S.rg.looted.has(c.key)) { const d = dist2(c, p) - 8; if (d < bd) { bd = d; best = c; } }
-  for (const B of D.builds) if (B.t === 'chest' || B.t === 'rainb' || B.t === 'tcol' || B.t === 'plot' || B.t === 'signal' || B.t === 'tpost' || STN_N[B.t]) { const d = dist2(B, p) - (B.t === 'plot' ? 22 : B.t === 'signal' ? 24 : STN_N[B.t] ? 16 : 12); if (d < bd) { bd = d; best = B; } }   // v163: stations too
+  for (const B of D.builds) if (B.t === 'chest' || B.t === 'cache' || B.t === 'rainb' || B.t === 'tcol' || B.t === 'plot' || B.t === 'signal' || B.t === 'tpost' || STN_N[B.t]) { const d = dist2(B, p) - (B.t === 'plot' ? 22 : B.t === 'signal' ? 24 : STN_N[B.t] ? 16 : 12); if (d < bd) { bd = d; best = B; } }   // v163: stations too
   for (const o of dayCampsNear(p.x, p.y, 70)) if (o.sub === 'relic' || (o.sub === 'wrack' && !dNamed()['rack' + o.ci])) { const d = dist2(o, p) - 12; if (d < bd) { bd = d; best = o; } }   // v155: the relic on its cairn
   { const P = lakeAt(p.x, p.y, 30); if (P && (D.water < FOOD_MAX - 2 || D.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS))) { const d = Math.max(0, Math.hypot(P.x - p.x, P.y - p.y) - P.rad); if (d < bd) { bd = d; best = P; } } }
   if (S.rg.inCamp) {
@@ -3011,7 +3014,7 @@ function dayUseTarget() {                        // the nearest thing in reach y
   return best;
 }
 const STN_N = { bench: 'Workbench', furnace: 'Furnace', rack: 'Drying rack', fire: 'Fire', anvil: 'Forge' };
-const useLabel = o => o.t === 'rainb' || o.t === 'tcol' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o.kind === 'dst' && o.k === 'bed' && o.done ? 'Sleep' : o === EX_FIRE ? 'Cook' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
+const useLabel = o => o.t === 'cache' ? cacheLabel(o) : o.t === 'rainb' || o.t === 'tcol' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o.kind === 'dst' && o.k === 'bed' && o.done ? 'Sleep' : o === EX_FIRE ? 'Cook' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
 function openStation(t) {                         // v163: the craft tab, opened on what this station makes (ready ones first)
   const D = S.day, at = t === 'fire' ? 'fire' : t, known = DREC.filter(r => D.known.has(r.id) && r.at === at);
   const pick = known.find(r => canCraft(r) === true) || known[0];
@@ -3028,6 +3031,7 @@ function dayUse() {
   if (o.t === 'plot') { dayPlotPlant(o); return; }
   if (o.t === 'rainb') { rainbUse(o); return; }
   if (o.t === 'tcol') { tcolUse(o); return; }
+  if (o.t === 'cache') { cacheUse(o); return; }
   if (o.kind === 'dcamp') { if (o.sub === 'wrack') dayRackLoot(o); else dayRelicTake(o); return; }
   if (o.t === 'signal') { if (!S.day.siege) daySignalLight(o); else dayNote('burning', 'it is already burning', 2); return; }
   if (o.t === 'tpost') { dayPostFeed(o); return; }
@@ -3155,7 +3159,7 @@ function beastStep(dt) {
       if (at !== undefined && D.t - at < BEAST_BACK) continue;   // a chunk you hunted fills again only after a long while
       D.bchunks.set(key, D.t);
       const cx = (ci + 0.5) * BC, cy = (cj + 0.5) * BC, far = Math.hypot(cx, cy);
-      if (far < CAMP_R + 300 || D.beasts.some(b => b.chunk === key && !b.dead) || D.beasts.filter(b => !b.dead).length >= BEAST_CAP || Math.random() < BEAST_SKIP) continue;
+      if (far < CAMP_R + 300 || D.beasts.some(b => b.chunk === key && !b.dead) || D.beasts.filter(b => !b.dead && !b.pen).length >= BEAST_CAP || Math.random() < BEAST_SKIP) continue;
       const r = Math.random(), herd = (k, n) => { for (let i = 0; i < n; i++) D.beasts.push({ kind: 'beast', k, chunk: key, x: cx + (Math.random() - 0.5) * BC * 0.6, y: cy + (Math.random() - 0.5) * BC * 0.6, r: 0, s: 1, hp: BEAST[k].hp, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, stag: k === 'deer' && Math.random() < 0.35 }); };
       if (far > IRON_FROM && r < (dayNight() ? 0.34 : 0.17)) herd('wolf', 2 + Math.floor(Math.random() * 3));   // v154: the deep woods hunt back
       else if (far > 2600 && r < 0.2) herd('bear', 1);
@@ -3169,6 +3173,7 @@ function beastStep(dt) {
     if (b.dead) { b.dieT += dt; continue; }
     b.t -= dt;
     if (B.pack || b.tame) { wolfPack(b, dt, d, dx, dy); }
+    else if (b.pen || b.lead > 0) herdStep(b, dt, d, dx, dy);   // following the bell, or kept in a pen (69-herd)
     else if (b.st === 'graze') {
       if (b.t <= 0) { b.t = 1.5 + Math.random() * 3; b.dir = Math.random() * 7; b.sp = Math.random() < 0.5 ? 0 : 18; }
       if (d < (S.day.crouch ? B.scare * sneakHide(b, dx, dy) : B.scare * (Math.hypot(p.vx, p.vy) > 60 ? 1 : 0.6))) beastScare(b);
@@ -3191,7 +3196,7 @@ function beastStep(dt) {
     b.ph += dt * (2 + b.sp * 0.09);
     b.face = Math.cos(b.dir) - Math.sin(b.dir) >= 0 ? 1 : -1;   // which way it faces on screen
   }
-  D.beasts = D.beasts.filter(b => !(b.dead && b.dieT > 1.2) && Math.hypot(b.x - p.x, b.y - p.y) < 2600);
+  D.beasts = D.beasts.filter(b => !(b.dead && b.dieT > 1.2) && (b.pen || Math.hypot(b.x - p.x, b.y - p.y) < 2600));   // a penned herd stays put while you're away
 }
 function beastScare(b) {
   if (dayEffigyNear(b.x, b.y) && !b.tame) {        // v155: nothing wild comes near the effigy
@@ -3410,10 +3415,14 @@ function dayMakeBuild(t, cx, cy, a, fake) {
     for (const k of [-1, 1]) B.parts.push({ camp: 'stakes', kind: 'stakes', x: cx + ux * k * 13, y: cy + uy * k * 13, a, s: 1, seed: Math.random(), build: B });
   } else if (t === 'bench') {
     B.parts.push({ kind: 'dbuild', sub: 'bench', x: cx, y: cy, r: 15, s: 1, build: B });
-  } else if (t === 'chest' || t === 'basket' || t === 'smoke' || t === 'compost') {   // the basket, smokehouse and compost heap are chests that work by themselves (67-home)
-    if (t !== 'chest') { B.t = 'chest'; B[t === 'basket' ? 'basket' : t === 'smoke' ? 'smoke' : 'comp'] = 1; }
-    B.inv = Array(t === 'basket' ? BASKET_SLOTS : t === 'smoke' ? 6 : t === 'compost' ? 4 : CHEST_SLOTS).fill(null);
-    B.parts.push({ kind: 'dbuild', sub: 'chest', x: cx, y: cy, r: 11, s: 1, build: B });
+  } else if (t === 'cache') {                    // a sealed stone cache or locked chest out in the woods (69-herd)
+    B.parts.push({ kind: 'dbuild', sub: 'cache', x: cx, y: cy, r: 12, s: 1, build: B });
+  } else if (t === 'hearth') {
+    B.parts.push({ kind: 'dbuild', sub: 'hearth', x: cx, y: cy, r: 7, s: 1, build: B });
+  } else if (t === 'chest' || t === 'basket' || t === 'smoke' || t === 'compost' || t === 'pen') {   // the basket, smokehouse and compost heap are chests that work by themselves (67-home)
+    if (t !== 'chest') { B.t = 'chest'; B[t === 'basket' ? 'basket' : t === 'smoke' ? 'smoke' : t === 'pen' ? 'pen' : 'comp'] = 1; }
+    B.inv = Array(t === 'basket' ? BASKET_SLOTS : t === 'smoke' ? 6 : t === 'compost' ? 4 : t === 'pen' ? PEN_SLOTS : CHEST_SLOTS).fill(null);
+    B.parts.push({ kind: 'dbuild', sub: 'chest', x: cx, y: cy, r: t === 'pen' ? 7 : 11, s: 1, build: B });
   } else if (t === 'furnace' || t === 'rack' || t === 'anvil') {
     B.parts.push({ kind: 'dbuild', sub: t, x: cx, y: cy, r: t === 'furnace' ? 15 : t === 'anvil' ? 14 : 17, s: 1, build: B });
   } else if (t === 'tpost' || t === 'effigy') {
@@ -3721,7 +3730,7 @@ function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {
 function daySave() {
   const D = S && S.day, rg = S && S.rg; if (ARENA || !D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
-    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp'];   // v155
+    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp', 'cacheV', 'herd'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
   d.seen = [...D.seen]; d.known = [...D.known]; d.fresh = [...D.fresh];
   d.felled = [...D.felled]; d.cut = [...D.cut]; d.bchunks = [...D.bchunks];
@@ -3730,8 +3739,8 @@ function daySave() {
   d.camps = [...D.camps].map(([i, c]) => [i, { seen: c.seen, took: c.took, beat: c.beat }]);
   d.bld = [...D.bld.values()].map(stOut); d.brot = D.brot || 0; d.bsnap = D.bsnap !== false;
   d.logs = D.logs.flatMap(g => [['logs', g.give.logs], ['sticks', g.give.sticks]].filter(([, n]) => n).map(([it, n]) => ({ it, n, x: Math.round(g.bx + g.ux * g.len / 2), y: Math.round(g.by + g.uy * g.len / 2), t: 0 })));   // a tree still falling is saved as its logs
-  d.beasts = D.beasts.filter(b => !b.dead).map(b => ({ k: b.k, x: Math.round(b.x), y: Math.round(b.y), hp: b.hp, stag: b.stag, chunk: b.chunk, tame: b.tame, fed: b.fed }));
-  d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, smoke: B.smoke, comp: B.comp, cT: B.cT, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit }));
+  d.beasts = D.beasts.filter(b => !b.dead).map(b => ({ k: b.k, x: Math.round(b.x), y: Math.round(b.y), hp: b.hp, stag: b.stag, chunk: b.chunk, tame: b.tame, fed: b.fed, pen: b.pen || undefined }));
+  d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, smoke: B.smoke, comp: B.comp, pen: B.pen, bT: B.bT, ck: B.ck, rw: B.rw, open: B.open, cT: B.cT, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit }));
   const out = { v: 2, at: Date.now(), d, p: { x: Math.round(S.p.x), y: Math.round(S.p.y) }, rg: { hp: rg.hp, steel: rg.steel || 0, flask: rg.flask, kills: rg.kills || 0, looted: [...rg.looted], wisp: rg.wispCarry || 0 }, xs: XS };
   try { localStorage.setItem(dayKey(), JSON.stringify(out)); } catch (e) {}
 }
@@ -3757,8 +3766,9 @@ function dayLoad(sv) {                          // pick a saved run back up wher
   D.baseHp = D.baseHp || rg.maxHp;
   D.beasts = d.beasts.map(b => ({ kind: 'beast', r: 0, s: 1, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, ...b }));
   for (const sv of d.bld || []) stMake(sv);
-  for (const B of d.builds) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
+  for (const B of d.builds) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.pen ? 'pen' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.bT) nb.bT = B.bT; if (B.ck) { nb.ck = B.ck; nb.rw = B.rw; nb.open = B.open; } if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
   if (NO_CAMP && !D.noCamp) campToBuilds();
+  if (!D.cacheV) cacheSeed();
   if (NO_CAMP) D.builds = D.builds.filter(B => !(B.t === 'fire' && Math.hypot(B.x - EX_FIRE.x, B.y - EX_FIRE.y) < 2));   // the fire an earlier version built on the pit's spot   // a run from when there was a camp keeps its box, barrel and fire
   rg.hp = sv.rg.hp; rg.flask = sv.rg.flask; rg.kills = sv.rg.kills; rg.looted = new Set(sv.rg.looted); rg.wispCarry = sv.rg.wisp || 0;   // v164
   dayGearFx(); rg.hp = Math.min(sv.rg.hp, rg.maxHp); rg.steel = Math.min(sv.rg.steel || 0, steelMax()); D.steelSeen = rg.steel;
@@ -4488,19 +4498,19 @@ function dayTameTry() {                          // hold cooked meat and walk up
 function dayPlotPlant(B) {
   const D = S.day, s = heldSlot();
   if (B.grown) {                                 // ripe: take the crop and it starts again
-    const n = (B.crop === 'mushroom' ? 4 : B.crop === 'fibre' ? 8 : 6) + Math.floor(Math.random() * 3);   // the cozy pass: a plot is worth tending
+    const n = (B.crop === 'mushroom' ? 4 : B.crop === 'fibre' ? 8 : B.crop === 'sweetroot' ? 5 : 6) + Math.floor(Math.random() * 3);   // the cozy pass: a plot is worth tending
     dayGive(B.crop, n, B.x, B.y); if (B.crop !== 'fibre') dayGive('fibre', 1, B.x, B.y);
     exNote(`picked · ${n} ${DIT[B.crop].n.toLowerCase()}`); B.crop = null; B.grown = false; B.sown = 0; dayAct(7, 0.6); pickSnd(); dayChanged(); return;
   }
   if (B.crop) { exNote(`it's still growing · ${Math.max(1, Math.ceil((B.sown + GROW_T - D.t) / 10) * 10)}s`); return; }
-  if (!s || (s.id !== 'berries' && s.id !== 'mushroom' && s.id !== 'fibre')) { dayNote('seed', 'hold berries, a mushroom or fibre to sow it', 2); return; }   // Joe: fibre grows too, a bed of tall grass
+  if (!s || (s.id !== 'berries' && s.id !== 'mushroom' && s.id !== 'fibre' && s.id !== 'sweetroot')) { dayNote('seed', 'hold berries, a mushroom or fibre to sow it', 2); return; }   // Joe: fibre grows too, a bed of tall grass
   s.n--; if (!s.n) D.inv[D.hot] = null;
   B.crop = s.id; B.sown = D.t; B.grown = false;
   dayAct(10, 0.9); ashBurst(B.x, B.y, 5, 5); exNote('sown'); sfx(0.8, 0.3, 'lowpass', 700, 0.22);
   dayChanged();
 }
 function dayPlotStep(dt) {
-  const D = S.day; basketStep(); rainbStep(dt); tcolStep(dt); workStep(dt);
+  const D = S.day; basketStep(); rainbStep(dt); tcolStep(dt); workStep(dt); penStep(dt);
   for (const B of D.builds) if (B.t === 'plot' && B.crop && !B.grown && D.t - B.sown >= GROW_T) { B.grown = true; if (dist2(B, S.p) < 700) exNote('your plot is ripe', true); }
 }
 const CAMPS = [
@@ -8578,7 +8588,30 @@ function buildKit(K, o) {
       const lv = clamp((B.w || 0) / RB_MAX, 0, 1); if (lv > 0.02) K.add(P_CYL(12), x, 2 + 17 * lv, y, 15, 0.6, 15, hex('#6f9cc4'));
       break;
     }
+    case 'cache': {   // sealed: a squat stone box with its lid slab on, or a chest bound in iron with a padlock. Opened: lid aside
+      if (B.ck === 'chest') { chestKit(K, x, y, a + Math.PI / 2, 0.9, B.open ? 1 : 0); if (!B.open) { box(0, 0, 3, 23, 1.6, 31, hex('#3e4246')); const [lx, ly] = at(9.6, 0); K.mt = 'metal'; K.add(P_BOX(), lx, 9, ly, 2, 5, 4.5, hex('#4e5256'), -a); K.mt = null; } break; }
+      K.mt = 'stone'; box(0, 0, 0, 30, 14, 22, hex('#8d8b85')); box(0, 0, 0.2, 31, 2.5, 23, hex('#7a7872'));
+      if (B.open) { const [lx, ly] = at(-12, 15); K.add(P_BOX(), lx, 1.6, ly, 31, 3.2, 23, hex('#9a9890'), -a - 0.5); box(0, 0, 13.9, 26, 0.3, 18, hex('#1e1a16')); }
+      else { box(0, 0, 14, 33, 4, 25, hex('#9a9890')); for (const s2 of [-1, 1]) { const [mx, my] = at(s2 * 9, 5); K.add(P_BALL(), mx, 17.6, my, 7, 1.6, 5, hex('#5e7a44')); } }
+      K.mt = null; break;
+    }
+    case 'hearth': {   // a round stone with a warm light breathing in a crack across it
+      K.mt = 'stone'; K.add(P_BALL(), x, 4, y, 14, 9, 12, hex('#7a7872')); K.mt = null;
+      K.add(P_BOX(), x, 8.2, y, 9, 1.2, 1.4, hex('#ffb050'), -a, 0, 0, 1); K.add(P_BALL(), x, 13, y, 4, 4, 4, hex('#ffd27a'), 0, 0, 0, 1);
+      break;
+    }
     case 'chest':
+      if (B.pen) {   // a ring of posts and two rails round a feeding trough; the trough shows meat when there's some in it
+        const N = 14;
+        for (let i = 0; i < N; i++) {
+          const t0 = i / N * 6.283, t1 = (i + 1) / N * 6.283, x0 = B.x + Math.cos(t0) * PEN_R, y0 = B.y + Math.sin(t0) * PEN_R, x1 = B.x + Math.cos(t1) * PEN_R, y1 = B.y + Math.sin(t1) * PEN_R;
+          K.add(P_CYL(6), x0, 0, y0, 2.6, 17, 2.6, hex('#6a4a2c'));
+          if (i !== 0) for (const h of [7, 13.5]) logRod(K, x0, h, y0, x1, h, y1, 0.9, hex('#7a5a3a'));   // a gap to walk them in through
+        }
+        box(0, 0, 0, 20, 5, 9, hex('#6a4a32')); box(0, 0, 4.2, 17, 0.6, 6.6, hex('#2e2418'));
+        if (B.inv.some(s => s && s.id === 'meat')) box(0, 0, 4.6, 12, 1.6, 4, hex('#b04a3a'));
+        break;
+      }
       if (B.smoke) {   // a little plank hut with a stone chimney, smoking while it works
         box(0, 0, 0, 22, 16, 18, hex('#6a4a32')); box(0, 0, 16, 25, 2.5, 21, hex('#4a3626')); box(0, 9.2, 0, 7, 11, 0.6, hex('#2a1e14'));
         { const [cx, cy] = at(-7, -5); K.add(P_BOX(), cx, 12, cy, 5, 24, 5, hex('#7a7872'), -a); }
@@ -8631,7 +8664,7 @@ function buildKit(K, o) {
       box(0, 0, -0.4, 44, 1.2, 30, hex('#4a3a2a'));
       for (const s of [-9, 0, 9]) box(0, s, 0.4, 42, 1.4, 3.4, hex('#5a4632'));
       if (B.crop) for (let i = 0; i < 9; i++) { const [px, py] = at(-15 + (i % 3) * 15, -9 + Math.floor(i / 3) * 9), gr = B.grown ? 1 : clamp(B.sown ? (S.day.t - B.sown) / 120 : 0.2, 0.15, 0.9); if (B.crop === 'fibre') { for (let k = 0; k < 3; k++) { const [qx, qy] = [px + (k - 1) * 2.2, py + ((k * 7) % 3 - 1) * 1.6]; K.add(P_CONE(4), qx, 1, qy, 1.4 * gr + 0.6, 14 * gr + 2, 1.4 * gr + 0.6, hex(B.grown ? '#a8b86a' : '#6f9440')); } continue; }   // tall grass, gold-green when ready
-      K.add(P_CONE(5), px, 1, py, 4 * gr + 1, 8 * gr + 1, 4 * gr + 1, hex('#5f8a3a')); if (B.grown) K.add(P_BALL(), px, 6, py, 2.6, 2.6, 2.6, hex(B.crop === 'mushroom' ? '#c8a070' : '#c23a4a')); }
+      K.add(P_CONE(5), px, 1, py, 4 * gr + 1, 8 * gr + 1, 4 * gr + 1, hex('#5f8a3a')); if (B.grown) K.add(P_BALL(), px, 6, py, 2.6, 2.6, 2.6, hex(B.crop === 'mushroom' ? '#c8a070' : B.crop === 'sweetroot' ? '#c8784a' : '#c23a4a')); }
       break;
     }
   }
@@ -8661,7 +8694,7 @@ function thingsSync(force) {
   const D = S.day, p = S.p, R = 560;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size + ':' + dayRelics();
-  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
+  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.open ? 'O' : '') + (B.pen && B.inv.some(s => s && s.id === 'meat') ? 'm' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');
   key += dayLight() < 0.85 ? 'N' : 'D';
   if (!force && key === thingsKey && Math.hypot(p.x - thingsAt.x, p.y - thingsAt.y) < 120) return;
@@ -10578,7 +10611,7 @@ const atHome = () => { const h = homeSpot(); return !!h && Math.hypot(h.x - S.p.
 // The compost heap eats scraps put in it, and while it has some the plots around it grow faster.
 const SMOKE_T = 90, COMP_T = 75, COMP_GROW = 0.5;
 const COMP_OK = new Set(['berries', 'mushroom', 'fibre', 'sticks', 'meat', 'fish', 'bone', 'cooked', 'jerky']);
-const chestName = B => B.basket ? 'Harvest basket' : B.smoke ? 'Smokehouse' : B.comp ? 'Compost heap' : 'Storage chest';
+const chestName = B => B.pen ? 'Deer pen' : B.basket ? 'Harvest basket' : B.smoke ? 'Smokehouse' : B.comp ? 'Compost heap' : 'Storage chest';
 function workStep(dt) {
   const D = S.day;
   for (const H of D.builds) {
@@ -10671,6 +10704,152 @@ function arenaOver(won) {
 }
 $('beginArena').addEventListener('click', () => { if (ready) arenaShow(); });
 $('arenaBack').addEventListener('click', () => { $('arena').classList.remove('show'); $('title').classList.add('show'); titleText(); });
+
+;
+// ---------------- sealed caches, and the deer you can keep ----------------
+// Joe: a few sealed things lie in the quieter woods near the fire pit, where you come on them in the first day or two:
+// a stone cache in an old grove, a locked chest. You can't open them yet. What opens them (a pry bar, or a heavy
+// sledgehammer; either will do) lies out in the dangerous outer woods. What's inside is rare and specific, never just
+// materials: a herder's bell that lets you keep deer, sweetroot to grow, and a hearthstone whose light keeps the dark out.
+//
+// The bell: hold it and ring it, and the wild deer near you come and follow you. Lead them into a pen and they stay,
+// breed slowly, and leave a steady trickle of meat in the pen's trough, so you no longer have to hunt, dry and hunt again.
+// At night a shade comes for a pen that has nothing guarding it, and takes a deer unless you're there to fight it.
+
+Object.assign(DIT, {
+  prybar: { n: 'Rusty pry bar', c: '#8a6a52', st: 1, k: 'mat', b: 'Opens a sealed cache · it doesn\'t get used up' },
+  sledge: { n: 'Old sledgehammer', c: '#7a7c80', st: 1, k: 'mat', b: 'Opens a sealed cache · it doesn\'t get used up' },
+  hbell: { n: 'Herder\'s bell', c: '#c8a050', st: 1, k: 'tool', tool: 'bell', b: 'Ring it and wild deer come and follow you · lead them into a pen' },
+  sweetroot: { n: 'Sweetroot', c: '#c8784a', st: 12, k: 'food', b: 'Sweet and filling raw · plant it in a plot and it multiplies', eat: { food: 16, water: 4 } },
+  hearth: { n: 'Hearthstone', c: '#e0904a', st: 1, k: 'place', build: 'hearth', b: 'A relic · set it down and its glow keeps the dark out, like the fire pit\'s' },
+  pen: { n: 'Deer pen', c: '#7a5a3a', st: 1, k: 'place', build: 'pen', b: 'Lead deer in with the bell · they breed and leave meat in the trough' },
+});
+DREC.push({ id: 'pen', g: 'stn', out: 'pen', at: 'hand', need: 'hbell', cost: { sticks: 12, rope: 2 } });
+Object.assign(ICON, {
+  prybar: '<path d="M5 20.5L17.5 5" stroke="#8a6a52" stroke-width="2.6" stroke-linecap="round"/><path d="M17.5 5c1.6-.8 3.2-.2 3.6 1.2" stroke="#8a6a52" stroke-width="2.2" fill="none" stroke-linecap="round"/><path d="M4 21.5l2.5-1" stroke="#5a4232" stroke-width="2.2" stroke-linecap="round"/>',
+  sledge: '<path d="M6 21l9-10" stroke="#7a5a3a" stroke-width="2.4" stroke-linecap="round"/><path d="M11.5 6.5l6-4 4.5 5-4 6z" fill="#7a7c80"/><path d="M12.5 7.2l7 8" stroke="#55575a" stroke-width="1.2"/>',
+  hbell: '<path d="M12 3.5a1.5 1.5 0 0 1 1.5 1.5c3.5 1 5 4 5 8.5l1.5 3h-16l1.5-3c0-4.5 1.5-7.5 5-8.5A1.5 1.5 0 0 1 12 3.5z" fill="#c8a050"/><circle cx="12" cy="18.6" r="1.8" fill="#8a6a30"/><path d="M8.5 9.5c.4-1.4 1.2-2.2 2.2-2.6" stroke="#f0d890" stroke-width="1.2" fill="none" stroke-linecap="round"/>',
+  sweetroot: '<path d="M12 9c3.5 0 5 3 4 6.5S13 21.5 12 21.5 9 19 8 15.5 8.5 9 12 9z" fill="#c8784a"/><path d="M10 13.5h2.5M10.5 16.5h3" stroke="#9a5232" stroke-width="1.1"/><path d="M12 9c-1-2.5-3.5-4-5-4 .5 2 2 3.5 5 4zm0 0c1-3 3-5 5-5.5-.3 2.3-2 4.3-5 5.5z" fill="#6a9a3a"/>',
+  hearth: '<path d="M5 18c-.5-4 2-8 7-8s7.5 4 7 8c-2 2-12 2-14 0z" fill="#7a7872"/><path d="M8.5 15.5c1-2.5 2-4 3.5-4s2.5 1.5 3.5 4" stroke="#ffb050" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="12" cy="7" r="2.6" fill="#ffd27a" opacity=".8"/>',
+  pen: '<g stroke="#7a5a3a" stroke-width="1.8" stroke-linecap="round"><path d="M4 8v13M12 6v15M20 8v13"/><path d="M3 11.5h18M3 16.5h18"/></g>',
+});
+
+// ---- where the caches and the tools that open them lie ----
+// The places with a story (00-areas) nearest the fire hold the caches; the next ones out, past the edge of the safe
+// woods, hold the tools. Worked out from the map itself, so every run finds them in the same places.
+const CACHE_REWARDS = ['hbell', 'sweetroot', 'hearth'], CACHE_KIND = ['stone', 'chest', 'stone'];
+function marksByDist(lo, hi) {
+  const out = [];
+  for (const M of AREA.marks) for (const ox of [-AREA_P, 0]) for (const oy of [-AREA_P, 0]) {
+    const x = M.x + ox, y = M.y + oy, d = Math.hypot(x, y);
+    if (d >= lo && d <= hi) out.push({ t: M.t, x, y, d, r: M.r });
+  }
+  return out.sort((a, b) => a.d - b.d);
+}
+function clearSpot(x, y) {   // walk in towards the fire until nothing stands there
+  for (let k = 0; k < 8; k++) {
+    if (!propsNear(x, y, 40).some(o => (o.kind === 'tree' || o.kind === 'rock') && Math.hypot(o.x - x, o.y - y) < 30)) return { x, y };
+    const d = Math.hypot(x, y) || 1; x -= x / d * 25; y -= y / d * 25;
+  }
+  return { x, y };
+}
+function cacheSeed() {
+  const D = S.day; if (D.cacheV) return;
+  const near = marksByDist(900, 2600), far = marksByDist(2700, 5200);
+  CACHE_REWARDS.forEach((rw, i) => {
+    const M = near[i] || { x: Math.cos(i * 2.1 + 0.4) * 1400, y: Math.sin(i * 2.1 + 0.4) * 1400, r: 0 }, d = Math.hypot(M.x, M.y) || 1;
+    const at = clearSpot(M.x - M.x / d * Math.min(60, M.r * 0.4), M.y - M.y / d * Math.min(60, M.r * 0.4));
+    const B = dayMakeBuild('cache', at.x, at.y, Math.atan2(-at.y, -at.x)); B.ck = CACHE_KIND[i]; B.rw = rw;
+  });
+  ['prybar', 'sledge'].forEach((id, i) => {
+    const M = far[i] || { x: Math.cos(i * 3 + 1) * 3400, y: Math.sin(i * 3 + 1) * 3400 }, at = clearSpot(M.x, M.y);
+    const f = dayDrop(at.x, at.y, id, 1); f.keep = 1;
+  });
+  D.cacheV = 1;
+}
+
+// ---- opening one ----
+const cacheTool = () => ['prybar', 'sledge'].find(id => dayHave(id) > 0);
+const cacheLabel = B => B.open ? 'Empty' : cacheTool() ? 'Open' : 'Sealed';
+function cacheUse(B) {
+  if (B.open) { dayNote('cacheE', 'empty now', 2); return; }
+  const T = cacheTool();
+  if (!T) { dayNote('cacheS', B.ck === 'chest' ? 'locked fast · a pry bar or a heavy hammer would open it · try the outer woods' : 'the lid won\'t shift · a pry bar or a heavy hammer would do it · try the outer woods', 3); sfx(0.5, 0.2, 'lowpass', 300, 0.2); return; }
+  B.open = 1; dayAct(14, 0.9); addShake(0.25);
+  if (actx) { const t = actx.currentTime; noiseAt(t, 700, 200, 0.4, 0.4, sfxGain); [392, 523, 659, 784].forEach((f, i) => toneAt(t + 0.25 + i * 0.09, f, 0.7, 0.04, 'triangle', sfxGain)); }
+  const n = B.rw === 'sweetroot' ? 4 : 1; dayGive(B.rw, n, B.x, B.y, true);
+  if (B.rw === 'hbell') S.day.herd = 1;
+  S.rg.ringMsg = { text: DIT[B.rw].n.toLowerCase(), sub: DIT[B.rw].b.replace(/^A relic · /, ''), t: 0 }; playRingSting();
+  wpRing(B.x, B.y, 60, '255,210,120', 0.8); wpEmbers(B.x, B.y, 16, 22, '255,210,120'); dayJLog(`opened a ${B.ck === 'chest' ? 'locked chest' : 'stone cache'} · ${DIT[B.rw].n}`);
+  dayChanged();
+}
+
+// ---- the hearthstone: a safe ring of your own ----
+function hearthAt(x, y, pad) { const D = S && S.day; if (!D) return null; for (const B of D.builds) if (B.t === 'hearth' && Math.hypot(x - B.x, y - B.y) < PIT_R + pad) return { x: B.x, y: B.y, r: PIT_R }; return null; }
+
+// ---- the herd ----
+const HERD_R = 320, LEAD_T = 90, PEN_R = 62, PEN_CAP = 6, PEN_BREED = 240, PEN_MEAT = 150, PEN_SLOTS = 6;
+const penOf = b => b.pen && S.day.builds.find(B => B.pen && Math.abs(B.x - b.pen[0]) < 1 && Math.abs(B.y - b.pen[1]) < 1);
+function herdRing() {
+  const D = S.day, p = S.p; dayAct(8, 0.6);
+  if (actx) { const t = actx.currentTime; [1318, 1568, 1318].forEach((f, i) => toneAt(t + i * 0.16, f, 0.9, 0.05, 'triangle', sfxGain)); }
+  wpRing(p.x, p.y, HERD_R, '240,215,150', 0.5);
+  let n = 0;
+  for (const b of D.beasts) if (!b.dead && b.k === 'deer' && !b.pen && Math.hypot(b.x - p.x, b.y - p.y) < HERD_R) { b.lead = LEAD_T; b.st = 'graze'; n++; }
+  exNote(n ? `${n} deer come to the bell` : 'no deer near enough to hear it');
+}
+function herdStep(b, dt, d, dx, dy) {   // a deer following you, or living in a pen
+  const B = BEAST[b.k];
+  if (b.pen) {
+    const P = penOf(b); if (!P) { b.pen = null; return; }
+    const pd = Math.hypot(b.x - P.x, b.y - P.y);
+    if (pd > PEN_R - 8) { b.dir = Math.atan2(P.y - b.y, P.x - b.x); b.sp = 16; }
+    else if (b.t <= 0) { b.t = 2 + Math.random() * 3; b.dir = Math.random() * 7; b.sp = Math.random() < 0.6 ? 0 : 10; }
+    return;
+  }
+  b.lead -= dt;
+  for (const P of S.day.builds) if (P.pen && Math.hypot(b.x - P.x, b.y - P.y) < PEN_R - 6 && S.day.beasts.filter(o => o.pen && o.pen[0] === P.x && o.pen[1] === P.y && !o.dead).length < PEN_CAP) {
+    b.pen = [P.x, P.y]; b.lead = 0; b.st = 'graze'; exNote('a deer settles in the pen'); dayChanged(); return;
+  }
+  if (b.lead <= 0) { b.lead = 0; return; }
+  b.dir = Math.atan2(-dy, -dx); b.sp = d > 160 ? B.sp * 0.55 : d > 55 ? 48 : 0;   // keeps a few steps behind you
+}
+function penStep(dt) {
+  const D = S.day;
+  for (const P of D.builds) {
+    if (!P.pen) continue;
+    const herd = D.beasts.filter(b => !b.dead && b.pen && b.pen[0] === P.x && b.pen[1] === P.y);
+    if (herd.length >= 2 && herd.length < PEN_CAP && (P.bT = (P.bT || 0) + dt) >= PEN_BREED) {   // a fawn
+      P.bT = 0; D.beasts.push({ kind: 'beast', k: 'deer', chunk: 'pen', x: P.x + (Math.random() - 0.5) * 30, y: P.y + (Math.random() - 0.5) * 30, r: 0, s: 1, hp: BEAST.deer.hp, st: 'graze', t: 1, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, pen: [P.x, P.y] });
+      if (Math.hypot(S.p.x - P.x, S.p.y - P.y) < 700) exNote('a fawn is born in the pen', true);
+    }
+    if (herd.length && (P.cT = (P.cT || 0) + dt * Math.max(1, herd.length / 2)) >= PEN_MEAT) {   // meat in the trough
+      P.cT = 0; if (!addTo(P.inv, 'meat', 1)) dayChanged();
+    }
+    // the dark comes for a pen with nothing guarding it
+    if (!dayNight() || !herd.length || penSafe(P)) { P.raid = 0; continue; }
+    if (!P.raid) { P.raid = 1; P.rT = 20 + Math.random() * 60; }
+    if (P.raid === 1 && (P.rT -= dt) <= 0) {
+      P.raid = 2;
+      for (let k = 0; k < 1; k++) { const a = Math.random() * 6.283;   // one comes, takes one deer and is gone
+        spawnFoe('stalker', { x: P.x + Math.cos(a) * 260, y: P.y + Math.sin(a) * 260, d: 260 }); S.rg.enemies[S.rg.enemies.length - 1].penT = [P.x, P.y]; }
+      if (Math.hypot(S.p.x - P.x, S.p.y - P.y) < 900) S.rg.ringMsg = { text: 'the pen', sub: 'Something is coming for your deer', t: 0 };
+      else exNote('something is after your deer', true);
+    }
+  }
+  for (const e of S.rg.enemies) {   // with you far off, they go for the deer instead
+    if (!e.penT || e.dead || Math.hypot(e.x - S.p.x, e.y - S.p.y) < 300) continue;
+    let tgt = null, bd = 1e9; for (const b of D.beasts) if (!b.dead && b.pen && b.pen[0] === e.penT[0] && b.pen[1] === e.penT[1]) { const dd = dist2(b, e); if (dd < bd) { bd = dd; tgt = b; } }
+    if (!tgt) { e.penT = null; continue; }
+    const a = Math.atan2(tgt.y - e.y, tgt.x - e.x); e.x += Math.cos(a) * 60 * dt; e.y += Math.sin(a) * 60 * dt;
+    if (bd < 16) { tgt.hp = 0; beastDie(tgt); exNote('a deer was taken from your pen', true); e.dead = e.gone = true; ashBurst(e.x, e.y, 10, 20); }
+  }
+}
+function penSafe(P) {   // firelight, a hearthstone, a lit torch post, or a ring of your own walls round it
+  if (exSafeAt(P.x, P.y, PEN_R)) return true;
+  if (S.day.builds.some(B => B.t === 'tpost' && B.fuel > 0 && Math.hypot(B.x - P.x, B.y - P.y) < 150)) return true;
+  return stNear(P.x, P.y, PEN_R + 50).filter(o => o.done && PC(o.id).lay === 'edge').length >= 6;
+}
 
 ;
 // ================= your hands: what you hold in your right, your torch in your left =================

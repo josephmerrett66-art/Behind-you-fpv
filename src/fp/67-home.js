@@ -155,7 +155,7 @@ const atHome = () => { const h = homeSpot(); return !!h && Math.hypot(h.x - S.p.
 // The compost heap eats scraps put in it, and while it has some the plots around it grow faster.
 const SMOKE_T = 90, COMP_T = 75, COMP_GROW = 0.5;
 const COMP_OK = new Set(['berries', 'mushroom', 'fibre', 'sticks', 'meat', 'fish', 'bone', 'cooked', 'jerky']);
-const chestName = B => B.basket ? 'Harvest basket' : B.smoke ? 'Smokehouse' : B.comp ? 'Compost heap' : 'Storage chest';
+const chestName = B => B.pen ? 'Deer pen' : B.basket ? 'Harvest basket' : B.smoke ? 'Smokehouse' : B.comp ? 'Compost heap' : 'Storage chest';
 function workStep(dt) {
   const D = S.day;
   for (const H of D.builds) {

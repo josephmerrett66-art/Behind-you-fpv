@@ -187,7 +187,30 @@ function buildKit(K, o) {
       const lv = clamp((B.w || 0) / RB_MAX, 0, 1); if (lv > 0.02) K.add(P_CYL(12), x, 2 + 17 * lv, y, 15, 0.6, 15, hex('#6f9cc4'));
       break;
     }
+    case 'cache': {   // sealed: a squat stone box with its lid slab on, or a chest bound in iron with a padlock. Opened: lid aside
+      if (B.ck === 'chest') { chestKit(K, x, y, a + Math.PI / 2, 0.9, B.open ? 1 : 0); if (!B.open) { box(0, 0, 3, 23, 1.6, 31, hex('#3e4246')); const [lx, ly] = at(9.6, 0); K.mt = 'metal'; K.add(P_BOX(), lx, 9, ly, 2, 5, 4.5, hex('#4e5256'), -a); K.mt = null; } break; }
+      K.mt = 'stone'; box(0, 0, 0, 30, 14, 22, hex('#8d8b85')); box(0, 0, 0.2, 31, 2.5, 23, hex('#7a7872'));
+      if (B.open) { const [lx, ly] = at(-12, 15); K.add(P_BOX(), lx, 1.6, ly, 31, 3.2, 23, hex('#9a9890'), -a - 0.5); box(0, 0, 13.9, 26, 0.3, 18, hex('#1e1a16')); }
+      else { box(0, 0, 14, 33, 4, 25, hex('#9a9890')); for (const s2 of [-1, 1]) { const [mx, my] = at(s2 * 9, 5); K.add(P_BALL(), mx, 17.6, my, 7, 1.6, 5, hex('#5e7a44')); } }
+      K.mt = null; break;
+    }
+    case 'hearth': {   // a round stone with a warm light breathing in a crack across it
+      K.mt = 'stone'; K.add(P_BALL(), x, 4, y, 14, 9, 12, hex('#7a7872')); K.mt = null;
+      K.add(P_BOX(), x, 8.2, y, 9, 1.2, 1.4, hex('#ffb050'), -a, 0, 0, 1); K.add(P_BALL(), x, 13, y, 4, 4, 4, hex('#ffd27a'), 0, 0, 0, 1);
+      break;
+    }
     case 'chest':
+      if (B.pen) {   // a ring of posts and two rails round a feeding trough; the trough shows meat when there's some in it
+        const N = 14;
+        for (let i = 0; i < N; i++) {
+          const t0 = i / N * 6.283, t1 = (i + 1) / N * 6.283, x0 = B.x + Math.cos(t0) * PEN_R, y0 = B.y + Math.sin(t0) * PEN_R, x1 = B.x + Math.cos(t1) * PEN_R, y1 = B.y + Math.sin(t1) * PEN_R;
+          K.add(P_CYL(6), x0, 0, y0, 2.6, 17, 2.6, hex('#6a4a2c'));
+          if (i !== 0) for (const h of [7, 13.5]) logRod(K, x0, h, y0, x1, h, y1, 0.9, hex('#7a5a3a'));   // a gap to walk them in through
+        }
+        box(0, 0, 0, 20, 5, 9, hex('#6a4a32')); box(0, 0, 4.2, 17, 0.6, 6.6, hex('#2e2418'));
+        if (B.inv.some(s => s && s.id === 'meat')) box(0, 0, 4.6, 12, 1.6, 4, hex('#b04a3a'));
+        break;
+      }
       if (B.smoke) {   // a little plank hut with a stone chimney, smoking while it works
         box(0, 0, 0, 22, 16, 18, hex('#6a4a32')); box(0, 0, 16, 25, 2.5, 21, hex('#4a3626')); box(0, 9.2, 0, 7, 11, 0.6, hex('#2a1e14'));
         { const [cx, cy] = at(-7, -5); K.add(P_BOX(), cx, 12, cy, 5, 24, 5, hex('#7a7872'), -a); }
@@ -240,7 +263,7 @@ function buildKit(K, o) {
       box(0, 0, -0.4, 44, 1.2, 30, hex('#4a3a2a'));
       for (const s of [-9, 0, 9]) box(0, s, 0.4, 42, 1.4, 3.4, hex('#5a4632'));
       if (B.crop) for (let i = 0; i < 9; i++) { const [px, py] = at(-15 + (i % 3) * 15, -9 + Math.floor(i / 3) * 9), gr = B.grown ? 1 : clamp(B.sown ? (S.day.t - B.sown) / 120 : 0.2, 0.15, 0.9); if (B.crop === 'fibre') { for (let k = 0; k < 3; k++) { const [qx, qy] = [px + (k - 1) * 2.2, py + ((k * 7) % 3 - 1) * 1.6]; K.add(P_CONE(4), qx, 1, qy, 1.4 * gr + 0.6, 14 * gr + 2, 1.4 * gr + 0.6, hex(B.grown ? '#a8b86a' : '#6f9440')); } continue; }   // tall grass, gold-green when ready
-      K.add(P_CONE(5), px, 1, py, 4 * gr + 1, 8 * gr + 1, 4 * gr + 1, hex('#5f8a3a')); if (B.grown) K.add(P_BALL(), px, 6, py, 2.6, 2.6, 2.6, hex(B.crop === 'mushroom' ? '#c8a070' : '#c23a4a')); }
+      K.add(P_CONE(5), px, 1, py, 4 * gr + 1, 8 * gr + 1, 4 * gr + 1, hex('#5f8a3a')); if (B.grown) K.add(P_BALL(), px, 6, py, 2.6, 2.6, 2.6, hex(B.crop === 'mushroom' ? '#c8a070' : B.crop === 'sweetroot' ? '#c8784a' : '#c23a4a')); }
       break;
     }
   }
@@ -270,7 +293,7 @@ function thingsSync(force) {
   const D = S.day, p = S.p, R = 560;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size + ':' + dayRelics();
-  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
+  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.open ? 'O' : '') + (B.pen && B.inv.some(s => s && s.id === 'meat') ? 'm' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');
   key += dayLight() < 0.85 ? 'N' : 'D';
   if (!force && key === thingsKey && Math.hypot(p.x - thingsAt.x, p.y - thingsAt.y) < 120) return;

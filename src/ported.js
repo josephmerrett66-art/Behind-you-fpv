@@ -786,7 +786,7 @@ function killFoe(e) {
   if (lv('embers')) rg.fires.push({ x: e.x, y: e.y, r: 28 + 8 * lv('embers'), life: 2 + 1.5 * lv('embers'), max: 2 + 1.5 * lv('embers'), seed: Math.random() * 9, freeze: isEx() && rawLv('smoulder') > 2 });
   if (lv('nova') && rg.nova < 12) { rg.nova++; if (rg.nova === 12) sfx(2.5, 0.4, 'bandpass', 2200, 0.3); }
   if (e.type === 'splitter') splitApart(e);
-  if (S.day && Math.random() < (e.type === 'brute' || e.type === 'tall' ? 0.8 : 0.3)) dayDrop(e.x, e.y, 'meat', e.type === 'brute' || e.type === 'tall' ? 2 : 1);   // Daylight: some leave meat
+  if (S.day && Math.random() < (e.type === 'brute' || e.type === 'tall' ? 0.25 : 0.1)) dayDrop(e.x, e.y, 'meat', 1);   // Daylight: now and then one leaves meat (Joe: about 1 in 10, so they're in the way, not a larder)
   e.dead = true; rg.kills++; rg.waveKills++; lifeAdd('kills'); lifeTally('kt', e.type);
   if (S.mode === 'survive' && rg.phase === 'fight' && rg.toSpawn <= 0 && !rg.enemies.some(o => !o.dead)) jfSlow(false);   // v202: the last of the wave
   rg.dying.push({ x: e.x, y: e.y, type: e.type, dir: e.dirFace ?? foeDir(e), phase: e.phase, t: 0, segs: e.type === 'centi' ? centiSegs(e).filter((q, i) => centiOut(e, i)) : null, hz: e.hz, k: e.k });
@@ -1591,7 +1591,7 @@ function exWeight() {                       // heavy loot slows you; a burning r
   return Math.max(0.6, 1 - 0.04 * exLoad() * (1 - 0.2 * (XS.frame || 0)));
 }
 function exSafeAt(x, y, pad = 0) {           // inside the camp fence or an outpost's light?
-  if (NO_CAMP) { if (Math.hypot(x, y) < PIT_R + pad) return { x: 0, y: 0, r: PIT_R }; }   // Joe: just the fire pit's light now
+  if (NO_CAMP) { if (Math.hypot(x, y) < PIT_R + pad) return { x: 0, y: 0, r: PIT_R }; const h = hearthAt(x, y, pad); if (h) return h; }   // Joe: just the fire pit's light now
   else if (Math.hypot(x, y) < CAMP_R + pad) return { x: 0, y: 0, r: CAMP_R };
   if (XS) for (const o of XS.outposts) if (Math.hypot(x - o.x, y - o.y) < OUT_R + pad) return { x: o.x, y: o.y, r: OUT_R };
   if (XS && XS.dgrace && S.rg && S.rg.beyond && !S.rg.next && Math.hypot(x - XS.dgrace.x, y - XS.dgrace.y) < OUT_R + pad) return { x: XS.dgrace.x, y: XS.dgrace.y, r: OUT_R };   // the lantern by a keeper's ground
@@ -2090,6 +2090,7 @@ function dayBegin() {
     camps: new Map(), heat: 0, raids: 0, caught: 0, away: 0, jlog: [], bag: {}, siege: null, won: 0, scout: null, scoutT: 55 };   // v155: the raider camps, the heat and the journal   // v153: the cold, your wounds and the night   // v152: what you've built on the grid, and where your bed is
   S.rg = exNewRun(); exPlaceHome(); wpInit(); S.day.baseHp = S.rg.maxHp;
   if (NO_CAMP) addTo(S.day.inv, 'tarp', 1, undefined, slotOrder(S.day, 'tarp'));   // all you start with
+  cacheSeed();   // the sealed caches, and what opens them (69-herd)
   S.msg = NO_CAMP ? { text: 'daylight', sub: 'You\'re thirsty', t: 0 } : { text: 'daylight', sub: 'Sticks and stones lie on the ground · walk up to them and press Take', t: 0 };
   dayChanged();
 }
@@ -2138,7 +2139,7 @@ function takeFrom(arr, id, n, order) {         // take up to n out of a set of s
 const dayRoom = k => roomIn(S.day.inv, k);
 function daySee(id, quiet) {                   // the first time you hold something, the recipes it finishes show up in your book
   const D = S.day; if (D.seen.has(id)) return; D.seen.add(id);
-  const found = DREC.filter(r => !D.known.has(r.id) && Object.keys(r.cost).every(k => D.seen.has(k)));
+  const found = DREC.filter(r => !D.known.has(r.id) && Object.keys(r.cost).every(k => D.seen.has(k)) && (!r.need || D.seen.has(r.need)));   // r.need: shows up only once you've held that
   if (!found.length) return;
   for (const r of found) { D.known.add(r.id); D.fresh.add(r.id); }
   if (quiet) return;
@@ -2300,6 +2301,7 @@ function dayVerb() {
   if (T.thr) return 'Throw';
   if (T.tool === 'build') { const D = S.day; if (D.bdel) return stAimed() ? 'Pull down' : 'Point at it'; const g = stGhost(); if (g && g.ok) return 'Place'; const o = stWorkTarget(); return o ? (o.done ? 'Mend' : 'Build') : 'Place'; }
   if (T.tool === 'rod') { const F = S.day.fish; return F ? (F.st === 'bite' ? 'Pull!' : 'Reel in') : 'Cast'; }
+  if (T.tool === 'bell') return 'Ring';
   if (T.k === 'med') return 'Bind';
   return T.k === 'food' ? 'Eat' : T.k === 'drink' ? 'Drink' : T.k === 'place' ? 'Place' : T.k === 'gear' ? 'Wear' : T.tool === 'axe' ? 'Chop' : T.tool === 'pick' ? 'Mine' : 'Attack';
 }
@@ -2320,6 +2322,7 @@ function dayPrimary() {                          // true when what you hold is u
     return true;
   }
   if (T.tool === 'rod') { if (!S.p.act) dayCast(); return true; }
+  if (T.tool === 'bell') { if (!S.p.act) herdRing(); return true; }
   if (T.k === 'med') { if (!S.p.act) dayBind(D.inv, D.hot); return true; }
   if (T.k === 'food') { dayEat(D.inv, D.hot); return true; }
   if (T.k === 'drink') { dayDrink(D.inv, D.hot); return true; }
@@ -2349,7 +2352,7 @@ function dayUseTarget() {                        // the nearest thing in reach y
   for (const f of D.drops) { const d = dist2(f, p); if (d < bd) { bd = d; best = f; } }
   for (const o of dayNodesNear(p.x, p.y, 60)) if ((o.t === 'sticks' || o.t === 'stones' || o.t === 'shroom') && !o.gone) { const d = dist2(o, p); if (d < bd) { bd = d; best = o; } }
   for (const c of exChestsNear(p.x, p.y, 60)) if (!S.rg.looted.has(c.key)) { const d = dist2(c, p) - 8; if (d < bd) { bd = d; best = c; } }
-  for (const B of D.builds) if (B.t === 'chest' || B.t === 'rainb' || B.t === 'tcol' || B.t === 'plot' || B.t === 'signal' || B.t === 'tpost' || STN_N[B.t]) { const d = dist2(B, p) - (B.t === 'plot' ? 22 : B.t === 'signal' ? 24 : STN_N[B.t] ? 16 : 12); if (d < bd) { bd = d; best = B; } }   // v163: stations too
+  for (const B of D.builds) if (B.t === 'chest' || B.t === 'cache' || B.t === 'rainb' || B.t === 'tcol' || B.t === 'plot' || B.t === 'signal' || B.t === 'tpost' || STN_N[B.t]) { const d = dist2(B, p) - (B.t === 'plot' ? 22 : B.t === 'signal' ? 24 : STN_N[B.t] ? 16 : 12); if (d < bd) { bd = d; best = B; } }   // v163: stations too
   for (const o of dayCampsNear(p.x, p.y, 70)) if (o.sub === 'relic' || (o.sub === 'wrack' && !dNamed()['rack' + o.ci])) { const d = dist2(o, p) - 12; if (d < bd) { bd = d; best = o; } }   // v155: the relic on its cairn
   { const P = lakeAt(p.x, p.y, 30); if (P && (D.water < FOOD_MAX - 2 || D.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS))) { const d = Math.max(0, Math.hypot(P.x - p.x, P.y - p.y) - P.rad); if (d < bd) { bd = d; best = P; } } }
   if (S.rg.inCamp) {
@@ -2362,7 +2365,7 @@ function dayUseTarget() {                        // the nearest thing in reach y
   return best;
 }
 const STN_N = { bench: 'Workbench', furnace: 'Furnace', rack: 'Drying rack', fire: 'Fire', anvil: 'Forge' };
-const useLabel = o => o.t === 'rainb' || o.t === 'tcol' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o.kind === 'dst' && o.k === 'bed' && o.done ? 'Sleep' : o === EX_FIRE ? 'Cook' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
+const useLabel = o => o.t === 'cache' ? cacheLabel(o) : o.t === 'rainb' || o.t === 'tcol' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o.kind === 'dst' && o.k === 'bed' && o.done ? 'Sleep' : o === EX_FIRE ? 'Cook' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
 function openStation(t) {                         // v163: the craft tab, opened on what this station makes (ready ones first)
   const D = S.day, at = t === 'fire' ? 'fire' : t, known = DREC.filter(r => D.known.has(r.id) && r.at === at);
   const pick = known.find(r => canCraft(r) === true) || known[0];
@@ -2379,6 +2382,7 @@ function dayUse() {
   if (o.t === 'plot') { dayPlotPlant(o); return; }
   if (o.t === 'rainb') { rainbUse(o); return; }
   if (o.t === 'tcol') { tcolUse(o); return; }
+  if (o.t === 'cache') { cacheUse(o); return; }
   if (o.kind === 'dcamp') { if (o.sub === 'wrack') dayRackLoot(o); else dayRelicTake(o); return; }
   if (o.t === 'signal') { if (!S.day.siege) daySignalLight(o); else dayNote('burning', 'it is already burning', 2); return; }
   if (o.t === 'tpost') { dayPostFeed(o); return; }
@@ -2506,7 +2510,7 @@ function beastStep(dt) {
       if (at !== undefined && D.t - at < BEAST_BACK) continue;   // a chunk you hunted fills again only after a long while
       D.bchunks.set(key, D.t);
       const cx = (ci + 0.5) * BC, cy = (cj + 0.5) * BC, far = Math.hypot(cx, cy);
-      if (far < CAMP_R + 300 || D.beasts.some(b => b.chunk === key && !b.dead) || D.beasts.filter(b => !b.dead).length >= BEAST_CAP || Math.random() < BEAST_SKIP) continue;
+      if (far < CAMP_R + 300 || D.beasts.some(b => b.chunk === key && !b.dead) || D.beasts.filter(b => !b.dead && !b.pen).length >= BEAST_CAP || Math.random() < BEAST_SKIP) continue;
       const r = Math.random(), herd = (k, n) => { for (let i = 0; i < n; i++) D.beasts.push({ kind: 'beast', k, chunk: key, x: cx + (Math.random() - 0.5) * BC * 0.6, y: cy + (Math.random() - 0.5) * BC * 0.6, r: 0, s: 1, hp: BEAST[k].hp, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, stag: k === 'deer' && Math.random() < 0.35 }); };
       if (far > IRON_FROM && r < (dayNight() ? 0.34 : 0.17)) herd('wolf', 2 + Math.floor(Math.random() * 3));   // v154: the deep woods hunt back
       else if (far > 2600 && r < 0.2) herd('bear', 1);
@@ -2520,6 +2524,7 @@ function beastStep(dt) {
     if (b.dead) { b.dieT += dt; continue; }
     b.t -= dt;
     if (B.pack || b.tame) { wolfPack(b, dt, d, dx, dy); }
+    else if (b.pen || b.lead > 0) herdStep(b, dt, d, dx, dy);   // following the bell, or kept in a pen (69-herd)
     else if (b.st === 'graze') {
       if (b.t <= 0) { b.t = 1.5 + Math.random() * 3; b.dir = Math.random() * 7; b.sp = Math.random() < 0.5 ? 0 : 18; }
       if (d < (S.day.crouch ? B.scare * sneakHide(b, dx, dy) : B.scare * (Math.hypot(p.vx, p.vy) > 60 ? 1 : 0.6))) beastScare(b);
@@ -2542,7 +2547,7 @@ function beastStep(dt) {
     b.ph += dt * (2 + b.sp * 0.09);
     b.face = Math.cos(b.dir) - Math.sin(b.dir) >= 0 ? 1 : -1;   // which way it faces on screen
   }
-  D.beasts = D.beasts.filter(b => !(b.dead && b.dieT > 1.2) && Math.hypot(b.x - p.x, b.y - p.y) < 2600);
+  D.beasts = D.beasts.filter(b => !(b.dead && b.dieT > 1.2) && (b.pen || Math.hypot(b.x - p.x, b.y - p.y) < 2600));   // a penned herd stays put while you're away
 }
 function beastScare(b) {
   if (dayEffigyNear(b.x, b.y) && !b.tame) {        // v155: nothing wild comes near the effigy
@@ -2761,10 +2766,14 @@ function dayMakeBuild(t, cx, cy, a, fake) {
     for (const k of [-1, 1]) B.parts.push({ camp: 'stakes', kind: 'stakes', x: cx + ux * k * 13, y: cy + uy * k * 13, a, s: 1, seed: Math.random(), build: B });
   } else if (t === 'bench') {
     B.parts.push({ kind: 'dbuild', sub: 'bench', x: cx, y: cy, r: 15, s: 1, build: B });
-  } else if (t === 'chest' || t === 'basket' || t === 'smoke' || t === 'compost') {   // the basket, smokehouse and compost heap are chests that work by themselves (67-home)
-    if (t !== 'chest') { B.t = 'chest'; B[t === 'basket' ? 'basket' : t === 'smoke' ? 'smoke' : 'comp'] = 1; }
-    B.inv = Array(t === 'basket' ? BASKET_SLOTS : t === 'smoke' ? 6 : t === 'compost' ? 4 : CHEST_SLOTS).fill(null);
-    B.parts.push({ kind: 'dbuild', sub: 'chest', x: cx, y: cy, r: 11, s: 1, build: B });
+  } else if (t === 'cache') {                    // a sealed stone cache or locked chest out in the woods (69-herd)
+    B.parts.push({ kind: 'dbuild', sub: 'cache', x: cx, y: cy, r: 12, s: 1, build: B });
+  } else if (t === 'hearth') {
+    B.parts.push({ kind: 'dbuild', sub: 'hearth', x: cx, y: cy, r: 7, s: 1, build: B });
+  } else if (t === 'chest' || t === 'basket' || t === 'smoke' || t === 'compost' || t === 'pen') {   // the basket, smokehouse and compost heap are chests that work by themselves (67-home)
+    if (t !== 'chest') { B.t = 'chest'; B[t === 'basket' ? 'basket' : t === 'smoke' ? 'smoke' : t === 'pen' ? 'pen' : 'comp'] = 1; }
+    B.inv = Array(t === 'basket' ? BASKET_SLOTS : t === 'smoke' ? 6 : t === 'compost' ? 4 : t === 'pen' ? PEN_SLOTS : CHEST_SLOTS).fill(null);
+    B.parts.push({ kind: 'dbuild', sub: 'chest', x: cx, y: cy, r: t === 'pen' ? 7 : 11, s: 1, build: B });
   } else if (t === 'furnace' || t === 'rack' || t === 'anvil') {
     B.parts.push({ kind: 'dbuild', sub: t, x: cx, y: cy, r: t === 'furnace' ? 15 : t === 'anvil' ? 14 : 17, s: 1, build: B });
   } else if (t === 'tpost' || t === 'effigy') {
@@ -3072,7 +3081,7 @@ function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {
 function daySave() {
   const D = S && S.day, rg = S && S.rg; if (ARENA || !D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
-    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp'];   // v155
+    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp', 'cacheV', 'herd'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
   d.seen = [...D.seen]; d.known = [...D.known]; d.fresh = [...D.fresh];
   d.felled = [...D.felled]; d.cut = [...D.cut]; d.bchunks = [...D.bchunks];
@@ -3081,8 +3090,8 @@ function daySave() {
   d.camps = [...D.camps].map(([i, c]) => [i, { seen: c.seen, took: c.took, beat: c.beat }]);
   d.bld = [...D.bld.values()].map(stOut); d.brot = D.brot || 0; d.bsnap = D.bsnap !== false;
   d.logs = D.logs.flatMap(g => [['logs', g.give.logs], ['sticks', g.give.sticks]].filter(([, n]) => n).map(([it, n]) => ({ it, n, x: Math.round(g.bx + g.ux * g.len / 2), y: Math.round(g.by + g.uy * g.len / 2), t: 0 })));   // a tree still falling is saved as its logs
-  d.beasts = D.beasts.filter(b => !b.dead).map(b => ({ k: b.k, x: Math.round(b.x), y: Math.round(b.y), hp: b.hp, stag: b.stag, chunk: b.chunk, tame: b.tame, fed: b.fed }));
-  d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, smoke: B.smoke, comp: B.comp, cT: B.cT, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit }));
+  d.beasts = D.beasts.filter(b => !b.dead).map(b => ({ k: b.k, x: Math.round(b.x), y: Math.round(b.y), hp: b.hp, stag: b.stag, chunk: b.chunk, tame: b.tame, fed: b.fed, pen: b.pen || undefined }));
+  d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, smoke: B.smoke, comp: B.comp, pen: B.pen, bT: B.bT, ck: B.ck, rw: B.rw, open: B.open, cT: B.cT, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit }));
   const out = { v: 2, at: Date.now(), d, p: { x: Math.round(S.p.x), y: Math.round(S.p.y) }, rg: { hp: rg.hp, steel: rg.steel || 0, flask: rg.flask, kills: rg.kills || 0, looted: [...rg.looted], wisp: rg.wispCarry || 0 }, xs: XS };
   try { localStorage.setItem(dayKey(), JSON.stringify(out)); } catch (e) {}
 }
@@ -3108,8 +3117,9 @@ function dayLoad(sv) {                          // pick a saved run back up wher
   D.baseHp = D.baseHp || rg.maxHp;
   D.beasts = d.beasts.map(b => ({ kind: 'beast', r: 0, s: 1, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, ...b }));
   for (const sv of d.bld || []) stMake(sv);
-  for (const B of d.builds) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
+  for (const B of d.builds) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.pen ? 'pen' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.bT) nb.bT = B.bT; if (B.ck) { nb.ck = B.ck; nb.rw = B.rw; nb.open = B.open; } if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
   if (NO_CAMP && !D.noCamp) campToBuilds();
+  if (!D.cacheV) cacheSeed();
   if (NO_CAMP) D.builds = D.builds.filter(B => !(B.t === 'fire' && Math.hypot(B.x - EX_FIRE.x, B.y - EX_FIRE.y) < 2));   // the fire an earlier version built on the pit's spot   // a run from when there was a camp keeps its box, barrel and fire
   rg.hp = sv.rg.hp; rg.flask = sv.rg.flask; rg.kills = sv.rg.kills; rg.looted = new Set(sv.rg.looted); rg.wispCarry = sv.rg.wisp || 0;   // v164
   dayGearFx(); rg.hp = Math.min(sv.rg.hp, rg.maxHp); rg.steel = Math.min(sv.rg.steel || 0, steelMax()); D.steelSeen = rg.steel;
@@ -3839,19 +3849,19 @@ function dayTameTry() {                          // hold cooked meat and walk up
 function dayPlotPlant(B) {
   const D = S.day, s = heldSlot();
   if (B.grown) {                                 // ripe: take the crop and it starts again
-    const n = (B.crop === 'mushroom' ? 4 : B.crop === 'fibre' ? 8 : 6) + Math.floor(Math.random() * 3);   // the cozy pass: a plot is worth tending
+    const n = (B.crop === 'mushroom' ? 4 : B.crop === 'fibre' ? 8 : B.crop === 'sweetroot' ? 5 : 6) + Math.floor(Math.random() * 3);   // the cozy pass: a plot is worth tending
     dayGive(B.crop, n, B.x, B.y); if (B.crop !== 'fibre') dayGive('fibre', 1, B.x, B.y);
     exNote(`picked · ${n} ${DIT[B.crop].n.toLowerCase()}`); B.crop = null; B.grown = false; B.sown = 0; dayAct(7, 0.6); pickSnd(); dayChanged(); return;
   }
   if (B.crop) { exNote(`it's still growing · ${Math.max(1, Math.ceil((B.sown + GROW_T - D.t) / 10) * 10)}s`); return; }
-  if (!s || (s.id !== 'berries' && s.id !== 'mushroom' && s.id !== 'fibre')) { dayNote('seed', 'hold berries, a mushroom or fibre to sow it', 2); return; }   // Joe: fibre grows too, a bed of tall grass
+  if (!s || (s.id !== 'berries' && s.id !== 'mushroom' && s.id !== 'fibre' && s.id !== 'sweetroot')) { dayNote('seed', 'hold berries, a mushroom or fibre to sow it', 2); return; }   // Joe: fibre grows too, a bed of tall grass
   s.n--; if (!s.n) D.inv[D.hot] = null;
   B.crop = s.id; B.sown = D.t; B.grown = false;
   dayAct(10, 0.9); ashBurst(B.x, B.y, 5, 5); exNote('sown'); sfx(0.8, 0.3, 'lowpass', 700, 0.22);
   dayChanged();
 }
 function dayPlotStep(dt) {
-  const D = S.day; basketStep(); rainbStep(dt); tcolStep(dt); workStep(dt);
+  const D = S.day; basketStep(); rainbStep(dt); tcolStep(dt); workStep(dt); penStep(dt);
   for (const B of D.builds) if (B.t === 'plot' && B.crop && !B.grown && D.t - B.sown >= GROW_T) { B.grown = true; if (dist2(B, S.p) < 700) exNote('your plot is ripe', true); }
 }
 const CAMPS = [

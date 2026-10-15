@@ -3436,11 +3436,12 @@ function stMake(sv) {                            // a piece read back out of a s
   const o = { kind: 'dst', key: 'b' + (stUid++), id: sv.id, k: P.k, x: pos.x, y: pos.y, a: sv.a !== undefined ? sv.a : pos.a, r: 10,
     need: Object.assign({}, P.cost, sv.need || {}), hp: sv.hp !== undefined ? sv.hp : P.hp, max: P.hp, done: !!sv.done, open: 0, put: 0, seed: Math.random() * 9, rise: 1, fuel: sv.fuel };
   if (sv.clip) o.clip = sv.clip;
+  else if (sv.clip === undefined) o.clip = stClipOld(P, o);   // floors laid before the trim keep the side their middle is on
   S.day.bld.set(o.key, o); stGen++;
   if (o.done && o.k === 'bed') S.day.bed = { x: o.x, y: o.y };
   return o;
 }
-const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done, clip: o.clip || undefined });
+const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done, clip: o.clip || 0 });
 function stAimed(pred) {                         // the piece you're pointing at (the nearest to where you point, in reach)
   const p = S.p, A = stAimPt(); let best = null, bd = 30;
   if (Math.hypot(A.x - p.x, A.y - p.y) > 90) { const a = S.aimW || 0; A.x = p.x + Math.cos(a) * 90; A.y = p.y + Math.sin(a) * 90; }

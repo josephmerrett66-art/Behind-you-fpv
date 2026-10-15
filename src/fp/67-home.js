@@ -107,3 +107,32 @@ function rainbUse(R) {
   else { R.w -= 1; D.water = Math.min(FOOD_MAX, D.water + 40); dayAct(9, 1.1, '#8ab8e0', 'cup'); exNote('a drink'); sfx(0.8, 0.3, 'lowpass', 900, 0.25); }
   dayChanged();
 }
+
+// ---- the smokehouse and the compost heap: two more chests that work by themselves ----
+// The smokehouse takes raw meat or fish put in it and, a batch at a time, smokes it into dried meat that keeps.
+// The compost heap eats scraps put in it, and while it has some the plots around it grow faster.
+const SMOKE_T = 90, COMP_T = 75, COMP_GROW = 0.5;
+const COMP_OK = new Set(['berries', 'mushroom', 'fibre', 'sticks', 'meat', 'fish', 'bone', 'cooked', 'jerky']);
+const chestName = B => B.basket ? 'Harvest basket' : B.smoke ? 'Smokehouse' : B.comp ? 'Compost heap' : 'Storage chest';
+function workStep(dt) {
+  const D = S.day;
+  for (const H of D.builds) {
+    if (H.smoke) {
+      const raw = countIn(H.inv, 'meat') >= 2 ? 'meat' : countIn(H.inv, 'fish') >= 2 ? 'fish' : null;
+      if (!raw) { H.cT = 0; continue; }
+      H.cT = (H.cT || 0) + dt;
+      if (Math.random() < dt * 3 && Math.hypot(S.p.x - H.x, S.p.y - H.y) < 700) { const [cx, cy] = U(H.a || 0, -7, -5); spark(H.x + cx, 26, H.y + cy, (Math.random() - 0.5) * 6, 9, (Math.random() - 0.5) * 6, 2.4, 9 + Math.random() * 5, 0.6, 0.6, 0.6, 0.3, 0, 3, 2); }
+      if (H.cT < SMOKE_T) continue;
+      takeFrom(H.inv, raw, 2);
+      const left = addTo(H.inv, 'jerky', 3); if (left) addTo(H.inv, raw, 2);   // no room for it: put the meat back and wait
+      H.cT = left ? SMOKE_T : 0;
+      if (!left && Math.hypot(S.p.x - H.x, S.p.y - H.y) < 500) exNote('the smokehouse finished · 3 dried meat');
+      dayChanged();
+    } else if (H.comp) {
+      const food = H.inv.findIndex(s => s && COMP_OK.has(s.id));
+      if (food < 0) { H.cT = 0; continue; }
+      for (const B of D.builds) if (B.t === 'plot' && B.crop && !B.grown && Math.hypot(B.x - H.x, B.y - H.y) <= BASKET_R) B.sown -= dt * COMP_GROW;
+      if ((H.cT = (H.cT || 0) + dt) >= COMP_T) { H.cT = 0; const s = H.inv[food]; s.n--; if (!s.n) H.inv[food] = null; dayChanged(); }
+    }
+  }
+}

@@ -182,6 +182,16 @@ function buildKit(K, o) {
       break;
     }
     case 'chest':
+      if (B.smoke) {   // a little plank hut with a stone chimney, smoking while it works
+        box(0, 0, 0, 22, 16, 18, hex('#6a4a32')); box(0, 0, 16, 25, 2.5, 21, hex('#4a3626')); box(0, 9.2, 0, 7, 11, 0.6, hex('#2a1e14'));
+        { const [cx, cy] = at(-7, -5); K.add(P_BOX(), cx, 12, cy, 5, 24, 5, hex('#7a7872'), -a); }
+        break;
+      }
+      if (B.comp) {   // a low plank bin, heaped with dark earth
+        for (const s2 of [-1, 1]) { box(0, s2 * 9, 0, 22, 7, 1.4, hex('#6a4a32')); box(s2 * 10.3, 0, 0, 1.4, 7, 18, hex('#6a4a32')); }
+        if (B.inv.some(Boolean)) K.add(P_BALL(), x, 4, y, 19, 7, 16, hex('#3e2e20'));
+        break;
+      }
       if (B.basket) {   // a woven basket, heaped with whatever it last picked
         K.add(P_CYL(12), x, 0, y, 20, 11, 20, hex('#b08a52')); for (const z of [3, 6.5, 10]) K.add(P_CYL(12), x, z, y, 21, 1.1, 21, hex('#8a6a3c'));
         const top = B.inv.find(Boolean); if (top) { const c = DIT[top.id].c || '#c23a4a'; for (let i = 0; i < 5; i++) { const t = i / 5 * 6.283 + B.x; K.add(P_BALL(), x + Math.cos(t) * 4, 11, y + Math.sin(t) * 4, 5, 3.6, 5, hex(c)); } }
@@ -254,7 +264,7 @@ function thingsSync(force) {
   const D = S.day, p = S.p, R = 560;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size + ':' + dayRelics();
-  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + (B.basket && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
+  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');
   key += dayLight() < 0.85 ? 'N' : 'D';
   if (!force && key === thingsKey && Math.hypot(p.x - thingsAt.x, p.y - thingsAt.y) < 120) return;

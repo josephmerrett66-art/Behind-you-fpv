@@ -1957,6 +1957,8 @@ const DIT = {
   campfire: { n: 'Campfire', c: '#ff9a3c', st: 4, k: 'place', build: 'fire', b: 'Cook, and rest by it' },
   bench: { n: 'Workbench', c: '#b08a58', st: 2, k: 'place', build: 'bench', b: 'Better tools, gear and planks' },
   rainb: { n: 'Rain barrel', c: '#7a5a3a', st: 2, k: 'place', build: 'rainb', b: 'Catches rain to drink · keeps plots nearby watered so they grow faster' },
+  smoke: { n: 'Smokehouse', c: '#6a4a32', st: 1, k: 'place', build: 'smoke', b: 'Put raw meat or fish in · it dries them into dried meat by itself' },
+  compost: { n: 'Compost heap', c: '#5a4430', st: 2, k: 'place', build: 'compost', b: 'Feed it scraps · plots nearby grow faster while it has some' },
   basket: { n: 'Harvest basket', c: '#b08a52', st: 2, k: 'place', build: 'basket', b: 'Picks ripe plots nearby, replants them and keeps the harvest' },
   chest: { n: 'Storage chest', c: '#8a6440', st: 4, k: 'place', build: 'chest', b: `${CHEST_SLOTS} slots of storage` },
   wall: { n: 'Stake fence', c: '#7a5232', st: 6, k: 'place', build: 'wall', b: 'A quick barricade · drops anywhere' },
@@ -2028,6 +2030,8 @@ const DREC = [
   { id: 'rack', g: 'stn', out: 'rack', at: 'bench', cost: { sticks: 8, rope: 3 } },
   { id: 'plot', g: 'stn', out: 'plot', at: 'bench', cost: { planks: 2, fibre: 6 } },
   { id: 'rainb', g: 'stn', out: 'rainb', at: 'bench', cost: { planks: 5, rope: 1 } },
+  { id: 'smoke', g: 'stn', out: 'smoke', at: 'bench', cost: { planks: 6, stones: 6, rope: 1 } },
+  { id: 'compost', g: 'stn', out: 'compost', at: 'bench', cost: { planks: 3, sticks: 6 } },
   { id: 'basket', g: 'stn', out: 'basket', at: 'bench', cost: { sticks: 6, fibre: 10, rope: 1 } },
   { id: 'iron', g: 'mat', out: 'iron', at: 'furnace', cost: { ironore: 2, logs: 1 } },
   { id: 'axe3', g: 'tool', out: 'axe3', at: 'furnace', cost: { iron: 3, planks: 2 } },
@@ -2140,10 +2144,10 @@ const CONT_R = 120, CAMP_BOX = { x: 66, y: 110 }, CAMP_BARREL = { x: 40, y: 130 
 function dayConts(R = CONT_R) {                 // [{ name, inv, x, y }], nearest first
   const D = S.day, p = S.p, out = [];
   if (Math.hypot(p.x - CAMP_BOX.x, p.y - CAMP_BOX.y) < R) out.push({ name: 'Camp box', inv: D.box, x: CAMP_BOX.x, y: CAMP_BOX.y, box: true });
-  for (const B of D.builds) if (B.t === 'chest' && Math.hypot(p.x - B.x, p.y - B.y) < R) out.push({ name: B.basket ? 'Harvest basket' : 'Storage chest', inv: B.inv, x: B.x, y: B.y, B });
+  for (const B of D.builds) if (B.t === 'chest' && Math.hypot(p.x - B.x, p.y - B.y) < R) out.push({ name: chestName(B), inv: B.inv, x: B.x, y: B.y, B });
   if (R === CONT_R) {                            // v179 (Joe): a station you're working at reaches into the chests set up round it
     const stR = { fire: FIRE_R, bench: BENCH_R, furnace: FURN_R, rack: RACK_R, anvil: 90 }, at = D.builds.filter(B => stR[B.t] && Math.hypot(p.x - B.x, p.y - B.y) < stR[B.t]);
-    if (at.length) for (const B of D.builds) if (B.t === 'chest' && !out.some(c => c.B === B) && at.some(A => Math.hypot(A.x - B.x, A.y - B.y) < STN_CHEST_R)) out.push({ name: B.basket ? 'Harvest basket' : 'Storage chest', inv: B.inv, x: B.x, y: B.y, B, far: true });
+    if (at.length) for (const B of D.builds) if (B.t === 'chest' && !out.some(c => c.B === B) && at.some(A => Math.hypot(A.x - B.x, A.y - B.y) < STN_CHEST_R)) out.push({ name: chestName(B), inv: B.inv, x: B.x, y: B.y, B, far: true });
     if (S.rg.inCamp && !out.some(c => c.box)) out.push({ name: 'Camp box', inv: D.box, x: CAMP_BOX.x, y: CAMP_BOX.y, box: true, far: true });   // anywhere in camp, the box is to hand
   }
   return out.sort((a, b) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(p.x - b.x, p.y - b.y));
@@ -2675,6 +2679,8 @@ const ICON = (() => {
     furnace: '<path d="M4.5 20V9l7.5-5 7.5 5v11z" fill="#8e8c86"/><path d="M9 20v-6.5h6V20z" fill="#2a2320"/><path d="M12 19c-1.6-1.4-2.3-2.6-2.3-3.6A2.3 2.3 0 0 1 12 13.2a2.3 2.3 0 0 1 2.3 2.2c0 1-.7 2.2-2.3 3.6z" fill="#ff9a3c"/><path d="M9.5 7.5h5" stroke="#6e6c67" stroke-width="1.4"/>',
     rack: '<g stroke="#8a6a44" stroke-width="2" stroke-linecap="round"><path d="M4 21V6M20 21V6M3 6h18M3.5 11h17"/></g><g fill="#a0503a"><path d="M6.5 6.5h2.5l.6 6H7z"/><path d="M11 6.5h2.5l.6 6H11.6z"/><path d="M15.5 6.5H18l.6 6H16z"/></g>',
     rainb: '<path d="M6 5h12l1 15H5z" fill="#7a5a3a"/><g stroke="#4a3626" stroke-width="1.3"><path d="M5.4 9h13.2M5.2 15h13.6"/></g><ellipse cx="12" cy="5.3" rx="6" ry="1.4" fill="#8ab8e0"/><path d="M12 0.5v2.4" stroke="#8ab8e0" stroke-width="1.3"/>',
+    smoke: '<path d="M4 11l8-6 8 6v9H4z" fill="#6a4a32"/><path d="M15 7.5V3h2.6v6.5" fill="#7a7872"/><rect x="9.5" y="14" width="5" height="6" fill="#2a1e14"/><path d="M16.3 2.5c-1-1 1-1.6 0-2.4" stroke="#bbb" stroke-width="1" fill="none"/>',
+    compost: '<path d="M3 13h18v7H3z" fill="#6a4a32"/><path d="M4 13c1-4 4-5 8-5s7 1 8 5z" fill="#5a4430"/><g fill="#6f8a46"><circle cx="9" cy="10" r="1.3"/><circle cx="14.5" cy="9.6" r="1.1"/></g><path d="M3 16.5h18" stroke="#4a3626" stroke-width="1.1"/>',
     basket: '<path d="M4 10h16l-2 10H6z" fill="#b08a52"/><g stroke="#8a6a3c" stroke-width="1.2"><path d="M4.6 13h14.8M5.2 16.5h13.6M9 10l1 10M15 10l-1 10"/></g><path d="M7 10c0-4 10-4 10 0" fill="none" stroke="#8a6a3c" stroke-width="1.4"/><circle cx="10" cy="9" r="1.8" fill="#c23a4a"/><circle cx="13.5" cy="8.6" r="1.8" fill="#c23a4a"/>',
     plot: '<path d="M2 15l10-4.5L22 15l-10 4.5z" fill="#4a3a26"/><g stroke="#3a2c1c" stroke-width="1"><path d="M6.5 13l10 4.5M9.5 11.7l10 4.5M12 10.5"/></g><g stroke="#6f8a46" stroke-width="1.5" fill="none"><path d="M8 13.5V9M12 15V9.5M16 13.5V9"/></g><g fill="#c23a4a"><circle cx="8" cy="8" r="1.5"/><circle cx="12" cy="8.5" r="1.5"/><circle cx="16" cy="8" r="1.5"/></g>',
     torch: '<path d="M10.5 21.5l1.5-9.5 1.5 9.5z" fill="#7a5a3a"/><path d="M8.6 12.5h6.8l-.7 2.2H9.3z" fill="#4a3a24"/><path d="M12 1.5c2.6 2.3 4.2 4.6 4.2 6.8A4.2 4.2 0 0 1 12 12.5a4.2 4.2 0 0 1-4.2-4.2c0-2.2 1.6-4.5 4.2-6.8z" fill="#ff9a3c"/><path d="M12 4.6c1.4 1.4 2.2 2.8 2.2 4a2.2 2.2 0 1 1-4.4 0c0-1.2.8-2.6 2.2-4z" fill="#ffe8a8"/>',
@@ -2740,9 +2746,9 @@ function dayMakeBuild(t, cx, cy, a, fake) {
     for (const k of [-1, 1]) B.parts.push({ camp: 'stakes', kind: 'stakes', x: cx + ux * k * 13, y: cy + uy * k * 13, a, s: 1, seed: Math.random(), build: B });
   } else if (t === 'bench') {
     B.parts.push({ kind: 'dbuild', sub: 'bench', x: cx, y: cy, r: 15, s: 1, build: B });
-  } else if (t === 'chest' || t === 'basket') {   // a harvest basket is a chest that fills itself from your plots (67-home)
-    if (t === 'basket') { B.t = 'chest'; B.basket = 1; }
-    B.inv = Array(t === 'basket' ? BASKET_SLOTS : CHEST_SLOTS).fill(null);
+  } else if (t === 'chest' || t === 'basket' || t === 'smoke' || t === 'compost') {   // the basket, smokehouse and compost heap are chests that work by themselves (67-home)
+    if (t !== 'chest') { B.t = 'chest'; B[t === 'basket' ? 'basket' : t === 'smoke' ? 'smoke' : 'comp'] = 1; }
+    B.inv = Array(t === 'basket' ? BASKET_SLOTS : t === 'smoke' ? 6 : t === 'compost' ? 4 : CHEST_SLOTS).fill(null);
     B.parts.push({ kind: 'dbuild', sub: 'chest', x: cx, y: cy, r: 11, s: 1, build: B });
   } else if (t === 'furnace' || t === 'rack' || t === 'anvil') {
     B.parts.push({ kind: 'dbuild', sub: t, x: cx, y: cy, r: t === 'furnace' ? 15 : t === 'anvil' ? 14 : 17, s: 1, build: B });
@@ -3061,7 +3067,7 @@ function daySave() {
   d.bld = [...D.bld.values()].map(stOut); d.brot = D.brot || 0; d.bsnap = D.bsnap !== false;
   d.logs = D.logs.flatMap(g => [['logs', g.give.logs], ['sticks', g.give.sticks]].filter(([, n]) => n).map(([it, n]) => ({ it, n, x: Math.round(g.bx + g.ux * g.len / 2), y: Math.round(g.by + g.uy * g.len / 2), t: 0 })));   // a tree still falling is saved as its logs
   d.beasts = D.beasts.filter(b => !b.dead).map(b => ({ k: b.k, x: Math.round(b.x), y: Math.round(b.y), hp: b.hp, stag: b.stag, chunk: b.chunk, tame: b.tame, fed: b.fed }));
-  d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit }));
+  d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, smoke: B.smoke, comp: B.comp, cT: B.cT, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit }));
   const out = { v: 2, at: Date.now(), d, p: { x: Math.round(S.p.x), y: Math.round(S.p.y) }, rg: { hp: rg.hp, steel: rg.steel || 0, flask: rg.flask, kills: rg.kills || 0, looted: [...rg.looted], wisp: rg.wispCarry || 0 }, xs: XS };
   try { localStorage.setItem(dayKey(), JSON.stringify(out)); } catch (e) {}
 }
@@ -3087,7 +3093,7 @@ function dayLoad(sv) {                          // pick a saved run back up wher
   D.baseHp = D.baseHp || rg.maxHp;
   D.beasts = d.beasts.map(b => ({ kind: 'beast', r: 0, s: 1, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, ...b }));
   for (const sv of d.bld || []) stMake(sv);
-  for (const B of d.builds) { const nb = dayMakeBuild(B.basket ? 'basket' : B.t, B.x, B.y, B.a || 0); if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
+  for (const B of d.builds) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
   rg.hp = sv.rg.hp; rg.flask = sv.rg.flask; rg.kills = sv.rg.kills; rg.looted = new Set(sv.rg.looted); rg.wispCarry = sv.rg.wisp || 0;   // v164
   dayGearFx(); rg.hp = Math.min(sv.rg.hp, rg.maxHp); rg.steel = Math.min(sv.rg.steel || 0, steelMax()); D.steelSeen = rg.steel;
   for (const k of d.seen || []) daySee(k, true);   // the book fills back in, quietly
@@ -3827,7 +3833,7 @@ function dayPlotPlant(B) {
   dayChanged();
 }
 function dayPlotStep(dt) {
-  const D = S.day; basketStep(); rainbStep(dt);
+  const D = S.day; basketStep(); rainbStep(dt); workStep(dt);
   for (const B of D.builds) if (B.t === 'plot' && B.crop && !B.grown && D.t - B.sown >= GROW_T) { B.grown = true; if (dist2(B, S.p) < 700) exNote('your plot is ripe', true); }
 }
 const CAMPS = [

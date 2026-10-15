@@ -10275,8 +10275,8 @@ function vmPart(parent, geo, m, x, y, z, rx = 0, ry = 0, rz = 0, edge = true) {
 const SLEEVE = '#d0a07a', GLOVE = '#daa880', SKIN = '#c8a07a';   // bare forearms and hands: the sleeves are rolled up (Joe's character sheet)
 const cyl = (r0, r1, h, n = 8) => new THREE.CylinderGeometry(r0, r1, h, n);
 const _sa = new V3(), _sb = new V3(), _sUp = new V3(0, 1, 0);
-function vmString(G, c) {   // lay each half of the bowstring from its tip to the nock, drawn back by c
-  const nock = new V3(0, 0, -3.4 + 9 * c);
+function vmString(G, c, at) {   // lay each half of the bowstring from its tip to the nock, drawn back by c (or to the point at)
+  const nock = at ? at.clone() : new V3(0, 0, -3.4 + 9 * c);
   for (const [n, y] of [['strA', 10.6], ['strB', -10.6]]) {
     const o = G.getObjectByName(n); if (!o) continue;
     _sa.set(0, y, -3.4); _sb.subVectors(nock, _sa); const L = _sb.length();
@@ -10718,6 +10718,49 @@ const bmix = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], 
 function through(rest, coil, hit, b) { const [c, h, r] = b; return bmix(bmix(bmix(rest, coil, c), hit, h), rest, r); }
 
 const _bm = new M4(), _bq = new THREE.Quaternion(), _bv = new V3(), _be = new THREE.Euler();
+// ---- the bow, held properly ----
+// Joe: the bow floated beside you while you held the torch up. Now the bow lives in your left fist: carried low and upright
+// when you're not shooting (the torch goes on your belt, still lit), and when you draw, the bow arm points straight down
+// your aim, the right hand takes the string back to your chin and the arrow lies along the line between them.
+const BOW_GRIP = 8.4, ARM_U = 7.2, ARM_F = 8;   // the grip's distance in front of the string; upper arm; forearm to the middle of the fist
+const _bx = new V3(), _by = new V3(), _bz = new V3(), _bw = new V3(), _bqc = new THREE.Quaternion(), _bmA = new M4();
+function chestQ(P) {   // the chest's turn relative to your body, from the pose about to be eased toward
+  _bqc.identity(); for (const n of ['hips', 'spine', 'chest']) _bqc.multiply(_bq.setFromEuler(_be.set(P[n][0], P[n][1], P[n][2], 'YXZ')));
+  return _bqc.clone().invert();
+}
+function armFrame(dir, side) {   // an arm bone's rotation (in the chest) so it runs along dir, its front (+Z, the way the elbow bends) toward side
+  _by.copy(dir).negate().normalize(); _bz.copy(side).addScaledVector(_by, -side.dot(_by)).normalize(); _bx.crossVectors(_by, _bz);
+  _bmA.makeBasis(_bx, _by, _bz); _be.setFromRotationMatrix(_bmA, 'YXZ'); return [_be.x, _be.y, _be.z];
+}
+function armReach(sh, T, pole) {   // two bones from the shoulder to the point T, the elbow out toward pole: [upper arm, elbow bend]
+  const D = T.clone().sub(sh), d = clamp(D.length(), 2, ARM_U + ARM_F - 0.05); D.normalize();
+  const a = Math.acos(clamp((ARM_U * ARM_U + d * d - ARM_F * ARM_F) / (2 * ARM_U * d), -1, 1));
+  const pp = pole.clone().addScaledVector(D, -pole.dot(D)).normalize();
+  const u = D.clone().multiplyScalar(Math.cos(a)).addScaledVector(pp, Math.sin(a)), E = sh.clone().addScaledVector(u, ARM_U);
+  const f = sh.clone().addScaledVector(D, d).sub(E).normalize(), bend = Math.acos(clamp(u.dot(f), -1, 1));
+  return [armFrame(u, f.clone().sub(u)), -bend];
+}
+function bowArms(P, c) {
+  const iq = chestQ(P), fwd = new V3(0, 0, 1).applyQuaternion(iq), up = new V3(0, 1, 0).applyQuaternion(iq);
+  const chin = new V3(0.8, 6.1, 2.6), shL = new V3(-5.6, 3.6, 0), shR = new V3(5.6, 3.6, 0);
+  // the bow arm: straight out from the shoulder, aimed so the line from your chin through the grip runs along your aim
+  const grip = chin.clone().addScaledVector(fwd, 14).addScaledVector(up, -0.8), dirL = grip.clone().sub(shL).normalize();
+  P.armL = armFrame(dirL, up); P.foreL = [-0.06, 0, 0]; P.handL = [0, 0, 0];
+  // the string hand: from the string at the bow back to your chin as you draw, the elbow up and out behind
+  const H = grip.clone().addScaledVector(fwd, -(5 + 9 * c)).lerp(chin, c);
+  const [aR, bR] = armReach(shR, H, new V3(1, 0.4, 0).addScaledVector(fwd, -1.2));
+  P.armR = aR; P.foreR = [bR, 0, 0]; P.handR = [0.2, 0, 0];
+}
+function bowNock(G, draw) {   // the string to your right fist, and the arrow from there through the grip
+  const ar = G.getObjectByName('arrow');
+  if (!draw) { vmString(G, 0); ar.visible = false; return; }
+  G.updateMatrixWorld(true);
+  _bmA.copy(TP.hold.matrix).invert();
+  const N = _bw.set(0, -1.6, 0.3).applyMatrix4(BODY.B.handR.matrixWorld); N.y += terrH(BODY.mesh.position.x, BODY.mesh.position.z); N.applyMatrix4(_bmA);
+  N.z = clamp(N.z, -3.4, 16); vmString(G, 0, N);
+  const d = _bv.set(0, 0.5, -BOW_GRIP).sub(N).normalize();
+  ar.visible = dayAmmoN('bow') > 0; ar.quaternion.setFromUnitVectors(_bz.set(0, 0, -1), d); ar.position.copy(N).addScaledVector(d, 2);
+}
 function posePlayer(now) {
   const p = S.p, D = S.day, rg = S.rg, s = heldSlot(), id = s ? s.id : null, T = id ? DIT[id] : null, dt = Math.min(0.05, frameDtTP);
   const X = BODY, P = {}; for (const [n] of BONES) P[n] = [0, 0, 0];
@@ -10758,6 +10801,7 @@ function posePlayer(now) {
   // ---- what's in your hand when you're not swinging it ----
   const spearish = T && (T.wpn === 'spear' || T.thr === 'jav'), bow = T && T.tool === 'bow', armed = T && (T.wpn || T.tool);
   if (armed && !bow) { P.armR[0] += -0.25; P.foreR[0] += -0.55; P.handR[0] = -0.2; }
+  if (bow) { P.armL = [-0.15 + 0.4 * P.armL[0], 0.15, -0.22]; P.foreL = [-1.2, 0, 0]; P.handL = [0, 0, 0.25]; }   // the bow carried low in front, upright, ready
   // ---- a blow ----
   const kind = A ? (A.ov ? 'chop' : A.pose === 3 || spearish ? 'thrust' : A.i === 2 ? 'slam' : A.i === 3 ? 'thrust' : A.side < 0 ? 'back' : 'fore') : Wa ? 'slam' : null;
   if (kind) {
@@ -10795,12 +10839,11 @@ function posePlayer(now) {
     }
     // a heavy weapon swings bigger and slower through the body
     if (T && (T.wpn === 'waxe' || T.wpn === 'club' || T.wpn === 'bone' || id === 'maul')) { P.chest[1] *= 1.15; lunge *= 1.15; }
-  } else if (D.draw && bow) {   // the bow: side on, the bow arm straight out, the string hand drawn back to your cheek
+  } else if (D.draw && bow) {   // the bow: side on, the bow arm straight out along your aim, the string drawn back to your chin
     const c = clamp(D.draw.t / (RNG.bow ? RNG.bow.full : 0.8), 0, 1); stiff = 22;
-    P.hips[1] = 0.35; P.chest[1] = 0.35; P.head[1] = -0.6; P.spine[0] = 0.1;
-    P.armL = [-1.55, -0.4, -0.05]; P.foreL = [-0.05, 0, 0]; P.handL = [0, 0, 0.2];
-    P.armR = [-1.45, 0.25 - 0.3 * c, 0.15 + 0.3 * c]; P.foreR = [-1.0 - 1.4 * c, 0, 0];
+    P.hips[1] = 0.45; P.chest[1] = 0.4; P.head[1] = -0.75; P.head[0] = 0.12; P.spine[0] = 0.05;
     P.legL[0] = -0.3; P.legR[0] = 0.25; P.shinL[0] = 0.25; P.shinR[0] = 0.2;
+    bowArms(P, ease.inOut(c));
   } else if (D.draw) {         // the sling, whirling over your head
     P.armR = [-2.7, 0, 0.3 + 0.25 * Math.sin(t * 16)]; P.foreR = [-0.5 - 0.3 * Math.cos(t * 16), 0, 0]; P.chest[1] = 0.3;
   } else if (act) {
@@ -10810,8 +10853,8 @@ function posePlayer(now) {
     else if (act.pose === 10) { const c = Math.abs(Math.sin(u * Math.PI * 3)); lean(0.4); P.armR = [-1.0 - 1.4 * (1 - c), 0, 0.2]; P.foreR = [-0.9, 0, 0]; P.armL = [-0.9, 0, -0.2]; P.foreL = [-1.2, 0, 0]; }
     else { P.armR = bmix(P.armR, [-1.3, 0, 0.1], k); P.foreR = bmix(P.foreR, [-0.6, 0, 0], k); }
   }
-  // your torch, held up and out in the left hand by night
-  const torch = (S.torchLvl > 0.05 || S.torchOn) && !(kind === 'slam' || kind === 'chop') && !(D.draw && bow);
+  // your torch, held up and out in the left hand by night; with a bow in that hand it hangs from your belt instead, still lit
+  const lit = S.torchLvl > 0.05 || S.torchOn, torch = lit && !bow && !(kind === 'slam' || kind === 'chop');
   if (torch) { P.armL = [-1.15, 0.25, -0.1]; P.foreL = [-0.55, 0, 0]; P.handL = [0.35, 0, 0]; }
   // a dash: low and long, arms swept back, one leg reaching
   const rollU = p.roll > 0 ? 1 - p.roll / ROLL_T : -1;
@@ -10853,14 +10896,22 @@ function posePlayer(now) {
   const hand = bow ? X.B.handL : X.B.handR;
   if (id && TP.items.has(id)) {
     TP.items.get(id).position.set(0, 0, 0); TP.items.get(id).rotation.set(0, 0, 0);
-    TP.hold.matrix.makeTranslation(0, terrH(X.mesh.position.x, X.mesh.position.z), 0).multiply(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3)).multiply(_bm.makeRotationFromEuler(_be.set(bow ? 0 : Math.PI / 2, bow ? Math.PI / 2 : 0, 0)));
+    TP.hold.matrix.makeTranslation(0, terrH(X.mesh.position.x, X.mesh.position.z), 0).multiply(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3));
+    if (bow) TP.hold.matrix.multiply(_bm.makeBasis(_bx.set(-1, 0, 0), _by.set(0, 0, 1), _bz.set(0, 1, 0))).multiply(_bm.makeTranslation(0, 0, BOW_GRIP));   // the grip in your fist, limbs across it, the string toward you
+    else TP.hold.matrix.multiply(_bm.makeRotationFromEuler(_be.set(Math.PI / 2, 0, 0)));
     TP.hold.matrixWorldNeedsUpdate = true; TP.hold.visible = true;
+    if (bow) bowNock(TP.items.get(id), D.draw);
   } else TP.hold.visible = false;
   // the torch in your left fist, its lens glowing
   if (torch) {
     const a = _bv.set(0, -1.6, 0).applyMatrix4(X.B.handL.matrixWorld).clone(), b = _bv.set(0, -2, 6.5).applyMatrix4(X.B.handL.matrixWorld).clone();
     between(PT.rod, a.x, a.y, a.z, b.x, b.y, b.z, 1.2, hex('#66655e'), 0);
     stat(b.x, b.y, b.z, 10, 1, 0.92, 0.75, 0.8 * S.torchLvl, 0); stat(b.x, b.y, b.z, 3, 1, 1, 0.95, 1, 0);
+  } else if (lit && bow) {   // clipped to your belt on the left hip, lens down and forward
+    const ty = terrH(X.mesh.position.x, X.mesh.position.z), a = _bv.set(-4.9, 0.6, 1.2).applyMatrix4(X.B.hips.matrixWorld).clone(), b = _bv.set(-5.3, -4.6, 3.4).applyMatrix4(X.B.hips.matrixWorld).clone();
+    a.y += ty; b.y += ty;
+    between(PT.rod, a.x, a.y, a.z, b.x, b.y, b.z, 1.2, hex('#66655e'), 0);
+    stat(b.x, b.y, b.z, 7, 1, 0.92, 0.75, 0.6 * S.torchLvl, 0); stat(b.x, b.y, b.z, 2.4, 1, 1, 0.95, 1, 0);
   }
   // the smear: tip and middle of the blade while it's cutting
   const cutting = kind && (() => { const u = (A || Wa).t / ((A || Wa).dur || 0.4); return u > 0.17 && u < 0.6; })();

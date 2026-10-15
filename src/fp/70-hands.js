@@ -26,8 +26,8 @@ function vmPart(parent, geo, m, x, y, z, rx = 0, ry = 0, rz = 0, edge = true) {
 const SLEEVE = '#d0a07a', GLOVE = '#daa880', SKIN = '#c8a07a';   // bare forearms and hands: the sleeves are rolled up (Joe's character sheet)
 const cyl = (r0, r1, h, n = 8) => new THREE.CylinderGeometry(r0, r1, h, n);
 const _sa = new V3(), _sb = new V3(), _sUp = new V3(0, 1, 0);
-function vmString(G, c) {   // lay each half of the bowstring from its tip to the nock, drawn back by c
-  const nock = new V3(0, 0, -3.4 + 9 * c);
+function vmString(G, c, at) {   // lay each half of the bowstring from its tip to the nock, drawn back by c (or to the point at)
+  const nock = at ? at.clone() : new V3(0, 0, -3.4 + 9 * c);
   for (const [n, y] of [['strA', 10.6], ['strB', -10.6]]) {
     const o = G.getObjectByName(n); if (!o) continue;
     _sa.set(0, y, -3.4); _sb.subVectors(nock, _sa); const L = _sb.length();

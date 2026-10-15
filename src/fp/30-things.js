@@ -176,7 +176,13 @@ function buildKit(K, o) {
       { const [px, py] = at(-8, -1); K.add(P_BALL(), px, 14.6, py, 6, 2.2, 3.6, hex('#8d8b85')); }
       { const [ax, ay] = at(2, -4), [bx, by] = at(11, 4); K.rod(P_CYL(5), ax, 14.6, ay, bx, 14.6, by, 0.7, hex('#7a5a3a')); K.add(P_BOX(), bx, 15, by, 4, 2, 3, hex('#9a9a92'), -a); }
       break;
-    case 'chest': chestKit(K, x, y, a + Math.PI / 2, 0.78, B.openT > 0 ? Math.min(1, B.openT * 4) : 0); break;
+    case 'chest':
+      if (B.basket) {   // a woven basket, heaped with whatever it last picked
+        K.add(P_CYL(12), x, 0, y, 20, 11, 20, hex('#b08a52')); for (const z of [3, 6.5, 10]) K.add(P_CYL(12), x, z, y, 21, 1.1, 21, hex('#8a6a3c'));
+        const top = B.inv.find(Boolean); if (top) { const c = DIT[top.id].c || '#c23a4a'; for (let i = 0; i < 5; i++) { const t = i / 5 * 6.283 + B.x; K.add(P_BALL(), x + Math.cos(t) * 4, 11, y + Math.sin(t) * 4, 5, 3.6, 5, hex(c)); } }
+        break;
+      }
+      chestKit(K, x, y, a + Math.PI / 2, 0.78, B.openT > 0 ? Math.min(1, B.openT * 4) : 0); break;
     case 'furnace': {
       K.add(P_CYL(10), x, 0, y, 26, 14, 26, hex('#7a7872')); K.add(P_BALL(), x, 14, y, 26, 22, 26, hex('#8d8b85')); K.add(P_CYL(8), x, 20, y, 8, 14, 8, hex('#6e6c67'));
       const [mx, my] = at(0, 12.2), lit = B.fuel > 0 || B.lit || B.smelt; K.add(P_BOX(), mx, 6, my, 8, 7, 1.4, hex(lit ? '#ffa040' : '#1c1a18'), -a, 0, 0, lit ? 1 : 0);
@@ -243,7 +249,7 @@ function thingsSync(force) {
   const D = S.day, p = S.p, R = 560;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size + ':' + dayRelics();
-  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
+  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + (B.basket && B.inv.find(Boolean) ? 'h' : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');
   key += dayLight() < 0.85 ? 'N' : 'D';
   if (!force && key === thingsKey && Math.hypot(p.x - thingsAt.x, p.y - thingsAt.y) < 120) return;

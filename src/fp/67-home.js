@@ -57,3 +57,29 @@ function stClipOld(P, o) {
   const rs = stCorners(o).map(([x, y]) => Math.hypot(x, y));
   return Math.max(...rs) < CAMP_R - 2 || Math.min(...rs) > CAMP_R + 2 ? 0 : 1;
 }
+
+// ---- the harvest basket ----
+// Joe enjoys building a base that keeps itself going. A harvest basket set down among your plots picks whatever ripens
+// within reach, sows the same crop again straight away, and keeps the harvest for you to collect. It's a small chest
+// underneath, so it opens like one and the crafting stations nearby can draw on it.
+const BASKET_R = 130, BASKET_SLOTS = 9;
+function basketStep() {
+  const D = S.day; if (!D) return;
+  if (!D.knownChk) {   // an older save: the basket's recipe shows up once you've seen what it takes
+    D.knownChk = 1;
+    for (const r of DREC) if (!D.known.has(r.id) && Object.keys(r.cost).every(k => D.seen.has(k))) { D.known.add(r.id); D.fresh.add(r.id); }
+  }
+  for (const K of D.builds) {
+    if (!K.basket) continue;
+    for (const B of D.builds) {
+      if (B.t !== 'plot' || !B.grown || !B.crop || Math.hypot(B.x - K.x, B.y - K.y) > BASKET_R) continue;
+      const n = (B.crop === 'mushroom' ? 4 : B.crop === 'fibre' ? 8 : 6) + Math.floor(Math.random() * 3);
+      if (roomIn(K.inv, B.crop) < n) continue;   // full: it waits for you to empty it
+      addTo(K.inv, B.crop, n); if (B.crop !== 'fibre') addTo(K.inv, 'fibre', 1);
+      B.grown = false; B.sown = D.t;   // sown again, the same crop
+      ashBurst(B.x, B.y, 4, 5);
+      if (Math.hypot(S.p.x - B.x, S.p.y - B.y) < 400) exNote(`the basket picked · ${n} ${DIT[B.crop].n.toLowerCase()}`);
+      dayChanged();
+    }
+  }
+}

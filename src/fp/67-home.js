@@ -83,3 +83,27 @@ function basketStep() {
     }
   }
 }
+
+// ---- the rain barrel ----
+// It fills slowly on its own and quickly in the rain. Use it to drink or fill your waterskins, and while it has water in
+// it the plots around it stay watered and grow faster.
+const RB_MAX = 10, RB_FILL = 1 / 45, RB_RAIN = 0.35, RB_GROW = 0.4, RB_THIRST = 0.004;
+function rainbStep(dt) {
+  const D = S.day;
+  for (const R of D.builds) {
+    if (R.t !== 'rainb') continue;
+    R.w = Math.min(RB_MAX, (R.w || 0) + dt * (RB_FILL + RB_RAIN * wxK('rain')));
+    for (const B of D.builds) {
+      if (B.t !== 'plot' || !B.crop || B.grown || R.w <= 0.05 || Math.hypot(B.x - R.x, B.y - R.y) > BASKET_R) continue;
+      B.sown -= dt * RB_GROW; R.w = Math.max(0, R.w - dt * RB_THIRST);   // watered: it comes on a little faster
+    }
+  }
+}
+function rainbUse(R) {
+  const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS);
+  if ((R.w || 0) < 1) { dayNote('dry', 'the barrel is nearly dry · it fills in the rain', 2); return; }
+  if (skins.length) { let n = 0; for (const s of skins) if (R.w >= 1) { R.w -= 1; s.w = SKIN_SIPS; n++; } exNote(n > 1 ? `${n} waterskins filled` : 'waterskin filled'); sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
+  else if (D.water >= FOOD_MAX - 2) { dayNote('full', 'you\'re not thirsty', 1.5); return; }
+  else { R.w -= 1; D.water = Math.min(FOOD_MAX, D.water + 40); dayAct(9, 1.1, '#8ab8e0', 'cup'); exNote('a drink'); sfx(0.8, 0.3, 'lowpass', 900, 0.25); }
+  dayChanged();
+}

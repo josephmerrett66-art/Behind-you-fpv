@@ -1906,7 +1906,7 @@ const DIT = {
   mail: { n: 'Iron mail', c: '#b8bcc0', st: 1, k: 'gear', slot: 'body', heart: 1, arm: 1, b: 'One more heart, and armour with it' },
   furnace: { n: 'Furnace', c: '#8e8c86', st: 2, k: 'place', build: 'furnace', b: 'Smelts ore into iron bars' },
   rack: { n: 'Drying rack', c: '#a07850', st: 2, k: 'place', build: 'rack', b: 'Dries meat and fish so they keep' },
-  plot: { n: 'Garden plot', c: '#4a3a26', st: 2, k: 'place', build: 'plot', b: 'Sow berries · pick them when ripe' },
+  plot: { n: 'Garden plot', c: '#4a3a26', st: 2, k: 'place', build: 'plot', b: 'Sow berries, mushrooms or fibre · pick them when ripe' },
   rod: { n: 'Fishing rod', c: '#8a6a44', st: 1, k: 'tool', tool: 'rod', dmg: 0.5, r: 4, dur: 120, b: 'Cast at a pond and pull on the bite' },
   skin: { n: 'Waterskin', c: '#6eaae6', st: 1, k: 'drink', b: `Carries ${SKIN_SIPS} drinks out with you` },
   axe1: { n: 'Stone axe', c: STONE_HEAD, st: 1, k: 'tool', tool: 'axe', tier: 1, dmg: 0.9, dur: 60, b: 'Fells a tree in 5 chops' },
@@ -3802,12 +3802,12 @@ function dayTameTry() {                          // hold cooked meat and walk up
 function dayPlotPlant(B) {
   const D = S.day, s = heldSlot();
   if (B.grown) {                                 // ripe: take the crop and it starts again
-    const n = (B.crop === 'mushroom' ? 4 : 6) + Math.floor(Math.random() * 3);   // the cozy pass: a plot is worth tending
-    dayGive(B.crop, n, B.x, B.y); dayGive('fibre', 1, B.x, B.y);
+    const n = (B.crop === 'mushroom' ? 4 : B.crop === 'fibre' ? 8 : 6) + Math.floor(Math.random() * 3);   // the cozy pass: a plot is worth tending
+    dayGive(B.crop, n, B.x, B.y); if (B.crop !== 'fibre') dayGive('fibre', 1, B.x, B.y);
     exNote(`picked · ${n} ${DIT[B.crop].n.toLowerCase()}`); B.crop = null; B.grown = false; B.sown = 0; dayAct(7, 0.6); pickSnd(); dayChanged(); return;
   }
   if (B.crop) { exNote(`it's still growing · ${Math.max(1, Math.ceil((B.sown + GROW_T - D.t) / 10) * 10)}s`); return; }
-  if (!s || (s.id !== 'berries' && s.id !== 'mushroom')) { dayNote('seed', 'hold berries or a mushroom to sow it', 2); return; }
+  if (!s || (s.id !== 'berries' && s.id !== 'mushroom' && s.id !== 'fibre')) { dayNote('seed', 'hold berries, a mushroom or fibre to sow it', 2); return; }   // Joe: fibre grows too, a bed of tall grass
   s.n--; if (!s.n) D.inv[D.hot] = null;
   B.crop = s.id; B.sown = D.t; B.grown = false;
   dayAct(10, 0.9); ashBurst(B.x, B.y, 5, 5); exNote('sown'); sfx(0.8, 0.3, 'lowpass', 700, 0.22);

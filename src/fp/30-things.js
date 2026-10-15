@@ -212,7 +212,8 @@ function buildKit(K, o) {
     case 'plot': {
       box(0, 0, -0.4, 44, 1.2, 30, hex('#4a3a2a'));
       for (const s of [-9, 0, 9]) box(0, s, 0.4, 42, 1.4, 3.4, hex('#5a4632'));
-      if (B.crop) for (let i = 0; i < 9; i++) { const [px, py] = at(-15 + (i % 3) * 15, -9 + Math.floor(i / 3) * 9), gr = B.grown ? 1 : clamp(B.sown ? (S.day.t - B.sown) / 120 : 0.2, 0.15, 0.9); K.add(P_CONE(5), px, 1, py, 4 * gr + 1, 8 * gr + 1, 4 * gr + 1, hex('#5f8a3a')); if (B.grown) K.add(P_BALL(), px, 6, py, 2.6, 2.6, 2.6, hex(B.crop === 'mushroom' ? '#c8a070' : '#c23a4a')); }
+      if (B.crop) for (let i = 0; i < 9; i++) { const [px, py] = at(-15 + (i % 3) * 15, -9 + Math.floor(i / 3) * 9), gr = B.grown ? 1 : clamp(B.sown ? (S.day.t - B.sown) / 120 : 0.2, 0.15, 0.9); if (B.crop === 'fibre') { for (let k = 0; k < 3; k++) { const [qx, qy] = [px + (k - 1) * 2.2, py + ((k * 7) % 3 - 1) * 1.6]; K.add(P_CONE(4), qx, 1, qy, 1.4 * gr + 0.6, 14 * gr + 2, 1.4 * gr + 0.6, hex(B.grown ? '#a8b86a' : '#6f9440')); } continue; }   // tall grass, gold-green when ready
+      K.add(P_CONE(5), px, 1, py, 4 * gr + 1, 8 * gr + 1, 4 * gr + 1, hex('#5f8a3a')); if (B.grown) K.add(P_BALL(), px, 6, py, 2.6, 2.6, 2.6, hex(B.crop === 'mushroom' ? '#c8a070' : '#c23a4a')); }
       break;
     }
   }

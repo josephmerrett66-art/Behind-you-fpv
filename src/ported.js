@@ -3381,7 +3381,7 @@ function stPlace() {
   if (!stKnown(P)) return;
   if (why !== true) { dayNote('nost', why, 1.2); if (actx) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; }
   const o = { kind: 'dst', key: 'b' + (stUid++), id: P.id, k: P.k, x: sp.x, y: sp.y, a: sp.a, r: 10, need: Object.assign({}, P.cost), hp: P.hp, max: P.hp, done: false, open: 0, put: 0, seed: Math.random() * 9 };
-  o.clip = stClipOf(P, sp);   // a floor across the palisade keeps only your side of it
+  o.clip = stClipOf(P, sp); if (o.clip) o.clipV = 1;   // a floor across the palisade keeps only your side of it
   D.bld.set(o.key, o); stGen++;
   dayAct(10, 0.45); ashBurst(sp.x, sp.y, 6, 6); o.dropT = S.t;
   exNote(`blueprint · ${P.n.toLowerCase()}`, true); dayNote('bphint', 'Use (E) on a blueprint to build it', 30);
@@ -3435,13 +3435,13 @@ function stMake(sv) {                            // a piece read back out of a s
   const pos = sv.x !== undefined ? sv : LEGACY_POS(sv);
   const o = { kind: 'dst', key: 'b' + (stUid++), id: sv.id, k: P.k, x: pos.x, y: pos.y, a: sv.a !== undefined ? sv.a : pos.a, r: 10,
     need: Object.assign({}, P.cost, sv.need || {}), hp: sv.hp !== undefined ? sv.hp : P.hp, max: P.hp, done: !!sv.done, open: 0, put: 0, seed: Math.random() * 9, rise: 1, fuel: sv.fuel };
-  if (sv.clip) o.clip = sv.clip;
-  else if (sv.clip === undefined) o.clip = stClipOld(P, o);   // floors laid before the trim keep the side their middle is on
+  if (sv.clipV) { if (sv.clip) { o.clip = sv.clip; o.clipV = 1; } }
+  else o.clip = stClipOld(P, o);   // floors from before the trim (or trimmed the wrong way by v62) keep the inside of the camp
   S.day.bld.set(o.key, o); stGen++;
   if (o.done && o.k === 'bed') S.day.bed = { x: o.x, y: o.y };
   return o;
 }
-const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done, clip: o.clip || 0 });
+const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done, clip: o.clip || 0, clipV: o.clipV || undefined });
 function stAimed(pred) {                         // the piece you're pointing at (the nearest to where you point, in reach)
   const p = S.p, A = stAimPt(); let best = null, bd = 30;
   if (Math.hypot(A.x - p.x, A.y - p.y) > 90) { const a = S.aimW || 0; A.x = p.x + Math.cos(a) * 90; A.y = p.y + Math.sin(a) * 90; }

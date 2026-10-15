@@ -50,10 +50,10 @@ function floorClipKit(K, o, col, z, th) {   // the floor as CLIP_N x CLIP_N tile
     K.add(P_BOX(), x, z + th / 2, y, c + 0.15, th, c + 0.15, col, -a);
   }
 }
-// a floor from an older save, laid across the fence before floors were trimmed: keep the side most of it sits on
+// a floor from an older save, laid across the fence before floors were trimmed: it was meant for the camp, so it keeps the
+// inside (Joe: keeping the side its middle was on came out backwards)
 function stClipOld(P, o) {
   if (P.lay !== 'floor') return 0;
   const rs = stCorners(o).map(([x, y]) => Math.hypot(x, y));
-  if (Math.max(...rs) < CAMP_R - 2 || Math.min(...rs) > CAMP_R + 2) return 0;
-  return Math.hypot(o.x, o.y) < CAMP_R ? 1 : -1;
+  return Math.max(...rs) < CAMP_R - 2 || Math.min(...rs) > CAMP_R + 2 ? 0 : 1;
 }

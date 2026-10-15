@@ -69,8 +69,8 @@ const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; vary
   g.boundingSphere = new THREE.Sphere(new V3(), 1e5);
   if (SET.quality === 'fast') g.setDrawRange(0, Math.floor(GR_N * 0.45) * 3);   // a sparser lawn on the fast setting
   GR_RINGS.forEach((R, i) => {
-    const m = new THREE.ShaderMaterial({ uniforms: Object.assign({ ring: { value: i } }, grassU, LU), side: THREE.DoubleSide, vertexShader: GRASS_V, fragmentShader: GRASS_F });
-    const o = new THREE.Mesh(g, m); o.frustumCulled = false; o.renderOrder = 0; scene.add(o);
+    const m = new THREE.ShaderMaterial({ uniforms: Object.assign({ ring: { value: i } }, grassU, LU), side: THREE.DoubleSide, vertexShader: GRASS_V, fragmentShader: GRASS_F, depthWrite: false });   // no depth, so the outline pass reads the ground under it, not every blade
+    const o = new THREE.Mesh(g, m); o.frustumCulled = false; o.renderOrder = 1; scene.add(o);
   });
   var grassMesh = { geometry: g };   // what the quality governor thins
 }

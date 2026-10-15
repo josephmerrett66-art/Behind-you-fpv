@@ -574,6 +574,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
     <label>Options
       <span class="tabs">
         <button class="tab" id="sView">Third person</button>
+        <button class="tab" id="sInk">Outlines</button>
         <button class="tab" id="sInv">Invert look</button>
         <button class="tab" id="sFps">Show FPS</button>
         <button class="tab" id="sSnd">Sound</button>
@@ -6561,7 +6562,7 @@ const hex = (h, k = 1) => { const c = new THREE.Color(h); return [c.r * k, c.g *
 function rng(seed) { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 // ---------------- settings ----------------
-const SET = { sens: 1, invert: false, fps: false, quality: 'auto', sound: true, colour: true, fov: 104, view: 'first', isoZoom: 1.7 };
+const SET = { sens: 1, invert: false, fps: false, quality: 'auto', sound: true, colour: true, fov: 104, view: 'first', isoZoom: 1.7, ink: true };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('behind-you-fp') || '{}')); } catch (e) {}
 const saveSet = () => { try { localStorage.setItem('behind-you-fp', JSON.stringify(SET)); } catch (e) {} };
 COLOUR = SET.colour !== false;
@@ -6597,6 +6598,7 @@ function resize() {
   cam.fov = baseFov(); vmCam.fov = asp >= 1 ? 56 : 98;
   vmX = clamp(16 * Math.tan(vmCam.fov * Math.PI / 360) * asp / 18.4, 0.42, 1);   // held upright, the hands come in toward the middle so both stay on screen
   cam.updateProjectionMatrix(); vmCam.updateProjectionMatrix();
+  if (typeof inkResize === 'function') inkResize();
   PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5];
   ovResize();
   // the menus are laid out for a phone; on a laptop or a TV they're scaled up to fill the screen so they can be read from a seat
@@ -6871,6 +6873,55 @@ const cssRgb = c => {   // '#rrggbb', 'rgb(r,g,b)', 'r,g,b' or [r,g,b] -> [0..1]
   const m = c.match(/[\d.]+/g); return m ? m.slice(0, 3).map(v => +v / 255) : [1, 1, 1];
 };
 const BLAST_COL = { white: [1, 0.95, 0.85], red: [1, 0.35, 0.2], gold: [1, 0.8, 0.35], blue: [0.5, 0.75, 1], green: [0.55, 1, 0.55], purple: [0.8, 0.55, 1] };
+
+;
+// ---------------- ink: the bold dark lines round everything ----------------
+// Joe: the original Behind You draws black lines round everything, which is what makes it look like a cartoon. The world
+// is drawn into a picture first, then laid on the screen with a line wherever one thing stands in front of another: the
+// silhouettes of trees, rocks, animals, you, the hills against the sky. It works from depth alone, so flat ground and
+// gentle slopes stay clean and only real edges get a line, and the lines thin out into the distance like the fog.
+// Pause > Options > Outlines turns it off (the thin outlines the models always had stay).
+const INK = { rt: null, scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
+INK.mat = new THREE.ShaderMaterial({
+  uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 } },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: `#include <packing>
+    uniform sampler2D tCol, tDep; uniform vec2 px; uniform float rad, near, far, fz; varying vec2 vUv;
+    float W(vec2 o) { float d = texture2D(tDep, vUv + o * px * rad).x; return 1.0 / max(1e-3, -perspectiveDepthToViewZ(d, near, far)); }
+    void main() {
+      vec3 c = texture2D(tCol, vUv).rgb;
+      float w = W(vec2(0.0)), k = 0.0;
+      // a plane is straight in 1/depth across the screen, so its second difference is nothing; an edge is a kink in it.
+      // Only the nearer side of the kink takes the line, so it sits on the outside of the thing in front. Two rings of
+      // samples, so the line is a solid band rather than a hairline.
+      for (int i = 0; i < 2; i++) {
+        float s = i == 0 ? 0.5 : 1.0;
+        k = max(k, max(2.0 * w - W(vec2(-s, 0.0)) - W(vec2(s, 0.0)), 2.0 * w - W(vec2(0.0, s)) - W(vec2(0.0, -s))));
+        k = max(k, max(2.0 * w - W(vec2(-0.7, 0.7) * s) - W(vec2(0.7, -0.7) * s), 2.0 * w - W(vec2(0.7, 0.7) * s) - W(vec2(-0.7, -0.7) * s)));
+      }
+      k /= w;
+      float z = 1.0 / w, ink = smoothstep(0.025, 0.07, k) * (1.0 - smoothstep(fz, fz + 450.0, z));
+      gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink), 1.0);
+    }`,
+  depthTest: false, depthWrite: false,
+});
+INK.scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), INK.mat));
+function inkResize() {
+  const w = Math.max(1, Math.round(VW * pixK)), h = Math.max(1, Math.round(VH * pixK));
+  if (!INK.rt) {
+    INK.rt = new THREE.WebGLRenderTarget(w, h, { samples: AA ? 4 : 0, depthBuffer: true, stencilBuffer: false });
+    INK.rt.depthTexture = new THREE.DepthTexture(w, h); INK.rt.depthTexture.type = THREE.UnsignedIntType;
+  } else INK.rt.setSize(w, h);
+  INK.mat.uniforms.tCol.value = INK.rt.texture; INK.mat.uniforms.tDep.value = INK.rt.depthTexture;
+  INK.mat.uniforms.px.value.set(1 / w, 1 / h); INK.mat.uniforms.rad.value = Math.max(2, 2.6 * pixK);
+}
+function inkRender() {   // the world, with its lines if they're on
+  if (!SET.ink || !INK.rt) { renderer.clear(); renderer.render(scene, cam); return; }
+  INK.mat.uniforms.near.value = cam.near; INK.mat.uniforms.far.value = cam.far;
+  INK.mat.uniforms.fz.value = S && S.p ? Math.max(220, Math.hypot(cam.position.x - S.p.x, cam.position.z - S.p.y) + 200) : 220;   // from high up (isometric) the lines reach further
+  renderer.setRenderTarget(INK.rt); renderer.clear(); renderer.render(scene, cam);
+  renderer.setRenderTarget(null); renderer.clear(); renderer.render(INK.scene, INK.cam);
+}
 
 ;
 // ================= the woods: the main game's own trees, rocks, ground cover and ponds, stood up around you =================
@@ -7567,8 +7618,8 @@ const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; vary
   g.boundingSphere = new THREE.Sphere(new V3(), 1e5);
   if (SET.quality === 'fast') g.setDrawRange(0, Math.floor(GR_N * 0.45) * 3);   // a sparser lawn on the fast setting
   GR_RINGS.forEach((R, i) => {
-    const m = new THREE.ShaderMaterial({ uniforms: Object.assign({ ring: { value: i } }, grassU, LU), side: THREE.DoubleSide, vertexShader: GRASS_V, fragmentShader: GRASS_F });
-    const o = new THREE.Mesh(g, m); o.frustumCulled = false; o.renderOrder = 0; scene.add(o);
+    const m = new THREE.ShaderMaterial({ uniforms: Object.assign({ ring: { value: i } }, grassU, LU), side: THREE.DoubleSide, vertexShader: GRASS_V, fragmentShader: GRASS_F, depthWrite: false });   // no depth, so the outline pass reads the ground under it, not every blade
+    const o = new THREE.Mesh(g, m); o.frustumCulled = false; o.renderOrder = 1; scene.add(o);
   });
   var grassMesh = { geometry: g };   // what the quality governor thins
 }
@@ -11380,8 +11431,8 @@ function lifeMesh(geo, n, seed, vert, frag) {
   for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]);
   const sd = new Float32Array(n * 4); for (let i = 0; i < n; i++) seed(sd, i);
   g.setAttribute('sd', new THREE.InstancedBufferAttribute(sd, 4)); g.instanceCount = n;
-  const m = new THREE.ShaderMaterial({ uniforms: Object.assign({}, LU, LIFE_U, { lifeK: { value: 1 } }), vertexShader: LIFE_V + vert, fragmentShader: LIFE_F_HEAD + frag, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; scene.add(mesh); mesh.userData.n = n; return mesh;
+  const m = new THREE.ShaderMaterial({ uniforms: Object.assign({}, LU, LIFE_U, { lifeK: { value: 1 } }), vertexShader: LIFE_V + vert, fragmentShader: LIFE_F_HEAD + frag, side: THREE.DoubleSide, depthWrite: false });   // too small to outline: kept out of the depth the outline pass reads
+  const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = 1; scene.add(mesh); mesh.userData.n = n; return mesh;
 }
 // a flat quad, u across and v along, with a 'part' number on every corner (wings left and right, a bee's body)
 function lifeQuads(list) {
@@ -11711,6 +11762,7 @@ function syncSet() {
   $('sZoom').value = SET.isoZoom; $('sZoomV').textContent = isoZoomName();
   for (const b of document.querySelectorAll('#sQual .tab')) b.setAttribute('aria-pressed', b.dataset.q === SET.quality ? 'true' : 'false');
   $('sInv').setAttribute('aria-pressed', SET.invert ? 'true' : 'false');
+  $('sInk').setAttribute('aria-pressed', SET.ink ? 'true' : 'false');
   $('sFps').setAttribute('aria-pressed', SET.fps ? 'true' : 'false');
   $('sSnd').setAttribute('aria-pressed', SET.sound ? 'true' : 'false');
   $('sCol').setAttribute('aria-pressed', COLOUR ? 'true' : 'false');
@@ -11728,6 +11780,7 @@ for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('cl
   resize(); syncSet();
 });
 $('sView').addEventListener('click', () => { SET.view = nextView(); saveSet(); syncSet(); });
+$('sInk').addEventListener('click', () => { SET.ink = !SET.ink; saveSet(); syncSet(); });
 $('sInv').addEventListener('click', () => { SET.invert = !SET.invert; saveSet(); syncSet(); });
 $('sFps').addEventListener('click', () => { SET.fps = !SET.fps; saveSet(); syncSet(); });
 $('sSnd').addEventListener('click', () => { SET.sound = !SET.sound; saveSet(); syncSet(); if (sfxGain) setSoundOn(SET.sound); });
@@ -11762,7 +11815,7 @@ function frame(t) {
   if (state === 'title' || !S) {
     titleYaw += rdt * 0.04; cam.position.set(0, terrH(0, 0) + EYE, 0); cam.rotation.set(0.05, titleYaw, 0); cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position); LU.fogC.value.copy(cam.position);
     envFrame(); IN.lx = IN.ly = 0;
-    renderer.clear(); renderer.render(scene, cam); return;
+    inkRender(); return;
   }
   if (state === 'play') {
     if (IN.pause) { IN.pause = false; pause(); }
@@ -11811,8 +11864,7 @@ function frame(t) {
   drawHud(); audioFrame();
   groundMesh.position.set(Math.round(S.p.x / 10) * 10, 0, Math.round(S.p.y / 10) * 10);   // the ground's grid rides along with you
   sunShadows();
-  renderer.clear();
-  renderer.render(scene, cam);
+  inkRender();
   renderer.clearDepth(); renderer.render(vmScene, vmCam);
 }
 addEventListener('resize', resize);

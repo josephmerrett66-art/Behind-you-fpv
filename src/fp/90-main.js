@@ -184,6 +184,7 @@ function syncSet() {
   $('sZoom').value = SET.isoZoom; $('sZoomV').textContent = isoZoomName();
   for (const b of document.querySelectorAll('#sQual .tab')) b.setAttribute('aria-pressed', b.dataset.q === SET.quality ? 'true' : 'false');
   $('sInv').setAttribute('aria-pressed', SET.invert ? 'true' : 'false');
+  $('sInk').setAttribute('aria-pressed', SET.ink ? 'true' : 'false');
   $('sFps').setAttribute('aria-pressed', SET.fps ? 'true' : 'false');
   $('sSnd').setAttribute('aria-pressed', SET.sound ? 'true' : 'false');
   $('sCol').setAttribute('aria-pressed', COLOUR ? 'true' : 'false');
@@ -201,6 +202,7 @@ for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('cl
   resize(); syncSet();
 });
 $('sView').addEventListener('click', () => { SET.view = nextView(); saveSet(); syncSet(); });
+$('sInk').addEventListener('click', () => { SET.ink = !SET.ink; saveSet(); syncSet(); });
 $('sInv').addEventListener('click', () => { SET.invert = !SET.invert; saveSet(); syncSet(); });
 $('sFps').addEventListener('click', () => { SET.fps = !SET.fps; saveSet(); syncSet(); });
 $('sSnd').addEventListener('click', () => { SET.sound = !SET.sound; saveSet(); syncSet(); if (sfxGain) setSoundOn(SET.sound); });
@@ -235,7 +237,7 @@ function frame(t) {
   if (state === 'title' || !S) {
     titleYaw += rdt * 0.04; cam.position.set(0, terrH(0, 0) + EYE, 0); cam.rotation.set(0.05, titleYaw, 0); cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position); LU.fogC.value.copy(cam.position);
     envFrame(); IN.lx = IN.ly = 0;
-    renderer.clear(); renderer.render(scene, cam); return;
+    inkRender(); return;
   }
   if (state === 'play') {
     if (IN.pause) { IN.pause = false; pause(); }
@@ -284,8 +286,7 @@ function frame(t) {
   drawHud(); audioFrame();
   groundMesh.position.set(Math.round(S.p.x / 10) * 10, 0, Math.round(S.p.y / 10) * 10);   // the ground's grid rides along with you
   sunShadows();
-  renderer.clear();
-  renderer.render(scene, cam);
+  inkRender();
   renderer.clearDepth(); renderer.render(vmScene, vmCam);
 }
 addEventListener('resize', resize);

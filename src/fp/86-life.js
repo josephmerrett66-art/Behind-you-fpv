@@ -19,8 +19,8 @@ function lifeMesh(geo, n, seed, vert, frag) {
   for (const k in geo.attributes) g.setAttribute(k, geo.attributes[k]);
   const sd = new Float32Array(n * 4); for (let i = 0; i < n; i++) seed(sd, i);
   g.setAttribute('sd', new THREE.InstancedBufferAttribute(sd, 4)); g.instanceCount = n;
-  const m = new THREE.ShaderMaterial({ uniforms: Object.assign({}, LU, LIFE_U, { lifeK: { value: 1 } }), vertexShader: LIFE_V + vert, fragmentShader: LIFE_F_HEAD + frag, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; scene.add(mesh); mesh.userData.n = n; return mesh;
+  const m = new THREE.ShaderMaterial({ uniforms: Object.assign({}, LU, LIFE_U, { lifeK: { value: 1 } }), vertexShader: LIFE_V + vert, fragmentShader: LIFE_F_HEAD + frag, side: THREE.DoubleSide, depthWrite: false });   // too small to outline: kept out of the depth the outline pass reads
+  const mesh = new THREE.Mesh(g, m); mesh.frustumCulled = false; mesh.renderOrder = 1; scene.add(mesh); mesh.userData.n = n; return mesh;
 }
 // a flat quad, u across and v along, with a 'part' number on every corner (wings left and right, a bee's body)
 function lifeQuads(list) {

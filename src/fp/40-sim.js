@@ -121,7 +121,7 @@ FP.exStep = function (dt) {
   }
   if (ring > rg.ringMax) { rg.ringMax = ring; rg.ringMsg = { text: RING_NAMES[ring], t: 0 }; if (ring > 0) playRingSting(); }
   rg.spawnT -= dt;
-  const cap = Math.round((EX_CAP[ring] + Math.floor(packUsed(rg.pack) / packMax() * 3)) * dayCrowd() * dayCapK());   // fewer by day, far more by night, more with a heavy pack
+  const cap = Math.round((EX_CAP[ring] + Math.floor(packUsed(rg.pack) / packMax() * 3)) * dayCrowd() * dayCapK() * DAY_FOE_FEW);   // fewer by day, far more by night, more with a heavy pack
   if (rg.spawnT <= 0) {
     rg.spawnT = EX_GAP[ring] * (0.6 + Math.random() * 0.8);
     if (rg.enemies.length < cap && rmOn()) rmSpawn(ring, Math.min(cap - rg.enemies.length, 1 + Math.floor(Math.random() * 3) + (ring > 1 && Math.random() < 0.5 ? 1 : 0)));   // a band out roaming
@@ -202,6 +202,6 @@ function dayPlaceSpot(t) {
 const COOK_R = 60;
 function stationHere(at) {
   const p = S.p;
-  if (at === 'fire') return (!NO_CAMP && Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R) || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
+  if (at === 'fire') return Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
   return at === 'hand' || (at === 'bench' && dayBenchNear(p.x, p.y)) || (at === 'furnace' && dayFurnNear(p.x, p.y)) || (at === 'rack' && dayRackNear(p.x, p.y)) || (at === 'anvil' && dayAnvilNear(p.x, p.y));
 }

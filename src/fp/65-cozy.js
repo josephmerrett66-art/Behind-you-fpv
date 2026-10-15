@@ -2,7 +2,9 @@
 // Joe: get the survival right first. The raiders are switched off (the code all stays, DAY_RAIDERS brings them back),
 // the woods feed you instead, food takes its time on the fire and the rack, and the night has its own work: the cold,
 // and wisps drifting out among the trees to be gathered.
-const DAY_RAIDERS = false;
+const DAY_RAIDERS = true;   // Joe: they're back, fought with weapons now: the torch shows them but doesn't burn them, and kills drop no wisps
+const DAY_FOE_TOUGH = { shade: 2.6, stalker: 3, brute: 2, bomber: 1.8, laser: 2, kamikaze: 2, splitter: 1.8, splitling: 2, tall: 1.5 };   // two or three hits with a club, not one
+const DAY_FOE_FEW = 0.45;   // and fewer of them at once
 const BEAST_BACK = 150, BEAST_CAP = 22, BEAST_SKIP = 0.2;   // more animals, and a hunted stretch of woods fills again sooner
 
 // ---- cooking and drying take time ----
@@ -12,7 +14,7 @@ const POT_MAX = 4, POT_GRAB = 46;
 const cookSlow = r => r.g === 'food' && !r.make && (r.at === 'fire' || r.at === 'rack');
 function cookAt(at) {   // the fire or rack you are at
   const p = S.p, D = S.day;
-  if (!NO_CAMP && at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
+  if (at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
   let best = null, bd = 1e9;
   for (const B of D.builds) if (B.t === at && dist2(B, p) < (at === 'fire' ? COOK_R : RACK_R) && dist2(B, p) < bd) { bd = dist2(B, p); best = B; }
   return best && { x: best.x, y: best.y };
@@ -68,7 +70,7 @@ function cookDraw(g) {
 // richer the deeper you go. They are gone again by morning.
 const WILD_MAX = 14;
 function wildWispStep(dt) {
-  const rg = S.rg, p = S.p; if (!S.day || DAY_RAIDERS) return;
+  const rg = S.rg, p = S.p; if (!S.day) return;
   const L = rg.wisps || (rg.wisps = []);
   for (const w of L) if (w.wild && !w.fly) {   // drifting, bobbing, never quite still
     w.x += Math.cos(S.t * 0.4 + w.seed) * 6 * dt; w.y += Math.sin(S.t * 0.33 + w.seed * 1.7) * 6 * dt; w.z = 16 + 6 * Math.sin(S.t * 1.3 + w.seed);
@@ -80,7 +82,7 @@ function wildWispStep(dt) {
   if (L.filter(w => w.wild && Math.hypot(w.x - p.x, w.y - p.y) < 700).length >= WILD_MAX) return;
   for (let k = 0; k < 6; k++) {
     const a = Math.random() * 6.283, d = 180 + Math.random() * 420, x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d, far = Math.hypot(x, y);
-    if (far < CAMP_R + 120 || exSafeAt(x, y, 60)) continue;
+    if ((!NO_CAMP && far < CAMP_R + 120) || exSafeAt(x, y, 60)) continue;
     const n = far > 2600 ? 3 : far > 1400 ? 2 : 1;
     L.push({ x, y, z: 16, t: 1, n, life: 90 + Math.random() * 40, seed: Math.random() * 9, v: 0, wild: 1 });
     return;

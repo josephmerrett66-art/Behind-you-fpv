@@ -1330,7 +1330,7 @@ function spawnSpot() {
   return at;
 }
 function spawnFoe(type, at = spawnSpot()) {
-  const rg = S.rg, f = FOES[type], hp = f.hp * (1 + 0.09 * (rg.wave - 1)) * (inBeyond() ? DUNE_HP : 1);   // the Dunes (and the Frost past them) are a step up: much tougher hunters
+  const rg = S.rg, f = FOES[type], hp = f.hp * (1 + 0.09 * (rg.wave - 1)) * (inBeyond() ? DUNE_HP : 1) * (S.day && DAY_FOE_TOUGH[type] ? DAY_FOE_TOUGH[type] : 1);   // the Dunes (and the Frost past them) are a step up: much tougher hunters
   rg.enemies.push({ kind: 'shade', type, x: at.x, y: at.y, hp, maxHp: hp, spawnD: at.d || 500,
     beam: 0, lit: false, after: 0, scarred: false, blink: Math.random() * 4, jit: 0, reveal: 0, fly: 0, flare: 0, phase: Math.random() * 6, face: 1 });
   const e = rg.enemies[rg.enemies.length - 1];
@@ -2030,12 +2030,14 @@ function updateSurvive(dt) {
     const worldLit = campLit || exLit || (hr && d < hr) || e.flare || inFire || e.frozen > 0 || rg.candles.some(c => dist2(c, e) < 55);
     e.lit = e.beam > 0 || !!worldLit;
     let dmg = 0;
-    if (e.beam > 0 && rg.laserOn && laserHits(e.x, e.y, f.h * (e.k || 1))) { dmg += burn * (tu('laser') > 1 ? 4.5 : 3); e.lasered = 0.1; }
-    if (e.beam > 0) { dmg += burn * e.beam; e.after = isEx() ? [0, 2, 3, 3][rawLv('smoulder')] : 0.6 * lv('afterglow'); if (lv('scar')) e.scarred = true; }
-    else if (e.after > 0) { e.after -= dt; dmg += burn * 0.6; }
+    const torchHurts = !S.day;   // Joe: in Daylight the torch only shows them to you; weapons do the killing
+    if (torchHurts && e.beam > 0 && rg.laserOn && laserHits(e.x, e.y, f.h * (e.k || 1))) { dmg += burn * (tu('laser') > 1 ? 4.5 : 3); e.lasered = 0.1; }
+    if (torchHurts && e.beam > 0) { dmg += burn * e.beam; e.after = isEx() ? [0, 2, 3, 3][rawLv('smoulder')] : 0.6 * lv('afterglow'); if (lv('scar')) e.scarred = true; }
+    else if (torchHurts && e.after > 0) { e.after -= dt; dmg += burn * 0.6; }
     if (e.flare) dmg += 0.9;
     if (inFire) dmg += 1.1;
-    if (campLit) dmg += 2.4;
+    if (campLit && S.day) { const r = safe.r + 30, dd = Math.hypot(e.x - safe.x, e.y - safe.y) || 1; if (dd < r) { e.x = safe.x + (e.x - safe.x) / dd * r; e.y = safe.y + (e.y - safe.y) / dd * r; } }   // they stop at the edge of the firelight and wait
+    else if (campLit) dmg += 2.4;
     if (isEx() && lv('halo') > 2 && hr && d < hr) dmg += 1.2;   // Lantern Halo 3: the ring burns too
     if (lv('kindling') && dmg > 0) for (const o of rg.enemies)   // Kindling: catches anything it brushes past
       if (o !== e && !o.dead && Math.abs(o.x - e.x) < 24 && Math.abs(o.y - e.y) < 24 && dist2(o, e) < 22) o.after = Math.max(o.after, 0.5 * lv('kindling'));
@@ -2066,7 +2068,7 @@ function updateSurvive(dt) {
     let sp = f.sp * (inBeyond() ? DUNE_SP : 1) * (pact('hunted') ? 1.3 : 1) * (1 + 0.03 * Math.min(rg.wave, 15)) * (e.scarred ? Math.pow(0.8, lv('scar')) : 1) * (e.mire > S.t ? 0.4 : 1);
     if (S.mode === 'expedition' && !inBeyond()) { const k = EX_PACE[exRing(Math.hypot(S.p.x, S.p.y))]; sp = e.type === 'kamikaze' ? sp * k : Math.min(sp * k, Math.max(sp, EX_PACE_MAX)); }   // v122: deeper woods, quicker hunters (never quite your sprint)
     if (!e.lit && !seenAt(e.x, e.y)) sp *= 3;   // out of sight they close in quicker, so off-screen spawns don't slow the pace
-    if (e.lit) sp *= f.lightSp;
+    if (e.lit && !S.day) sp *= f.lightSp;   // in Daylight the light doesn't hold them
     const LU = S.mode === 'expedition' && wpLure(e), px0 = p.x, py0 = p.y; if (LU) { p.x = LU.x; p.y = LU.y; }   // v143: drawn off you to a lamp, a decoy, or where you vanished
     const RM = !!e.roam && rmStep(e, f, d, dt);   // v187: still roaming, wary or searching, not hunting you
     const swung = !RM && !LU && foeMelee(e, d, dt);    // v183: winding up, striking or getting its feet back
@@ -2238,13 +2240,14 @@ function exWeight() {                       // heavy loot slows you; a burning r
   return Math.max(0.6, 1 - 0.04 * exLoad() * (1 - 0.2 * (XS.frame || 0)));
 }
 function exSafeAt(x, y, pad = 0) {           // inside the camp fence or an outpost's light?
-  if (Math.hypot(x, y) < CAMP_R + pad) return { x: 0, y: 0, r: CAMP_R };
+  if (NO_CAMP) { if (Math.hypot(x, y) < PIT_R + pad) return { x: 0, y: 0, r: PIT_R }; }   // Joe: just the fire pit's light now
+  else if (Math.hypot(x, y) < CAMP_R + pad) return { x: 0, y: 0, r: CAMP_R };
   if (XS) for (const o of XS.outposts) if (Math.hypot(x - o.x, y - o.y) < OUT_R + pad) return { x: o.x, y: o.y, r: OUT_R };
   if (XS && XS.dgrace && S.rg && S.rg.beyond && !S.rg.next && Math.hypot(x - XS.dgrace.x, y - XS.dgrace.y) < OUT_R + pad) return { x: XS.dgrace.x, y: XS.dgrace.y, r: OUT_R };   // the lantern by a keeper's ground
   return null;
 }
 function exLightsIn(ci, cj) {
-  const out = ci === 0 && cj === 0 && !NO_CAMP ? [EX_FIRE] : [];
+  const out = ci === 0 && cj === 0 ? [EX_FIRE] : [];
   if (XS) for (const o of XS.outposts) if (Math.floor(o.x / C) === ci && Math.floor(o.y / C) === cj)
     out.push(o.light || (o.light = { kind: 'lamp', x: o.x, y: o.y, r: 4, s: 1, seed: o.x % 7 }));
   return out;
@@ -2351,7 +2354,7 @@ const CAMP = [], CAMP_SOLID = [];
 }
 // Joe: no ready-made camp. You start in an empty clearing with a tarp; the fence, tent, towers, box, barrel and fire are
 // gone, and everything they gave you is something you make (a run from before keeps its box, barrel and fire as builds).
-const NO_CAMP = true;
+const NO_CAMP = true, PIT_R = 100;   // ...except the fire pit on the hill, whose light is a safe ring (Joe)
 if (NO_CAMP) { CAMP.length = 0; CAMP_SOLID.length = 0; }
 function exWall(p, ox, oy) {                  // the palisade: you only get in or out through a gate
   if (NO_CAMP) return;
@@ -2410,7 +2413,7 @@ function life() { return ST.life || (ST.life = { since: Date.now(), kt: {}, bt: 
 const statCost = (s, have) => (s.cost || STAT_COST)[have];
 const baseHearts = () => 3 + sr('hardy') + sr('heartwood');
 function dropWisps(e) {                      // a soul lifts out of the ash
-  if (S.day && !dayDark()) return;   // v166: in Daylight only the night's kills leave wisps
+  if (S.day) return;   // Joe: in Daylight kills never leave wisps; the wisps drift out on their own at night
   const rg = S.rg; let n = (WISP[e.type] || 0) * (pact('hunted') ? 2 : 1) * (inDunes() ? DUNE_WISP : 1); if (!n) return;   // the Dunes are the wisp harvest: every kill there gives more
   for (let i = 0; i < sr('fortune'); i++) if (Math.random() < 0.1) n++;
   const L = rg.wisps || (rg.wisps = []);
@@ -2856,7 +2859,7 @@ function dayStep(dt, inCamp) {
         for (const B of D.builds) if (B.t === 'tpost' && !(B.fuel > 0)) B.fuel = NIGHT_LEN;   // v155: your posts take light at dusk
         if (!DAY_RAIDERS) { rg.ringMsg = { text: 'night', sub: 'The cold comes down · wisps drift out among the trees', t: 0 }; playRingSting(); }
         else if (inCamp) { D.raidDue = true; rg.ringMsg = { text: 'night', sub: (D.heat || 0) > 1 ? `They are ${HEAT_NAME[Math.min(4, D.heat)]} · about ${dayRaidSize()} coming` : 'They wait outside the fence', t: 0 }; }
-        else { rg.ringMsg = { text: 'night', sub: 'Burn them with your torch · their wisps are yours', t: 0 }; playRingSting(); dayRaid(); }
+        else { rg.ringMsg = { text: 'night', sub: NO_CAMP ? 'They come with the dark · fight, or keep to the firelight' : 'Burn them with your torch · their wisps are yours', t: 0 }; playRingSting(); dayRaid(); }
       } else {
         exNote('the sun comes up', true); dayDawn();   // v166
         if (D.raidSeen) { D.raidSeen = 0; D.raids = (D.raids || 0) + 1; dayJLog(`lived through the night · raid ${D.raids}`); }
@@ -3000,9 +3003,9 @@ function dayUseTarget() {                        // the nearest thing in reach y
   { const P = lakeAt(p.x, p.y, 30); if (P && (D.water < FOOD_MAX - 2 || D.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS))) { const d = Math.max(0, Math.hypot(P.x - p.x, P.y - p.y) - P.rad); if (d < bd) { bd = d; best = P; } } }
   if (S.rg.inCamp) {
     { const d = dist2(CAMP_BOX, p) - 14; if (d < bd) { bd = d; best = CAMP_BOX; } }
-    { const d = dist2(EX_FIRE, p) - 24; if (d < bd) { bd = d; best = EX_FIRE; } }   // v164: the camp fire sells wisp upgrades
     { const d = dist2(CAMP_BARREL, p) - 10; if (d < bd && D.water < FOOD_MAX - 2) { bd = d; best = CAMP_BARREL; } }
   }
+  { const d = dist2(EX_FIRE, p) - 24; if (d < bd) { bd = d; best = EX_FIRE; } }   // the fire pit: cook, boil
   for (const o of stNear(p.x, p.y, 60)) if (o.k === 'bed' && o.done) { const d = Math.hypot(o.x - p.x, o.y - p.y) - 14; if (d < bd) { bd = d; best = o; } }   // lie down in your bed
   if (dayTool() === 'build') for (const o of stNear(p.x, p.y, 60)) if (stNeedsWork(o)) { const d = stDistTo(o, p.x, p.y) - 4; if (d < bd) { bd = d; best = o; } }   // v186: Use works your blueprints up
   return best;
@@ -3239,7 +3242,7 @@ function dayWake() {                             // v152 (Joe's plan): with a be
   if (D.bed) { p.x = D.bed.x; p.y = D.bed.y + 26; } else { p.x = 0; p.y = 60; }   // no bed yet: you come round by the fire. Your camp is left just as it was
   p.vx = p.vy = 0; p.act = null; p.atk = null; S.cam.x = p.x; S.cam.y = p.y;
   rg.inCamp = !NO_CAMP && Math.hypot(p.x, p.y) < CAMP_R; if (!rg.inCamp) rg.ringMax = exRing(Math.hypot(p.x, p.y));
-  S.msg = { text: D.bed ? 'you wake at your bed' : NO_CAMP ? 'you wake in the clearing' : 'you wake by the fire', sub: (n ? `Everything you carried lies where you fell · ${n} to fetch back` : 'You were carrying nothing') + (lostW ? ` · ${lostW} wisps lost` : ''), t: 0 };
+  S.msg = { text: D.bed ? 'you wake at your bed' : 'you wake by the fire', sub: (n ? `Everything you carried lies where you fell · ${n} to fetch back` : 'You were carrying nothing') + (lostW ? ` · ${lostW} wisps lost` : ''), t: 0 };
   addShake(0.3); daySave(); dayChanged();
   return true;
 }
@@ -3431,7 +3434,7 @@ function dayMakeBuild(t, cx, cy, a, fake) {
   if (!fake) D.builds.push(B);
   return B;
 }
-const dayFireNear = (x, y) => S.day && S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - x, B.y - y) < FIRE_R);
+const dayFireNear = (x, y) => S.day && (Math.hypot(EX_FIRE.x - x, EX_FIRE.y - y) < FIRE_R || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - x, B.y - y) < FIRE_R));
 const dayBenchNear = (x, y) => S.day && S.day.builds.some(B => B.t === 'bench' && Math.hypot(B.x - x, B.y - y) < BENCH_R);
 function daySolidsNear(x, y, R) { const out = []; if (!S.day) return out; for (const B of S.day.builds) if (B.t !== 'spikes' && Math.abs(B.x - x) < R + 50 && Math.abs(B.y - y) < R + 50) for (const o of B.parts) out.push(o); for (const o of stNear(x, y, R)) for (const q of stSolids(o)) out.push(q); return out; }
 function buildStep(dt) {
@@ -3755,7 +3758,8 @@ function dayLoad(sv) {                          // pick a saved run back up wher
   D.beasts = d.beasts.map(b => ({ kind: 'beast', r: 0, s: 1, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, ...b }));
   for (const sv of d.bld || []) stMake(sv);
   for (const B of d.builds) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
-  if (NO_CAMP && !D.noCamp) campToBuilds();   // a run from when there was a camp keeps its box, barrel and fire
+  if (NO_CAMP && !D.noCamp) campToBuilds();
+  if (NO_CAMP) D.builds = D.builds.filter(B => !(B.t === 'fire' && Math.hypot(B.x - EX_FIRE.x, B.y - EX_FIRE.y) < 2));   // the fire an earlier version built on the pit's spot   // a run from when there was a camp keeps its box, barrel and fire
   rg.hp = sv.rg.hp; rg.flask = sv.rg.flask; rg.kills = sv.rg.kills; rg.looted = new Set(sv.rg.looted); rg.wispCarry = sv.rg.wisp || 0;   // v164
   dayGearFx(); rg.hp = Math.min(sv.rg.hp, rg.maxHp); rg.steel = Math.min(sv.rg.steel || 0, steelMax()); D.steelSeen = rg.steel;
   for (const k of d.seen || []) daySee(k, true);   // the book fills back in, quietly
@@ -5365,7 +5369,7 @@ function dayInfKill(e) {                          // ash and wisp: what a night 
     rg.flares.push({ x: e.x, y: e.y, r: 95, life: 1.1, t: 0 }); wpRing(e.x, e.y, 95, '230,226,255', 0.5); ashBurst(e.x, e.y, 18, 20);
     for (const o of rg.enemies) if (!o.dead && o !== e && Math.hypot(o.x - e.x, o.y - e.y) < 95) { o.hp -= 0.6; o.wburn = Math.max(o.wburn || 0, 1.5); o.wburnK = 1; o.jit = 1; }
     addShake(0.12); if (actx) { const t = actx.currentTime; toneAt(t, 1760, 0.4, 0.035, 'sine', sfxGain); noiseAt(t, 6000, 2400, 0.2, 0.3, sfxGain); }
-  } else if (e.kInf === 'wisp') {
+  } else if (e.kInf === 'wisp' && !S.day) {
     const n = Math.max(1, Math.round((WISP[e.type] || 1) * 0.5)), L = rg.wisps || (rg.wisps = []);
     L.push({ x: e.x + (Math.random() - 0.5) * 12, y: e.y + (Math.random() - 0.5) * 12, z: FOES[e.type].h * 0.5, t: 0, n, life: 12 + 4 * sr('linger'), seed: Math.random() * 9, v: 0 });
   }
@@ -7137,8 +7141,7 @@ class KitMesh {   // a batch you can rebuild: the lit shapes and their outline
 // ---------------- the camp: the palisade with its four gates, two watchtowers, the yard ----------------
 const logTone3 = k => hex(['#4a453e', '#3f3a34', '#524c44', '#46413a'][((k % 4) + 4) % 4]);
 function campKit(K) {
-  if (NO_CAMP) return;
-  yardKit(K);
+  if (!NO_CAMP) yardKit(K);
   { const x = EX_FIRE.x, y = EX_FIRE.y;   // the fire in the middle: a ring of stones, the logs crossed in it, a bed of ash
     K.add(P_CYL(12), x, -0.4, y, 24, 1, 24, hex('#2e2a26'));
     for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283 + 0.2; K.mt = 'stone'; K.add(P_ROCK(k % 4), x + Math.cos(a) * 14, 1.6, y + Math.sin(a) * 14, 8 + hash(k, 3) * 2, 6, 7, hex(k % 2 ? '#7a7872' : '#8d8b85'), -a); K.mt = null; }
@@ -7661,7 +7664,7 @@ function grassMask(px, py, lakes, gen) {
     }
   };
   for (const P of lakes) disc(P.x, P.y, P.rad * 1.12);
-  if (!NO_CAMP) disc(EX_FIRE.x, EX_FIRE.y, 20);
+  disc(EX_FIRE.x, EX_FIRE.y, 20);
   for (const o of CAMP) if (o.camp === 'tent') disc(o.x, o.y, 22);
   const D = S.day;
   for (const B of D.builds) if (B.t === 'fire') disc(B.x, B.y, 14);
@@ -8857,7 +8860,7 @@ FP.exStep = function (dt) {
   }
   if (ring > rg.ringMax) { rg.ringMax = ring; rg.ringMsg = { text: RING_NAMES[ring], t: 0 }; if (ring > 0) playRingSting(); }
   rg.spawnT -= dt;
-  const cap = Math.round((EX_CAP[ring] + Math.floor(packUsed(rg.pack) / packMax() * 3)) * dayCrowd() * dayCapK());   // fewer by day, far more by night, more with a heavy pack
+  const cap = Math.round((EX_CAP[ring] + Math.floor(packUsed(rg.pack) / packMax() * 3)) * dayCrowd() * dayCapK() * DAY_FOE_FEW);   // fewer by day, far more by night, more with a heavy pack
   if (rg.spawnT <= 0) {
     rg.spawnT = EX_GAP[ring] * (0.6 + Math.random() * 0.8);
     if (rg.enemies.length < cap && rmOn()) rmSpawn(ring, Math.min(cap - rg.enemies.length, 1 + Math.floor(Math.random() * 3) + (ring > 1 && Math.random() < 0.5 ? 1 : 0)));   // a band out roaming
@@ -8938,7 +8941,7 @@ function dayPlaceSpot(t) {
 const COOK_R = 60;
 function stationHere(at) {
   const p = S.p;
-  if (at === 'fire') return (!NO_CAMP && Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R) || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
+  if (at === 'fire') return Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
   return at === 'hand' || (at === 'bench' && dayBenchNear(p.x, p.y)) || (at === 'furnace' && dayFurnNear(p.x, p.y)) || (at === 'rack' && dayRackNear(p.x, p.y)) || (at === 'anvil' && dayAnvilNear(p.x, p.y));
 }
 
@@ -10223,7 +10226,9 @@ function bossDraw(g, rdt) {
 // Joe: get the survival right first. The raiders are switched off (the code all stays, DAY_RAIDERS brings them back),
 // the woods feed you instead, food takes its time on the fire and the rack, and the night has its own work: the cold,
 // and wisps drifting out among the trees to be gathered.
-const DAY_RAIDERS = false;
+const DAY_RAIDERS = true;   // Joe: they're back, fought with weapons now: the torch shows them but doesn't burn them, and kills drop no wisps
+const DAY_FOE_TOUGH = { shade: 2.6, stalker: 3, brute: 2, bomber: 1.8, laser: 2, kamikaze: 2, splitter: 1.8, splitling: 2, tall: 1.5 };   // two or three hits with a club, not one
+const DAY_FOE_FEW = 0.45;   // and fewer of them at once
 const BEAST_BACK = 150, BEAST_CAP = 22, BEAST_SKIP = 0.2;   // more animals, and a hunted stretch of woods fills again sooner
 
 // ---- cooking and drying take time ----
@@ -10233,7 +10238,7 @@ const POT_MAX = 4, POT_GRAB = 46;
 const cookSlow = r => r.g === 'food' && !r.make && (r.at === 'fire' || r.at === 'rack');
 function cookAt(at) {   // the fire or rack you are at
   const p = S.p, D = S.day;
-  if (!NO_CAMP && at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
+  if (at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
   let best = null, bd = 1e9;
   for (const B of D.builds) if (B.t === at && dist2(B, p) < (at === 'fire' ? COOK_R : RACK_R) && dist2(B, p) < bd) { bd = dist2(B, p); best = B; }
   return best && { x: best.x, y: best.y };
@@ -10289,7 +10294,7 @@ function cookDraw(g) {
 // richer the deeper you go. They are gone again by morning.
 const WILD_MAX = 14;
 function wildWispStep(dt) {
-  const rg = S.rg, p = S.p; if (!S.day || DAY_RAIDERS) return;
+  const rg = S.rg, p = S.p; if (!S.day) return;
   const L = rg.wisps || (rg.wisps = []);
   for (const w of L) if (w.wild && !w.fly) {   // drifting, bobbing, never quite still
     w.x += Math.cos(S.t * 0.4 + w.seed) * 6 * dt; w.y += Math.sin(S.t * 0.33 + w.seed * 1.7) * 6 * dt; w.z = 16 + 6 * Math.sin(S.t * 1.3 + w.seed);
@@ -10301,7 +10306,7 @@ function wildWispStep(dt) {
   if (L.filter(w => w.wild && Math.hypot(w.x - p.x, w.y - p.y) < 700).length >= WILD_MAX) return;
   for (let k = 0; k < 6; k++) {
     const a = Math.random() * 6.283, d = 180 + Math.random() * 420, x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d, far = Math.hypot(x, y);
-    if (far < CAMP_R + 120 || exSafeAt(x, y, 60)) continue;
+    if ((!NO_CAMP && far < CAMP_R + 120) || exSafeAt(x, y, 60)) continue;
     const n = far > 2600 ? 3 : far > 1400 ? 2 : 1;
     L.push({ x, y, z: 16, t: 1, n, life: 90 + Math.random() * 40, seed: Math.random() * 9, v: 0, wild: 1 });
     return;
@@ -10535,7 +10540,7 @@ function tcolStep(dt) {
   for (const T of S.day.builds) if (T.t === 'tcol') T.w = Math.min(TC_MAX, (T.w || 0) + dt * (TC_FILL + TC_RAIN * wxK('rain')));
 }
 function tcolUse(T) {
-  const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS), boil = D.builds.some(B => B.t === 'fire' && Math.hypot(B.x - T.x, B.y - T.y) < TC_BOIL_R);
+  const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS), boil = Math.hypot(EX_FIRE.x - T.x, EX_FIRE.y - T.y) < TC_BOIL_R || D.builds.some(B => B.t === 'fire' && Math.hypot(B.x - T.x, B.y - T.y) < TC_BOIL_R);
   if ((T.w || 0) < 1) { dayNote('dry', 'only a puddle in it · it fills slowly, faster in the rain', 2); return; }
   if (skins.length) { let n = 0; for (const s of skins) if (T.w >= 1) { T.w -= 1; s.w = SKIN_SIPS; s.dirty = boil ? 0 : 1; n++; } exNote((n > 1 ? `${n} waterskins filled` : 'waterskin filled') + (boil ? ' · boiled over the fire' : ' · murky, boil it')); sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
   else if (D.water >= FOOD_MAX - 2) { dayNote('full', 'you\'re not thirsty', 1.5); return; }
@@ -10551,18 +10556,17 @@ function tcolUse(T) {
 // Its camp box, water barrel and fire become things you built, where they stood, so nothing it had is lost.
 function campToBuilds() {
   const D = S.day;
-  dayMakeBuild('fire', 0, 0, 0);
   if (D.box && D.box.some(Boolean)) { const B = dayMakeBuild('chest', -52, -50, 0); B.inv = D.box.slice(); D.box = Array(BOX_SLOTS).fill(null); }
   dayMakeBuild('rainb', 60, 56, 0).w = RB_MAX;
   for (const o of D.bld.values()) o.clip = 0;
   D.noCamp = 1;
 }
 
-// ---- home, now there's no camp: your bed, else the nearest fire you built ----
+// ---- home, now there's no camp: your bed, else the nearest fire (the fire pit, or one you built) ----
 function homeSpot() {
   const D = S.day; if (!D) return null;
   if (D.bed) return D.bed;
-  let best = null, bd = 1e9;
+  let best = EX_FIRE, bd = Math.hypot(EX_FIRE.x - S.p.x, EX_FIRE.y - S.p.y);   // the fire pit on the hill, or a nearer fire of yours
   for (const B of D.builds) if (B.t === 'fire') { const d = Math.hypot(B.x - S.p.x, B.y - S.p.y); if (d < bd) { bd = d; best = B; } }
   return best;
 }
@@ -11680,7 +11684,7 @@ function lightsFrame(now, dt) {
   const fk = s => 0.85 + 0.1 * Math.sin(now * 7.3 + s) + 0.06 * Math.sin(now * 13.1 + s * 2) + 0.05 * Math.random();
   const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 520 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
   // the camp's own fire, and your campfires
-  if (!NO_CAMP) { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); }
+  { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); }
   for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); }
   else if (B.t === 'signal' && (B.lit || D.siege)) { const f = fk(B.y); add(B.x, 50, B.y, 520, 1.2 * f, 0.6 * f, 0.25 * f, 3); for (let i = 0; i < 3; i++) fire(B.x + (Math.random() - 0.5) * 30, B.y + (Math.random() - 0.5) * 30, 2.4, 10 + Math.random() * 30); }
   else if (B.t === 'tpost' && B.fuel > 0) { const f = fk(B.x); add(B.x, 48, B.y, 200, 0.9 * f * night, 0.55 * f * night, 0.25 * f * night, 1); fire(B.x, B.y, 0.6, 48); }

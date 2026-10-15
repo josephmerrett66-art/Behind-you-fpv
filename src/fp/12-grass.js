@@ -97,7 +97,7 @@ function grassMask(px, py, lakes, gen) {
     }
   };
   for (const P of lakes) disc(P.x, P.y, P.rad * 1.12);
-  if (!NO_CAMP) disc(EX_FIRE.x, EX_FIRE.y, 20);
+  disc(EX_FIRE.x, EX_FIRE.y, 20);
   for (const o of CAMP) if (o.camp === 'tent') disc(o.x, o.y, 22);
   const D = S.day;
   for (const B of D.builds) if (B.t === 'fire') disc(B.x, B.y, 14);

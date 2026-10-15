@@ -197,8 +197,7 @@ class KitMesh {   // a batch you can rebuild: the lit shapes and their outline
 // ---------------- the camp: the palisade with its four gates, two watchtowers, the yard ----------------
 const logTone3 = k => hex(['#4a453e', '#3f3a34', '#524c44', '#46413a'][((k % 4) + 4) % 4]);
 function campKit(K) {
-  if (NO_CAMP) return;
-  yardKit(K);
+  if (!NO_CAMP) yardKit(K);
   { const x = EX_FIRE.x, y = EX_FIRE.y;   // the fire in the middle: a ring of stones, the logs crossed in it, a bed of ash
     K.add(P_CYL(12), x, -0.4, y, 24, 1, 24, hex('#2e2a26'));
     for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283 + 0.2; K.mt = 'stone'; K.add(P_ROCK(k % 4), x + Math.cos(a) * 14, 1.6, y + Math.sin(a) * 14, 8 + hash(k, 3) * 2, 6, 7, hex(k % 2 ? '#7a7872' : '#8d8b85'), -a); K.mt = null; }

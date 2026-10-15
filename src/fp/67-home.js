@@ -117,7 +117,7 @@ function tcolStep(dt) {
   for (const T of S.day.builds) if (T.t === 'tcol') T.w = Math.min(TC_MAX, (T.w || 0) + dt * (TC_FILL + TC_RAIN * wxK('rain')));
 }
 function tcolUse(T) {
-  const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS), boil = D.builds.some(B => B.t === 'fire' && Math.hypot(B.x - T.x, B.y - T.y) < TC_BOIL_R);
+  const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS), boil = Math.hypot(EX_FIRE.x - T.x, EX_FIRE.y - T.y) < TC_BOIL_R || D.builds.some(B => B.t === 'fire' && Math.hypot(B.x - T.x, B.y - T.y) < TC_BOIL_R);
   if ((T.w || 0) < 1) { dayNote('dry', 'only a puddle in it · it fills slowly, faster in the rain', 2); return; }
   if (skins.length) { let n = 0; for (const s of skins) if (T.w >= 1) { T.w -= 1; s.w = SKIN_SIPS; s.dirty = boil ? 0 : 1; n++; } exNote((n > 1 ? `${n} waterskins filled` : 'waterskin filled') + (boil ? ' · boiled over the fire' : ' · murky, boil it')); sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
   else if (D.water >= FOOD_MAX - 2) { dayNote('full', 'you\'re not thirsty', 1.5); return; }
@@ -133,18 +133,17 @@ function tcolUse(T) {
 // Its camp box, water barrel and fire become things you built, where they stood, so nothing it had is lost.
 function campToBuilds() {
   const D = S.day;
-  dayMakeBuild('fire', 0, 0, 0);
   if (D.box && D.box.some(Boolean)) { const B = dayMakeBuild('chest', -52, -50, 0); B.inv = D.box.slice(); D.box = Array(BOX_SLOTS).fill(null); }
   dayMakeBuild('rainb', 60, 56, 0).w = RB_MAX;
   for (const o of D.bld.values()) o.clip = 0;
   D.noCamp = 1;
 }
 
-// ---- home, now there's no camp: your bed, else the nearest fire you built ----
+// ---- home, now there's no camp: your bed, else the nearest fire (the fire pit, or one you built) ----
 function homeSpot() {
   const D = S.day; if (!D) return null;
   if (D.bed) return D.bed;
-  let best = null, bd = 1e9;
+  let best = EX_FIRE, bd = Math.hypot(EX_FIRE.x - S.p.x, EX_FIRE.y - S.p.y);   // the fire pit on the hill, or a nearer fire of yours
   for (const B of D.builds) if (B.t === 'fire') { const d = Math.hypot(B.x - S.p.x, B.y - S.p.y); if (d < bd) { bd = d; best = B; } }
   return best;
 }

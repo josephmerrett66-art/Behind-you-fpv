@@ -77,7 +77,7 @@ function fxFrame(dt, now) {
   for (const s of rg.wsparks || []) { const c = cssRgb(s.col); stat(s.x, s.z, s.y, 2.4, c[0], c[1], c[2], Math.min(1, s.life * 5), 0); }
   for (const c of (rg.wchips || []).concat(D.chips)) { const col = hex(c.col || '#999'), w = c.w || 1.4; _m.compose(_p.set(c.x, Math.max(0.3, c.z), c.y), _q.setFromEuler(_e.set(c.rot || 0, (c.rot || 0) * 0.7, 0)), _s.set(w * 1.6, w * 0.5, w * 1.2)); chipP.push(_m, col, 0); }
   chipP.done();
-  for (const w of rg.wisps || []) { const z = (w.z || 10) + Math.sin(now * 3 + w.seed) * 2 + (w.t < 0.7 ? w.t * 20 : 14); stat(w.x, z, w.y, 7, 0.72, 0.5, 1, 0.55, 0); stat(w.x, z, w.y, 2.4, 0.95, 0.9, 1, 0.9, 0); }
+  for (const w of rg.wisps || []) { const z = (w.z || 10) + Math.sin(now * 3 + w.seed) * 2 + (w.t < 0.7 ? w.t * 20 : 14); stat(w.x, z, w.y, 7, 0.72, 0.5, 1, 0.55, 0); stat(w.x, z, w.y, 2.4, 0.95, 0.9, 1, 0.9, 0); if (w.wild && !w.fly) stat(w.x, z, w.y, 26 + 6 * Math.sin(now * 2 + w.seed), 0.62, 0.45, 1, 0.22, 0); }   // the night's wild ones glow soft enough to spot through the trees
   for (const k of rg.wmarks || []) { const u = 1 - k.t / k.life, c = cssRgb(k.col); for (let i = -3; i <= 3; i++) stat(k.x + Math.cos(k.a + 1.57) * i * k.len / 7, k.h + i * k.len / 14, k.y + Math.sin(k.a + 1.57) * i * k.len / 7, 2.6 * k.w, c[0], c[1], c[2], u, 0); }
   for (const k of rg.wrings || []) { const u = k.t / k.life, c = cssRgb(k.col), R = k.r * (0.3 + 0.7 * u); for (let i = 0; i < 28; i++) { const a = i / 28 * 6.283; stat(k.x + Math.cos(a) * R, 1.5, k.y + Math.sin(a) * R, 4, c[0], c[1], c[2], 0.7 * (1 - u), 0); } }
   if (rg.slashes) { for (const s of rg.slashes) s.t += dt; rg.slashes = rg.slashes.filter(s => s.t < s.life); }

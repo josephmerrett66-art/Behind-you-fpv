@@ -1897,7 +1897,7 @@ const DIT = {
   fishC: { n: 'Cooked fish', c: '#c8a070', st: 8, k: 'food', b: 'Filling · heals half a heart', eat: { food: 32, water: 6, heal: 0.5 } },
   ironore: { n: 'Iron ore', c: '#9a6a52', st: 12, k: 'mat', b: 'Rusty rock from the deep woods' },
   iron: { n: 'Iron bar', c: '#b8bcc0', st: 12, k: 'mat', b: 'Smelted at a furnace' },
-  jerky: { n: 'Dried meat', c: '#8a4a28', st: 12, k: 'food', b: 'Keeps · the food you take with you', eat: { food: 26 } },
+  jerky: { n: 'Dried meat', c: '#8a4a28', st: 20, k: 'food', b: 'Slow to make · the best food you can carry · heals half a heart', eat: { food: 40, heal: 0.5 } },
   axe3: { n: 'Iron axe', c: '#b8bcc0', st: 1, k: 'tool', tool: 'axe', tier: 3, dmg: 1.25, dur: 300, b: 'Fells a tree in 2 chops' },
   pick3: { n: 'Iron pick', c: '#b8bcc0', st: 1, k: 'tool', tool: 'pick', tier: 3, dmg: 1.15, dur: 300, b: 'Breaks rock in one · the most iron' },
   spear3: { n: 'Iron spear', c: '#b8bcc0', st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: IRON_HEAD, dmg: 1.8, r: 26, dur: 260, b: 'Spear · the longest reach, and it goes right through' },
@@ -2029,8 +2029,8 @@ const DREC = [
   { id: 'spear3', g: 'wpn', out: 'spear3', at: 'furnace', cost: { iron: 3, sticks: 3, rope: 1 } },
   { id: 'helm', g: 'gear', out: 'helm', at: 'furnace', cost: { iron: 4, hide: 2 } },
   { id: 'mail', g: 'gear', out: 'mail', at: 'furnace', cost: { iron: 6, hide: 3, rope: 2 } },
-  { id: 'jerky', g: 'food', out: 'jerky', n: 2, at: 'rack', cost: { meat: 2, fibre: 1 } },
-  { id: 'jerkyf', g: 'food', out: 'jerky', n: 2, at: 'rack', cost: { fish: 2, fibre: 1 } },
+  { id: 'jerky', g: 'food', out: 'jerky', n: 3, at: 'rack', cost: { meat: 2, fibre: 1 } },
+  { id: 'jerkyf', g: 'food', out: 'jerky', n: 3, at: 'rack', cost: { fish: 2, fibre: 1 } },
   { id: 'torch', g: 'tool', out: 'torch', at: 'hand', cost: { sticks: 2, fibre: 3 } },
   { id: 'bandage', g: 'gear', out: 'bandage', n: 2, at: 'hand', cost: { fibre: 4, hide: 1 } },
   { id: 'tea', g: 'food', out: 'tea', at: 'fire', cost: { mushroom: 2, berries: 2 } },
@@ -2186,7 +2186,8 @@ function dayStep(dt, inCamp) {
     if (ph !== D.ph) { D.ph = ph;
       if (ph === 'night') {
         for (const B of D.builds) if (B.t === 'tpost' && !(B.fuel > 0)) B.fuel = NIGHT_LEN;   // v155: your posts take light at dusk
-        if (inCamp) { D.raidDue = true; rg.ringMsg = { text: 'night', sub: (D.heat || 0) > 1 ? `They are ${HEAT_NAME[Math.min(4, D.heat)]} · about ${dayRaidSize()} coming` : 'They wait outside the fence', t: 0 }; }
+        if (!DAY_RAIDERS) { rg.ringMsg = { text: 'night', sub: 'The cold comes down · wisps drift out among the trees', t: 0 }; playRingSting(); }
+        else if (inCamp) { D.raidDue = true; rg.ringMsg = { text: 'night', sub: (D.heat || 0) > 1 ? `They are ${HEAT_NAME[Math.min(4, D.heat)]} · about ${dayRaidSize()} coming` : 'They wait outside the fence', t: 0 }; }
         else { rg.ringMsg = { text: 'night', sub: 'Burn them with your torch · their wisps are yours', t: 0 }; playRingSting(); dayRaid(); }
       } else {
         exNote('the sun comes up', true); dayDawn();   // v166
@@ -2194,6 +2195,7 @@ function dayStep(dt, inCamp) {
       }
     } }
   if (D.raidDue && !inCamp) { D.raidDue = false; dayRaid(); }
+  cookStep(dt); wildWispStep(dt);   // the cozy pass (65-cozy)
   // stamina comes back once you stop spending it; slower hungry, thirsty or sick
   if ((D.stT += dt) > STA_WAIT) D.st = Math.min(STA_MAX, D.st + STA_REGEN * (1 + 0.1 * sr('endure')) * dt * (D.food < 25 || D.water < 25 ? 0.5 : 1) * (D.sick > 0 ? 0.5 : 1));
   // armour mends: once nothing has hit you for a while, one piece at a time
@@ -2475,10 +2477,10 @@ function beastStep(dt) {
   for (let ci = Math.floor((p.x - Rr) / BC); ci <= Math.floor((p.x + Rr) / BC); ci++)
     for (let cj = Math.floor((p.y - Rr) / BC); cj <= Math.floor((p.y + Rr) / BC); cj++) {
       const key = ci + ',' + cj, at = D.bchunks.get(key);
-      if (at !== undefined && D.t - at < 240) continue;   // a chunk you hunted fills again only after a long while
+      if (at !== undefined && D.t - at < BEAST_BACK) continue;   // a chunk you hunted fills again only after a long while
       D.bchunks.set(key, D.t);
       const cx = (ci + 0.5) * BC, cy = (cj + 0.5) * BC, far = Math.hypot(cx, cy);
-      if (far < CAMP_R + 300 || D.beasts.some(b => b.chunk === key && !b.dead) || D.beasts.filter(b => !b.dead).length >= 16 || Math.random() < 0.35) continue;
+      if (far < CAMP_R + 300 || D.beasts.some(b => b.chunk === key && !b.dead) || D.beasts.filter(b => !b.dead).length >= BEAST_CAP || Math.random() < BEAST_SKIP) continue;
       const r = Math.random(), herd = (k, n) => { for (let i = 0; i < n; i++) D.beasts.push({ kind: 'beast', k, chunk: key, x: cx + (Math.random() - 0.5) * BC * 0.6, y: cy + (Math.random() - 0.5) * BC * 0.6, r: 0, s: 1, hp: BEAST[k].hp, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, stag: k === 'deer' && Math.random() < 0.35 }); };
       if (far > IRON_FROM && r < (dayNight() ? 0.34 : 0.17)) herd('wolf', 2 + Math.floor(Math.random() * 3));   // v154: the deep woods hunt back
       else if (far > 2600 && r < 0.2) herd('bear', 1);
@@ -2546,6 +2548,7 @@ function dayChest(c) {                         // a cache: food and a few useful
   if (rg.flask < FLASK_MAX && Math.random() < 0.25) { rg.flask++; exNote('+1 flask', true); }
 }
 function dayRaid() {
+  if (!DAY_RAIDERS) return;
   const rg = S.rg, D = S.day, ring = Math.min(3, exRing(Math.hypot(S.p.x, S.p.y)) + (D.n > 6 ? 1 : 0) + ((D.heat || 0) > 2 ? 1 : 0)), n = dayRaidSize();
   for (let i = 0; i < n; i++) exSpawn(D.n >= 3 && Math.random() < 0.2 ? (Math.random() < 0.6 ? 'archer' : 'spear') : exPickFoe(ring));   // v191: from day 3 some raiders shoot
   if ((D.heat || 0) >= 2) { const e = rg.enemies[rg.enemies.length - 1]; if (e) { e.cap = 1; e.hp = e.maxHp = e.maxHp * 1.4; } }   // v155: once they are hunting you, one of them leads
@@ -2946,6 +2949,7 @@ function canCraft(r) {
 function dayCraft(id, times = 1) {
   const D = S.day, r = DREC.find(x => x.id === id); if (!r) return;
   let made = 0, dropped = 0;
+  if (cookSlow(r)) return cookStart(r, times);   // food on the fire or the rack takes its time (65-cozy)
   for (let k = 0; k < times && canCraft(r) === true; k++) {
     daySpend(r.cost); made++;
     if (r.make) { r.make(D); continue; }
@@ -3031,7 +3035,7 @@ function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {
 function daySave() {
   const D = S && S.day, rg = S && S.rg; if (!D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
-    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named'];   // v155
+    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
   d.seen = [...D.seen]; d.known = [...D.known]; d.fresh = [...D.fresh];
   d.felled = [...D.felled]; d.cut = [...D.cut]; d.bchunks = [...D.bchunks];
@@ -3792,14 +3796,14 @@ function dayTameTry() {                          // hold cooked meat and walk up
 function dayPlotPlant(B) {
   const D = S.day, s = heldSlot();
   if (B.grown) {                                 // ripe: take the crop and it starts again
-    const n = 4 + Math.floor(Math.random() * 3);
+    const n = (B.crop === 'mushroom' ? 4 : 6) + Math.floor(Math.random() * 3);   // the cozy pass: a plot is worth tending
     dayGive(B.crop, n, B.x, B.y); dayGive('fibre', 1, B.x, B.y);
-    B.crop = null; B.grown = false; B.sown = 0; dayAct(7, 0.6); exNote(`picked · ${n} berries`); pickSnd(); dayChanged(); return;
+    exNote(`picked · ${n} ${DIT[B.crop].n.toLowerCase()}`); B.crop = null; B.grown = false; B.sown = 0; dayAct(7, 0.6); pickSnd(); dayChanged(); return;
   }
   if (B.crop) { exNote(`it's still growing · ${Math.max(1, Math.ceil((B.sown + GROW_T - D.t) / 10) * 10)}s`); return; }
-  if (!s || s.id !== 'berries') { dayNote('seed', 'hold berries to sow it', 2); return; }
+  if (!s || (s.id !== 'berries' && s.id !== 'mushroom')) { dayNote('seed', 'hold berries or a mushroom to sow it', 2); return; }
   s.n--; if (!s.n) D.inv[D.hot] = null;
-  B.crop = 'berries'; B.sown = D.t; B.grown = false;
+  B.crop = s.id; B.sown = D.t; B.grown = false;
   dayAct(10, 0.9); ashBurst(B.x, B.y, 5, 5); exNote('sown'); sfx(0.8, 0.3, 'lowpass', 700, 0.22);
   dayChanged();
 }
@@ -3849,7 +3853,7 @@ function dayCampStep(dt) {
     const st = dayCampState(C.i), d = Math.hypot(C.x - p.x, C.y - p.y);
     if (!st.seen && d < CAMP_NEAR) { st.seen = 1; exNote(C.nm, true); dayJLog(`found ${C.nm.toLowerCase()}`); sfx(0.8, 0.5, 'bandpass', 420, 0.25); }
     if (st.took) continue;
-    if (d < CAMP_WAKE && !st.up && !dayCampLive(C.i)) {   // the watch gets up
+    if (DAY_RAIDERS && d < CAMP_WAKE && !st.up && !dayCampLive(C.i)) {   // the watch gets up
       st.up = 1;
       if (C.i === BOSS_CAMP) { if (!st.beat) bossSpawn(C); continue; }   // the hunting camp is the Woodcutter's alone
       for (let k = 0; k < C.n; k++) { const t = Math.random() * 6.3, r = 40 + Math.random() * CAMP_RAD;
@@ -3888,7 +3892,7 @@ function dayHeatStep(dt) {
       S.rg.ringMsg = { text: 'seen', sub: 'A scout got away · the next raid comes heavier', t: 0 }; playRingSting();
       return;
     }
-  } else if ((D.scoutT = (D.scoutT || 45) - dt) <= 0) {
+  } else if (DAY_RAIDERS && (D.scoutT = (D.scoutT || 45) - dt) <= 0) {
     D.scoutT = 70 + Math.random() * 40;
     if (Math.hypot(p.x, p.y) < 200 || rg.enemies.length > 4) return;
     exSpawn('stalker');
@@ -4182,6 +4186,7 @@ function rmMark(e, g) {                           // a hunter put out to roam wi
   e.ox = (Math.random() - 0.5) * 110; e.oy = (Math.random() - 0.5) * 110;
 }
 function rmSpawn(ring, n) {                       // a band, set down out of sight, somewhere ahead or round about, not looking at you
+  if (S.day && !DAY_RAIDERS) return false;
   const rg = S.rg, p = S.p;
   for (let k = 0; k < 10; k++) {
     const a = Math.random() * Math.PI * 2, d = 520 + Math.random() * 380, x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d;
@@ -5593,6 +5598,7 @@ function exDeath() {
   S.msg = { text: 'The dark took you', sub: had ? 'Everything you carried is gone' : 'You wake by the fire', t: 0 };
 }
 function exSpawn(type) {
+  if (S.day && !DAY_RAIDERS) return;   // Joe: the cozy pass, no raiders for now
   for (let n = 0; n < 8; n++) {
     const at = spawnSpot();
     if (!exSafeAt(at.x, at.y, 280)) {
@@ -5603,6 +5609,7 @@ function exSpawn(type) {
   }
 }
 function exPack(ring, n) {                      // v123: a pack of hunters coming in together from one side
+  if (S.day && !DAY_RAIDERS) return;
   const at = spawnSpot(); if (exSafeAt(at.x, at.y, 280)) return;
   for (let i = 0; i < n; i++) spawnFoe(exPickFoe(ring), { x: at.x + (Math.random() - 0.5) * 70, y: at.y + (Math.random() - 0.5) * 70, d: at.d });
   const pk = S.rg.pkN = (S.rg.pkN || 0) + 1; S.rg.enemies.slice(-n).forEach(e => { e.pk = pk; });   // v134: the last one down is PACK DOWN

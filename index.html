@@ -2529,7 +2529,7 @@ const DIT = {
   fishC: { n: 'Cooked fish', c: '#c8a070', st: 8, k: 'food', b: 'Filling · heals half a heart', eat: { food: 32, water: 6, heal: 0.5 } },
   ironore: { n: 'Iron ore', c: '#9a6a52', st: 12, k: 'mat', b: 'Rusty rock from the deep woods' },
   iron: { n: 'Iron bar', c: '#b8bcc0', st: 12, k: 'mat', b: 'Smelted at a furnace' },
-  jerky: { n: 'Dried meat', c: '#8a4a28', st: 12, k: 'food', b: 'Keeps · the food you take with you', eat: { food: 26 } },
+  jerky: { n: 'Dried meat', c: '#8a4a28', st: 20, k: 'food', b: 'Slow to make · the best food you can carry · heals half a heart', eat: { food: 40, heal: 0.5 } },
   axe3: { n: 'Iron axe', c: '#b8bcc0', st: 1, k: 'tool', tool: 'axe', tier: 3, dmg: 1.25, dur: 300, b: 'Fells a tree in 2 chops' },
   pick3: { n: 'Iron pick', c: '#b8bcc0', st: 1, k: 'tool', tool: 'pick', tier: 3, dmg: 1.15, dur: 300, b: 'Breaks rock in one · the most iron' },
   spear3: { n: 'Iron spear', c: '#b8bcc0', st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: IRON_HEAD, dmg: 1.8, r: 26, dur: 260, b: 'Spear · the longest reach, and it goes right through' },
@@ -2661,8 +2661,8 @@ const DREC = [
   { id: 'spear3', g: 'wpn', out: 'spear3', at: 'furnace', cost: { iron: 3, sticks: 3, rope: 1 } },
   { id: 'helm', g: 'gear', out: 'helm', at: 'furnace', cost: { iron: 4, hide: 2 } },
   { id: 'mail', g: 'gear', out: 'mail', at: 'furnace', cost: { iron: 6, hide: 3, rope: 2 } },
-  { id: 'jerky', g: 'food', out: 'jerky', n: 2, at: 'rack', cost: { meat: 2, fibre: 1 } },
-  { id: 'jerkyf', g: 'food', out: 'jerky', n: 2, at: 'rack', cost: { fish: 2, fibre: 1 } },
+  { id: 'jerky', g: 'food', out: 'jerky', n: 3, at: 'rack', cost: { meat: 2, fibre: 1 } },
+  { id: 'jerkyf', g: 'food', out: 'jerky', n: 3, at: 'rack', cost: { fish: 2, fibre: 1 } },
   { id: 'torch', g: 'tool', out: 'torch', at: 'hand', cost: { sticks: 2, fibre: 3 } },
   { id: 'bandage', g: 'gear', out: 'bandage', n: 2, at: 'hand', cost: { fibre: 4, hide: 1 } },
   { id: 'tea', g: 'food', out: 'tea', at: 'fire', cost: { mushroom: 2, berries: 2 } },
@@ -2818,7 +2818,8 @@ function dayStep(dt, inCamp) {
     if (ph !== D.ph) { D.ph = ph;
       if (ph === 'night') {
         for (const B of D.builds) if (B.t === 'tpost' && !(B.fuel > 0)) B.fuel = NIGHT_LEN;   // v155: your posts take light at dusk
-        if (inCamp) { D.raidDue = true; rg.ringMsg = { text: 'night', sub: (D.heat || 0) > 1 ? `They are ${HEAT_NAME[Math.min(4, D.heat)]} · about ${dayRaidSize()} coming` : 'They wait outside the fence', t: 0 }; }
+        if (!DAY_RAIDERS) { rg.ringMsg = { text: 'night', sub: 'The cold comes down · wisps drift out among the trees', t: 0 }; playRingSting(); }
+        else if (inCamp) { D.raidDue = true; rg.ringMsg = { text: 'night', sub: (D.heat || 0) > 1 ? `They are ${HEAT_NAME[Math.min(4, D.heat)]} · about ${dayRaidSize()} coming` : 'They wait outside the fence', t: 0 }; }
         else { rg.ringMsg = { text: 'night', sub: 'Burn them with your torch · their wisps are yours', t: 0 }; playRingSting(); dayRaid(); }
       } else {
         exNote('the sun comes up', true); dayDawn();   // v166
@@ -2826,6 +2827,7 @@ function dayStep(dt, inCamp) {
       }
     } }
   if (D.raidDue && !inCamp) { D.raidDue = false; dayRaid(); }
+  cookStep(dt); wildWispStep(dt);   // the cozy pass (65-cozy)
   // stamina comes back once you stop spending it; slower hungry, thirsty or sick
   if ((D.stT += dt) > STA_WAIT) D.st = Math.min(STA_MAX, D.st + STA_REGEN * (1 + 0.1 * sr('endure')) * dt * (D.food < 25 || D.water < 25 ? 0.5 : 1) * (D.sick > 0 ? 0.5 : 1));
   // armour mends: once nothing has hit you for a while, one piece at a time
@@ -3107,10 +3109,10 @@ function beastStep(dt) {
   for (let ci = Math.floor((p.x - Rr) / BC); ci <= Math.floor((p.x + Rr) / BC); ci++)
     for (let cj = Math.floor((p.y - Rr) / BC); cj <= Math.floor((p.y + Rr) / BC); cj++) {
       const key = ci + ',' + cj, at = D.bchunks.get(key);
-      if (at !== undefined && D.t - at < 240) continue;   // a chunk you hunted fills again only after a long while
+      if (at !== undefined && D.t - at < BEAST_BACK) continue;   // a chunk you hunted fills again only after a long while
       D.bchunks.set(key, D.t);
       const cx = (ci + 0.5) * BC, cy = (cj + 0.5) * BC, far = Math.hypot(cx, cy);
-      if (far < CAMP_R + 300 || D.beasts.some(b => b.chunk === key && !b.dead) || D.beasts.filter(b => !b.dead).length >= 16 || Math.random() < 0.35) continue;
+      if (far < CAMP_R + 300 || D.beasts.some(b => b.chunk === key && !b.dead) || D.beasts.filter(b => !b.dead).length >= BEAST_CAP || Math.random() < BEAST_SKIP) continue;
       const r = Math.random(), herd = (k, n) => { for (let i = 0; i < n; i++) D.beasts.push({ kind: 'beast', k, chunk: key, x: cx + (Math.random() - 0.5) * BC * 0.6, y: cy + (Math.random() - 0.5) * BC * 0.6, r: 0, s: 1, hp: BEAST[k].hp, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, stag: k === 'deer' && Math.random() < 0.35 }); };
       if (far > IRON_FROM && r < (dayNight() ? 0.34 : 0.17)) herd('wolf', 2 + Math.floor(Math.random() * 3));   // v154: the deep woods hunt back
       else if (far > 2600 && r < 0.2) herd('bear', 1);
@@ -3178,6 +3180,7 @@ function dayChest(c) {                         // a cache: food and a few useful
   if (rg.flask < FLASK_MAX && Math.random() < 0.25) { rg.flask++; exNote('+1 flask', true); }
 }
 function dayRaid() {
+  if (!DAY_RAIDERS) return;
   const rg = S.rg, D = S.day, ring = Math.min(3, exRing(Math.hypot(S.p.x, S.p.y)) + (D.n > 6 ? 1 : 0) + ((D.heat || 0) > 2 ? 1 : 0)), n = dayRaidSize();
   for (let i = 0; i < n; i++) exSpawn(D.n >= 3 && Math.random() < 0.2 ? (Math.random() < 0.6 ? 'archer' : 'spear') : exPickFoe(ring));   // v191: from day 3 some raiders shoot
   if ((D.heat || 0) >= 2) { const e = rg.enemies[rg.enemies.length - 1]; if (e) { e.cap = 1; e.hp = e.maxHp = e.maxHp * 1.4; } }   // v155: once they are hunting you, one of them leads
@@ -3578,6 +3581,7 @@ function canCraft(r) {
 function dayCraft(id, times = 1) {
   const D = S.day, r = DREC.find(x => x.id === id); if (!r) return;
   let made = 0, dropped = 0;
+  if (cookSlow(r)) return cookStart(r, times);   // food on the fire or the rack takes its time (65-cozy)
   for (let k = 0; k < times && canCraft(r) === true; k++) {
     daySpend(r.cost); made++;
     if (r.make) { r.make(D); continue; }
@@ -3663,7 +3667,7 @@ function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {
 function daySave() {
   const D = S && S.day, rg = S && S.rg; if (!D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
-    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named'];   // v155
+    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
   d.seen = [...D.seen]; d.known = [...D.known]; d.fresh = [...D.fresh];
   d.felled = [...D.felled]; d.cut = [...D.cut]; d.bchunks = [...D.bchunks];
@@ -4424,14 +4428,14 @@ function dayTameTry() {                          // hold cooked meat and walk up
 function dayPlotPlant(B) {
   const D = S.day, s = heldSlot();
   if (B.grown) {                                 // ripe: take the crop and it starts again
-    const n = 4 + Math.floor(Math.random() * 3);
+    const n = (B.crop === 'mushroom' ? 4 : 6) + Math.floor(Math.random() * 3);   // the cozy pass: a plot is worth tending
     dayGive(B.crop, n, B.x, B.y); dayGive('fibre', 1, B.x, B.y);
-    B.crop = null; B.grown = false; B.sown = 0; dayAct(7, 0.6); exNote(`picked · ${n} berries`); pickSnd(); dayChanged(); return;
+    exNote(`picked · ${n} ${DIT[B.crop].n.toLowerCase()}`); B.crop = null; B.grown = false; B.sown = 0; dayAct(7, 0.6); pickSnd(); dayChanged(); return;
   }
   if (B.crop) { exNote(`it's still growing · ${Math.max(1, Math.ceil((B.sown + GROW_T - D.t) / 10) * 10)}s`); return; }
-  if (!s || s.id !== 'berries') { dayNote('seed', 'hold berries to sow it', 2); return; }
+  if (!s || (s.id !== 'berries' && s.id !== 'mushroom')) { dayNote('seed', 'hold berries or a mushroom to sow it', 2); return; }
   s.n--; if (!s.n) D.inv[D.hot] = null;
-  B.crop = 'berries'; B.sown = D.t; B.grown = false;
+  B.crop = s.id; B.sown = D.t; B.grown = false;
   dayAct(10, 0.9); ashBurst(B.x, B.y, 5, 5); exNote('sown'); sfx(0.8, 0.3, 'lowpass', 700, 0.22);
   dayChanged();
 }
@@ -4481,7 +4485,7 @@ function dayCampStep(dt) {
     const st = dayCampState(C.i), d = Math.hypot(C.x - p.x, C.y - p.y);
     if (!st.seen && d < CAMP_NEAR) { st.seen = 1; exNote(C.nm, true); dayJLog(`found ${C.nm.toLowerCase()}`); sfx(0.8, 0.5, 'bandpass', 420, 0.25); }
     if (st.took) continue;
-    if (d < CAMP_WAKE && !st.up && !dayCampLive(C.i)) {   // the watch gets up
+    if (DAY_RAIDERS && d < CAMP_WAKE && !st.up && !dayCampLive(C.i)) {   // the watch gets up
       st.up = 1;
       if (C.i === BOSS_CAMP) { if (!st.beat) bossSpawn(C); continue; }   // the hunting camp is the Woodcutter's alone
       for (let k = 0; k < C.n; k++) { const t = Math.random() * 6.3, r = 40 + Math.random() * CAMP_RAD;
@@ -4520,7 +4524,7 @@ function dayHeatStep(dt) {
       S.rg.ringMsg = { text: 'seen', sub: 'A scout got away · the next raid comes heavier', t: 0 }; playRingSting();
       return;
     }
-  } else if ((D.scoutT = (D.scoutT || 45) - dt) <= 0) {
+  } else if (DAY_RAIDERS && (D.scoutT = (D.scoutT || 45) - dt) <= 0) {
     D.scoutT = 70 + Math.random() * 40;
     if (Math.hypot(p.x, p.y) < 200 || rg.enemies.length > 4) return;
     exSpawn('stalker');
@@ -4814,6 +4818,7 @@ function rmMark(e, g) {                           // a hunter put out to roam wi
   e.ox = (Math.random() - 0.5) * 110; e.oy = (Math.random() - 0.5) * 110;
 }
 function rmSpawn(ring, n) {                       // a band, set down out of sight, somewhere ahead or round about, not looking at you
+  if (S.day && !DAY_RAIDERS) return false;
   const rg = S.rg, p = S.p;
   for (let k = 0; k < 10; k++) {
     const a = Math.random() * Math.PI * 2, d = 520 + Math.random() * 380, x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d;
@@ -6225,6 +6230,7 @@ function exDeath() {
   S.msg = { text: 'The dark took you', sub: had ? 'Everything you carried is gone' : 'You wake by the fire', t: 0 };
 }
 function exSpawn(type) {
+  if (S.day && !DAY_RAIDERS) return;   // Joe: the cozy pass, no raiders for now
   for (let n = 0; n < 8; n++) {
     const at = spawnSpot();
     if (!exSafeAt(at.x, at.y, 280)) {
@@ -6235,6 +6241,7 @@ function exSpawn(type) {
   }
 }
 function exPack(ring, n) {                      // v123: a pack of hunters coming in together from one side
+  if (S.day && !DAY_RAIDERS) return;
   const at = spawnSpot(); if (exSafeAt(at.x, at.y, 280)) return;
   for (let i = 0; i < n; i++) spawnFoe(exPickFoe(ring), { x: at.x + (Math.random() - 0.5) * 70, y: at.y + (Math.random() - 0.5) * 70, d: at.d });
   const pk = S.rg.pkN = (S.rg.pkN || 0) + 1; S.rg.enemies.slice(-n).forEach(e => { e.pk = pk; });   // v134: the last one down is PACK DOWN
@@ -9355,7 +9362,7 @@ function fxText(txt, x, y, size, rgb, a, opt = {}) {   // slanted arcade numeral
 const _q0 = [0, 0, 0], _q1 = [0, 0, 0];
 function combatDraw(rdt, now) {
   const g = fx2, rg = S.rg, p = S.p, alert = alertScan(rdt);
-  const busy = alert || bossBusy() || CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
+  const busy = alert || bossBusy() || cookBusy() || CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
     || CFX.marks.length || CFX.kflash || (rg.stkfx && (rg.stk && rg.stk.n || rg.stkfx.pops.length || rg.stkfx.words.length || rg.stkfx.tier || rg.stkfx.cash || rg.stkfx.lost || rg.stkfx.drop));
   if (!busy && !fxDirty) return;
   g.setTransform(FD, 0, 0, FD, 0, 0); g.clearRect(0, 0, FW, FH); fxDirty = !!busy;
@@ -9412,6 +9419,7 @@ function combatDraw(rdt, now) {
     fxText(w.text, q[0], q[1] - 18 * u * zk, 21 * (w.s || 1) * zk, w.col, a, { s: pop, glow: w.col, blur: 12 });
   }
   bossDraw(g, rdt);
+  cookDraw(g);
   alertDraw(g, rdt);
   drawThreats(g, rdt);
   stkDrawFp(rdt);
@@ -10037,6 +10045,96 @@ function bossDraw(g, rdt) {
   g.fillStyle = 'rgba(10,8,6,0.9)'; g.fillRect(x0 + w / 2 - 1, y - 3, 2, 14);
   g.globalAlpha = 1;
   fxText('THE WOODCUTTER', FW / 2, y - 14, Math.min(20, FW * 0.045), rage ? '255,120,90' : '239,232,220', a, { w: 800 });
+}
+
+;
+// ---------------- the cozy pass ----------------
+// Joe: get the survival right first. The raiders are switched off (the code all stays, DAY_RAIDERS brings them back),
+// the woods feed you instead, food takes its time on the fire and the rack, and the night has its own work: the cold,
+// and wisps drifting out among the trees to be gathered.
+const DAY_RAIDERS = false;
+const BEAST_BACK = 150, BEAST_CAP = 22, BEAST_SKIP = 0.2;   // more animals, and a hunted stretch of woods fills again sooner
+
+// ---- cooking and drying take time ----
+// What you make at a fire or a rack goes on it and is ready a while later. Walk up to it to take it.
+const COOK_T = { cook: 14, roast: 9, fishC: 12, stew: 30, tea: 12, jerky: 150, jerkyf: 150 };
+const POT_MAX = 4, POT_GRAB = 46;
+const cookSlow = r => r.g === 'food' && !r.make && (r.at === 'fire' || r.at === 'rack');
+function cookAt(at) {   // the fire or rack you are at
+  const p = S.p, D = S.day;
+  if (at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
+  let best = null, bd = 1e9;
+  for (const B of D.builds) if (B.t === at && dist2(B, p) < (at === 'fire' ? COOK_R : RACK_R) && dist2(B, p) < bd) { bd = dist2(B, p); best = B; }
+  return best && { x: best.x, y: best.y };
+}
+function cookStart(r, times) {
+  const D = S.day, pots = D.pots || (D.pots = []), at = cookAt(r.at); if (!at) return;
+  const here = pots.filter(q => Math.hypot(q.x - at.x, q.y - at.y) < 4);
+  if (here.length >= POT_MAX) { dayNote('pots', r.at === 'rack' ? 'the rack is full · take what\'s done first' : 'the fire is full · take what\'s done first', 2); return; }
+  let made = 0;
+  for (let k = 0; k < times && canCraft(r) === true; k++) { daySpend(r.cost); made++; }
+  if (!made) return;
+  const T = Math.round((COOK_T[r.id] || 12) * (1 + 0.25 * (made - 1)));
+  pots.push({ at: r.at, x: at.x, y: at.y, id: r.out, n: (r.n || 1) * made, rid: r.id, T, t: 0, slot: here.length });
+  const nm = recName(r).toLowerCase(), verb = r.at === 'rack' ? 'drying' : 'cooking';
+  PK.flash = { t: `${verb} ${nm}${made > 1 ? ' ×' + made : ''} · ready in ${dayClockS(T)}`, at: performance.now(), rid: r.id };
+  exNote(`${verb} · ${nm} · ready in ${dayClockS(T)}`, true);
+  dayAct(8, 0.6); sfx(0.6, 0.35, 'lowpass', 900, 0.4);
+  if (actx && r.at === 'fire') noiseAt(actx.currentTime, 5200, 2600, 0.9, 0.12, sfxGain);   // a sizzle
+  dayChanged();
+}
+const dayClockS = s => s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+function cookStep(dt) {
+  const D = S.day, p = S.p; if (!D || !D.pots || !D.pots.length) return;
+  for (const q of D.pots) {
+    if (!q.ready) { q.t += dt; if (q.t >= q.T) { q.ready = 1; if (Math.hypot(p.x - q.x, p.y - q.y) < 900) { exNote(`${DIT[q.id].n.toLowerCase()} is ready`, true); if (actx) toneAt(actx.currentTime, 880, 0.5, 0.05, 'triangle', sfxGain); } } }
+    else if (Math.hypot(p.x - q.x, p.y - q.y) < POT_GRAB && S.rg.phase === 'fight') {   // walk up and take it
+      q.done = 1; dayGive(q.id, q.n, q.x, q.y); pickSnd(); exNote(`took · ${DIT[q.id].n.toLowerCase()}${q.n > 1 ? ' ×' + q.n : ''}`);
+    }
+  }
+  if (D.pots.some(q => q.done)) { D.pots = D.pots.filter(q => !q.done); D.pots.forEach(q => q.slot = D.pots.filter(o => o !== q && Math.hypot(o.x - q.x, o.y - q.y) < 4 && D.pots.indexOf(o) < D.pots.indexOf(q)).length); dayChanged(); }
+}
+// a little card over each fire and rack with what is on it and how long it has left
+function cookBusy() { const D = S.day; return !!(D && D.pots && D.pots.some(q => Math.hypot(q.x - S.p.x, q.y - S.p.y) < 260)); }
+function cookDraw(g) {
+  const D = S.day; if (!D || !D.pots) return;
+  g.globalCompositeOperation = 'source-over';
+  for (const q of D.pots) {
+    const d = Math.hypot(q.x - S.p.x, q.y - S.p.y); if (d > 260) continue;
+    const s = scr(q.x, (q.at === 'rack' ? 44 : 30) + 11 * q.slot, q.y); if (!s) continue;
+    const a = Math.min(1, (260 - d) / 60), k = Math.min(1.3, Math.max(0.7, s[2] * 0.6)), u = Math.min(1, q.t / q.T);
+    const txt = q.ready ? `${DIT[q.id].n}${q.n > 1 ? ' ×' + q.n : ''} · ready` : `${DIT[q.id].n}${q.n > 1 ? ' ×' + q.n : ''} · ${dayClockS(Math.ceil(q.T - q.t))}`;
+    g.font = `600 ${Math.round(12 * k)}px "IBM Plex Mono", ui-monospace, monospace`;
+    const w = g.measureText(txt).width + 16 * k, h = 18 * k, x = s[0] - w / 2, y = s[1] - h / 2;
+    g.globalAlpha = a; g.fillStyle = 'rgba(14,11,8,0.72)'; g.fillRect(x, y, w, h);
+    g.fillStyle = q.ready ? 'rgba(150,220,120,0.9)' : 'rgba(255,190,110,0.85)'; g.fillRect(x, y + h - 2.5 * k, w * u, 2.5 * k);
+    g.fillStyle = q.ready ? '#c8f0b0' : '#efe6d6'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, s[0], s[1] - 1);
+    g.globalAlpha = 1;
+  }
+}
+
+// ---- the night's work: wisps drift out among the trees ----
+// No raiders to burn, so the wisps come on their own after dark: out in the woods, never in the camp, more of them and
+// richer the deeper you go. They are gone again by morning.
+const WILD_MAX = 14;
+function wildWispStep(dt) {
+  const rg = S.rg, p = S.p; if (!S.day || DAY_RAIDERS) return;
+  const L = rg.wisps || (rg.wisps = []);
+  for (const w of L) if (w.wild && !w.fly) {   // drifting, bobbing, never quite still
+    w.x += Math.cos(S.t * 0.4 + w.seed) * 6 * dt; w.y += Math.sin(S.t * 0.33 + w.seed * 1.7) * 6 * dt; w.z = 16 + 6 * Math.sin(S.t * 1.3 + w.seed);
+    if (!dayDark()) w.life = Math.min(w.life, 2);   // morning: they fade
+  }
+  if (!dayDark() || rg.phase !== 'fight') return;
+  if ((rg.wildT = (rg.wildT || 0) - dt) > 0) return;
+  rg.wildT = 1.6 + Math.random() * 1.6;
+  if (L.filter(w => w.wild && Math.hypot(w.x - p.x, w.y - p.y) < 700).length >= WILD_MAX) return;
+  for (let k = 0; k < 6; k++) {
+    const a = Math.random() * 6.283, d = 180 + Math.random() * 420, x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d, far = Math.hypot(x, y);
+    if (far < CAMP_R + 120 || exSafeAt(x, y, 60)) continue;
+    const n = far > 2600 ? 3 : far > 1400 ? 2 : 1;
+    L.push({ x, y, z: 16, t: 1, n, life: 90 + Math.random() * 40, seed: Math.random() * 9, v: 0, wild: 1 });
+    return;
+  }
 }
 
 ;
@@ -11081,7 +11179,7 @@ function fxFrame(dt, now) {
   for (const s of rg.wsparks || []) { const c = cssRgb(s.col); stat(s.x, s.z, s.y, 2.4, c[0], c[1], c[2], Math.min(1, s.life * 5), 0); }
   for (const c of (rg.wchips || []).concat(D.chips)) { const col = hex(c.col || '#999'), w = c.w || 1.4; _m.compose(_p.set(c.x, Math.max(0.3, c.z), c.y), _q.setFromEuler(_e.set(c.rot || 0, (c.rot || 0) * 0.7, 0)), _s.set(w * 1.6, w * 0.5, w * 1.2)); chipP.push(_m, col, 0); }
   chipP.done();
-  for (const w of rg.wisps || []) { const z = (w.z || 10) + Math.sin(now * 3 + w.seed) * 2 + (w.t < 0.7 ? w.t * 20 : 14); stat(w.x, z, w.y, 7, 0.72, 0.5, 1, 0.55, 0); stat(w.x, z, w.y, 2.4, 0.95, 0.9, 1, 0.9, 0); }
+  for (const w of rg.wisps || []) { const z = (w.z || 10) + Math.sin(now * 3 + w.seed) * 2 + (w.t < 0.7 ? w.t * 20 : 14); stat(w.x, z, w.y, 7, 0.72, 0.5, 1, 0.55, 0); stat(w.x, z, w.y, 2.4, 0.95, 0.9, 1, 0.9, 0); if (w.wild && !w.fly) stat(w.x, z, w.y, 26 + 6 * Math.sin(now * 2 + w.seed), 0.62, 0.45, 1, 0.22, 0); }   // the night's wild ones glow soft enough to spot through the trees
   for (const k of rg.wmarks || []) { const u = 1 - k.t / k.life, c = cssRgb(k.col); for (let i = -3; i <= 3; i++) stat(k.x + Math.cos(k.a + 1.57) * i * k.len / 7, k.h + i * k.len / 14, k.y + Math.sin(k.a + 1.57) * i * k.len / 7, 2.6 * k.w, c[0], c[1], c[2], u, 0); }
   for (const k of rg.wrings || []) { const u = k.t / k.life, c = cssRgb(k.col), R = k.r * (0.3 + 0.7 * u); for (let i = 0; i < 28; i++) { const a = i / 28 * 6.283; stat(k.x + Math.cos(a) * R, 1.5, k.y + Math.sin(a) * R, 4, c[0], c[1], c[2], 0.7 * (1 - u), 0); } }
   if (rg.slashes) { for (const s of rg.slashes) s.t += dt; rg.slashes = rg.slashes.filter(s => s.t < s.life); }

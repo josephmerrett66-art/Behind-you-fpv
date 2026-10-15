@@ -2336,11 +2336,12 @@ function dayUseTarget() {                        // the nearest thing in reach y
     { const d = dist2(EX_FIRE, p) - 24; if (d < bd) { bd = d; best = EX_FIRE; } }   // v164: the camp fire sells wisp upgrades
     { const d = dist2(CAMP_BARREL, p) - 10; if (d < bd && D.water < FOOD_MAX - 2) { bd = d; best = CAMP_BARREL; } }
   }
+  for (const o of stNear(p.x, p.y, 60)) if (o.k === 'bed' && o.done) { const d = Math.hypot(o.x - p.x, o.y - p.y) - 14; if (d < bd) { bd = d; best = o; } }   // lie down in your bed
   if (dayTool() === 'build') for (const o of stNear(p.x, p.y, 60)) if (stNeedsWork(o)) { const d = stDistTo(o, p.x, p.y) - 4; if (d < bd) { bd = d; best = o; } }   // v186: Use works your blueprints up
   return best;
 }
 const STN_N = { bench: 'Workbench', furnace: 'Furnace', rack: 'Drying rack', fire: 'Fire', anvil: 'Forge' };
-const useLabel = o => o === EX_FIRE ? 'Cook' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
+const useLabel = o => o.kind === 'dst' && o.k === 'bed' && o.done ? 'Sleep' : o === EX_FIRE ? 'Cook' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
 function openStation(t) {                         // v163: the craft tab, opened on what this station makes (ready ones first)
   const D = S.day, at = t === 'fire' ? 'fire' : t, known = DREC.filter(r => D.known.has(r.id) && r.at === at);
   const pick = known.find(r => canCraft(r) === true) || known[0];
@@ -2360,6 +2361,7 @@ function dayUse() {
   if (o.t === 'tpost') { dayPostFeed(o); return; }
   if (o === CAMP_BOX || o.t === 'chest') { openCraft(o); return; }
   if (STN_N[o.t]) { openStation(o.t); return; }   // v163
+  if (o.kind === 'dst' && o.k === 'bed' && o.done) { daySleep(o); return; }
   if (o.kind === 'dst') { if (!S.p.act && dayStam(STA_CHOP)) { dayAct(10, 0.5); S.p.vx *= 0.4; S.p.vy *= 0.4; if (stHammer(o)) dayWear(); } return; }   // v186
   if (o === EX_FIRE) { openStation('fire'); return; }   // first person (Joe): the camp fire cooks; the wisp upgrades are in the pause menu
   dayAct(7, 0.42); S.p.vx *= 0.3; S.p.vy *= 0.3;
@@ -3379,6 +3381,7 @@ function stPlace() {
   if (!stKnown(P)) return;
   if (why !== true) { dayNote('nost', why, 1.2); if (actx) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; }
   const o = { kind: 'dst', key: 'b' + (stUid++), id: P.id, k: P.k, x: sp.x, y: sp.y, a: sp.a, r: 10, need: Object.assign({}, P.cost), hp: P.hp, max: P.hp, done: false, open: 0, put: 0, seed: Math.random() * 9 };
+  o.clip = stClipOf(P, sp);   // a floor across the palisade keeps only your side of it
   D.bld.set(o.key, o); stGen++;
   dayAct(10, 0.45); ashBurst(sp.x, sp.y, 6, 6); o.dropT = S.t;
   exNote(`blueprint · ${P.n.toLowerCase()}`, true); dayNote('bphint', 'Use (E) on a blueprint to build it', 30);
@@ -3432,11 +3435,12 @@ function stMake(sv) {                            // a piece read back out of a s
   const pos = sv.x !== undefined ? sv : LEGACY_POS(sv);
   const o = { kind: 'dst', key: 'b' + (stUid++), id: sv.id, k: P.k, x: pos.x, y: pos.y, a: sv.a !== undefined ? sv.a : pos.a, r: 10,
     need: Object.assign({}, P.cost, sv.need || {}), hp: sv.hp !== undefined ? sv.hp : P.hp, max: P.hp, done: !!sv.done, open: 0, put: 0, seed: Math.random() * 9, rise: 1, fuel: sv.fuel };
+  if (sv.clip) o.clip = sv.clip;
   S.day.bld.set(o.key, o); stGen++;
   if (o.done && o.k === 'bed') S.day.bed = { x: o.x, y: o.y };
   return o;
 }
-const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done });
+const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done, clip: o.clip || undefined });
 function stAimed(pred) {                         // the piece you're pointing at (the nearest to where you point, in reach)
   const p = S.p, A = stAimPt(); let best = null, bd = 30;
   if (Math.hypot(A.x - p.x, A.y - p.y) > 90) { const a = S.aimW || 0; A.x = p.x + Math.cos(a) * 90; A.y = p.y + Math.sin(a) * 90; }
@@ -3449,7 +3453,7 @@ function stGhost() {
   const D = S.day; if (!D || dayTool() !== 'build' || !S.running || S.rg.phase !== 'fight' || D.bdel) return null;
   const P = PC(D.piece); if (!stKnown(P)) return null;
   const sp = stSnap(P, stAimPt()), why = stFree(P, sp);
-  return { kind: 'dstg', id: P.id, k: P.k, x: sp.x, y: sp.y, a: sp.a, ok: why === true, why: why === true ? '' : why, snap: sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
+  return { kind: 'dstg', id: P.id, k: P.k, clip: stClipOf(P, sp), x: sp.x, y: sp.y, a: sp.a, ok: why === true, why: why === true ? '' : why, snap: sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
 }
 function stStep(dt) {
   const D = S.day, rg = S.rg, p = S.p, night = dayNight();

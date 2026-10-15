@@ -95,6 +95,7 @@ function pieceKit(K, o) {
   const post = (f, s, z, r, h, col, n = 8) => { const [px, py] = at(f, s); K.add(P_CYL(n), px, z, py, r * 2, h, r * 2, col); };
   if (P.sh === 'sq' || P.sh === 'tri') {
     const roof = P.lay === 'roof', z = roof ? ROOF_H : 0, th = roof ? 4 : 2;
+    if (!roof && o.clip) { floorClipKit(K, o, T[1], z - 0.5, th); return; }
     if (P.sh === 'sq') { box(0, 0, z - (roof ? 0 : 0.5), GRID, th, GRID, T[roof ? 0 : 1]); if (roof) { box(0, 0, z + th, GRID * 0.98, 6, GRID * 0.3, T[1]); } else if (P.m !== 'thatch') for (const s of [-GRID / 4, GRID / 4]) box(0, s, z + 1.4, GRID - 2, 0.3, 1, T[2]); }
     else K.add(P_CYL(3), x, z - (roof ? 0 : 0.5), y, TRI_R * 2, th, TRI_R * 2, T[roof ? 0 : 1], Math.PI / 2 - a);
     return;

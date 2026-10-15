@@ -7,7 +7,8 @@
 // (Joe's character sheet) a red-orange beanie with a white bobble, a cream shirt with the sleeves rolled up, a dark harness and
 // belt, a tan rucksack, taupe cargo trousers turned up at the ankle, brown lace-up boots
 const BODY_COL = { tunic: [234, 224, 202], trou: [132, 118, 100], trouL: [138, 123, 104], boot: [112, 76, 52], sole: [50, 40, 34], lace: [200, 172, 130], skin: [218, 170, 130],
-  rust: [200, 84, 48], rustD: [164, 64, 38], pack: [150, 122, 86], packD: [120, 94, 64], strap: [68, 48, 34], belt: [60, 44, 32], metal: [88, 80, 72], hair: [96, 64, 42], eye: [30, 26, 22] };
+  rust: [200, 84, 48], rustD: [164, 64, 38], pack: [150, 122, 86], packD: [120, 94, 64], strap: [68, 48, 34], belt: [60, 44, 32], metal: [88, 80, 72], hair: [96, 64, 42], eye: [30, 26, 22],
+  btn: [214, 202, 178], roll: [222, 210, 186], nose: [214, 154, 120], bob: [240, 232, 214], rib: [178, 70, 40] };
 const BONES = [   // name, parent, rest position (relative to the parent)
   ['root', null, [0, 0, 0]], ['hips', 'root', [0, 17, 0]], ['spine', 'hips', [0, 3.4, 0]], ['chest', 'spine', [0, 5, 0]], ['neck', 'chest', [0, 5.6, 0]], ['head', 'neck', [0, 2, 0]],
   ['armR', 'chest', [5.6, 3.6, 0]], ['foreR', 'armR', [0.3, -7.2, 0]], ['handR', 'foreR', [0.1, -6.4, 0]],
@@ -20,7 +21,9 @@ const BI = {}; BONES.forEach((b, i) => BI[b[0]] = i);
 const BREST = {}; for (const [n, par, p] of BONES) { const q = par ? BREST[par] : [0, 0, 0]; BREST[n] = [q[0] + p[0], q[1] + p[1], q[2] + p[2]]; }
 
 // ---- building the body: tubes and rounded lumps, each bound to its bones, welded into one mesh ----
-function buildBody() {
+// o: C a palette in place of yours, tint(rgb, x, y, z) to dirty or tear it, cap / pack false to leave them off, extra(kit) for more
+function buildBody(o = {}) {
+  const C = o.C || BODY_COL;
   const pos = [], nor = [], idx = [], skI = [], skW = [], tone = [];
   const push = (g, wfn, colfn) => {   // add a geometry; wfn(x, y, z) -> [[bone, w], ...]; colfn(x, y, z) -> rgb 0..255
     const base = pos.length / 3, p = g.attributes.position, n = g.attributes.normal;
@@ -29,7 +32,7 @@ function buildBody() {
       const w = wfn(x, y, z).slice(0, 4); while (w.length < 4) w.push([0, 0]);
       const sum = w.reduce((a, b) => a + b[1], 0) || 1;
       skI.push(...w.map(q => BI[q[0]] ?? 0)); skW.push(...w.map(q => q[1] / sum));
-      const c = colfn(x, y, z); tone.push(c[0] / 255, c[1] / 255, c[2] / 255);
+      const c = o.tint ? o.tint(colfn(x, y, z), x, y, z) : colfn(x, y, z); tone.push(c[0] / 255, c[1] / 255, c[2] / 255);
     }
     const ix = g.index.array; for (let i = 0; i < ix.length; i++) idx.push(base + ix[i]);
   };
@@ -48,7 +51,7 @@ function buildBody() {
   const lump = (c, r, wfn, colfn, ws = 16, hs = 12, cut) => {
     const g = new THREE.SphereGeometry(1, ws, hs, 0, Math.PI * 2, 0, cut || Math.PI); g.scale(r[0], r[1], r[2]); g.translate(c[0], c[1], c[2]); push(g, wfn, colfn);
   };
-  const one = n => () => [[n, 1]], col = c => () => BODY_COL[c];
+  const one = n => () => [[n, 1]], col = c => () => C[c];
   const blend = (a, b, y0, y1) => (x, y) => { const k = smooth(clamp((y - y0) / (y1 - y0), 0, 1)); return [[a, 1 - k], [b, k]]; };
   const R = BREST;
   // the torso, hips to the base of the neck: broad at the chest, in at the waist
@@ -56,30 +59,32 @@ function buildBody() {
   tube([0, 31.2, 0], [0, 14, 0], t => torsoProf(1 - t), (x, y) => {
     const w = []; const kS = smooth(clamp((y - 19) / 3, 0, 1)), kC = smooth(clamp((y - 24) / 3, 0, 1));
     w.push(['hips', 1 - kS], ['spine', kS * (1 - kC)], ['chest', kC]); return w.filter(q => q[1] > 0.001);
-  }, (x, y) => y < 17.6 ? BODY_COL.trou : y < 18.9 ? BODY_COL.belt : BODY_COL.tunic, 18, 14);
+  }, (x, y) => y < 17.6 ? C.trou : y < 18.9 ? C.belt : C.tunic, 18, 14);
   // the belt's buckle, and the shirt's placket: a short row of buttons down from the collar
   lump([0, 18.2, 3.25], [1.1, 0.85, 0.45], one('hips'), col('metal'), 8, 6);
-  for (const y of [29.4, 27.9, 26.4]) lump([0, y, 3.75 + (y - 26) * 0.08], [0.32, 0.32, 0.2], one('chest'), () => [214, 202, 178], 6, 4);
+  for (const y of [29.4, 27.9, 26.4]) lump([0, y, 3.75 + (y - 26) * 0.08], [0.32, 0.32, 0.2], one('chest'), col('btn'), 6, 4);
   // neck and an open collar
-  tube([0, 34.5, 0.2], [0, 30.5, 0], () => [1.8, 1.7], blend('chest', 'neck', 30.5, 33), () => BODY_COL.skin, 4, 10);
+  tube([0, 34.5, 0.2], [0, 30.5, 0], () => [1.8, 1.7], blend('chest', 'neck', 30.5, 33), () => C.skin, 4, 10);
   tube([0, 31.6, -0.1], [0, 30.4, 0], t => [2.7 + 0.5 * t, 2.2 + 0.4 * t], blend('chest', 'neck', 30.5, 32), col('tunic'), 3, 14);
   // the head: a round cartoon head, eyes, a nose, ears, brown hair showing below the cap at the back and sides
   lump([0, 36.4, 0.3], [3.9, 4.3, 3.9], one('head'), col('skin'), 18, 14);
   lump([0, 36.9, -0.75], [4.08, 3.9, 3.95], one('head'), col('hair'), 16, 12);
   for (const s of [-1, 1]) { lump([s * 1.45, 36.6, 3.85], [0.62, 0.85, 0.35], one('head'), col('eye'), 8, 6); lump([s * 3.85, 36.2, 0.4], [0.6, 1.1, 0.9], one('head'), col('skin'), 8, 6);
     lump([s * 3.6, 37.4, 1.4], [0.55, 1.2, 0.8], one('head'), col('hair'), 6, 6); }   // sideburns
-  lump([0, 35.4, 4.1], [0.75, 0.8, 0.7], one('head'), () => [214, 154, 120], 8, 6);
+  lump([0, 35.4, 4.1], [0.75, 0.8, 0.7], one('head'), col('nose'), 8, 6);
   // the beanie: a knitted crown, a deep ribbed turn-up, and the bobble
-  lump([0, 38.0, -0.1], [4.3, 4.3, 4.35], one('cap'), col('rust'), 18, 10, Math.PI * 0.52);
-  tube([0, 39.2, -0.1], [0, 36.9, -0.1], () => [4.55, 4.55], one('cap'), (x, y, z) => Math.cos(Math.atan2(x, z + 0.1) * 16) > 0.1 ? BODY_COL.rustD : [178, 70, 40], 4, 64);   // ribbed
-  lump([0, 42.6, -0.4], [1.45, 1.4, 1.45], one('cap'), () => [240, 232, 214], 10, 8);
+  if (o.cap !== false) {
+    lump([0, 38.0, -0.1], [4.3, 4.3, 4.35], one('cap'), col('rust'), 18, 10, Math.PI * 0.52);
+    tube([0, 39.2, -0.1], [0, 36.9, -0.1], () => [4.55, 4.55], one('cap'), (x, y, z) => Math.cos(Math.atan2(x, z + 0.1) * 16) > 0.1 ? C.rustD : C.rib, 4, 64);   // ribbed
+    lump([0, 42.6, -0.4], [1.45, 1.4, 1.45], one('cap'), col('bob'), 10, 8);
+  }
   // arms: the shirt's sleeve to the elbow, rolled up in a thick band, a bare forearm and a bare hand
   for (const s of [1, -1]) {
     const S = s > 0 ? 'R' : 'L', sh = R['arm' + S], el = R['fore' + S], wr = R['hand' + S];
     tube([s * 1.6, 31.7, -0.3], [sh[0] - s * 0.6, sh[1] - 0.2, sh[2] - 0.1], t => [1.5 + 0.55 * t, 1.55 + 0.45 * t], one('chest'), col('tunic'), 6, 10);   // the slope from neck to shoulder
     lump([sh[0] - s * 0.2, sh[1] - 1.0, sh[2]], [2.45, 2.65, 2.4], (x, y) => [['chest', 0.4], ['arm' + S, 0.6]], col('tunic'), 14, 12);   // a rounded shoulder
     tube(sh, el, t => [1.95 + 0.16 * Math.sin(Math.PI * t) - 0.25 * t, 1.88 + 0.12 * Math.sin(Math.PI * t) - 0.25 * t], (x, y) => { const k = smooth(clamp((sh[1] - y) / 2.2, 0, 1)); return [['chest', (1 - k) * 0.5], ['arm' + S, 1 - (1 - k) * 0.5]]; }, col('tunic'));
-    tube([el[0], el[1] + 1.2, el[2]], [el[0], el[1] - 1.3, el[2]], () => [2.05, 2.0], (x, y) => { const k = smooth(clamp((el[1] + 0.4 - y) / 1.6, 0, 1)); return [['arm' + S, 1 - k], ['fore' + S, k]]; }, () => [222, 210, 186], 3, 12);   // the roll
+    tube([el[0], el[1] + 1.2, el[2]], [el[0], el[1] - 1.3, el[2]], () => [2.05, 2.0], (x, y) => { const k = smooth(clamp((el[1] + 0.4 - y) / 1.6, 0, 1)); return [['arm' + S, 1 - k], ['fore' + S, k]]; }, col('roll'), 3, 12);   // the roll
     tube([el[0], el[1] + 0.6, el[2]], wr, t => [1.5 + 0.14 * Math.sin(Math.PI * Math.min(1, t * 1.4)) - 0.38 * t, 1.38 + 0.1 * Math.sin(Math.PI * Math.min(1, t * 1.4)) - 0.32 * t], (x, y) => { const k = smooth(clamp((el[1] - y) / 1.8, 0, 1)); return [['arm' + S, 1 - k], ['fore' + S, k]]; }, col('skin'));
     // a mitten of a hand: a palm that widens to the knuckles and rounds off, curled a little forward, and a thumb along the front
     const handProf = t => { const r = t < 0.55 ? 1 : Math.sqrt(Math.max(0.04, 1 - ((t - 0.55) / 0.45) ** 2)); return [lerp(1.2, 1.5, Math.min(1, t / 0.55)) * r, lerp(1.0, 1.15, Math.min(1, t / 0.55)) * r]; };
@@ -100,20 +105,23 @@ function buildBody() {
     lump([an[0], an[1] - 1.25, an[2] + 1.6], [2.3, 0.62, 3.65], one('foot' + S), col('sole'), 12, 6);
     for (let k = 0; k < 3; k++) lump([an[0], an[1] + 0.9 + k * 1.15, an[2] + 2.0 - k * 0.15], [1.0, 0.22, 0.3], one(k < 1 ? 'foot' + S : 'shin' + S), col('lace'), 6, 4);
   }
-  // the rucksack: a rounded tan body, a darker flap over its top with a strap and buckle down the middle, a pocket each side
-  const P = R.pack;
-  lump([0, P[1] + 0.2, P[2] - 0.9], [4.6, 5.6, 2.9], one('pack'), col('pack'), 14, 12);
-  lump([0, P[1] + 3.0, P[2] - 1.0], [4.75, 3.1, 3.15], one('pack'), col('packD'), 14, 10, Math.PI * 0.62);
-  tube([0, P[1] + 4.6, P[2] - 4.0], [0, P[1] - 1.4, P[2] - 3.75], () => [0.55, 0.22], one('pack'), col('strap'), 4, 6);
-  lump([0, P[1] - 0.6, P[2] - 3.9], [0.6, 0.45, 0.25], one('pack'), col('metal'), 6, 4);
-  for (const s of [-1, 1]) lump([s * 4.4, P[1] - 1.4, P[2] - 0.8], [1.0, 2.2, 1.8], one('pack'), col('packD'), 8, 6);
-  // the harness: straps from the pack over each shoulder and down the chest to the belt, joined by a strap and buckle across the chest
-  for (const s of [-1, 1]) {
-    tube([s * 3.1, 30.9, -2.6], [s * 3.2, 31.6, 0.4], () => [0.85, 0.4], one('chest'), col('strap'), 3, 6);
-    tube([s * 3.2, 31.0, 1.4], [s * 3.45, 19.4, 3.25], () => [0.85, 0.35], (x, y) => [['chest', smooth(clamp((y - 19) / 6, 0, 1))], ['spine', 1 - smooth(clamp((y - 19) / 6, 0, 1))]], col('strap'), 5, 6);
+  if (o.pack !== false) {
+    // the rucksack: a rounded tan body, a darker flap over its top with a strap and buckle down the middle, a pocket each side
+    const P = R.pack;
+    lump([0, P[1] + 0.2, P[2] - 0.9], [4.6, 5.6, 2.9], one('pack'), col('pack'), 14, 12);
+    lump([0, P[1] + 3.0, P[2] - 1.0], [4.75, 3.1, 3.15], one('pack'), col('packD'), 14, 10, Math.PI * 0.62);
+    tube([0, P[1] + 4.6, P[2] - 4.0], [0, P[1] - 1.4, P[2] - 3.75], () => [0.55, 0.22], one('pack'), col('strap'), 4, 6);
+    lump([0, P[1] - 0.6, P[2] - 3.9], [0.6, 0.45, 0.25], one('pack'), col('metal'), 6, 4);
+    for (const s of [-1, 1]) lump([s * 4.4, P[1] - 1.4, P[2] - 0.8], [1.0, 2.2, 1.8], one('pack'), col('packD'), 8, 6);
+    // the harness: straps from the pack over each shoulder and down the chest to the belt, joined by a strap and buckle across the chest
+    for (const s of [-1, 1]) {
+      tube([s * 3.1, 30.9, -2.6], [s * 3.2, 31.6, 0.4], () => [0.85, 0.4], one('chest'), col('strap'), 3, 6);
+      tube([s * 3.2, 31.0, 1.4], [s * 3.45, 19.4, 3.25], () => [0.85, 0.35], (x, y) => [['chest', smooth(clamp((y - 19) / 6, 0, 1))], ['spine', 1 - smooth(clamp((y - 19) / 6, 0, 1))]], col('strap'), 5, 6);
+    }
+    tube([-3.4, 26.8, 3.95], [3.4, 26.8, 3.95], () => [0.38, 0.3], one('chest'), col('strap'), 2, 6);
+    lump([0, 26.8, 4.15], [0.95, 0.7, 0.35], one('chest'), col('metal'), 6, 4);
   }
-  tube([-3.4, 26.8, 3.95], [3.4, 26.8, 3.95], () => [0.38, 0.3], one('chest'), col('strap'), 2, 6);
-  lump([0, 26.8, 4.15], [0.95, 0.7, 0.35], one('chest'), col('metal'), 6, 4);
+  if (o.extra) o.extra({ tube, lump, one, col, blend, R, C });
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(skI, 4)); g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(skW, 4));

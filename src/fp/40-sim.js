@@ -104,6 +104,7 @@ FP.exStep = function (dt) {
   weatherStep(dt);                            // rain, fog and storms come and go while you are out
   rg.wave = Math.min(13, 1 + d0 / 800 + dayTough());
   dayTorchOn(); dayStep(dt, inCamp);
+  clanStep(dt);                               // the clan watching from the trees (72-clan)
   for (const n of rg.notes) n.t += dt;
   rg.notes = rg.notes.filter(n => n.t < 2.4);
   if (rg.ringMsg && !(S.msg && S.msg.t < 2.2)) { rg.ringMsg.t += dt; if (rg.ringMsg.t > 2.8) rg.ringMsg = null; }
@@ -124,7 +125,8 @@ FP.exStep = function (dt) {
   const cap = Math.round((EX_CAP[ring] + Math.floor(packUsed(rg.pack) / packMax() * 3)) * dayCrowd() * dayCapK() * DAY_FOE_FEW);   // fewer by day, far more by night, more with a heavy pack
   if (rg.spawnT <= 0) {
     rg.spawnT = EX_GAP[ring] * (0.6 + Math.random() * 0.8);
-    if (rg.enemies.length < cap && rmOn()) rmSpawn(ring, Math.min(cap - rg.enemies.length, 1 + Math.floor(Math.random() * 3) + (ring > 1 && Math.random() < 0.5 ? 1 : 0)));   // a band out roaming
+    if (CLAN_ON && rmOn()) {}   // by day the clan (72-clan) keeps its own numbers
+    else if (rg.enemies.length < cap && rmOn()) rmSpawn(ring, Math.min(cap - rg.enemies.length, 1 + Math.floor(Math.random() * 3) + (ring > 1 && Math.random() < 0.5 ? 1 : 0)));   // a band out roaming
     else if (rg.enemies.length < cap) { if (ring > 0 && Math.random() < 0.25 && cap - rg.enemies.length >= 3) exPack(ring, Math.min(cap - rg.enemies.length, 3 + (Math.random() < 0.5 ? 1 : 0))); else exSpawn(exPickFoe(ring)); }
   }
   if (ring === 3 && !rg.enemies.some(e => e.type === 'tall') && (rg.tallCd -= dt) <= 0) {

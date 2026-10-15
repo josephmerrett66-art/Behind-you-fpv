@@ -9,7 +9,7 @@ let sleepEl = null;
 function daySleep(bed) {
   const D = S.day, f = dayT(); if (!D || D.sleeping) return;
   if (f < SLEEP_FROM && f > 0.02) { dayNote('sleep', 'you can sleep once evening comes', 2); return; }
-  if (S.rg.enemies.some(e => !e.dead && Math.hypot(e.x - S.p.x, e.y - S.p.y) < 260)) { dayNote('sleep', 'you can\'t sleep with something close by', 2); return; }
+  if (S.rg.enemies.some(e => !e.dead && !(e.cl && !['hunt', 'hwarn', 'hdart', 'wait', 'stalk', 'warn', 'dart'].includes(e.cl.st)) && Math.hypot(e.x - S.p.x, e.y - S.p.y) < 260)) { dayNote('sleep', 'you can\'t sleep with something close by', 2); return; }
   D.sleeping = true; S.p.vx = S.p.vy = 0;
   if (!sleepEl) { sleepEl = document.createElement('div'); sleepEl.style.cssText = 'position:fixed;inset:0;background:#05040a;opacity:0;pointer-events:none;transition:opacity 0.9s ease;z-index:40;'; document.body.appendChild(sleepEl); }
   requestAnimationFrame(() => { sleepEl.style.opacity = '1'; });

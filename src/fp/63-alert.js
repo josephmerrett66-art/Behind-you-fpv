@@ -22,6 +22,7 @@ function alertSound(kind, k = 0) {
   else if (kind === 'lost') { toneAt(t, 740, 0.12, 0.08, 'triangle', o); toneAt(t + 0.1, 494, 0.24, 0.08, 'triangle', o); toneAt(t + 0.22, 370, 0.4, 0.05, 'sine', o); }
 }
 function alertScan(dt) {   // where things stand: who is noticing you, and how far it has gone
+  if (CLAN_ON) return false;   // Joe: no SEEN meter or '?' any more; the clan (72-clan) is known by sight and sound alone
   const A = ALERT, rg = S.rg, live = state === 'play' && S.day && rg && rg.phase !== 'dead' && rmOn();
   let top = 0, hunt = false, search = false, sus = false;
   if (live) for (const e of roamers()) {
@@ -59,6 +60,7 @@ function alertMeter(g, x, y, w, k, a) {   // a slanted arcade bar: dark rim, the
 }
 const _qa = [0, 0, 0];
 function alertDraw(g, dt) {
+  if (CLAN_ON) return;
   const A = ALERT, cx = FW / 2, cy = FH / 2, M = Math.min(FW, FH), RX = FW * 0.36 * 0.9, RY = FH * 0.29 * 0.9, hy = Math.max(132, FH * 0.2), live = state === 'play' && S.day && rmOn();
   // hunted: the edges of the view throb red until you've lost them
   if (live && A.st === 'hunt') {

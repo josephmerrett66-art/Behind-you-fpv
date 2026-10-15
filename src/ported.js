@@ -792,10 +792,10 @@ function killFoe(e) {
   rg.dying.push({ x: e.x, y: e.y, type: e.type, dir: e.dirFace ?? foeDir(e), phase: e.phase, t: 0, segs: e.type === 'centi' ? centiSegs(e).filter((q, i) => centiOut(e, i)) : null, hz: e.hz, k: e.k });
   if (e.guard) { rg.guardDone = true; addShake(0.6); hitStop(0.1); }   // the orb's keeper is dead: it stays dead this trip
   if (e.type === 'centi') for (const q of centiSegs(e)) ashBurst(q.x, q.y, 3, 8);   // it drops to its knees and crumbles
-  for (let i = 0; i < 14 * FOES[e.type].h / 38; i++) rg.embers.push({ x: e.x, y: e.y, z: Math.random() * FOES[e.type].h, vz: 30 + Math.random() * 70, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60, life: 0.5 + Math.random() * 0.8, ember: true });
+  if (e.type === 'cannibal') clanDied(e);   // one of the clan: a body, a cry, and the rest of them coming
+  else for (let i = 0; i < 14 * FOES[e.type].h / 38; i++) rg.embers.push({ x: e.x, y: e.y, z: Math.random() * FOES[e.type].h, vz: 30 + Math.random() * 70, vx: (Math.random() - 0.5) * 60, vy: (Math.random() - 0.5) * 60, life: 0.5 + Math.random() * 0.8, ember: true });
   if (e.type === 'tall') { addShake(0.5); hitStop(0.08); } else addShake(e.type === 'brute' ? 0.2 : 0.07);
-  ashBurst(e.x, e.y, e.type === 'tall' ? 70 : e.type === 'brute' ? 36 : 22, FOES[e.type].h * 0.8);
-  burnPeak(e); playMonDeath(e);
+  if (e.type !== 'cannibal') { ashBurst(e.x, e.y, e.type === 'tall' ? 70 : e.type === 'brute' ? 36 : 22, FOES[e.type].h * 0.8); burnPeak(e); playMonDeath(e); }
   if (lv('chain')) {
     const R = (55 + 15 * lv('chain')) * (lv('wildfire') ? 2 : 1);
     for (const o of rg.enemies) if (!o.dead && o !== e && dist2(o, e) < R) o.hp -= 0.35 * lv('chain');
@@ -1224,8 +1224,8 @@ const MELEE = {
   laser:     { wind: 0.5,  trig: 38, hit: 30, lunge: 20, rec: 0.55 },
 };
 const SW_ARC = 1.15, SW_STRIKE = 0.13;
-function foeMelee(e, d, dt) {                  // returns true while the swing holds it in place
-  const M = MELEE[e.type], rg = S.rg, p = S.p; if (!M || e.dead) return false;
+function foeMelee(e, d, dt, M0) {              // returns true while the swing holds it in place (M0: a swing of its own, for the clan)
+  const M = M0 || MELEE[e.type], rg = S.rg, p = S.p; if (!M || e.dead) return false;
   if (e.type === 'laser' && e.ai !== 'move') { e.sw = null; return false; }
   const k = foeScale(e), sw = e.sw;
   if (!sw) {
@@ -1257,7 +1257,7 @@ function foeMelee(e, d, dt) {                  // returns true while the swing h
   return true;                                   // recovering: open to a counter
 }
 function foeSwBreak(o) {                        // your blow knocks the swing out of it (not out of a brute or a tall one)
-  const M = MELEE[o.type]; if (!M || M.heavy || !o.sw || o.sw.ph !== 'wind') return;
+  const M = MELEE[o.type] || (o.type === 'cannibal' ? CL_MELEE : null); if (!M || M.heavy || !o.sw || o.sw.ph !== 'wind') return;
   o.sw = null; o.swCd = 0.6; o.kick = 1;
 }
 function playFoeWind(e, M) {                    // a sharp breath in and the scrape of a foot set back
@@ -1414,8 +1414,8 @@ function updateSurvive(dt) {
     e.reach = (e.reach || 0) + (reachTo - (e.reach || 0)) * Math.min(1, dt * 6);
     e.kick = Math.max(0, (e.kick || 0) - dt * 4);
     const farOff = !e.lit && d > Math.max(700, (e.spawnD || 500) + 300) && !seenAt(e.x, e.y);   // well out of reach and out of sight
-    if (S.mode === 'expedition' && farOff && d > 900 && !e.guard && !e.boss) { e.dead = e.gone = true; continue; }   // left far behind: gone, others will come
-    if (farOff && !e.guard && !(e.roam && e.st2 !== 'hunt')) { const at = spawnSpot(); e.x = at.x; e.y = at.y; e.spawnD = at.d; if (e.type === 'bomber') { e.ang = undefined; bomberReset(e); } if (e.type === 'laser' && e.ai !== 'fire') e.ai = 'move'; if (e.type === 'spear') spearInit(e); if (e.type === 'archer') archerInit(e); continue; }   // left far behind: bring it back around you
+    if (S.mode === 'expedition' && farOff && d > 900 && !e.guard && !e.boss && e.type !== 'cannibal') { e.dead = e.gone = true; continue; }   // left far behind: gone, others will come
+    if (farOff && !e.guard && !(e.roam && e.st2 !== 'hunt') && e.type !== 'cannibal') { const at = spawnSpot(); e.x = at.x; e.y = at.y; e.spawnD = at.d; if (e.type === 'bomber') { e.ang = undefined; bomberReset(e); } if (e.type === 'laser' && e.ai !== 'fire') e.ai = 'move'; if (e.type === 'spear') spearInit(e); if (e.type === 'archer') archerInit(e); continue; }   // left far behind: bring it back around you
     let sp = f.sp * (inBeyond() ? DUNE_SP : 1) * (pact('hunted') ? 1.3 : 1) * (1 + 0.03 * Math.min(rg.wave, 15)) * (e.scarred ? Math.pow(0.8, lv('scar')) : 1) * (e.mire > S.t ? 0.4 : 1);
     if (S.mode === 'expedition' && !inBeyond()) { const k = EX_PACE[exRing(Math.hypot(S.p.x, S.p.y))]; sp = e.type === 'kamikaze' ? sp * k : Math.min(sp * k, Math.max(sp, EX_PACE_MAX)); }   // v122: deeper woods, quicker hunters (never quite your sprint)
     if (!e.lit && !seenAt(e.x, e.y)) sp *= 3;   // out of sight they close in quicker, so off-screen spawns don't slow the pace
@@ -2604,7 +2604,7 @@ function dayWake() {                             // v152 (Joe's plan): with a be
 }
 function dayDeath() {
   const rg = S.rg, D = S.day;
-  if (ARENA) return arenaOver(false);   // the boss arena: the fight's over, back to the picker
+  if (ARENA) return ARENA.woods ? woodsOver() : arenaOver(false);   // the test woods (73-woods) or the boss arena   // the boss arena: the fight's over, back to the picker
   if (rg.phase === 'fight') return dayWake();    // Joe: dying costs what you carried, never your base
   rg.phase = 'dead'; rg.deadT = 0; craftBtn.hidden = true; document.getElementById('hotbar').hidden = true; document.getElementById('buildbar').hidden = true;
   dayClearSave();
@@ -3081,7 +3081,7 @@ function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {
 function daySave() {
   const D = S && S.day, rg = S && S.rg; if (ARENA || !D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
-    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp', 'cacheV', 'herd'];   // v155
+    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp', 'cacheV', 'herd', 'clanN'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
   d.seen = [...D.seen]; d.known = [...D.known]; d.fresh = [...D.fresh];
   d.felled = [...D.felled]; d.cut = [...D.cut]; d.bchunks = [...D.bchunks];
@@ -3934,7 +3934,7 @@ function dayRelicTake(o) {
 }
 function dayHeatStep(dt) {
   const D = S.day, p = S.p, rg = S.rg;
-  if (dayNight() || rg.phase !== 'fight' || D.siege) { D.scout = null; return; }
+  if (dayNight() || rg.phase !== 'fight' || D.siege || CLAN_ON) { D.scout = null; return; }   // by day the clan does the watching now (72-clan)
   if (D.scout) {
     const e = D.scout;
     if (e.dead || !rg.enemies.includes(e)) { D.scout = null; D.caught = (D.caught || 0) + 1; exNote('you caught the scout', true); dayJLog('caught a scout'); return; }

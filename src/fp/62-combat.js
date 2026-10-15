@@ -344,7 +344,7 @@ function threatScan(dt) {   // what's close and out of sight, nearest first
     const v = viewAngle(e.x, e.y); if (v.d > 320) continue;
     const wind = foeWinding(e);
     if (Math.abs(v.off) < hfov && !(wind && v.d < 60 && Math.abs(v.off) > hfov * 0.7)) continue;
-    T.push({ e, th: v.th, d: v.d, wind, col: typeof rdCol === 'function' ? rdCol(e.type) : '236,226,210' });
+    // Joe: no chevrons pointing at what's behind you any more; you hear it winding up, that's all
     if (wind && v.d < 200 && !CFX.warned.has(e.sw || e)) { CFX.warned.add(e.sw || e); warnCue(e); }
   }
   T.sort((a, b) => a.d - b.d); if (T.length > 6) T.length = 6;

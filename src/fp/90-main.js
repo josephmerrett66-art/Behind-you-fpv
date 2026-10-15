@@ -147,7 +147,7 @@ function titleText() {
   $('beginS').textContent = sv ? `Your run${n ? ` · day ${n}` : ''} is where you left it.` : 'No torch by day. Gather, build, hunt, last the nights.';
   $('beginNew').hidden = !sv;
 }
-function onReady() { $('loading').textContent = ''; $('begin').disabled = false; $('beginArena').disabled = false; titleText(); }
+function onReady() { $('loading').textContent = ''; $('begin').disabled = false; $('beginArena').disabled = false; $('beginWoods').disabled = false; titleText(); }
 function startRun(fresh) {
   if (!ready) return;
   initAudio();
@@ -164,7 +164,7 @@ function startRun(fresh) {
 let saveT = 0;
 function pause() { if (state !== 'play') return; state = 'pause'; try { daySave(); } catch (e) {} $('pause').classList.add('show'); syncSet(); lockOff(); if (actx) actx.suspend(); rngUp(); }
 function unpause() { state = 'play'; $('pause').classList.remove('show'); if (actx) actx.resume(); last = performance.now(); lockOn(); }
-function quitToTitle() { try { daySave(); } catch (e) {} ARENA = null; $('arena').classList.remove('show'); state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
+function quitToTitle() { try { daySave(); } catch (e) {} ARENA = null; woodsUi(false); $('arena').classList.remove('show'); state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
 $('begin').addEventListener('click', () => startRun(false));
 // a pad can't answer the browser's own question, so on a controller the button asks a second press instead
 $('beginNew').addEventListener('click', () => {
@@ -272,7 +272,7 @@ function frame(t) {
   drawFigures(now, fdt);
   fxFrame(fdt, now);
   if (state === 'play') combatFrame(fdt, rdt, now); else combatDraw(rdt, now);
-  shN = shBase; for (const e of S.rg.enemies) if (!e.dead) shadow(e.x, e.y, 9 * foeScale(e), -30); for (const o of S.day.beasts) shadow(o.x, o.y, (BEAST[o.k] ? BEAST[o.k].w : 10) * 0.8, -12); if (thirdP()) shadow(S.p.x, S.p.y, 8, -24); shadowsEnd();
+  shN = shBase; for (const e of S.rg.enemies) if (!e.dead && !(e.cl && e.cl.z > 1)) shadow(e.x, e.y, 9 * foeScale(e), -30); for (const o of S.day.beasts) shadow(o.x, o.y, (BEAST[o.k] ? BEAST[o.k].w : 10) * 0.8, -12); if (thirdP()) shadow(S.p.x, S.p.y, 8, -24); shadowsEnd();
   figuresEnd();
   flushPoints(fdt);
   hurtFx = Math.max(0, hurtFx - rdt * 1.6); healFx = Math.max(0, healFx - rdt * 1.4);

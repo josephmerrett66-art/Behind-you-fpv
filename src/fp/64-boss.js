@@ -50,7 +50,7 @@ function bossTree(e) {   // a standing tree near him that would come down across
   return best;
 }
 function bossStep(e, sp0, d, dt) {
-  const p = S.p, rg = S.rg, C = dayCampAt(e.ci), k = bossK(e), sp = FOES.woodcutter.sp * (e.rage ? 1.15 : 1);
+  const p = S.p, rg = S.rg, C = ARENA ? { x: e.hx, y: e.hy } : dayCampAt(e.ci), k = bossK(e), sp = FOES.woodcutter.sp * (e.rage ? 1.15 : 1);
   // what got through since last time: the axe stuck in the ground leaves him open, and every blow counts for more
   const took = (e.bHp ?? e.hp) - e.hp;
   if (took > 0 && e.stuck) { e.hp -= took * 0.6; if (!e.openPop) { e.openPop = 1; wpPop('OPEN', e.x, e.y, 60, '255,220,120', 1); } }

@@ -12,7 +12,7 @@ const POT_MAX = 4, POT_GRAB = 46;
 const cookSlow = r => r.g === 'food' && !r.make && (r.at === 'fire' || r.at === 'rack');
 function cookAt(at) {   // the fire or rack you are at
   const p = S.p, D = S.day;
-  if (at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
+  if (!NO_CAMP && at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
   let best = null, bd = 1e9;
   for (const B of D.builds) if (B.t === at && dist2(B, p) < (at === 'fire' ? COOK_R : RACK_R) && dist2(B, p) < bd) { bd = dist2(B, p); best = B; }
   return best && { x: best.x, y: best.y };

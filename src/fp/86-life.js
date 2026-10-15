@@ -73,7 +73,7 @@ const flyMesh = lifeMesh(lifeQuads([
   void main() {
     float B = lifeB;
     vec2 h0 = home(sd.xy, B), h = h0 + path(time), dh = path(time + 0.08) - path(time);
-    float k = edge(h, B) * lifeK * smoothstep(${CAMP_R + 15}.0, ${CAMP_R + 90}.0, length(h));   // they keep out over the open ground, not in the camp
+    float k = edge(h, B) * lifeK * smoothstep(${NO_CAMP ? -90 : CAMP_R + 15}.0, ${NO_CAMP ? -10 : CAMP_R + 90}.0, length(h));   // they keep out over the open ground, not in the camp
     float beat = fract(time * 0.35 + sd.w) < 0.3 ? 0.15 : 1.0;   // now and then a glide
     float flap = (sin(time * (13.0 + sd.z * 5.0) + sd.w * 30.0) * 0.85 + 0.35) * beat + (1.0 - beat) * 0.25;
     vec3 p = position;

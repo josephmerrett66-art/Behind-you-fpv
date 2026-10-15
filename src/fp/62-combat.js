@@ -399,13 +399,14 @@ function drawThreats(g, dt) {
 
 // ---- the way home: a little house over the camp, or on the ring pointing round to it when it's out of sight ----
 // A page element moved about, not the flat drawing layer, so a quiet walk home costs that layer nothing.
-const homeOn = () => state === 'play' && S && S.rg && !S.rg.inCamp && S.rg.phase !== 'dead' && Math.hypot(S.p.x, S.p.y) > 200 && !menusOpen();
+const homeAt = () => NO_CAMP ? S && S.day && homeSpot() : { x: 0, y: 0 };   // with no camp, home is your bed or your nearest fire
+const homeOn = () => { if (!(state === 'play' && S && S.rg && !S.rg.inCamp && S.rg.phase !== 'dead' && !menusOpen())) return false; const h = homeAt(); return !!h && Math.hypot(S.p.x - h.x, S.p.y - h.y) > 200; };
 const _hv = new V3(), homeEl = $('homeMark'), homeArrow = homeEl.querySelector('i'), homeTxt = homeEl.querySelector('span');
 let homeM = -1;
 function homeFrame() {
   if (!homeOn()) { homeEl.hidden = true; return; }
-  const m = Math.round(Math.hypot(S.p.x, S.p.y) / 20); if (m !== homeM) { homeM = m; homeTxt.textContent = `HOME · ${m} m`; }
-  _hv.set(0, terrH(0, 0) + 70, 0).applyMatrix4(cam.matrixWorldInverse);
+  const h = homeAt(), m = Math.round(Math.hypot(S.p.x - h.x, S.p.y - h.y) / 20); if (m !== homeM) { homeM = m; homeTxt.textContent = `HOME · ${m} m`; }
+  _hv.set(h.x, terrH(h.x, h.y) + 70, h.y).applyMatrix4(cam.matrixWorldInverse);
   const fwd = -_hv.z, right = _hv.x, cx = FW / 2, cy = FH / 2;
   let x, y, th = null;
   if (fwd > 3) {   // in front: over the camp itself, if that's on the screen

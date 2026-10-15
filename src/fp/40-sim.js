@@ -100,7 +100,7 @@ function simStep(dt) {
 
 // ---------------- the woods' step (exStep(), Daylight's part of it) ----------------
 FP.exStep = function (dt) {
-  const rg = S.rg, p = S.p, d0 = Math.hypot(p.x, p.y), ring = exRing(d0), inCamp = d0 < CAMP_R;
+  const rg = S.rg, p = S.p, d0 = Math.hypot(p.x, p.y), ring = exRing(d0), inCamp = !NO_CAMP && d0 < CAMP_R;
   weatherStep(dt);                            // rain, fog and storms come and go while you are out
   rg.wave = Math.min(13, 1 + d0 / 800 + dayTough());
   dayTorchOn(); dayStep(dt, inCamp);
@@ -112,6 +112,7 @@ FP.exStep = function (dt) {
     if (inCamp) { rg.oil = oilMax(); dayBankWisps(); }   // wisps you carry home are banked
     else { rg.ringMax = 0; rg.ringMsg = { text: RING_NAMES[0], t: 0 }; rg.tallCd = 10; rg.outT = 0; if (actx) noiseAt(actx.currentTime, 900, 200, 0.5, 0.25, sfxGain); }   // the gate creaks shut behind you
   }
+  if (NO_CAMP && atHome()) { rg.oil = oilMax(); dayBankWisps(); }   // back at your bed or fire: the torch topped up, wisps banked
   campBtn.hidden = !inCamp; if (campBtn.textContent !== 'Wisps') campBtn.textContent = 'Wisps';
   craftBtn.hidden = false; useBtn.hidden = !dayUseTarget(); sneakBtn.hidden = inCamp; dodgeBtn.hidden = inCamp; attackBtn.hidden = false; flaskBtn.hidden = inCamp;
   if (inCamp) {
@@ -201,6 +202,6 @@ function dayPlaceSpot(t) {
 const COOK_R = 60;
 function stationHere(at) {
   const p = S.p;
-  if (at === 'fire') return Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
+  if (at === 'fire') return (!NO_CAMP && Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R) || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
   return at === 'hand' || (at === 'bench' && dayBenchNear(p.x, p.y)) || (at === 'furnace' && dayFurnNear(p.x, p.y)) || (at === 'rack' && dayRackNear(p.x, p.y)) || (at === 'anvil' && dayAnvilNear(p.x, p.y));
 }

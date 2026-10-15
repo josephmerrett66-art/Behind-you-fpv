@@ -12,9 +12,9 @@ function wispHome() { if (wispBody.parentElement !== statsEl.querySelector('.pic
     const pc = $('pkCard'); pc.replaceChildren(); pc.hidden = true; craftEl.classList.remove('carded');
     if (statsFrom !== 'pack') { statsFrom = 'pack'; statCat = null; statOpen = null; }
     wispWrap.replaceChildren(wispHead, wispBody); $('pkBody').replaceChildren(wispWrap);
-    baseStats(); wispHead.textContent = `${stPool().w} wisps to spend · bring them home through the gate`;
+    baseStats(); wispHead.textContent = `${stPool().w} wisps to spend · bring them back to your bed or fire`;
   };
-  renderStats = function () { baseStats(); if (wispBody.parentElement === wispWrap) wispHead.textContent = `${stPool().w} wisps to spend · bring them home through the gate`; };
+  renderStats = function () { baseStats(); if (wispBody.parentElement === wispWrap) wispHead.textContent = `${stPool().w} wisps to spend · bring them back to your bed or fire`; };
   openStats = function (from) { wispHome(); baseOpen(from); };
 }
 // the Wisps button in camp (on a phone) opens the pack on this tab

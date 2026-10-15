@@ -197,6 +197,7 @@ class KitMesh {   // a batch you can rebuild: the lit shapes and their outline
 // ---------------- the camp: the palisade with its four gates, two watchtowers, the yard ----------------
 const logTone3 = k => hex(['#4a453e', '#3f3a34', '#524c44', '#46413a'][((k % 4) + 4) % 4]);
 function campKit(K) {
+  if (NO_CAMP) return;
   yardKit(K);
   { const x = EX_FIRE.x, y = EX_FIRE.y;   // the fire in the middle: a ring of stones, the logs crossed in it, a bed of ash
     K.add(P_CYL(12), x, -0.4, y, 24, 1, 24, hex('#2e2a26'));
@@ -408,7 +409,7 @@ function worldSync(force) {
     } else if (o.kind === 'post') { propsW.add('post', (hash(o.x * 0.53, o.y * 0.29) * 50 | 0), o.x, o.y, 1.4, hash(o.x, o.y)); shadow(o.x, o.y, 5, 18); }
   }
   // the camp's storage box, water barrel and woodpile are solid (yardKit); they only need their shadows here
-  for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, -10);
+  if (!NO_CAMP) for (const o of [CAMP_BOX, CAMP_BARREL, CAMP.find(q => q.camp === 'wood')]) if (o) shadow(o.x, o.y, 14, -10);
   tallB.end(); treesEnd(); shBase = shN;
   // ground cover
   // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's

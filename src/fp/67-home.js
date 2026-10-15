@@ -33,7 +33,7 @@ function daySleep(bed) {
 // A floor laid across the camp's fence keeps only the side you laid it from: from inside the camp, the part inside;
 // from outside, the part outside. It's drawn as small tiles, the ones on the far side of the fence left out.
 function stClipOf(P, sp) {
-  if (P.lay !== 'floor') return 0;
+  if (NO_CAMP || P.lay !== 'floor') return 0;
   const cs = stCorners({ id: P.id, x: sp.x, y: sp.y, a: sp.a }), rs = cs.map(([x, y]) => Math.hypot(x, y));
   if (Math.max(...rs) < CAMP_R - 2 || Math.min(...rs) > CAMP_R + 2) return 0;   // not touching the fence
   return Math.hypot(S.p.x, S.p.y) < CAMP_R ? 1 : -1;
@@ -53,7 +53,7 @@ function floorClipKit(K, o, col, z, th) {   // the floor as CLIP_N x CLIP_N tile
 // a floor from an older save, laid across the fence before floors were trimmed: it was meant for the camp, so it keeps the
 // inside (Joe: keeping the side its middle was on came out backwards)
 function stClipOld(P, o) {
-  if (P.lay !== 'floor') return 0;
+  if (NO_CAMP || P.lay !== 'floor') return 0;
   const rs = stCorners(o).map(([x, y]) => Math.hypot(x, y));
   return Math.max(...rs) < CAMP_R - 2 || Math.min(...rs) > CAMP_R + 2 ? 0 : 1;
 }
@@ -99,14 +99,57 @@ function rainbStep(dt) {
     }
   }
 }
-function rainbUse(R) {
+function rainbUse(R) {   // the barrel's water is clean, so skins filled from it are too
   const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS);
   if ((R.w || 0) < 1) { dayNote('dry', 'the barrel is nearly dry · it fills in the rain', 2); return; }
-  if (skins.length) { let n = 0; for (const s of skins) if (R.w >= 1) { R.w -= 1; s.w = SKIN_SIPS; n++; } exNote(n > 1 ? `${n} waterskins filled` : 'waterskin filled'); sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
+  if (skins.length) { let n = 0; for (const s of skins) if (R.w >= 1) { R.w -= 1; s.w = SKIN_SIPS; s.dirty = 0; n++; } exNote(n > 1 ? `${n} waterskins filled` : 'waterskin filled'); sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
   else if (D.water >= FOOD_MAX - 2) { dayNote('full', 'you\'re not thirsty', 1.5); return; }
   else { R.w -= 1; D.water = Math.min(FOOD_MAX, D.water + 40); dayAct(9, 1.1, '#8ab8e0', 'cup'); exNote('a drink'); sfx(0.8, 0.3, 'lowpass', 900, 0.25); }
   dayChanged();
 }
+
+// ---- the tarp water collector ----
+// What you start with: a tarp stretched over four sticks catches a little rain and dew. About a day's drinking if it's all
+// you have, never a store. The water is dirty: drunk straight it can make you sick, unless a campfire is close by to boil
+// it over, and skins filled from it are murky until you boil them. The rain barrel is the clean, plentiful step up.
+const TC_MAX = 3, TC_FILL = 1 / 60, TC_RAIN = 0.12, TC_BOIL_R = 120, START_WATER = 75;
+function tcolStep(dt) {
+  for (const T of S.day.builds) if (T.t === 'tcol') T.w = Math.min(TC_MAX, (T.w || 0) + dt * (TC_FILL + TC_RAIN * wxK('rain')));
+}
+function tcolUse(T) {
+  const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS), boil = D.builds.some(B => B.t === 'fire' && Math.hypot(B.x - T.x, B.y - T.y) < TC_BOIL_R);
+  if ((T.w || 0) < 1) { dayNote('dry', 'only a puddle in it · it fills slowly, faster in the rain', 2); return; }
+  if (skins.length) { let n = 0; for (const s of skins) if (T.w >= 1) { T.w -= 1; s.w = SKIN_SIPS; s.dirty = boil ? 0 : 1; n++; } exNote((n > 1 ? `${n} waterskins filled` : 'waterskin filled') + (boil ? ' · boiled over the fire' : ' · murky, boil it')); sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
+  else if (D.water >= FOOD_MAX - 2) { dayNote('full', 'you\'re not thirsty', 1.5); return; }
+  else {
+    T.w -= 1; D.water = Math.min(FOOD_MAX, D.water + 35); dayAct(9, 1.1, '#8ab8e0', 'cup'); sfx(0.8, 0.3, 'lowpass', 900, 0.25);
+    if (boil) exNote('boiled over the fire · a clean drink');
+    else { exNote('a drink'); if (Math.random() < 0.35) { D.sick = 30; exNote('the water was bad', true); } }
+  }
+  dayChanged();
+}
+
+// ---- a run from when there was a camp ----
+// Its camp box, water barrel and fire become things you built, where they stood, so nothing it had is lost.
+function campToBuilds() {
+  const D = S.day;
+  dayMakeBuild('fire', 0, 0, 0);
+  if (D.box && D.box.some(Boolean)) { const B = dayMakeBuild('chest', -52, -50, 0); B.inv = D.box.slice(); D.box = Array(BOX_SLOTS).fill(null); }
+  dayMakeBuild('rainb', 60, 56, 0).w = RB_MAX;
+  for (const o of D.bld.values()) o.clip = 0;
+  D.noCamp = 1;
+}
+
+// ---- home, now there's no camp: your bed, else the nearest fire you built ----
+function homeSpot() {
+  const D = S.day; if (!D) return null;
+  if (D.bed) return D.bed;
+  let best = null, bd = 1e9;
+  for (const B of D.builds) if (B.t === 'fire') { const d = Math.hypot(B.x - S.p.x, B.y - S.p.y); if (d < bd) { bd = d; best = B; } }
+  return best;
+}
+const HOME_R = 110;
+const atHome = () => { const h = homeSpot(); return !!h && Math.hypot(h.x - S.p.x, h.y - S.p.y) < HOME_R; };
 
 // ---- the smokehouse and the compost heap: two more chests that work by themselves ----
 // The smokehouse takes raw meat or fish put in it and, a batch at a time, smokes it into dried meat that keeps.

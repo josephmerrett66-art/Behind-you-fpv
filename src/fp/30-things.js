@@ -176,6 +176,12 @@ function buildKit(K, o) {
       { const [px, py] = at(-8, -1); K.add(P_BALL(), px, 14.6, py, 6, 2.2, 3.6, hex('#8d8b85')); }
       { const [ax, ay] = at(2, -4), [bx, by] = at(11, 4); K.rod(P_CYL(5), ax, 14.6, ay, bx, 14.6, by, 0.7, hex('#7a5a3a')); K.add(P_BOX(), bx, 15, by, 4, 2, 3, hex('#9a9a92'), -a); }
       break;
+    case 'tcol': {   // a tarp tied to four sticks, sagging in the middle where the rain pools
+      for (const [i, j] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const [lx, ly] = at(10 * i, 10 * j); K.rod(P_CYL(5), lx, 0, ly, lx + i * 0.8, 15 + (j > 0 ? 1.5 : 0), ly, 0.7, hex('#6a4a2c')); }
+      K.mt = 'cloth'; K.add(P_BOX(), x, 14.6, y, 21, 0.5, 21, hex('#6a8a76'), -a); K.add(P_BALL(), x, 13.2, y, 17, 5, 17, hex('#5e7d6a')); K.mt = null;
+      const lv = clamp((B.w || 0) / TC_MAX, 0, 1); if (lv > 0.05) K.add(P_CYL(12), x, 14.95, y, 6 + 10 * lv, 0.25, 6 + 10 * lv, hex('#7a9ab4'));
+      break;
+    }
     case 'rainb': {   // a barrel, its water showing at the top as it fills
       K.add(P_CYL(12), x, 0, y, 17, 20, 17, hex('#7a5a3a')); for (const z of [4, 15]) K.add(P_CYL(12), x, z, y, 17.8, 1.4, 17.8, hex('#4a3626'));
       const lv = clamp((B.w || 0) / RB_MAX, 0, 1); if (lv > 0.02) K.add(P_CYL(12), x, 2 + 17 * lv, y, 15, 0.6, 15, hex('#6f9cc4'));
@@ -264,7 +270,7 @@ function thingsSync(force) {
   const D = S.day, p = S.p, R = 560;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size + ':' + dayRelics();
-  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
+  for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');
   key += dayLight() < 0.85 ? 'N' : 'D';
   if (!force && key === thingsKey && Math.hypot(p.x - thingsAt.x, p.y - thingsAt.y) < 120) return;

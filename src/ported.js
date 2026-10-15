@@ -1595,7 +1595,7 @@ function exSafeAt(x, y, pad = 0) {           // inside the camp fence or an outp
   return null;
 }
 function exLightsIn(ci, cj) {
-  const out = ci === 0 && cj === 0 ? [EX_FIRE] : [];
+  const out = ci === 0 && cj === 0 && !NO_CAMP ? [EX_FIRE] : [];
   if (XS) for (const o of XS.outposts) if (Math.floor(o.x / C) === ci && Math.floor(o.y / C) === cj)
     out.push(o.light || (o.light = { kind: 'lamp', x: o.x, y: o.y, r: 4, s: 1, seed: o.x % 7 }));
   return out;
@@ -1700,7 +1700,12 @@ const CAMP = [], CAMP_SOLID = [];
   put({ camp: 'rack', kind: 'rack', x: -58, y: -128, cast: { r: 4, len: 40 } }, 8);
   put({ camp: 'flag', kind: 'flag', x: -66, y: -76 }, 4);
 }
+// Joe: no ready-made camp. You start in an empty clearing with a tarp; the fence, tent, towers, box, barrel and fire are
+// gone, and everything they gave you is something you make (a run from before keeps its box, barrel and fire as builds).
+const NO_CAMP = true;
+if (NO_CAMP) { CAMP.length = 0; CAMP_SOLID.length = 0; }
 function exWall(p, ox, oy) {                  // the palisade: you only get in or out through a gate
+  if (NO_CAMP) return;
   const d0 = Math.hypot(ox, oy), d = Math.hypot(p.x, p.y), R = CAMP_R;
   if (Math.abs(d - R) >= WALL_T && (d0 < R) === (d < R)) return;
   if (exAtGate(Math.atan2(p.y, p.x))) return;
@@ -1867,7 +1872,7 @@ function exNewRun() {
   for (const id of XS.eq) rg.up[id] = XS.own[id] || 0;
   rg.maxHp = baseHearts() + (rg.up.coat || 0); rg.hp = tripHp(rg.maxHp); rg.shield = lv('wind'); rg.steel = steelMax();
   rg.pack = []; rg.carryOrb = false; rg.carryDorb = false; rg.looted = new Set(); rg.left = new Map(); rg.loose = []; rg.notes = [];
-  rg.inCamp = true; rg.flask = FLASK_MAX; rg.drink = null; rg.oil = oilMax(); rg.oilWarn = 0; rg.ringMax = 0; rg.spawnT = 2; rg.tallCd = 10; rg.outT = 0; rg.recall = null; rg.lamps = exPathLamps();
+  rg.inCamp = !NO_CAMP; rg.flask = FLASK_MAX; rg.drink = null; rg.oil = oilMax(); rg.oilWarn = 0; rg.ringMax = 0; rg.spawnT = 2; rg.tallCd = 10; rg.outT = 0; rg.recall = null; rg.lamps = exPathLamps();
   return rg;
 }
 const DAY_LEN = 540,   // first person (Joe): the day twice as long, the night the same 3 minutes as before
@@ -1956,7 +1961,9 @@ const DIT = {
   legs: { n: 'Hide leggings', c: '#8a6440', st: 1, k: 'gear', slot: 'legs', arm: 1, b: 'Armour · soaks one hit, then mends' },
   campfire: { n: 'Campfire', c: '#ff9a3c', st: 4, k: 'place', build: 'fire', b: 'Cook, and rest by it' },
   bench: { n: 'Workbench', c: '#b08a58', st: 2, k: 'place', build: 'bench', b: 'Better tools, gear and planks' },
-  rainb: { n: 'Rain barrel', c: '#7a5a3a', st: 2, k: 'place', build: 'rainb', b: 'Catches rain to drink · keeps plots nearby watered so they grow faster' },
+  rainb: { n: 'Rain barrel', c: '#7a5a3a', st: 2, k: 'place', build: 'rainb', b: 'Clean rainwater, up to 10 drinks · keeps plots nearby watered so they grow faster' },
+  tarp: { n: 'Tarp', c: '#6a8a76', st: 2, k: 'mat', b: 'Oiled cloth · stretch it over sticks to catch the rain' },
+  tcol: { n: 'Tarp water collector', c: '#6a8a76', st: 2, k: 'place', build: 'tcol', b: 'Catches a little rain · boil it before you drink' },
   smoke: { n: 'Smokehouse', c: '#6a4a32', st: 1, k: 'place', build: 'smoke', b: 'Put raw meat or fish in · it dries them into dried meat by itself' },
   compost: { n: 'Compost heap', c: '#5a4430', st: 2, k: 'place', build: 'compost', b: 'Feed it scraps · plots nearby grow faster while it has some' },
   basket: { n: 'Harvest basket', c: '#b08a52', st: 2, k: 'place', build: 'basket', b: 'Picks ripe plots nearby, replants them and keeps the harvest' },
@@ -2023,6 +2030,7 @@ const DREC = [
   { id: 'roast', g: 'food', out: 'roast', at: 'fire', cost: { mushroom: 1 } },
   { id: 'stew', g: 'food', out: 'stew', at: 'fire', cost: { cooked: 2, berries: 2 } },
   { id: 'tonic', g: 'food', name: 'Healing tonic', sh: 'One more flask', icon: 'tonic', at: 'fire', cost: { berries: 4, fibre: 2 }, ok: () => S.rg.flask < FLASK_MAX, make: () => { S.rg.flask++; } },
+  { id: 'tcol', g: 'stn', out: 'tcol', at: 'hand', cost: { tarp: 1, sticks: 4 } },
   { id: 'campfire', g: 'stn', out: 'campfire', at: 'hand', cost: { sticks: 6, stones: 5 } },
   { id: 'bench', g: 'stn', out: 'bench', at: 'hand', cost: { logs: 4, stones: 4, rope: 2 } },
   { id: 'chest', g: 'stn', out: 'chest', at: 'bench', cost: { planks: 6, rope: 1 } },
@@ -2070,7 +2078,7 @@ function dayBest() { try { return JSON.parse(localStorage.getItem(DAY_KEY) || 'n
 function dayBegin() {
   EX_TEST = true; XS = exFresh(); exMakeLairs();   // a fresh throwaway save: nothing here touches your expedition
   XS.arm = XS.arm || {}; XS.arm.steel = 0;
-  S.day = { t: 0, n: 1, food: FOOD_MAX, water: FOOD_MAX, st: STA_MAX, stT: 9, sick: 0, starve: 0, warn: {}, raidDue: false,
+  S.day = { t: 0, n: 1, food: FOOD_MAX, water: NO_CAMP ? START_WATER : FOOD_MAX, noCamp: 1, st: STA_MAX, stT: 9, sick: 0, starve: 0, warn: {}, raidDue: false,
     hot: 0, inv: Array(BASE_SLOTS).fill(null), gear: { head: null, body: null, legs: null, back: null }, box: Array(BOX_SLOTS).fill(null),
     seen: new Set(), known: new Set(), fresh: new Set(), armT: 0, steelSeen: 0,
     cut: new Map(), felled: new Set(), builds: [], chips: [], logs: [], drops: [], nodes: new Map(), beasts: [], bchunks: new Map(), told: {},
@@ -2078,7 +2086,8 @@ function dayBegin() {
     warm: WARM_MAX, bleed: 0, bleedT: 0, froze: 0, fish: null, ph: 'day',
     camps: new Map(), heat: 0, raids: 0, caught: 0, away: 0, jlog: [], bag: {}, siege: null, won: 0, scout: null, scoutT: 55 };   // v155: the raider camps, the heat and the journal   // v153: the cold, your wounds and the night   // v152: what you've built on the grid, and where your bed is
   S.rg = exNewRun(); exPlaceHome(); wpInit(); S.day.baseHp = S.rg.maxHp;
-  S.msg = { text: 'daylight', sub: 'Sticks and stones lie on the ground · walk up to them and press Take', t: 0 };
+  if (NO_CAMP) addTo(S.day.inv, 'tarp', 1, undefined, slotOrder(S.day, 'tarp'));   // all you start with
+  S.msg = NO_CAMP ? { text: 'daylight', sub: 'You\'re thirsty', t: 0 } : { text: 'daylight', sub: 'Sticks and stones lie on the ground · walk up to them and press Take', t: 0 };
   dayChanged();
 }
 function dayNote(k, text, gap = 4) { const D = S.day; if ((D.told[k] || -99) > D.t - gap) return; D.told[k] = D.t; exNote(text, true); }
@@ -2337,7 +2346,7 @@ function dayUseTarget() {                        // the nearest thing in reach y
   for (const f of D.drops) { const d = dist2(f, p); if (d < bd) { bd = d; best = f; } }
   for (const o of dayNodesNear(p.x, p.y, 60)) if ((o.t === 'sticks' || o.t === 'stones' || o.t === 'shroom') && !o.gone) { const d = dist2(o, p); if (d < bd) { bd = d; best = o; } }
   for (const c of exChestsNear(p.x, p.y, 60)) if (!S.rg.looted.has(c.key)) { const d = dist2(c, p) - 8; if (d < bd) { bd = d; best = c; } }
-  for (const B of D.builds) if (B.t === 'chest' || B.t === 'rainb' || B.t === 'plot' || B.t === 'signal' || B.t === 'tpost' || STN_N[B.t]) { const d = dist2(B, p) - (B.t === 'plot' ? 22 : B.t === 'signal' ? 24 : STN_N[B.t] ? 16 : 12); if (d < bd) { bd = d; best = B; } }   // v163: stations too
+  for (const B of D.builds) if (B.t === 'chest' || B.t === 'rainb' || B.t === 'tcol' || B.t === 'plot' || B.t === 'signal' || B.t === 'tpost' || STN_N[B.t]) { const d = dist2(B, p) - (B.t === 'plot' ? 22 : B.t === 'signal' ? 24 : STN_N[B.t] ? 16 : 12); if (d < bd) { bd = d; best = B; } }   // v163: stations too
   for (const o of dayCampsNear(p.x, p.y, 70)) if (o.sub === 'relic' || (o.sub === 'wrack' && !dNamed()['rack' + o.ci])) { const d = dist2(o, p) - 12; if (d < bd) { bd = d; best = o; } }   // v155: the relic on its cairn
   { const P = lakeAt(p.x, p.y, 30); if (P && (D.water < FOOD_MAX - 2 || D.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS))) { const d = Math.max(0, Math.hypot(P.x - p.x, P.y - p.y) - P.rad); if (d < bd) { bd = d; best = P; } } }
   if (S.rg.inCamp) {
@@ -2350,7 +2359,7 @@ function dayUseTarget() {                        // the nearest thing in reach y
   return best;
 }
 const STN_N = { bench: 'Workbench', furnace: 'Furnace', rack: 'Drying rack', fire: 'Fire', anvil: 'Forge' };
-const useLabel = o => o.t === 'rainb' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o.kind === 'dst' && o.k === 'bed' && o.done ? 'Sleep' : o === EX_FIRE ? 'Cook' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
+const useLabel = o => o.t === 'rainb' || o.t === 'tcol' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o.kind === 'dst' && o.k === 'bed' && o.done ? 'Sleep' : o === EX_FIRE ? 'Cook' : STN_N[o.t] ? 'Use' : o.kind === 'dcamp' ? (dayCampLive(o.ci) ? 'Guarded' : o.sub === 'wrack' ? 'Loot' : 'Take') : o.t === 'signal' ? (S.day.siege ? 'Burning' : 'Light it') : o.t === 'tpost' ? 'Feed' : o.t === 'plot' ? (o.grown ? 'Pick' : o.crop ? 'Growing' : 'Sow') : o.kind === 'dlake' ? (S.day.inv.some(s => s && s.id === 'skin' && s.w < SKIN_SIPS) ? 'Fill' : 'Drink') : o === CAMP_BARREL ? 'Drink' : o === CAMP_BOX || o.t === 'chest' || (o.kind !== 'dday' && o.kind !== 'dnode') ? 'Open' : 'Take';
 function openStation(t) {                         // v163: the craft tab, opened on what this station makes (ready ones first)
   const D = S.day, at = t === 'fire' ? 'fire' : t, known = DREC.filter(r => D.known.has(r.id) && r.at === at);
   const pick = known.find(r => canCraft(r) === true) || known[0];
@@ -2366,6 +2375,7 @@ function dayUse() {
   if (o.kind === 'dlake') { dayPondFill(); return; }
   if (o.t === 'plot') { dayPlotPlant(o); return; }
   if (o.t === 'rainb') { rainbUse(o); return; }
+  if (o.t === 'tcol') { tcolUse(o); return; }
   if (o.kind === 'dcamp') { if (o.sub === 'wrack') dayRackLoot(o); else dayRelicTake(o); return; }
   if (o.t === 'signal') { if (!S.day.siege) daySignalLight(o); else dayNote('burning', 'it is already burning', 2); return; }
   if (o.t === 'tpost') { dayPostFeed(o); return; }
@@ -2525,7 +2535,7 @@ function beastStep(dt) {
       b.sp = 0; if (b.t <= 0) { if (d < 260) { b.st = 'wind'; b.t = 0.6; } else { b.st = 'graze'; b.t = 2; } }
     }
     const nx = b.x + Math.cos(b.dir) * b.sp * dt, ny = b.y + Math.sin(b.dir) * b.sp * dt;
-    if (Math.hypot(nx, ny) > CAMP_R + 40 && !daySolidsNear(nx, ny, 10).some(o => dist2(o, { x: nx, y: ny }) < (o.r || 10) + 6)) { b.x = nx; b.y = ny; } else b.dir += Math.PI;   // they keep out of camp and off your walls
+    if ((NO_CAMP || Math.hypot(nx, ny) > CAMP_R + 40) && !daySolidsNear(nx, ny, 10).some(o => dist2(o, { x: nx, y: ny }) < (o.r || 10) + 6)) { b.x = nx; b.y = ny; } else b.dir += Math.PI;   // they keep out of camp and off your walls
     b.ph += dt * (2 + b.sp * 0.09);
     b.face = Math.cos(b.dir) - Math.sin(b.dir) >= 0 ? 1 : -1;   // which way it faces on screen
   }
@@ -2579,8 +2589,8 @@ function dayWake() {                             // v152 (Joe's plan): with a be
   D.food = Math.min(D.food, 40); D.water = Math.min(D.water, 40); D.st = STA_MAX; D.sick = 0; D.starve = 0; D.warn = {};
   if (D.bed) { p.x = D.bed.x; p.y = D.bed.y + 26; } else { p.x = 0; p.y = 60; }   // no bed yet: you come round by the fire. Your camp is left just as it was
   p.vx = p.vy = 0; p.act = null; p.atk = null; S.cam.x = p.x; S.cam.y = p.y;
-  rg.inCamp = Math.hypot(p.x, p.y) < CAMP_R; if (!rg.inCamp) rg.ringMax = exRing(Math.hypot(p.x, p.y));
-  S.msg = { text: D.bed ? 'you wake at your bed' : 'you wake by the fire', sub: (n ? `Everything you carried lies where you fell · ${n} to fetch back` : 'You were carrying nothing') + (lostW ? ` · ${lostW} wisps lost` : ''), t: 0 };
+  rg.inCamp = !NO_CAMP && Math.hypot(p.x, p.y) < CAMP_R; if (!rg.inCamp) rg.ringMax = exRing(Math.hypot(p.x, p.y));
+  S.msg = { text: D.bed ? 'you wake at your bed' : NO_CAMP ? 'you wake in the clearing' : 'you wake by the fire', sub: (n ? `Everything you carried lies where you fell · ${n} to fetch back` : 'You were carrying nothing') + (lostW ? ` · ${lostW} wisps lost` : ''), t: 0 };
   addShake(0.3); daySave(); dayChanged();
   return true;
 }
@@ -2678,6 +2688,8 @@ const ICON = (() => {
     mail: '<path d="M8 4l4 2 4-2 4 2.5-1.5 4-1.5-.8V20H7.5V9.7L6 10.5 4.5 6.5z" fill="#b8bcc0"/><g fill="#8e9398"><circle cx="10" cy="12" r="1.1"/><circle cx="13.5" cy="12" r="1.1"/><circle cx="11.7" cy="15" r="1.1"/><circle cx="15" cy="15.5" r="1.1"/><circle cx="9" cy="16" r="1.1"/></g>',
     furnace: '<path d="M4.5 20V9l7.5-5 7.5 5v11z" fill="#8e8c86"/><path d="M9 20v-6.5h6V20z" fill="#2a2320"/><path d="M12 19c-1.6-1.4-2.3-2.6-2.3-3.6A2.3 2.3 0 0 1 12 13.2a2.3 2.3 0 0 1 2.3 2.2c0 1-.7 2.2-2.3 3.6z" fill="#ff9a3c"/><path d="M9.5 7.5h5" stroke="#6e6c67" stroke-width="1.4"/>',
     rack: '<g stroke="#8a6a44" stroke-width="2" stroke-linecap="round"><path d="M4 21V6M20 21V6M3 6h18M3.5 11h17"/></g><g fill="#a0503a"><path d="M6.5 6.5h2.5l.6 6H7z"/><path d="M11 6.5h2.5l.6 6H11.6z"/><path d="M15.5 6.5H18l.6 6H16z"/></g>',
+    tarp: '<path d="M3 7l9-3 9 3-2 12-7 2-7-2z" fill="#6a8a76"/><path d="M12 4v17M4 12.5l16 0" stroke="#4e6a58" stroke-width="1.2"/><g fill="#c8b890"><circle cx="3" cy="7" r="1.3"/><circle cx="21" cy="7" r="1.3"/><circle cx="5" cy="19" r="1.3"/><circle cx="19" cy="19" r="1.3"/></g>',
+    tcol: '<g stroke="#7a5232" stroke-width="1.8" stroke-linecap="round"><path d="M4 8v13M20 8v13M8 6v9M16 6v9"/></g><path d="M3 8q9 9 18 0" fill="#6a8a76" stroke="#4e6a58" stroke-width="1.2"/><ellipse cx="12" cy="11.6" rx="4.4" ry="1.3" fill="#8ab8e0"/><path d="M12 1.5c1.4 2 2 3 2 4a2 2 0 0 1-4 0c0-1 .6-2 2-4z" fill="#8ab8e0"/>',
     rainb: '<path d="M6 5h12l1 15H5z" fill="#7a5a3a"/><g stroke="#4a3626" stroke-width="1.3"><path d="M5.4 9h13.2M5.2 15h13.6"/></g><ellipse cx="12" cy="5.3" rx="6" ry="1.4" fill="#8ab8e0"/><path d="M12 0.5v2.4" stroke="#8ab8e0" stroke-width="1.3"/>',
     smoke: '<path d="M4 11l8-6 8 6v9H4z" fill="#6a4a32"/><path d="M15 7.5V3h2.6v6.5" fill="#7a7872"/><rect x="9.5" y="14" width="5" height="6" fill="#2a1e14"/><path d="M16.3 2.5c-1-1 1-1.6 0-2.4" stroke="#bbb" stroke-width="1" fill="none"/>',
     compost: '<path d="M3 13h18v7H3z" fill="#6a4a32"/><path d="M4 13c1-4 4-5 8-5s7 1 8 5z" fill="#5a4430"/><g fill="#6f8a46"><circle cx="9" cy="10" r="1.3"/><circle cx="14.5" cy="9.6" r="1.1"/></g><path d="M3 16.5h18" stroke="#4a3626" stroke-width="1.1"/>',
@@ -2758,9 +2770,9 @@ function dayMakeBuild(t, cx, cy, a, fake) {
   } else if (t === 'signal') {
     B.lit = 0;
     B.parts.push({ kind: 'dbuild', sub: 'signal', x: cx, y: cy, r: 24, s: 1, build: B });
-  } else if (t === 'rainb') {
-    B.w = 2;
-    B.parts.push({ kind: 'dbuild', sub: 'rainb', x: cx, y: cy, r: 9, s: 1, build: B });
+  } else if (t === 'rainb' || t === 'tcol') {
+    B.w = t === 'tcol' ? 0 : 2;
+    B.parts.push({ kind: 'dbuild', sub: t, x: cx, y: cy, r: 9, s: 1, build: B });
   } else if (t === 'plot') {
     B.crop = null; B.sown = 0; B.grown = false;
     B.parts.push({ kind: 'dbuild', sub: 'plot', x: cx, y: cy, r: 0, s: 1, build: B, flat: true });
@@ -3057,7 +3069,7 @@ function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {
 function daySave() {
   const D = S && S.day, rg = S && S.rg; if (ARENA || !D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
-    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots'];   // v155
+    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
   d.seen = [...D.seen]; d.known = [...D.known]; d.fresh = [...D.fresh];
   d.felled = [...D.felled]; d.cut = [...D.cut]; d.bchunks = [...D.bchunks];
@@ -3094,11 +3106,12 @@ function dayLoad(sv) {                          // pick a saved run back up wher
   D.beasts = d.beasts.map(b => ({ kind: 'beast', r: 0, s: 1, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, ...b }));
   for (const sv of d.bld || []) stMake(sv);
   for (const B of d.builds) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
+  if (NO_CAMP && !D.noCamp) campToBuilds();   // a run from when there was a camp keeps its box, barrel and fire
   rg.hp = sv.rg.hp; rg.flask = sv.rg.flask; rg.kills = sv.rg.kills; rg.looted = new Set(sv.rg.looted); rg.wispCarry = sv.rg.wisp || 0;   // v164
   dayGearFx(); rg.hp = Math.min(sv.rg.hp, rg.maxHp); rg.steel = Math.min(sv.rg.steel || 0, steelMax()); D.steelSeen = rg.steel;
   for (const k of d.seen || []) daySee(k, true);   // the book fills back in, quietly
   const p = S.p; p.x = sv.p.x; p.y = sv.p.y; S.cam.x = p.x; S.cam.y = p.y;
-  rg.inCamp = Math.hypot(p.x, p.y) < CAMP_R; if (!rg.inCamp) rg.ringMax = exRing(Math.hypot(p.x, p.y));
+  rg.inCamp = !NO_CAMP && Math.hypot(p.x, p.y) < CAMP_R; if (!rg.inCamp) rg.ringMax = exRing(Math.hypot(p.x, p.y));
   S.msg = sv.v === 1 ? { text: `day ${D.n}`, sub: 'Your run goes on · your pack has a new look, open it', t: 0 } : { text: `day ${D.n}`, sub: `Your run goes on · ${dayClock(D.t)}`, t: 0 };
   dayChanged();
 }
@@ -3454,7 +3467,8 @@ function stMake(sv) {                            // a piece read back out of a s
   const pos = sv.x !== undefined ? sv : LEGACY_POS(sv);
   const o = { kind: 'dst', key: 'b' + (stUid++), id: sv.id, k: P.k, x: pos.x, y: pos.y, a: sv.a !== undefined ? sv.a : pos.a, r: 10,
     need: Object.assign({}, P.cost, sv.need || {}), hp: sv.hp !== undefined ? sv.hp : P.hp, max: P.hp, done: !!sv.done, open: 0, put: 0, seed: Math.random() * 9, rise: 1, fuel: sv.fuel };
-  if (sv.clipV) { if (sv.clip) { o.clip = sv.clip; o.clipV = 1; } }
+  if (NO_CAMP) o.clip = 0;   // no fence to trim a floor at
+  else if (sv.clipV) { if (sv.clip) { o.clip = sv.clip; o.clipV = 1; } }
   else o.clip = stClipOld(P, o);   // floors from before the trim (or trimmed the wrong way by v62) keep the inside of the camp
   S.day.bld.set(o.key, o); stGen++;
   if (o.done && o.k === 'bed') S.day.bed = { x: o.x, y: o.y };
@@ -3833,7 +3847,7 @@ function dayPlotPlant(B) {
   dayChanged();
 }
 function dayPlotStep(dt) {
-  const D = S.day; basketStep(); rainbStep(dt); workStep(dt);
+  const D = S.day; basketStep(); rainbStep(dt); tcolStep(dt); workStep(dt);
   for (const B of D.builds) if (B.t === 'plot' && B.crop && !B.grown && D.t - B.sown >= GROW_T) { B.grown = true; if (dist2(B, S.p) < 700) exNote('your plot is ripe', true); }
 }
 const CAMPS = [

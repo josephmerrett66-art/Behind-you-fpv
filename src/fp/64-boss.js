@@ -20,7 +20,7 @@ function bossSpawn(C) {
   spawnFoe('woodcutter', { x: C.x, y: C.y + 20, d: 400 });
   const e = S.rg.enemies[S.rg.enemies.length - 1];
   Object.assign(e, { ci: C.i, boss: 1, cap: 1, hp: BOSS_HP, maxHp: BOSS_HP, bHp: BOSS_HP, bs: 'walk', bt: 0, bcd: 1.2, thCd: 2.5, flCd: 4, hx: C.x, hy: C.y });
-  S.rg.ringMsg = { text: 'the woodcutter', sub: 'He keeps the hunting camp · the relic is his', t: 0 }; playRingSting(); addShake(0.45);
+  S.rg.ringMsg = { text: 'the woodcutter', sub: ARENA ? 'Watch the ground for where his axe will land' : 'He keeps the hunting camp · the relic is his', t: 0 }; playRingSting(); addShake(0.45);
   BOSS.e = e; BOSS.show = 0; BOSS.trail = 1;
   if (actx) { const t = actx.currentTime; boomAt(t, 70, 38, 0.9, 0.5, sfxGain); noiseAt(t + 0.05, 600, 200, 0.6, 0.3, sfxGain); }
 }
@@ -168,7 +168,8 @@ function bossDown(e) {                                 // he falls: the camp is 
   addShake(0.9); hitStop(0.22); padRumble(1, 400); ashBurst(e.x, e.y, 60, 50);
   rg.blasts.push({ x: e.x, y: e.y, t: 0, life: 0.6, r: 110, col: 'white' });
   dayDrop(e.x, e.y, 'waxe4', 1, DIT.waxe4.dur); gainWisps(40);
-  dayJLog('felled the woodcutter'); lifeAdd('bosses'); dayChanged();
+  dayJLog('felled the woodcutter'); if (!ARENA) lifeAdd('bosses'); dayChanged();
+  if (ARENA) setTimeout(() => arenaOver(true), 3500);
   if (actx) { const t = actx.currentTime; boomAt(t, 60, 28, 1.4, 0.8, sfxGain); toneAt(t + 0.1, 196, 1.6, 0.12, 'triangle', sfxGain); toneAt(t + 0.25, 294, 1.6, 0.1, 'triangle', sfxGain); }
 }
 

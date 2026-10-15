@@ -146,6 +146,9 @@ body:not(.touch) #hotbar .hot { pointer-events: auto; }
 .panel b { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(1.3rem, 4vw, 2rem); letter-spacing: 0.1em; }
 .panel span { display: block; font-weight: 400; font-size: 0.8rem; margin-top: 0.3rem; letter-spacing: 0.06em; }
 .panel.alt .ico { background: transparent; }
+.arenapick { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.6rem; max-width: 50rem; width: 100%; margin-bottom: 0.8rem; }
+.arenapick .panel { margin: 0; max-width: none; padding: 0.7rem 1rem; }
+.arenapick .panel b { font-size: clamp(1.05rem, 3vw, 1.35rem); }
 .how { margin-top: 1.2rem; display: grid; gap: 0.35rem; font-size: 0.7rem; letter-spacing: 0.08em; color: var(--ash); max-width: 44rem; line-height: 1.45; }
 .how b { color: var(--bone); font-weight: 600; }
 .row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
@@ -539,8 +542,19 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
     <span class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
     <span><b>new run</b><span>Start again from nothing. Your saved run is lost.</span></span>
   </button>
+  <button class="panel alt" id="beginArena" disabled>
+    <span class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 19 5M15 5h4v4M9 19H5v-4M5 5l5 5M19 19l-5-5"/></svg></span>
+    <span><b>boss arena</b><span>Pick a weapon and fight the Woodcutter. Your saved run isn't touched.</span></span>
+  </button>
   <div class="how" id="how"></div>
   <div id="loading">painting the woods…</div>
+</div>
+
+<div class="screen" id="arena">
+  <h2 id="arenaH">boss arena</h2>
+  <p class="sub" id="arenaS">Pick your weapon. You fight the Woodcutter in the woods with food and bandages. Nothing here is saved.</p>
+  <div id="arenaPick" class="arenapick"></div>
+  <button class="panel alt" id="arenaBack"><span><b>back</b><span>To the title screen</span></span></button>
 </div>
 
 <div class="screen" id="pause">
@@ -2382,7 +2396,8 @@ const STAT_GROUPS = [
   { id: 'Power-ups', line: 'Fireflies, flares, candles and more', icon: 'fireflies', dayOnly: true, pow: true },   // v165
 ];
 function stRead() { try { const s = JSON.parse(localStorage.getItem(stKey())); if (s && typeof s.w === 'number' && s.r) return s; } catch (e) {} return { w: 0, r: {} }; }
-function stSave() { try { localStorage.setItem(stKey(), JSON.stringify(ST)); } catch (e) {} }
+let ARENA = null;   // the boss arena's run (68-arena), or null
+function stSave() { if (ARENA) return; try { localStorage.setItem(stKey(), JSON.stringify(ST)); } catch (e) {} }
 let ST = stRead();
 function sr(id) { const r = stPool().r[id] || 0; return id === 'swift' ? Math.min(2, r) : r; }   // Swift tops out at two (older saves may have bought more)
 function life() { return ST.life || (ST.life = { since: Date.now(), kt: {}, bt: {} }); }
@@ -3210,11 +3225,12 @@ function dayWake() {                             // v152 (Joe's plan): with a be
 }
 function dayDeath() {
   const rg = S.rg, D = S.day;
+  if (ARENA) return arenaOver(false);   // the boss arena: the fight's over, back to the picker
   if (rg.phase === 'fight') return dayWake();    // Joe: dying costs what you carried, never your base
   rg.phase = 'dead'; rg.deadT = 0; craftBtn.hidden = true; document.getElementById('hotbar').hidden = true; document.getElementById('buildbar').hidden = true;
   dayClearSave();
   const b = dayBest(); D.best = D.t > b.t;
-  if (D.best) try { localStorage.setItem(DAY_KEY, JSON.stringify({ days: D.n, t: Math.round(D.t) })); } catch (e) {}
+  if (D.best && !ARENA) try { localStorage.setItem(DAY_KEY, JSON.stringify({ days: D.n, t: Math.round(D.t) })); } catch (e) {}
   S.msg = { text: D.cause === 'starved' ? 'You starved' : D.cause === 'thirst' ? 'Thirst took you' : 'The woods took you', sub: `Day ${D.n} · ${dayClock(D.t)}`, t: 0 };
 }
 function dayCard() {
@@ -3670,7 +3686,7 @@ const DAY_SAVE_T = 5;
 function dayReadSave() { try { const v = JSON.parse(localStorage.getItem(dayKey()) || 'null'); return v && (v.v === 1 || v.v === 2) ? v : null; } catch (e) { return null; } }
 function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {} }
 function daySave() {
-  const D = S && S.day, rg = S && S.rg; if (!D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
+  const D = S && S.day, rg = S && S.rg; if (ARENA || !D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
     'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
@@ -4577,7 +4593,7 @@ function dayWon() {
   craftBtn.hidden = true; hotbarEl.hidden = true; buildbarEl.hidden = true;
   for (const e of rg.enemies) if (!e.dead) { e.dead = true; e.dieT = 0; ashBurst(e.x, e.y, 8, 30); }
   dayClearSave(); lifeAdd('escaped');
-  const b = dayBest(); if (D.t > b.t) { D.best = 1; try { localStorage.setItem(DAY_KEY, JSON.stringify({ days: D.n, t: Math.round(D.t) })); } catch (e) {} }
+  const b = dayBest(); if (D.t > b.t && !ARENA) { D.best = 1; try { localStorage.setItem(DAY_KEY, JSON.stringify({ days: D.n, t: Math.round(D.t) })); } catch (e) {} }
   addShake(0.8); if (actx) { const t = actx.currentTime; boomAt(t, 90, 40, 2.4, 0.7, sfxGain); }
   S.msg = { text: 'You walked out', sub: `Day ${D.n} · ${dayClock(D.t)}`, t: 0 };
 }
@@ -4696,7 +4712,7 @@ function stPool() {                               // whose wisps and upgrades: D
   }
   return DST;
 }
-function poolSave() { if (S && S.day) { try { localStorage.setItem(dstKey(), JSON.stringify(stPool())); } catch (e) {} } else stSave(); }
+function poolSave() { if (ARENA) return; if (S && S.day) { try { localStorage.setItem(dstKey(), JSON.stringify(stPool())); } catch (e) {} } else stSave(); }
 const statShown = s => S && S.day ? !s.noDay : !s.dayOnly;
 const groupShown = g => S && S.day ? g.id !== 'Beyond' : !g.dayOnly;
 function dayBankWisps() {                         // through the gate with wisps on you: they're safe now
@@ -8628,7 +8644,8 @@ function newGame(fresh) {
   S.mode = 'expedition'; EX_TEST = false;
   dayYard(true);
   const sv = dayReadSave();
-  if (fresh || !sv) { dayClearSave(); dayBegin(); } else dayLoad(sv);
+  if (ARENA) dayBegin();   // the boss arena: a run of its own, your save left as it is
+  else if (fresh || !sv) { dayClearSave(); dayBegin(); } else dayLoad(sv);
   dayPowApply();
   S.torchOn = !S.day;
   campBtn.hidden = true; campEl.hidden = true; craftBtn.hidden = true; useBtn.hidden = true; hotbarEl.hidden = true; craftEl.hidden = true; deathCard.hidden = true; statsEl.hidden = true;
@@ -9066,7 +9083,7 @@ const PM = { el: null, box: null, colX: null, cx: 0, cy: 0, dir: '', rep: 0, arm
 // picking a piece (or B, or Y again) hands the pad back to the game with that piece ready to place.
 function pmBarOk() { return state === 'play' && !menusOpen() && dayTool() === 'build' && !buildbarEl.hidden; }
 function pmBox() {
-  const m = !deathCard.hidden ? deathCard : !statsEl.hidden ? statsEl : !campEl.hidden ? campEl : !craftEl.hidden ? craftEl : state === 'pause' ? $('pause') : state === 'title' ? $('title') : null;
+  const m = !deathCard.hidden ? deathCard : !statsEl.hidden ? statsEl : !campEl.hidden ? campEl : !craftEl.hidden ? craftEl : state === 'pause' ? $('pause') : $('arena').classList.contains('show') ? $('arena') : state === 'title' ? $('title') : null;
   if (m || !pmBarOk()) PM.bar = false;   // another menu, or the hammer put away, shuts the build bar's hold on the pad
   return m || (PM.bar ? buildbarEl : null);
 }
@@ -9127,6 +9144,7 @@ function pmBack(box) {
   else if (box === craftEl) { if (PK.tab === 'wisps' && statCat) { statCat = null; statOpen = null; renderStats(); } else if (PK.sel) { PK.sel = null; renderPack(); } else $('craftGo').click(); }   // put down what's picked first
   else if (box === campEl) { campEl.hidden = true; }
   else if (box.id === 'pause') unpause();
+  else if (box.id === 'arena') $('arenaBack').click();
   else if (box === buildbarEl) PM.bar = false;
 }
 // called by pollPad every frame a pad is in use; returns true while a menu has the pad
@@ -9870,7 +9888,7 @@ function bossSpawn(C) {
   spawnFoe('woodcutter', { x: C.x, y: C.y + 20, d: 400 });
   const e = S.rg.enemies[S.rg.enemies.length - 1];
   Object.assign(e, { ci: C.i, boss: 1, cap: 1, hp: BOSS_HP, maxHp: BOSS_HP, bHp: BOSS_HP, bs: 'walk', bt: 0, bcd: 1.2, thCd: 2.5, flCd: 4, hx: C.x, hy: C.y });
-  S.rg.ringMsg = { text: 'the woodcutter', sub: 'He keeps the hunting camp · the relic is his', t: 0 }; playRingSting(); addShake(0.45);
+  S.rg.ringMsg = { text: 'the woodcutter', sub: ARENA ? 'Watch the ground for where his axe will land' : 'He keeps the hunting camp · the relic is his', t: 0 }; playRingSting(); addShake(0.45);
   BOSS.e = e; BOSS.show = 0; BOSS.trail = 1;
   if (actx) { const t = actx.currentTime; boomAt(t, 70, 38, 0.9, 0.5, sfxGain); noiseAt(t + 0.05, 600, 200, 0.6, 0.3, sfxGain); }
 }
@@ -10018,7 +10036,8 @@ function bossDown(e) {                                 // he falls: the camp is 
   addShake(0.9); hitStop(0.22); padRumble(1, 400); ashBurst(e.x, e.y, 60, 50);
   rg.blasts.push({ x: e.x, y: e.y, t: 0, life: 0.6, r: 110, col: 'white' });
   dayDrop(e.x, e.y, 'waxe4', 1, DIT.waxe4.dur); gainWisps(40);
-  dayJLog('felled the woodcutter'); lifeAdd('bosses'); dayChanged();
+  dayJLog('felled the woodcutter'); if (!ARENA) lifeAdd('bosses'); dayChanged();
+  if (ARENA) setTimeout(() => arenaOver(true), 3500);
   if (actx) { const t = actx.currentTime; boomAt(t, 60, 28, 1.4, 0.8, sfxGain); toneAt(t + 0.1, 196, 1.6, 0.12, 'triangle', sfxGain); toneAt(t + 0.25, 294, 1.6, 0.1, 'triangle', sfxGain); }
 }
 
@@ -10344,6 +10363,76 @@ function stClipOld(P, o) {
   const rs = stCorners(o).map(([x, y]) => Math.hypot(x, y));
   return Math.max(...rs) < CAMP_R - 2 || Math.min(...rs) > CAMP_R + 2 ? 0 : 1;
 }
+
+;
+// ---------------- the boss arena ----------------
+// Joe: a way to try the Woodcutter from the title screen. Pick a weapon, and you're dropped in a clearing in the woods
+// with food and bandages and he comes for you. It's a run of its own: nothing is read from your save or written to it.
+const ARENA_KITS = [
+  { id: 'sword2', n: 'Iron sword', s: 'Quick cuts, a good reach' },
+  { id: 'waxe4', n: 'Iron war axe', s: 'Slow and heavy, hits hard' },
+  { id: 'spear3', n: 'Iron spear', s: 'Keeps him at arm\'s length' },
+  { id: 'mace', n: 'Iron mace', s: 'Big swings that stagger' },
+  { id: 'knife3', n: 'Iron knife', s: 'Fast, but you have to get close' },
+  { id: 'bow3', n: 'War bow', s: 'With 40 arrows · shoot from afar', more: [['arrows', 40]] },
+  { id: 'sling2', n: 'Braided sling', s: 'With 40 stones', more: [['stones', 40]] },
+  { id: 'jav', n: 'Javelins', s: '12 to throw', n0: 12 },
+];
+function arenaShow(head, sub) {
+  $('arenaH').textContent = head || 'boss arena';
+  $('arenaS').textContent = sub || 'Pick your weapon. You fight the Woodcutter in the woods with food and bandages. Nothing here is saved.';
+  const box = $('arenaPick'); box.replaceChildren();
+  for (const K of ARENA_KITS) {
+    const b = document.createElement('button'); b.className = 'panel';
+    b.innerHTML = `<span><b>${K.n}</b><span>${K.s}</span></span>`;
+    b.addEventListener('click', () => arenaStart(K));
+    box.append(b);
+  }
+  $('title').classList.remove('show'); $('arena').classList.add('show');
+  if (inputMode === 'pad') pmSet(null);
+}
+function arenaStart(K) {
+  if (!ready) return;
+  ARENA = { kit: K };
+  $('arena').classList.remove('show');
+  startRun(true);
+  const S0 = S, D = S.day, p = S.p;
+  D.t = DAY_LEN * 0.25;   // late morning, a long way from dark
+  D.inv = D.inv.map(() => null);
+  D.inv[0] = { id: K.id, n: K.n0 || 1, d: DIT[K.id].dur };
+  (K.more || []).forEach(([id, n], i) => { D.inv[1 + i] = { id, n }; });
+  const at = (K.more || []).length + 1;
+  D.inv[at] = { id: 'cooked', n: 6 }; D.inv[at + 1] = { id: 'bandage', n: 4 };
+  D.hot = 0; D.seen.add(K.id);
+  // a clearing in the woods: open ground under you, trees close enough for him to fell
+  let spot = null;
+  for (let t = 0; t < 600 && !spot; t++) {
+    const a = Math.random() * 6.283, d = 1200 + Math.random() * 900, x = Math.cos(a) * d, y = Math.sin(a) * d;
+    if (lakeAt(x, y, 80) || propsNear(x, y, 110).some(o => o.kind === 'tree' || o.kind === 'rock')) continue;
+    if (propsNear(x, y, 320).filter(o => o.kind === 'tree').length < 4) continue;
+    spot = { x, y };
+  }
+  spot = spot || { x: 1500, y: 0 };
+  p.x = spot.x; p.y = spot.y; S.rg.inCamp = false;
+  look.yaw = look.tYaw = yawOfAim(0); look.pitch = look.tPitch = -0.08; setAim();
+  S.cam.x = p.x; S.cam.y = p.y; worldDirty = true;
+  dayChanged();
+  setTimeout(() => { if (S === S0 && ARENA) bossSpawn({ i: 0, x: spot.x + 180, y: spot.y - 20 }); }, 1200);
+  S.rg.ringMsg = { text: 'boss arena', sub: 'Get ready · he\'s coming', t: 0 };
+}
+function arenaOver(won) {
+  if (!ARENA || ARENA.over) return; ARENA.over = true;
+  const kit = ARENA.kit;
+  setTimeout(() => {
+    state = 'title'; document.body.classList.remove('playing'); lockOff();
+    craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('pause').classList.remove('show');
+    if (actx) actx.suspend();
+    ARENA = null;
+    arenaShow(won ? 'you felled him' : 'the woodcutter wins', won ? `With the ${kit.n.toLowerCase()}. Try another weapon, or go back.` : `With the ${kit.n.toLowerCase()}. Try again, or pick another weapon.`);
+  }, won ? 0 : 1600);
+}
+$('beginArena').addEventListener('click', () => { if (ready) arenaShow(); });
+$('arenaBack').addEventListener('click', () => { $('arena').classList.remove('show'); $('title').classList.add('show'); titleText(); });
 
 ;
 // ================= your hands: what you hold in your right, your torch in your left =================
@@ -11468,7 +11557,7 @@ function titleText() {
   $('beginS').textContent = sv ? `Your run${n ? ` · day ${n}` : ''} is where you left it.` : 'No torch by day. Gather, build, hunt, last the nights.';
   $('beginNew').hidden = !sv;
 }
-function onReady() { $('loading').textContent = ''; $('begin').disabled = false; titleText(); }
+function onReady() { $('loading').textContent = ''; $('begin').disabled = false; $('beginArena').disabled = false; titleText(); }
 function startRun(fresh) {
   if (!ready) return;
   initAudio();
@@ -11485,7 +11574,7 @@ function startRun(fresh) {
 let saveT = 0;
 function pause() { if (state !== 'play') return; state = 'pause'; try { daySave(); } catch (e) {} $('pause').classList.add('show'); syncSet(); lockOff(); if (actx) actx.suspend(); rngUp(); }
 function unpause() { state = 'play'; $('pause').classList.remove('show'); if (actx) actx.resume(); last = performance.now(); lockOn(); }
-function quitToTitle() { try { daySave(); } catch (e) {} state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
+function quitToTitle() { try { daySave(); } catch (e) {} ARENA = null; $('arena').classList.remove('show'); state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
 $('begin').addEventListener('click', () => startRun(false));
 // a pad can't answer the browser's own question, so on a controller the button asks a second press instead
 $('beginNew').addEventListener('click', () => {

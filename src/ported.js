@@ -1748,7 +1748,8 @@ const STAT_GROUPS = [
   { id: 'Power-ups', line: 'Fireflies, flares, candles and more', icon: 'fireflies', dayOnly: true, pow: true },   // v165
 ];
 function stRead() { try { const s = JSON.parse(localStorage.getItem(stKey())); if (s && typeof s.w === 'number' && s.r) return s; } catch (e) {} return { w: 0, r: {} }; }
-function stSave() { try { localStorage.setItem(stKey(), JSON.stringify(ST)); } catch (e) {} }
+let ARENA = null;   // the boss arena's run (68-arena), or null
+function stSave() { if (ARENA) return; try { localStorage.setItem(stKey(), JSON.stringify(ST)); } catch (e) {} }
 let ST = stRead();
 function sr(id) { const r = stPool().r[id] || 0; return id === 'swift' ? Math.min(2, r) : r; }   // Swift tops out at two (older saves may have bought more)
 function life() { return ST.life || (ST.life = { since: Date.now(), kt: {}, bt: {} }); }
@@ -2576,11 +2577,12 @@ function dayWake() {                             // v152 (Joe's plan): with a be
 }
 function dayDeath() {
   const rg = S.rg, D = S.day;
+  if (ARENA) return arenaOver(false);   // the boss arena: the fight's over, back to the picker
   if (rg.phase === 'fight') return dayWake();    // Joe: dying costs what you carried, never your base
   rg.phase = 'dead'; rg.deadT = 0; craftBtn.hidden = true; document.getElementById('hotbar').hidden = true; document.getElementById('buildbar').hidden = true;
   dayClearSave();
   const b = dayBest(); D.best = D.t > b.t;
-  if (D.best) try { localStorage.setItem(DAY_KEY, JSON.stringify({ days: D.n, t: Math.round(D.t) })); } catch (e) {}
+  if (D.best && !ARENA) try { localStorage.setItem(DAY_KEY, JSON.stringify({ days: D.n, t: Math.round(D.t) })); } catch (e) {}
   S.msg = { text: D.cause === 'starved' ? 'You starved' : D.cause === 'thirst' ? 'Thirst took you' : 'The woods took you', sub: `Day ${D.n} · ${dayClock(D.t)}`, t: 0 };
 }
 function dayCard() {
@@ -3036,7 +3038,7 @@ const DAY_SAVE_T = 5;
 function dayReadSave() { try { const v = JSON.parse(localStorage.getItem(dayKey()) || 'null'); return v && (v.v === 1 || v.v === 2) ? v : null; } catch (e) { return null; } }
 function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {} }
 function daySave() {
-  const D = S && S.day, rg = S && S.rg; if (!D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
+  const D = S && S.day, rg = S && S.rg; if (ARENA || !D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
     'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
@@ -3943,7 +3945,7 @@ function dayWon() {
   craftBtn.hidden = true; hotbarEl.hidden = true; buildbarEl.hidden = true;
   for (const e of rg.enemies) if (!e.dead) { e.dead = true; e.dieT = 0; ashBurst(e.x, e.y, 8, 30); }
   dayClearSave(); lifeAdd('escaped');
-  const b = dayBest(); if (D.t > b.t) { D.best = 1; try { localStorage.setItem(DAY_KEY, JSON.stringify({ days: D.n, t: Math.round(D.t) })); } catch (e) {} }
+  const b = dayBest(); if (D.t > b.t && !ARENA) { D.best = 1; try { localStorage.setItem(DAY_KEY, JSON.stringify({ days: D.n, t: Math.round(D.t) })); } catch (e) {} }
   addShake(0.8); if (actx) { const t = actx.currentTime; boomAt(t, 90, 40, 2.4, 0.7, sfxGain); }
   S.msg = { text: 'You walked out', sub: `Day ${D.n} · ${dayClock(D.t)}`, t: 0 };
 }
@@ -4062,7 +4064,7 @@ function stPool() {                               // whose wisps and upgrades: D
   }
   return DST;
 }
-function poolSave() { if (S && S.day) { try { localStorage.setItem(dstKey(), JSON.stringify(stPool())); } catch (e) {} } else stSave(); }
+function poolSave() { if (ARENA) return; if (S && S.day) { try { localStorage.setItem(dstKey(), JSON.stringify(stPool())); } catch (e) {} } else stSave(); }
 const statShown = s => S && S.day ? !s.noDay : !s.dayOnly;
 const groupShown = g => S && S.day ? g.id !== 'Beyond' : !g.dayOnly;
 function dayBankWisps() {                         // through the gate with wisps on you: they're safe now

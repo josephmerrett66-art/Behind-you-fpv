@@ -18,7 +18,8 @@ function newGame(fresh) {
   S.mode = 'expedition'; EX_TEST = false;
   dayYard(true);
   const sv = dayReadSave();
-  if (fresh || !sv) { dayClearSave(); dayBegin(); } else dayLoad(sv);
+  if (ARENA) dayBegin();   // the boss arena: a run of its own, your save left as it is
+  else if (fresh || !sv) { dayClearSave(); dayBegin(); } else dayLoad(sv);
   dayPowApply();
   S.torchOn = !S.day;
   campBtn.hidden = true; campEl.hidden = true; craftBtn.hidden = true; useBtn.hidden = true; hotbarEl.hidden = true; craftEl.hidden = true; deathCard.hidden = true; statsEl.hidden = true;

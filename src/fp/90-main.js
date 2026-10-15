@@ -147,7 +147,7 @@ function titleText() {
   $('beginS').textContent = sv ? `Your run${n ? ` · day ${n}` : ''} is where you left it.` : 'No torch by day. Gather, build, hunt, last the nights.';
   $('beginNew').hidden = !sv;
 }
-function onReady() { $('loading').textContent = ''; $('begin').disabled = false; titleText(); }
+function onReady() { $('loading').textContent = ''; $('begin').disabled = false; $('beginArena').disabled = false; titleText(); }
 function startRun(fresh) {
   if (!ready) return;
   initAudio();
@@ -164,7 +164,7 @@ function startRun(fresh) {
 let saveT = 0;
 function pause() { if (state !== 'play') return; state = 'pause'; try { daySave(); } catch (e) {} $('pause').classList.add('show'); syncSet(); lockOff(); if (actx) actx.suspend(); rngUp(); }
 function unpause() { state = 'play'; $('pause').classList.remove('show'); if (actx) actx.resume(); last = performance.now(); lockOn(); }
-function quitToTitle() { try { daySave(); } catch (e) {} state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
+function quitToTitle() { try { daySave(); } catch (e) {} ARENA = null; $('arena').classList.remove('show'); state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
 $('begin').addEventListener('click', () => startRun(false));
 // a pad can't answer the browser's own question, so on a controller the button asks a second press instead
 $('beginNew').addEventListener('click', () => {

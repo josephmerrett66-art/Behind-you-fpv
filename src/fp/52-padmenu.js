@@ -3,7 +3,7 @@
 // The d-pad or left stick moves it to the nearest thing in that direction, A presses it, B goes back, left and right slide a
 // slider, LB and RB flip the pack's tabs and the right stick scrolls a long list. Anything the main game made clickable
 // counts, buttons or not (the shim notes every element that's given a click), so new menus come in on their own.
-const PM = { el: null, box: null, cx: 0, cy: 0, dir: '', rep: 0, armT: 0, bar: false };
+const PM = { el: null, box: null, colX: null, cx: 0, cy: 0, dir: '', rep: 0, armT: 0, bar: false };
 // Joe: on a controller you couldn't get round the building menu. With the hammer out, Y now takes the pad into the build bar
 // along the bottom: the d-pad walks its kinds of building, the pieces, turning, snapping and pulling down; A picks, and
 // picking a piece (or B, or Y again) hands the pad back to the game with that piece ready to place.
@@ -29,6 +29,7 @@ function pmSet(e, scroll = true) {
   e.classList.add('padfocus'); PM.home = e.closest('#statsBody, #pkBody');
   if (scroll) e.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   [PM.cx, PM.cy] = pmMid(e.getBoundingClientRect());
+  if (e.getBoundingClientRect().width < 120) PM.colX = PM.cx;   // the column you're in, kept through a header so up and down come back to it
 }
 // the first thing to pick when a menu opens: what the game itself put first, or the top of the list
 function pmFirst(box, items) {
@@ -46,8 +47,11 @@ function pmMove(items, dx, dy) {
     let gap, side;
     // how far off to the side: none if the two overlap at all (a button under a wide row is straight below it), with the centres to break ties
     const off = (a0, a1, b0, b1) => Math.max(0, a0 - b1, b0 - a1);
-    if (dx) { gap = dx > 0 ? r.left - cur.right : cur.left - r.right; side = off(r.top, r.bottom, cur.top, cur.bottom) * 3 + Math.abs(y - PM.cy) * 0.1; if ((x - PM.cx) * dx <= 2 || r.bottom < cur.top - 6 || r.top > cur.bottom + 6) continue; }   // sideways stays on the row
-    else { gap = dy > 0 ? r.top - cur.bottom : cur.top - r.bottom; side = off(r.left, r.right, cur.left, cur.right) * 1.5 + Math.abs(x - PM.cx) * 0.1; if ((y - PM.cy) * dy <= 2) continue; }
+    // sideways stays on the row: the two must share at least a third of the shorter one's height (a section's header that
+    // touches the row of slots under it by a pixel isn't on that row; Joe kept being thrown up to it from the slots)
+    if (dx) { gap = dx > 0 ? r.left - cur.right : cur.left - r.right; side = off(r.top, r.bottom, cur.top, cur.bottom) * 3 + Math.abs(y - PM.cy) * 0.1; if ((x - PM.cx) * dx <= 2 || Math.min(r.bottom, cur.bottom) - Math.max(r.top, cur.top) < Math.min(r.height, cur.height) / 3) continue; }
+    // down from a wide header lands on the first thing under its left end, not on whatever sits under its middle
+    else { const rx = cur.width > r.width * 2.5 ? clamp(PM.colX ?? -1e9, cur.left + r.width / 2, cur.right - r.width / 2) : PM.cx; gap = dy > 0 ? r.top - cur.bottom : cur.top - r.bottom; side = off(r.left, r.right, cur.left, cur.right) * 1.5 + Math.abs(x - rx) * 0.1; if ((y - PM.cy) * dy <= 2) continue; }
     const s = Math.max(0, gap + 4) + side;
     if (s < bs) { bs = s; best = e; }
   }
@@ -71,7 +75,7 @@ function pmBack(box) {
 // called by pollPad every frame a pad is in use; returns true while a menu has the pad
 function padMenu(dt, btn, press, ax, ay, ry) {
   const box = inputMode === 'pad' ? pmBox() : null;
-  if (box !== PM.box) { PM.box = box; pmSet(null); }
+  if (box !== PM.box) { PM.box = box; PM.colX = null; pmSet(null); }
   if (!box) { if (PM.el) pmSet(null); return false; }
   const items = pmItems(box);
   if (!PM.el || !PM.el.isConnected || !items.includes(PM.el)) {   // the menu was redrawn: pick what now sits where the outline was

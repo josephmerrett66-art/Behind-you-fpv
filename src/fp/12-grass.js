@@ -87,13 +87,13 @@ function grassMask(px, py, lakes, gen) {
     const j0 = Math.max(0, Math.floor((y - r - oy) / c)), j1 = Math.min(GM_N - 1, Math.ceil((y + r - oy) / c));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (Math.hypot(ox + (i + 0.5) * c - x, oy + (j + 0.5) * c - y) < r) M[j * GM_N + i] = 0;
   };
-  const rect = (x, y, a, hl, hw) => {   // a turned square or oblong
+  const rect = (x, y, a, hl, hw, keep) => {   // a turned square or oblong (keep: only where this says so)
     const r = Math.hypot(hl, hw), ca = Math.cos(a), sa = Math.sin(a);
     const i0 = Math.max(0, Math.floor((x - r - ox) / c)), i1 = Math.min(GM_N - 1, Math.ceil((x + r - ox) / c));
     const j0 = Math.max(0, Math.floor((y - r - oy) / c)), j1 = Math.min(GM_N - 1, Math.ceil((y + r - oy) / c));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const dx = ox + (i + 0.5) * c - x, dy = oy + (j + 0.5) * c - y, f = dx * ca + dy * sa, s = -dx * sa + dy * ca;
-      if (Math.abs(f) < hl && Math.abs(s) < hw) M[j * GM_N + i] = 0;
+      if (Math.abs(f) < hl && Math.abs(s) < hw && (!keep || keep(ox + (i + 0.5) * c, oy + (j + 0.5) * c))) M[j * GM_N + i] = 0;
     }
   };
   for (const P of lakes) disc(P.x, P.y, P.rad * 1.12);
@@ -103,7 +103,9 @@ function grassMask(px, py, lakes, gen) {
   for (const B of D.builds) if (B.t === 'fire') disc(B.x, B.y, 14);
   for (const o of D.bld.values()) {
     const P = PC(o.id); if (!P || P.lay === 'roof') continue;
-    if (P.sh === 'sq') rect(o.x, o.y, o.a || 0, GRID / 2, GRID / 2); else if (P.sh === 'tri') disc(o.x, o.y, TRI_R * 0.8);
+    // a floor trimmed at the camp fence leaves the grass growing on the side it was cut from
+    const keep = o.clip ? (gx, gy) => (Math.hypot(gx, gy) < CAMP_R) === (o.clip > 0) : null;
+    if (P.sh === 'sq') rect(o.x, o.y, o.a || 0, GRID / 2, GRID / 2, keep); else if (P.sh === 'tri') { if (keep) rect(o.x, o.y, o.a || 0, TRI_R * 0.8, TRI_R * 0.8, (gx, gy) => keep(gx, gy) && Math.hypot(gx - o.x, gy - o.y) < TRI_R * 0.8); else disc(o.x, o.y, TRI_R * 0.8); }
   }
   grassU.mo.value.set(ox, oy); grassMaskTex.needsUpdate = true;
 }

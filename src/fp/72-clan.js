@@ -2,7 +2,7 @@
 // Joe: "This is the heart of the game... The player should feel small and watched, like prey." By day the raiders are gone. In
 // their place is a clan of survivors from the plane crash, gone wild. They eat their weakest, so they are careful and every loss
 // hurts them. They look like you (the same body, gone ragged, muddy and painted, now and then one still in an orange beanie) and
-// move like apes: low, sprinting, swerving, on all fours when they hurry, up in the branches.
+// move like people: hunched and watchful when still, running upright like you (Joe), up in the branches.
 // Joe's second brief (after The Forest): they aren't programmed to spot you, chase you and fight to the death. They're curious,
 // territorial, unpredictable and sometimes frightened, and you should never be sure whether an encounter will become a fight.
 //  - They live out here whether you're near or not: small bands wander the woods, stopping, crouching, calling to each other.
@@ -116,7 +116,7 @@ function clanMove(e, tx, ty, v, dt) {   // toward (tx, ty) at v; how far it stil
   }
   const step = Math.min(L, v * dt);
   e.x += ux * step; e.y += uy * step;
-  c.v = step / Math.max(dt, 1e-4); c.dir = Math.atan2(uy, ux); c.want = step; e.phase += step * (c.qK > 0.5 ? 0.075 : 0.11);
+  c.v = step / Math.max(dt, 1e-4); c.dir = Math.atan2(uy, ux); c.want = step; e.phase += step * 1.348 / (c.v > 70 ? 15 : 11);   // the same stride as yours
   return L - step;
 }
 function clanAway(e, dist, lure) {   // a spot to run to: away from you, toward another of them if one's that way (Joe: chasing one leads you to others)
@@ -379,7 +379,7 @@ const CLAN_ST = {
     const L = clanMove(e, c.dest.x, c.dest.y, c.t < 0.8 ? CL.walk * 1.4 : CL.run, dt);
     if (L < 15 || c.t > 5 || c.stuck > 0.6) { if (c.fear > 0.85 || c.done) clanGo(e, 'leave'); else clanGo(e, 'watch'); }
   },
-  flee(e, c, d, dt) {   // off into the trees on all fours; hurt, it stumbles
+  flee(e, c, d, dt) {   // off into the trees at a run; hurt, it stumbles
     c.q = c.o.hurt ? 0.4 : 1; c.cr = 0.5; c.stumble = c.o.hurt ? 1 : 0;
     if (!c.dest || c.stuck > 0.4) { c.dest = clanAway(e, 380, true); c.stuck = 0; }
     if (d < 42 && c.t > 0.6 && !c.o.hurt && clanTokFree(true)) { c.stumble = 0; return clanGo(e, 'attack', { now: 1 }); }   // caught: it turns on you
@@ -704,12 +704,12 @@ function clanRig(vi) {
   const cur = {}; for (const [n] of BONES) cur[n] = [0, 0, 0];
   R = { mesh, edge, B, cur, mat, vi, owner: null, root: [0, 0] }; CLAN_RIGS.push(R); return R;
 }
-// ---- the pose: hunched and watchful standing, a deep squat behind a tree, a loping gallop on all fours ----
+// ---- the pose: hunched and watchful standing, a deep squat behind a tree, running upright like you ----
 function clanPose(R, e, c, now, dt, dead) {
   const P = {}; for (const [n] of BONES) P[n] = [0, 0, 0];
   const t = now + c.seed * 37, v = c.v || 0, ph = e.phase || 0;
-  c.crK += ((c.cr ?? 0.6) - c.crK) * Math.min(1, dt * 5); c.qK += ((c.q || (v > 128 ? 1 : 0)) - c.qK) * Math.min(1, dt * 7);
-  const cr = c.crK, q = c.qK;
+  c.crK += ((c.cr ?? 0.6) - c.crK) * Math.min(1, dt * 5); c.qK = 0;
+  const cr = c.crK * (1 - 0.9 * clamp(v / 70, 0, 1)), q = 0;
   let rootY = -1.2, stiff = 12, lunge = 0, roll = 0;
   // standing: hunched, knees soft, arms hanging long, the head pushed forward; a slow sway and a curious tilt of the head
   P.spine[0] = 0.32; P.chest[0] = 0.16; P.neck[0] = -0.12; P.head[0] = -0.3 + 0.05 * Math.sin(t * 0.7);
@@ -717,14 +717,17 @@ function clanPose(R, e, c, now, dt, dead) {
   P.legL[0] = P.legR[0] = -0.22; P.shinL[0] = P.shinR[0] = 0.45; P.footL[0] = P.footR[0] = -0.2;
   P.armL = [-0.14 + 0.04 * Math.sin(t * 0.9), 0, -0.16]; P.armR = [-0.14 - 0.04 * Math.sin(t * 0.9), 0, 0.16]; P.foreL[0] = P.foreR[0] = -0.35;
   P.hips[2] = 0.04 * Math.sin(t * 0.5); P.chest[2] = -0.03 * Math.sin(t * 0.5);
-  // walking or running upright, from your own run (76-body)
-  if (v > 4 && q < 0.99) {
-    const sw = Math.sin(ph), cw = Math.cos(ph), k = clamp(v / 110, 0.3, 1) * (1 - 0.5 * cr);
-    P.legL[0] += -sw * 0.85 * k; P.legR[0] += sw * 0.85 * k;
-    P.shinL[0] += 1.3 * k * Math.max(0, cw) ** 1.5; P.shinR[0] += 1.3 * k * Math.max(0, -cw) ** 1.5;
-    P.armL[0] += sw * 0.6 * k; P.armR[0] -= sw * 0.6 * k; P.foreL[0] -= 0.4 * k; P.foreR[0] -= 0.4 * k;
-    P.hips[1] = sw * 0.2 * k; P.chest[1] = -sw * 0.28 * k; P.spine[0] += 0.25 * k;
-    rootY += Math.abs(cw) * 1.6 * k - 0.6 * k;
+  // walking or running: the same run as yours (76-body), upright, arms pumping against the legs (Joe: human, not gorillas)
+  if (v > 4) {
+    const gk = Math.min(1, v / RUN) + 0.6 * clamp((v - 130) / 50, 0, 1), sw = Math.sin(ph), cw = Math.cos(ph), k = 0.35 + 0.65 * gk;
+    P.legL = [-sw * 0.85 * k, 0, 0]; P.legR = [sw * 0.85 * k, 0, 0];
+    P.shinL[0] = 0.2 + 1.35 * k * Math.max(0, cw) ** 1.5 + 0.15 * k; P.shinR[0] = 0.2 + 1.35 * k * Math.max(0, -cw) ** 1.5 + 0.15 * k;
+    P.footL[0] = -P.legL[0] * 0.5 - P.shinL[0] * 0.55 + 0.15; P.footR[0] = -P.legR[0] * 0.5 - P.shinR[0] * 0.55 + 0.15;
+    P.armL = [sw * (0.55 + 0.3 * gk) * k, 0.1 * sw * k, -0.13 - 0.04 * Math.max(0, -sw) * k]; P.armR = [-sw * (0.55 + 0.3 * gk) * k, 0.1 * sw * k, 0.13 + 0.04 * Math.max(0, sw) * k];
+    P.foreL[0] = -0.35 - 0.55 * k - 0.45 * k * Math.max(0, -sw); P.foreR[0] = -0.35 - 0.55 * k - 0.45 * k * Math.max(0, sw);
+    P.hips = [0, sw * 0.22 * k, -cw * 0.09 * k]; P.spine = [0.12 + 0.55 * (0.12 + 0.35 * gk), 0, 0]; P.chest = [0.35 * (0.12 + 0.35 * gk), -sw * 0.32 * k, cw * 0.05 * k];
+    P.neck[0] = -0.05; P.head = [-0.1 - 0.2 * gk, sw * 0.08 * k, -cw * 0.03 * k];
+    rootY = Math.abs(cw) * (1.5 + 0.8 * (1 - gk)) * k - 0.6 * k;
   }
   // crouching: a deep squat, weight forward, hands down near the ground, the head up and watching
   if (cr > 0.01) {
@@ -732,16 +735,6 @@ function clanPose(R, e, c, now, dt, dead) {
     P.spine[0] += 0.45 * cr; P.chest[0] += 0.25 * cr; P.head[0] -= 0.55 * cr;
     P.armL[0] -= 0.75 * cr; P.armR[0] -= 0.75 * cr; P.foreL[0] -= 0.25 * cr; P.foreR[0] -= 0.25 * cr; P.armL[2] -= 0.1 * cr; P.armR[2] += 0.1 * cr;
     P.legL[2] = -0.18 * cr; P.legR[2] = 0.18 * cr;   // knees out
-  }
-  // on all fours: the back near level, the arms reaching down to the ground ahead, both legs and both arms bounding together
-  if (q > 0.01) {
-    const g = Math.sin(ph), h = Math.cos(ph), Q = {};
-    Q.spine = [0.8, 0, 0]; Q.chest = [0.55, 0, 0]; Q.neck = [-0.5, 0, 0]; Q.head = [-0.75, 0, 0]; Q.hips = [0, 0, 0];
-    Q.legL = [-0.95 + 0.62 * g, 0, -0.1]; Q.legR = [-0.95 + 0.62 * Math.sin(ph + 0.35), 0, 0.1];
-    Q.shinL = [1.45 - 0.5 * g, 0, 0]; Q.shinR = [1.45 - 0.5 * Math.sin(ph + 0.35), 0, 0]; Q.footL = [-0.3, 0, 0]; Q.footR = [-0.3, 0, 0];
-    Q.armL = [-1.55 - 0.55 * g, 0, -0.12]; Q.armR = [-1.55 - 0.55 * Math.sin(ph + 0.4), 0, 0.12]; Q.foreL = [-0.18, 0, 0]; Q.foreR = [-0.18, 0, 0]; Q.handL = [0.5, 0, 0]; Q.handR = [0.5, 0, 0];
-    for (const n in Q) P[n] = cmix(P[n], Q[n], q);
-    rootY = lerp(rootY, -6.5 + 2.4 * Math.abs(h), q);
   }
   // leaning out from behind the trunk to look at you
   if (c.lean) { const s = c.lean; P.spine[2] += -s * 0.3; P.chest[2] += -s * 0.25; P.head[2] += s * 0.25; P.hips[1] += s * 0.2; }

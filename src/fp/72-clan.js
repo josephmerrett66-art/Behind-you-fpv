@@ -8,8 +8,8 @@
 //  1. Watching (always): two or three keep near you from the start, behind trunks, behind you, or up a tree. Now and then one
 //     lets itself be seen (leaning out from a trunk, standing at the edge of sight, crossing a gap, a shape in the branches)
 //     and is gone again before you get a good look.
-//  2. Chasing: go for one and it's off into the trees quicker than you can run. Keep after it and you'll turn round to find
-//     others standing behind you.
+//  2. Chasing: go for one and it's off into the trees. A sprint can catch it (Joe: no force field), and caught it turns on you.
+//     Keep after it and you'll turn round to find others standing behind you.
 //  3. Retaliation: kill one and the woods ring with their calls. Several come for you openly, circling and taking turns to dart
 //     in, until you reach your fire or your walls, where they stop at the edge of the light and wait.
 //  4. Testing: at a weak or busy moment (hurt, hungry, tired, far from the fire, at dusk, chopping, laden with logs) one creeps
@@ -23,7 +23,8 @@ FOE_TINT.cannibal = [176, 124, 86]; WISP.cannibal = 0; FP_NAME.cannibal = 'ONE O
 const CL_MELEE = { wind: 0.3, trig: 44, hit: 33, lunge: 40, rec: 0.36 };   // quick: the warning came before it, not in the swing
 FOE_AI.cannibal = (e, sp, d, dt) => clanAI(e, d, dt);
 const CL = {
-  dart: 178,      // flat out on all fours: quicker than your sprint
+  dart: 178,      // flat out on all fours, coming at you
+  flee: 150,      // running from you: quicker than your run, slower than your sprint, so a chase can be won (Joe)
   lope: 114,      // between trees, out of your sight
   creep: 52,      // closing in behind you
   near: 190, far: 430,   // how far off the watchers keep
@@ -203,9 +204,9 @@ function clanAI(e, d, dt) {
   c.face += angDiff(c.faceW, c.face) * Math.min(1, dt * (c.v > 100 ? 12 : 6));
   e.face = Math.cos(c.face) >= 0 ? 1 : -1;
 }
-function clanFleeR(e) { return S.day.crouch ? 95 : 130; }
-function clanCharged(e, c, d, closing) { return d < clanFleeR(e) || (closing > 45 && d < (c.vis ? 330 : 250)); }   // seen coming, or heard running at it
-const clanFast = () => Math.max(CL.dart, Math.hypot(S.p.vx, S.p.vy) + 45);   // always that bit quicker than you
+function clanFleeR(e) { return S.day.crouch ? 55 : 75; }
+function clanCharged(e, c, d, closing) { return d < clanFleeR(e) || (closing > 60 && d < (c.vis ? 200 : 120)); }   // seen coming, or heard running at it, when you're close
+const clanFast = () => CL.flee;
 const CLAN_ST = {
   go(e, c, d, dt, closing) {   // to a tree to watch from
     if (!c.post || (!c.o.keep && !c.o.show && !clanPostOk(e, c.post))) { c.post = clanPost(e, c.role === 'perch' ? { perch: 1, a: S.aimW, spread: 1 } : {}) || clanPost(e, { dmin: 250, dmax: 720 }); c.o.keep = 0; }   // out in the open (the hill), they keep to the treeline
@@ -257,6 +258,7 @@ const CLAN_ST = {
   flee(e, c, d, dt) {   // off into the trees, on all fours, quicker than you can run
     c.q = 1; c.cr = 0.5;
     if (!c.dest || c.stuck > 0.4) { c.dest = clanAway(e, 360, true); c.stuck = 0; }
+    if (d < 42 && c.t > 0.6) return clanGo(e, 'dart');   // caught: it turns on you
     const L = clanMove(e, c.dest.x, c.dest.y, clanFast(), dt);
     if (L < 12 || (c.unseenT > 1.2 && d > 270) || c.t > 7) {
       if (c.done) return clanGo(e, 'leave');

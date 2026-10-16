@@ -12,6 +12,8 @@ function woodsUi(on) {
     const btn = (t, fn) => { const b = document.createElement('button'); b.textContent = t; b.style.cssText = 'font:600 12px system-ui,sans-serif;padding:6px 9px;border-radius:8px;border:1px solid #ffffff40;background:#141210cc;color:#efefea;cursor:pointer'; b.addEventListener('click', ev => { ev.stopPropagation(); fn(); b.blur(); }); b.addEventListener('pointerdown', ev => ev.stopPropagation()); row.append(b); return b; };
     btn('Provoke', () => { for (const e of clanList()) { if (!e.cl.eng) clanNotice(e, true); e.cl.fear = 0; e.cl.P.agg = Math.min(1, e.cl.P.agg + 0.2); } clan().gap = 0; const e = clanList().sort((a, b) => a.cl.d - b.cl.d)[0]; if (e) clanGo(e, 'attack'); });
     btn('Kill one', () => { const e = clanList().filter(q => q.cl.st !== 'leave')[0]; if (e) { e.hp = 0; } });
+    btn('Down one', () => { const e = clanList().filter(q => q.cl.st !== 'leave' && q.cl.kind !== 'leader' && q.cl.st !== 'down').sort((a, b) => a.cl.d - b.cl.d)[0]; if (e) e.hp = e.maxHp * 0.2; });
+    btn('Angrier', () => clanAngAdd(25));
     btn('Hurt me', () => { const rg = S.rg; rg.hp = Math.max(1, Math.ceil(rg.maxHp * 0.4)); });
     btn('Bring them', () => { for (const e of clanList()) if (!e.cl.eng) clanNotice(e); if (!clanList().length) { const g = clanBand(3, { d: 450 }); if (g) clanNotice(bandOf(g)[0]); } });
     const st = btn('States', () => { WOODS_UI.dbg = !WOODS_UI.dbg; info.style.display = WOODS_UI.dbg ? 'block' : 'none'; });
@@ -31,7 +33,7 @@ function woodsStart() {
   D.inv = D.inv.map(() => null);
   const give = (i, id, n) => { D.inv[i] = { id, n, d: DIT[id] && DIT[id].dur }; D.seen.add(id); };
   give(0, 'sword2', 1); give(1, 'spear3', 1); give(2, 'bow3', 1); give(3, 'arrows', 40); give(4, 'cooked', 6); give(5, 'bandage', 4);
-  D.hot = 0; D.clanN = CL.pool; D.food = D.water = 100;
+  D.hot = 0; D.clanN = CL.pool; D.clanAng = 35; D.clanCaught = 1; D.food = D.water = 100;
   // thick woods: plenty of trees close round you to hide behind, open enough to see between
   let spot = null;
   for (let t = 0; t < 900 && !spot; t++) {
@@ -56,8 +58,8 @@ function woodsStep(dt, C, all) {   // the sun held still, the clan kept at three
   D.food = Math.max(D.food, 40); D.water = Math.max(D.water, 40); D.warm = Math.max(D.warm, WARM_MAX * 0.5);
   if (!C.bands.length) C.bandT = Math.min(C.bandT, 12);   // never long without some of them about
   if (WOODS_UI && WOODS_UI.dbg) {
-    const p = S.p, lines = all.map((e, i) => `${i + 1} ${e.cl.pers} · ${e.cl.st}${e.cl.o.k ? ' ' + e.cl.o.k : ''} · ${Math.round(e.cl.d)} away${e.cl.vis ? ' · SEEN' : ''}${e.cl.z > 1 ? ' · up a tree' : ''} · fear ${e.cl.fear.toFixed(2)} bold ${e.cl.conf.toFixed(2)} · ${Math.round(e.hp / e.maxHp * 100)}%`);
-    lines.push(C.rage > 0 ? `hunting you · ${Math.ceil(C.rage)}s left` : `${C.bands.length} band(s) · weak ${C.w.toFixed(1)} · next attack allowed in ${Math.max(0, Math.round(C.gap))}s`);
+    const p = S.p, lines = all.map((e, i) => `${i + 1} ${e.cl.kind !== 'reg' ? e.cl.kind + ' ' : ''}${e.cl.pers} · ${e.cl.st}${e.cl.o.k ? ' ' + e.cl.o.k : ''} · ${Math.round(e.cl.d)} away${e.cl.vis ? ' · SEEN' : ''}${e.cl.z > 1 ? ' · up a tree' : ''} · fear ${e.cl.fear.toFixed(2)} bold ${e.cl.conf.toFixed(2)} · ${Math.round(e.hp / e.maxHp * 100)}%`);
+    lines.push(C.rage > 0 ? `hunting you · ${Math.ceil(C.rage)}s left` : `${C.bands.length} band(s) · anger ${Math.round(clanAng())} · weak ${C.w.toFixed(1)} · next attack allowed in ${Math.max(0, Math.round(C.gap))}s`);
     if (clanRefugeAt(p.x, p.y)) lines.push('you are safe here');
     WOODS_UI.info.textContent = lines.join('\n');
   }

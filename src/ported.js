@@ -750,7 +750,7 @@ function hurt(e) {
   shove(e, 90);
   if (lv('salt')) { const R = 110 + 40 * lv('salt'); for (const o of rg.enemies) if (dist2(o, S.p) < R) shove(o, 150); rg.echoes.push({ r: 0, salt: true }); }
   sfx(0.45, 0.9, 'lowpass', 500, 0.35);
-  if (rg.hp <= 0) nightOver();
+  if (rg.hp <= 0 && !(e && e.type === 'cannibal' && clanCapture())) nightOver();   // the clan: the first time, you wake in their camp (74-clan2)
 }
 function splitApart(e) {
   const rg = S.rg, base = Math.atan2(e.y - S.p.y, e.x - S.p.x);
@@ -3081,7 +3081,7 @@ function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {
 function daySave() {
   const D = S && S.day, rg = S && S.rg; if (ARENA || !D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
-    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp', 'cacheV', 'herd', 'clanN'];   // v155
+    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp', 'cacheV', 'herd', 'clanN', 'clanAng', 'clanCamps', 'clanCaught', 'clanDay'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
   d.seen = [...D.seen]; d.known = [...D.known]; d.fresh = [...D.fresh];
   d.felled = [...D.felled]; d.cut = [...D.cut]; d.bchunks = [...D.bchunks];

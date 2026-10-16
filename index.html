@@ -11374,8 +11374,8 @@ function clanBandStep(g, dt) {
   if (g.eng) { g.heat = Math.min(3, g.heat + dt / 45 * (0.5 + 0.5 * exRing(Math.hypot(p.x, p.y)))); return; }   // the longer you stay on their ground, the less they like it
   g.heat = Math.max(0, g.heat - dt / 60);
   if (g.stop > 0) g.stop -= dt;   // wandering: on along its way, a stop now and then, turning from water and from the light
-  else { const nx = g.x + Math.cos(g.a) * 34 * dt, ny = g.y + Math.sin(g.a) * 34 * dt; if (lakeAt(nx, ny, 60) || clanRefugeAt(nx, ny, 160)) g.a += 3 * dt; else { g.x = nx; g.y = ny; } }
-  if ((g.t -= dt) <= 0) { g.t = 4 + Math.random() * 6; g.a += (Math.random() - 0.5) * 1.3; if (Math.random() < 0.35) g.stop = 3 + Math.random() * 6; }
+  else { const v = g.away ? 70 : 34, nx = g.x + Math.cos(g.a) * v * dt, ny = g.y + Math.sin(g.a) * v * dt; if (lakeAt(nx, ny, 60) || clanRefugeAt(nx, ny, 160)) g.a += 3 * dt; else { g.x = nx; g.y = ny; } }
+  if ((g.t -= dt) <= 0) { g.t = 4 + Math.random() * 6; g.a += (Math.random() - 0.5) * (g.away ? 0.3 : 1.3); if (!g.away && Math.random() < 0.35) g.stop = 3 + Math.random() * 6; }
   if (g.home && g.stop < 1e8 && Math.hypot(g.x - g.home.x, g.y - g.home.y) < 40) g.stop = 1e9;   // home: they settle by their fire
   if (Math.hypot(g.x - p.x, g.y - p.y) > (g.home ? 2400 : 1700) && !M.some(e => e.cl.vis)) for (const e of M) e.dead = e.gone = true;   // gone on their way
 }
@@ -11772,6 +11772,40 @@ function clanDied(e) {   // one of them dead: the others react each in its own w
   }
   addShake(0.15);
 }
+// ---------------- they come and go (Joe) ----------------
+// They aren't always about. Most of the day the woods are quiet: long enough to build your bed, gather and almost forget them.
+// Then they come: the first you know of it is a call close by in the trees, an answer from somewhere else, and a band near
+// you. Once they've had their look and gone (or their time is up), the woods go quiet again. The quiet gets shorter as their
+// anger grows. A kill, revenge, their camps and anyone already watching you all carry on whatever the woods are doing.
+const TIDE = { first: [45, 90], quiet: [70, 150], near: [70, 140], after: 20 };   // seconds; a day's light lasts about six minutes
+const rnd = ([a, b]) => a + Math.random() * (b - a);
+function clanTide(C, dt, p) {
+  const T = C.tide || (C.tide = { ph: 'quiet', t: rnd(TIDE.first) });
+  const busy = C.rage > 0 || !!C.revenge || clanList().some(e => e.cl.eng && e.cl.st !== 'leave' && !e.cl.done);
+  if (T.ph === 'near') {
+    if (C.bands.some(g => g.eng)) T.met = 1;
+    T.t -= dt; if (T.met && !busy) T.after -= dt;
+    if (!busy && (T.t <= 0 || T.after <= 0)) {   // they've gone: the woods go quiet
+      T.ph = 'quiet'; T.t = rnd(TIDE.quiet) * (1.15 - 0.45 * clanAngK()); T.hint = 0;
+      for (const g of C.bands) if (!g.home && !g.eng) { g.away = 1; g.stop = 0; g.a = Math.atan2(g.y - p.y, g.x - p.x) + (Math.random() - 0.5) * 0.6; }
+    }
+  } else {
+    if (!busy) T.t -= dt;
+    if (!T.hint && T.t < 30) { T.hint = 1; if (Math.random() < 0.4) { const a = Math.random() * 6.283; clanSnd('yell', p.x + Math.cos(a) * 1150, p.y + Math.sin(a) * 1150, 0.6, 100 + Math.random() * 60); } }   // sometimes, just before, something very far off
+    if (T.t <= 0) clanArrive(C, T, p);
+  }
+  return T.ph === 'near';
+}
+function clanArrive(C, T, p) {   // all of a sudden: a call in the trees close by, an answer, and they're here
+  T.ph = 'near'; T.t = rnd(TIDE.near); T.met = 0; T.after = TIDE.after;
+  const n = 2 + (Math.random() < 0.3 + 0.08 * S.day.n + 0.4 * clanAngK() ? 1 : 0), g = clanBand(n, { d: 470 });
+  C.bandT = 50 + Math.random() * 40;
+  const M = g ? bandOf(g) : []; if (!M.length) return;
+  clanLater(0.1, Math.random() < 0.6 ? 'yell' : 'scream', M[0], 1.1);
+  const a = Math.atan2(M[0].y - p.y, M[0].x - p.x) + (Math.random() < 0.5 ? 1 : -1) * (1.2 + Math.random());
+  clanLater(1.3 + Math.random() * 0.8, Math.random() < 0.5 ? 'yell' : 'chatter', M[1] || { x: p.x + Math.cos(a) * 520, y: p.y + Math.sin(a) * 520, vp: 110 + Math.random() * 50 }, 1);
+  if (Math.random() < 0.5) clanLater(0.6, 'twig', M[M.length - 1], 1.2);
+}
 function clanStep(dt) {
   const rg = S.rg, D = S.day, p = S.p;
   if (!CLAN_ON || !D || rg.phase !== 'fight') return;
@@ -11802,12 +11836,13 @@ function clanStep(dt) {
     const R2 = C.revenge; C.revenge = null; const g = clanBand(Math.min(4, R2.n), { d: 520, noLead: 1 });
     if (g) { for (const e of bandOf(g)) { e.cl.hunter = 1; e.cl.fear = 0; clanGo(e, 'hunt'); } C.rage = CL.rage; C.tokT = 6; for (let i = 0; i < 3; i++) clanLater(i * 0.7, 'yell', bandOf(g)[i % bandOf(g).length], 1); }
   }
+  const near = ARENA ? true : clanTide(C, dt, p);
   for (const g of C.bands) clanBandStep(g, dt);
   C.bands = C.bands.filter(g => !g.dead);
   if (C.tok && (C.tok.dead || !['attack', 'hwarn', 'hdart'].includes(C.tok.cl.st))) C.tok = null;
   // more of them out in the woods: a band or two about, wandering
   const want = (D.n >= 3 || clanAngK() > 0.45 ? 2 : 1) + (C.bands.length && C.bands.every(g => g.eng) ? 1 : 0);
-  if (C.bands.filter(g => !g.home || g.eng).length < Math.min(2, want) && (C.bandT -= dt) <= 0 && clanList().length < 7) {
+  if (near && C.bands.filter(g => !g.home || g.eng).length < Math.min(2, want) && (C.bandT -= dt) <= 0 && clanList().length < 7) {
     clanBand(2 + (Math.random() < 0.3 + 0.08 * D.n + 0.4 * clanAngK() ? 1 : 0) + (clanAngK() > 0.6 && Math.random() < 0.5 ? 1 : 0), C.first ? { d: 600 } : {}); C.first = 0; C.bandT = (40 + Math.random() * 50) * (1.2 - 0.5 * clanAngK());   // bigger bands, more often, as their anger grows
   }
   // retaliation
@@ -11823,7 +11858,7 @@ function clanStep(dt) {
     if (C.rage <= 0 || (!H2.length && !C.reinf)) { C.rage = 0; C.more = 0; for (const e of H2) { e.cl.hunter = 0; e.cl.hs = null; clanGo(e, 'retreat'); } }   // it's over: they fall back into the trees
   }
   // now and then, far off, their calls
-  if ((C.callT = (C.callT ?? 20) - dt) <= 0) {
+  if (near && (C.callT = (C.callT ?? 20) - dt) <= 0) {
     C.callT = 22 + Math.random() * 35;
     const far = clanList().filter(e => e.cl.d > 350), a = Math.random() * 6.283;
     const w = far.length ? pick(far) : { x: p.x + Math.cos(a) * 900, y: p.y + Math.sin(a) * 900, vp: 100 + Math.random() * 60 };

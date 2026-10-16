@@ -51,3 +51,16 @@ function wxLoad() {
   if (wxS.tried || !actx) return; wxS.tried = true;
   try { const bin = atob(RAIN_SRC), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); actx.decodeAudioData(u.buffer, b => { wxS.buf = b; }, () => {}); } catch (e) {}
 }
+// Joe: slower weather, with long dry spells between rains. The main game turns the sky over every minute or two; here a dry
+// spell lasts four to nine minutes (so a rain or two a day, some days none), rain or fog settles in for a few minutes, and
+// each one drifts in and out over the best part of half a minute instead of a few seconds.
+const WX_SLOW = { first: [200, 320], clear: [240, 540], rain: [120, 240], fog: [120, 220], storm: [90, 170], fade: 0.07 };
+{ const fast = weatherStep, pick = ([a, b]) => a + Math.random() * (b - a);
+  weatherStep = function (dt) {
+    const w0 = S.wx, st = w0 && w0.st, k0 = w0 ? w0.k : 0;
+    fast(dt);
+    const w = S.wx;
+    if (!w.slow) { w.slow = 1; if (w.st === 'clear') w.t = Math.max(w.t, pick(WX_SLOW.first)); }   // a new run (or an old save): a long dry start
+    else if (w.st !== st) w.t = pick(w.st === 'on' ? WX_SLOW[w.kind] : WX_SLOW.clear);
+    if (w0) { w.k = k0 + ((w.st === 'on' ? 1 : 0) - k0) * Math.min(1, dt * WX_SLOW.fade); if (w.st === 'clear' && w.k < 0.003) { w.k = 0; w.kind = null; } }
+  }; }

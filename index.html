@@ -11203,7 +11203,7 @@ function clanMove(e, tx, ty, v, dt) {   // toward (tx, ty) at v; how far it stil
     const side = ox * -uy + oy * ux;
     if (Math.abs(side) < R) { const s = side > 0 ? -1 : 1, k = (R - Math.abs(side)) / R * 1.4, nx = ux - uy * s * k, ny = uy + ux * s * k, n = Math.hypot(nx, ny); ux = nx / n; uy = ny / n; }
   }
-  if (v > 30 && !c.hop && c.st !== 'drag') { const da = angDiff(Math.atan2(uy, ux), c.face ?? 0); c.face = (c.face ?? 0) + clamp(da, -11 * dt, 11 * dt); }   // a quick pivot into the run
+  if (v > 30 && L > 20 && !c.hop && c.st !== 'drag') { const da = angDiff(Math.atan2(uy, ux), c.face ?? 0); c.face = (c.face ?? 0) + clamp(da, -11 * dt, 11 * dt); }   // a quick pivot into the run
   const tn = Math.abs(angDiff(Math.atan2(uy, ux), c.face ?? 0)), step = Math.min(L, v * dt * (v > 30 && !c.hop && c.st !== 'drag' ? clamp(1.3 - tn * 0.75, 0.15, 1) : 1));   // it turns into its run, not sliding off sideways
   e.x += ux * step; e.y += uy * step;
   c.v = step / Math.max(dt, 1e-4); c.dir = Math.atan2(uy, ux); c.want = step; e.phase += step * 1.348 / (c.v > 70 ? 15 : 11);   // the same stride as yours
@@ -11380,7 +11380,7 @@ function clanAI(e, d, dt) {
   }
   // which way it faces: at you while it's watching you, the way it's going when it runs
   if (c.v > 25 && !['drag', 'down'].includes(c.st)) c.faceW = c.dir;   // moving: it looks the way it's going (Joe: no gliding sideways)
-  c.face += angDiff(c.faceW, c.face) * Math.min(1, dt * (c.v > 100 ? 12 : 6));
+  c.face += angDiff(c.faceW, c.face) * Math.min(1, dt * (c.v > 100 ? 12 : c.v < 5 ? 8 : 6));   // stopped: it turns round to you
   e.face = Math.cos(c.face) >= 0 ? 1 : -1;
 }
 function clanAround(r, a) { const p = S.p; return { x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r }; }
@@ -11394,11 +11394,11 @@ const CLAN_ST = {
     const v = g.stop > 0 ? (L > 30 ? CL.walk : 0) : L > 60 ? CL.run * 0.8 : 36 * (0.8 + 0.4 * c.seed);
     clanMove(e, tx, ty, v, dt);
     c.cr = g.stop > 0 ? 0.85 : 0.35; if (c.v > 80) c.q = 0.6;
-    c.faceW = c.v > 5 ? c.dir : c.face + Math.sin(S.t * 0.4 + c.seed * 9) * 0.02;   // looking about
+    c.faceW = c.v > 5 ? c.dir : c.sees && d < 500 ? Math.atan2(S.p.y - e.y, S.p.x - e.x) : c.face + Math.sin(S.t * 0.4 + c.seed * 9) * 0.02;   // looking about; stopped with you in sight, it turns to watch you
     if (g.stop > 0 && (c.idle = (c.idle ?? 3) - dt) <= 0) { c.idle = 4 + Math.random() * 6; if (Math.random() < 0.4) clanSay(e, pick(['click', 'chatter', 'grunt']), 0.7); }
     // it sees you (nearly always before you see it)
     const sp = Math.hypot(S.p.vx, S.p.vy), R = CL.notice * (S.day.crouch ? 0.6 : 1) * (sp > 120 ? 1.3 : 1);
-    if ((g.cool <= 0 || d < 120) && (d < 140 || c.vis || (c.sees && d < R) || (S.t - clan().busy < 1 && d < 650))) clanNotice(e);
+    if ((g.cool <= 0 || d < 250) && (d < 140 || c.vis || (c.sees && d < R) || (S.t - clan().busy < 1 && d < 650))) clanNotice(e);
   },
   watch(e, c, d, dt) {   // stood or crouched at the side of a trunk, looking at you; shifting about, head on one side
     if (c.o.delay > 0) { c.o.delay -= dt; c.cr = 0.7; c.t = 0; return; }

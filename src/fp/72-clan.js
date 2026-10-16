@@ -218,12 +218,12 @@ function clanThink(e) {   // what next: never the same each time, but always for
   c.allies = clanAllies(e);
   const conf = c.conf = clanConf(e), sp = Math.hypot(p.vx, p.vy), lit = !!clanRefugeAt(p.x, p.y, 40), busy = S.t - C.busy < 3;
   const away = sp > 105 && ((p.x - e.x) * p.vx + (p.y - e.y) * p.vy) / (Math.max(d, 1) * sp) > 0.5;
-  const W = [['circle', 1.25 + 0.4 * P.cur], ['watch', 0.6 + 0.5 * P.cur],
+  const W = [['circle', 0.25 + 0.15 * P.cur], ['watch', 2.6 + 1.2 * P.cur],   // Joe: mostly they just stand and look at you
     ['approach', lit ? 0.1 : P.cur * 1.3 * (1 - Math.min(1, c.fear)) + (busy ? 0.9 * P.cur : 0)],
-    ['retreat', c.fear * 1.2 + (c.allies ? 0 : 0.25 * (1 - P.agg))]];
+    ['retreat', c.fear * 0.6 + (c.allies ? 0 : 0.15 * (1 - P.agg))]];
   if (conf > 0.2 && !lit) W.push(['threat', (P.agg + 0.2) * conf * 1.6 + (c.band ? c.band.heat * (P.terr ? 0.5 : 0.15) : 0)]);
   if (conf > 0.45 && !lit && d < 300 && clanTokFree()) W.push(['attack', (conf - 0.4) * 1.4 * (0.4 + 0.4 * C.w) * (P.opp ? 1 + C.w : 1) * (busy ? (P.opp ? 2.5 : 1.6) : 1)]);   // mostly when you're weak or busy
-  if (c.allies && !lit) W.push(['flank', 0.35 * (P.agg + P.soc)]);
+  if (c.allies && !lit) W.push(['flank', 0.15 * (P.agg + P.soc)]);
   if (away && !lit) W.push(['pursue', conf > 0.35 ? P.agg * 2 : 0.1]);
   if (C.build && Math.hypot(C.build.x - p.x, C.build.y - p.y) > 160 && Math.hypot(C.build.x - e.x, C.build.y - e.y) < 500) W.push(['inspect', P.cur * 1.2]);
   if (c.engT > 30) W.push(['leave', (0.15 + 0.4 * (1 - P.cur)) * (1 - P.agg) * Math.min(2, c.engT / 60) + (away && P.agg < 0.4 ? 0.8 : 0)]);
@@ -287,11 +287,11 @@ const CLAN_ST = {
   watch(e, c, d, dt) {   // stood or crouched at the side of a trunk, looking at you; shifting about, head on one side
     if (c.o.delay > 0) { c.o.delay -= dt; c.cr = 0.7; c.t = 0; return; }
     if (!c.o.init) {
-      c.o.init = 1; c.o.T = (1.8 + Math.random() * 3.5) * (0.6 + 0.6 * c.P.cur); c.o.pose = Math.random() < 0.55 ? 0.9 : 0.15 + 0.3 * Math.random(); c.o.sh = 1 + Math.random();
+      c.o.init = 1; c.o.T = (6 + Math.random() * 9) * (0.7 + 0.6 * c.P.cur); c.o.pose = Math.random() < 0.55 ? 0.9 : 0.15 + 0.3 * Math.random(); c.o.sh = 1 + Math.random();
       const t = propsNear(e.x, e.y, 45).find(o => o.kind === 'tree' && o.type !== 'dead');
       if (t) { const a = Math.atan2(t.y - cam.position.z, t.x - cam.position.x) + (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.5), r = t.r * t.s + 10; c.goal = { x: t.x + Math.cos(a) * r, y: t.y + Math.sin(a) * r }; }
     }
-    if ((c.o.sh -= dt) <= 0) { c.o.sh = 0.8 + Math.random() * 1.6; if (Math.random() < 0.5) { const a = Math.random() * 6.283; c.goal = { x: e.x + Math.cos(a) * 12, y: e.y + Math.sin(a) * 12 }; } if (Math.random() < 0.3) c.o.pose = c.o.pose > 0.5 ? 0.2 : 0.9; }   // shifting its weight, a step aside
+    if ((c.o.sh -= dt) <= 0) { c.o.sh = 3 + Math.random() * 4; if (Math.random() < 0.2) { const a = Math.random() * 6.283; c.goal = { x: e.x + Math.cos(a) * 12, y: e.y + Math.sin(a) * 12 }; } if (Math.random() < 0.15) c.o.pose = c.o.pose > 0.5 ? 0.2 : 0.9; }   // shifting its weight, a step aside
     if (c.goal) clanMove(e, c.goal.x, c.goal.y, CL.walk * 0.8, dt);
     c.cr = c.o.pose; c.stare = 1;
     if (!c.o.said && c.t > 0.8 && Math.random() < dt * 0.15) { c.o.said = 1; clanSay(e, pick(['click', 'chatter', 'growl']), 0.7); }
@@ -301,14 +301,14 @@ const CLAN_ST = {
   circle(e, c, d, dt) {   // round you to look from another side: quick, swerving, sometimes doubling back
     const p = S.p;
     if (!c.o.init) {
-      c.o.init = 1; const a0 = Math.atan2(e.y - p.y, e.x - p.x); c.o.s = Math.random() < 0.5 ? -1 : 1; c.o.r = clanR(e); c.o.fast = Math.random() < 0.35; c.o.zz = Math.random() * 6;
+      c.o.init = 1; const a0 = Math.atan2(e.y - p.y, e.x - p.x); c.o.s = Math.random() < 0.5 ? -1 : 1; c.o.r = clanR(e); c.o.fast = Math.random() < 0.1; c.o.zz = Math.random() * 6;
       for (let k = 0; k < 5; k++) { c.o.a = a0 + c.o.s * (0.5 + Math.random() * 1.0); const Q = clanAround(c.o.r, c.o.a); if (clanOpen(Q.x, Q.y)) break; c.o.s = -c.o.s; }
     }
     const G = clanAround(c.o.r, c.o.a), sw = Math.sin(S.t * 5 + c.o.zz) * 22, dx = G.x - e.x, dy = G.y - e.y, L = Math.hypot(dx, dy) || 1;
-    clanMove(e, G.x - dy / L * sw, G.y + dx / L * sw, c.o.fast ? CL.dart : CL.run, dt);
+    clanMove(e, G.x - dy / L * sw * 0.4, G.y + dx / L * sw * 0.4, c.o.fast ? CL.run : CL.walk * 1.3, dt);
     c.q = c.o.fast ? 1 : 0.35; c.cr = 0.45;
-    if (!c.o.flip && c.t > 0.6 && Math.random() < dt * 0.5) { c.o.flip = 1; c.o.s = -c.o.s; c.o.a += c.o.s * (0.7 + Math.random() * 0.6); }   // a sudden change of mind
-    if (L < 18 || c.t > 6 || c.stuck > 0.6) { if (Math.random() < 0.6) clanGo(e, 'watch'); else clanThink(e); }
+    if (!c.o.flip && c.t > 0.6 && Math.random() < dt * 0.15) { c.o.flip = 1; c.o.s = -c.o.s; c.o.a += c.o.s * (0.7 + Math.random() * 0.6); }   // a sudden change of mind
+    if (L < 18 || c.t > 8 || c.stuck > 0.6) clanGo(e, 'watch');
   },
   approach(e, c, d, dt) {   // closer, a few steps at a time, stopping to look
     if (!c.o.init) { c.o.init = 1; c.o.stop = clamp(150 - 80 * c.P.cur + 70 * c.fear, 70, 180); c.o.go = 1 + Math.random() * 1.5; }
@@ -320,13 +320,13 @@ const CLAN_ST = {
     } else {
       c.stare = 1; c.cr = 0.25; c.o.held = (c.o.held || 0) + dt;
       if (!c.o.said) { c.o.said = 1; if (Math.random() < 0.5) clanSay(e, pick(['chatter', 'click', 'growl']), 0.8); }
-      if (c.o.held > 1.2 + 2 * c.P.cur) return clanThink(e);
+      if (c.o.held > 1.2 + 2 * c.P.cur) return clanGo(e, 'watch');
     }
     if (c.t > 14 || c.stuck > 0.8) clanThink(e);
   },
   threat(e, c, d, dt) {   // a scream, a chest beat, a charge that stops short, a feinted swing, or a fast swerving dance round you
     if (!c.o.init) {
-      c.o.init = 1; c.o.k = c.o.k || wpick([['scream', 1], ['beat', 0.8], ['bluff', 0.3 + c.P.agg], ['fake', 0.8 * c.P.agg + 0.1], ['dance', 0.9]]);
+      c.o.init = 1; c.o.k = c.o.k || wpick([['scream', 1], ['beat', 0.8], ['bluff', 0.3 + c.P.agg], ['fake', 0.8 * c.P.agg + 0.1], ['dance', 0.2]]);
       if (c.o.k === 'scream' || c.o.k === 'bluff') clanSay(e, 'scream');
       if (c.o.k === 'beat') clanSay(e, 'growl');
       if (c.o.k === 'dance') clanSay(e, 'chatter');

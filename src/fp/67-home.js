@@ -129,6 +129,21 @@ function tcolUse(T) {
   dayChanged();
 }
 
+// Joe couldn't put his tarp up: it was only a material, so it had no Place, and the collector had to be made from it first in
+// the pack. Now the tarp itself is held and placed like anything you build, and stretching it takes four sticks as you do it.
+const TARP_STICKS = 4;
+Object.assign(DIT.tarp, { k: 'place', build: 'tcol', b: `Hold it and Place it · stretched over ${TARP_STICKS} sticks it catches rain` });
+{
+  const placeHeld = dayPlaceHeld;
+  dayPlaceHeld = function () {
+    const s = heldSlot();
+    if (!s || s.id !== 'tarp') return placeHeld();
+    if (dayHave('sticks') < TARP_STICKS) { dayNote('tarpsticks', `you need ${TARP_STICKS} sticks to put the tarp up`, 2); return; }
+    const n0 = S.day.builds.length; placeHeld();
+    if (S.day.builds.length > n0) { daySpend({ sticks: TARP_STICKS }); dayChanged(); }
+  };
+}
+
 // ---- a run from when there was a camp ----
 // Its camp box, water barrel and fire become things you built, where they stood, so nothing it had is lost.
 function campToBuilds() {

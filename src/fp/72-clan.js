@@ -115,7 +115,8 @@ function clanMove(e, tx, ty, v, dt) {   // toward (tx, ty) at v; how far it stil
     const side = ox * -uy + oy * ux;
     if (Math.abs(side) < R) { const s = side > 0 ? -1 : 1, k = (R - Math.abs(side)) / R * 1.4, nx = ux - uy * s * k, ny = uy + ux * s * k, n = Math.hypot(nx, ny); ux = nx / n; uy = ny / n; }
   }
-  const step = Math.min(L, v * dt);
+  if (v > 30 && !c.hop && c.st !== 'drag') { const da = angDiff(Math.atan2(uy, ux), c.face ?? 0); c.face = (c.face ?? 0) + clamp(da, -11 * dt, 11 * dt); }   // a quick pivot into the run
+  const tn = Math.abs(angDiff(Math.atan2(uy, ux), c.face ?? 0)), step = Math.min(L, v * dt * (v > 30 && !c.hop && c.st !== 'drag' ? clamp(1.3 - tn * 0.75, 0.15, 1) : 1));   // it turns into its run, not sliding off sideways
   e.x += ux * step; e.y += uy * step;
   c.v = step / Math.max(dt, 1e-4); c.dir = Math.atan2(uy, ux); c.want = step; e.phase += step * 1.348 / (c.v > 70 ? 15 : 11);   // the same stride as yours
   return L - step;
@@ -220,6 +221,10 @@ function clanReact(e) {   // you're coming at it: it stands its ground, backs of
   const c = e.cl; c.allies = clanAllies(e); const conf = c.conf = clanConf(e); c.fear += 0.05;
   if (c.d < 60 && !(conf > 0.55 && clanTokFree(true))) return clanGo(e, Math.random() < 0.6 ? 'back' : 'flee', { dist: 160 });   // too close: it springs away
   if (conf > 0.55 && Math.random() < 0.6) return clanGo(e, clanTokFree(true) && Math.random() < 0.45 ? 'attack' : 'threat', { k: pick(['scream', 'bluff', 'beat', 'fake']) });
+  if (conf > 0.12 && Math.random() < 0.55) {   // it holds its ground: a start, a hop back, and it stands there staring at you
+    const a = Math.atan2(e.y - S.p.y, e.x - S.p.x) + (Math.random() - 0.5); c.hop = { vx: Math.cos(a) * 160, vy: Math.sin(a) * 160, t: 0.22, T: 0.22 }; clanSay(e, Math.random() < 0.5 ? 'growl' : 'grunt', 0.8);
+    return clanGo(e, 'watch', { pose: 0.2 });
+  }
   if (conf > 0.12 || Math.random() < 0.3) return clanGo(e, 'retreat');
   clanGo(e, 'flee');
 }
@@ -273,7 +278,10 @@ function clanAI(e, d, dt) {
   clanHopStep(e, dt);
   if (c.lookT && S.t - c.lookT < 1.2 && c.lookAt) c.faceW = Math.atan2(c.lookAt.y - e.y, c.lookAt.x - e.x);   // a glance at the one that called it
   // it can't stand inside you: bodies push apart, and one that finds itself right on top of you springs back
-  if (d < 26 && c.z < 1 && !e.sw && !['down', 'drag', 'pounce'].includes(c.st)) { const dx = e.x - p.x, dy = e.y - p.y, L = Math.hypot(dx, dy) || 1; e.x = p.x + dx / L * 26; e.y = p.y + dy / L * 26; if (!['attack', 'hdart', 'back', 'flee', 'retreat'].includes(c.st)) clanGo(e, 'back', { dist: 140 + Math.random() * 60 }); }
+  if (d < 24 && c.z < 1 && !['down', 'drag', 'pounce'].includes(c.st)) {   // bodies don't pass through each other: you bump into it (it isn't shoved along ahead of you)
+    const dx = p.x - e.x, dy = p.y - e.y, L = Math.hypot(dx, dy) || 1; p.x = e.x + dx / L * 24; p.y = e.y + dy / L * 24;
+    if (!['attack', 'hdart', 'hwarn', 'back', 'flee', 'retreat'].includes(c.st) && !e.sw) clanGo(e, 'back', { dist: 140 + Math.random() * 60 });
+  }
   // the firelight: they won't set foot in it
   const R = clanRefugeAt(e.x, e.y, 26);
   if (R && !R.walls) { const dx = e.x - R.x, dy = e.y - R.y, dd = Math.hypot(dx, dy) || 1, r = R.r + 26; if (dd < r) { e.x = R.x + dx / dd * r; e.y = R.y + dy / dd * r; } }
@@ -283,7 +291,7 @@ function clanAI(e, d, dt) {
     clanSnd(Math.random() < (c.vis ? 0.02 : 0.07) ? 'twig' : 'rustle', e.x, e.y, (0.3 + 0.7 * (1 - d / 280)) * (c.v > 120 ? 1 : 0.6));
   }
   // which way it faces: at you while it's watching you, the way it's going when it runs
-  if (c.v > 70 && !['attack', 'hdart', 'hunt', 'approach', 'threat', 'pursue', 'drag', 'down'].includes(c.st) && !c.o.facing) c.faceW = c.dir;
+  if (c.v > 25 && !['drag', 'down'].includes(c.st)) c.faceW = c.dir;   // moving: it looks the way it's going (Joe: no gliding sideways)
   c.face += angDiff(c.faceW, c.face) * Math.min(1, dt * (c.v > 100 ? 12 : 6));
   e.face = Math.cos(c.face) >= 0 ? 1 : -1;
 }
@@ -307,8 +315,8 @@ const CLAN_ST = {
   watch(e, c, d, dt) {   // stood or crouched at the side of a trunk, looking at you; shifting about, head on one side
     if (c.o.delay > 0) { c.o.delay -= dt; c.cr = 0.7; c.t = 0; return; }
     if (!c.o.init) {
-      c.o.init = 1; c.o.T = (6 + Math.random() * 9) * (0.7 + 0.6 * c.P.cur); c.o.pose = Math.random() < 0.55 ? 0.9 : 0.15 + 0.3 * Math.random(); c.o.sh = 1 + Math.random();
-      const t = propsNear(e.x, e.y, 45).find(o => o.kind === 'tree' && o.type !== 'dead');
+      c.o.init = 1; c.o.T = (6 + Math.random() * 9) * (0.7 + 0.6 * c.P.cur); const held = c.o.pose !== undefined; c.o.pose = c.o.pose ?? (Math.random() < 0.55 ? 0.9 : 0.15 + 0.3 * Math.random()); c.o.sh = 1 + Math.random();
+      const t = !held && propsNear(e.x, e.y, 45).find(o => o.kind === 'tree' && o.type !== 'dead');
       if (t) { const a = Math.atan2(t.y - cam.position.z, t.x - cam.position.x) + (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 0.5), r = t.r * t.s + 10; c.goal = { x: t.x + Math.cos(a) * r, y: t.y + Math.sin(a) * r }; }
     }
     if ((c.o.sh -= dt) <= 0) { c.o.sh = 3 + Math.random() * 4; if (Math.random() < 0.2) { const a = Math.random() * 6.283; c.goal = { x: e.x + Math.cos(a) * 12, y: e.y + Math.sin(a) * 12 }; } if (Math.random() < 0.15) c.o.pose = c.o.pose > 0.5 ? 0.2 : 0.9; }   // shifting its weight, a step aside
@@ -324,10 +332,11 @@ const CLAN_ST = {
       c.o.init = 1; const a0 = Math.atan2(e.y - p.y, e.x - p.x); c.o.s = Math.random() < 0.5 ? -1 : 1; c.o.r = clanR(e); c.o.fast = Math.random() < 0.1; c.o.zz = Math.random() * 6;
       for (let k = 0; k < 5; k++) { c.o.a = a0 + c.o.s * (0.5 + Math.random() * 1.0); const Q = clanAround(c.o.r, c.o.a); if (clanOpen(Q.x, Q.y)) break; c.o.s = -c.o.s; }
     }
-    const G = clanAround(c.o.r, c.o.a), sw = Math.sin(S.t * 5 + c.o.zz) * 22, dx = G.x - e.x, dy = G.y - e.y, L = Math.hypot(dx, dy) || 1;
-    clanMove(e, G.x - dy / L * sw * 0.4, G.y + dx / L * sw * 0.4, c.o.fast ? CL.run : CL.walk * 1.3, dt);
+    if (!c.o.G || c.o.flipped) { c.o.G = clanAround(c.o.r, c.o.a); c.o.flipped = 0; }   // a spot on the ground to go to: it doesn't slide along with you (Joe)
+    const G = c.o.G, L = Math.hypot(G.x - e.x, G.y - e.y);
+    clanMove(e, G.x, G.y, c.o.fast ? CL.run : CL.walk * 1.3, dt);
     c.q = c.o.fast ? 1 : 0.35; c.cr = 0.45;
-    if (!c.o.flip && c.t > 0.6 && Math.random() < dt * 0.15) { c.o.flip = 1; c.o.s = -c.o.s; c.o.a += c.o.s * (0.7 + Math.random() * 0.6); }   // a sudden change of mind
+    if (!c.o.flip && c.t > 0.6 && Math.random() < dt * 0.15) { c.o.flip = 1; c.o.s = -c.o.s; c.o.a += c.o.s * (0.7 + Math.random() * 0.6); c.o.flipped = 1; }   // a sudden change of mind
     if (L < 18 || c.t > 8 || c.stuck > 0.6) clanGo(e, 'watch');
   },
   approach(e, c, d, dt) {   // closer, a few steps at a time, stopping to look
@@ -363,8 +372,8 @@ const CLAN_ST = {
       return;
     }
     // dance: swerving round you, close, never still
-    const r = clamp(d, 90, 150), a = Math.atan2(e.y - p.y, e.x - p.x) + c.o.s * 0.9, G = clanAround(r, a);
-    clanMove(e, G.x, G.y, CL.run * 1.15, dt); c.cr = 0.5; c.q = 0.2;
+    if (!c.o.G || c.o.flipT <= 0) { const r = clamp(d, 90, 150), a = Math.atan2(e.y - p.y, e.x - p.x) + c.o.s * 0.9; c.o.G = clanAround(r, a); }
+    clanMove(e, c.o.G.x, c.o.G.y, CL.run * 1.15, dt); c.cr = 0.5; c.q = 0.2;
     if ((c.o.flipT -= dt) <= 0) { c.o.flipT = 0.35 + Math.random() * 0.6; if (Math.random() < 0.6) c.o.s = -c.o.s; if (Math.random() < 0.3) clanSay(e, pick(['chatter', 'growl']), 0.7); }
     if (c.t > 2.5 + 1.5 * c.seed) clanThink(e);
   },
@@ -401,14 +410,14 @@ const CLAN_ST = {
   },
   back(e, c, d, dt) {   // after a go at you: off a little way, looking back at you
     if (!c.o.init) { c.o.init = 1; const a = Math.atan2(e.y - S.p.y, e.x - S.p.x) + (Math.random() - 0.5) * 1.2, r = c.o.dist || 190 + Math.random() * 70; c.dest = clanAround(r, a); }
-    c.q = c.t > 0.4 ? 0.8 : 0; c.cr = 0.5; c.o.facing = c.t < 0.4 ? 1 : 0;
-    const L = clanMove(e, c.dest.x, c.dest.y, c.t < 0.4 ? CL.walk * 1.5 : CL.run * 1.1, dt);
+    c.cr = 0.5;
+    const L = clanMove(e, c.dest.x, c.dest.y, CL.run * 1.1, dt);   // it turns and runs (Joe: never backpedalling, never sliding)
     if (L < 12 || c.t > 3.5 || c.stuck > 0.5) { if (clan().rage > 0 && c.hunter) clanGo(e, 'hunt'); else clanGo(e, 'watch'); }
   },
   retreat(e, c, d, dt) {   // backing away: a few steps facing you, then turning to go, then a look back
     if (!c.o.init) { c.o.init = 1; const a = Math.atan2(e.y - S.p.y, e.x - S.p.x) + (Math.random() - 0.5) * 0.9; c.dest = clanAround(Math.max(d + 130, 300 + Math.random() * 100), a); }
-    c.o.facing = c.t < 0.8 ? 1 : 0; c.cr = 0.55;
-    const L = clanMove(e, c.dest.x, c.dest.y, c.t < 0.8 ? CL.walk * 1.4 : CL.run, dt);
+    c.cr = 0.55;
+    const L = clanMove(e, c.dest.x, c.dest.y, c.t < 0.6 ? CL.walk * 1.3 : CL.run, dt);
     if (L < 15 || c.t > 5 || c.stuck > 0.6) { if (c.fear > 0.85 || c.done) clanGo(e, 'leave'); else clanGo(e, 'watch'); }
   },
   flee(e, c, d, dt) {   // off into the trees at a run; hurt, it stumbles
@@ -421,7 +430,8 @@ const CLAN_ST = {
   flank(e, c, d, dt) {   // round behind you while another has your eye
     if (!c.o.init) { c.o.init = 1; c.o.r = 120 + Math.random() * 50; c.o.side = (Math.random() - 0.5) * 0.9; }
     const B = clanBehind(c.o.r, c.o.side), p = S.p, a = Math.atan2(e.y - p.y, e.x - p.x), da = angDiff(Math.atan2(B.y - p.y, B.x - p.x), a);
-    const G = Math.abs(da) > 0.5 ? clanAround(Math.max(c.o.r, Math.min(d, 220)), a + clamp(da, -0.7, 0.7)) : B;   // round you, not through you
+    if (!c.o.G || S.t > c.o.Gt) { c.o.G = Math.abs(da) > 0.5 ? clanAround(Math.max(c.o.r, Math.min(d, 220)), a + clamp(da, -0.7, 0.7)) : B; c.o.Gt = S.t + 1.2; }   // round you, not through you: spot to spot
+    const G = c.o.G;
     clanMove(e, G.x, G.y, CL.run, dt); const L = Math.hypot(B.x - e.x, B.y - e.y); c.cr = 0.65; c.q = c.v > 100 ? 0.6 : 0;
     if (L < 20) { c.allies = clanAllies(e); if (clanConf(e) > 0.45 && clanTokFree() && Math.random() < 0.5 + (c.P.opp ? 0.3 : 0)) clanGo(e, 'attack'); else clanGo(e, 'watch'); }
     else if (c.t > 7) clanThink(e);
@@ -468,17 +478,30 @@ const CLAN_ST = {
     c.vz = (c.vz || 0) - 520 * dt; c.z = Math.max(0, c.z + c.vz * dt); c.cr = 0.2; c.falling = 1;
     if (c.z <= 0) { c.vz = 0; c.falling = 0; c.climbing = 0; c.perched = 0; clanSnd('thud', e.x, e.y); clanThink(e); }
   },
-  hunt(e, c, d, dt) {   // after a kill, the bold ones: in the open, circling you, calling, waiting their turn
-    const C = clan(), p = S.p, sp = Math.hypot(p.vx, p.vy);
-    if (c.orb === undefined) c.orb = Math.atan2(e.y - p.y, e.x - p.x);
-    c.orb += (c.seed < 0.5 ? 1 : -1) * dt * 0.22;
-    for (const o of clanList()) if (o !== e && o.cl.st === 'hunt' && o.cl.orb !== undefined) { const da = angDiff(c.orb, o.cl.orb); if (Math.abs(da) < 0.9) c.orb += Math.sign(da || 1) * dt * 0.8; }
-    const r = 160 + 35 * Math.sin(S.t * 0.6 + c.seed * 6), G = clanAround(r, c.orb);
-    const L = Math.hypot(G.x - e.x, G.y - e.y), v = L > 140 ? CL.dart : Math.max(CL.run * 0.6, sp + 15);
-    clanMove(e, G.x, G.y, v, dt); c.cr = 0.4; c.q = c.v > 125 ? 1 : 0;
-    if ((c.hoot = (c.hoot ?? Math.random() * 3) - dt) <= 0) { c.hoot = 3 + Math.random() * 4; clanSay(e, pick(['scream', 'yell', 'growl']), 0.9); if (Math.random() < 0.4) c.gest = { k: Math.random() < 0.5 ? 'scream' : 'beat', t: S.t }; }
+  hunt(e, c, d, dt) {   // after a kill, the bold ones: out in the open round you, running from spot to spot, stopping to scream at you
+    const C = clan(), p = S.p;
+    if (clanRefugeAt(p.x, p.y)) return clanGo(e, 'wait');
     c.cd -= dt;
-    if (clanRefugeAt(p.x, p.y)) clanGo(e, 'wait');
+    if (!c.hs || (c.hs.at && S.t > c.hs.at)) {   // a new spot on the ground, away from where the others are
+      let best = null, bs = -1e9;
+      for (let k = 0; k < 8; k++) {
+        const a = Math.atan2(e.y - p.y, e.x - p.x) + (Math.random() - 0.5) * 2.4, r = 140 + Math.random() * 90, G = clanAround(r, a);
+        if (!clanOpen(G.x, G.y)) continue;
+        let sc = -Math.hypot(G.x - e.x, G.y - e.y) * 0.2 + Math.random() * 40;
+        for (const o of clanList()) if (o !== e && o.cl.hs) sc -= Math.max(0, 140 - Math.hypot(o.cl.hs.x - G.x, o.cl.hs.y - G.y));
+        if (sc > bs) { bs = sc; best = G; }
+      }
+      c.hs = best || clanAround(180, Math.random() * 6.283); c.hs.at = 0;
+    }
+    const L = clanMove(e, c.hs.x, c.hs.y, Math.hypot(c.hs.x - e.x, c.hs.y - e.y) > 120 ? CL.dart : CL.run, dt); c.cr = 0.4;
+    if (L < 12) {   // there: it stands, faces you, screams or beats its chest; then off to another spot
+      c.v = 0; c.stare = 1; c.cr = 0.25;
+      if (!c.hs.at) { c.hs.at = S.t + 1.5 + Math.random() * 2.5; if (Math.random() < 0.6) { clanSay(e, pick(['scream', 'yell', 'growl']), 0.9); c.gest = { k: Math.random() < 0.5 ? 'scream' : 'beat', t: S.t }; } }
+    }
+    if (d < 120 && (c.dPrev - d) > 2.5) {   // you come at it: it stands its ground, or runs for it
+      c.hs = null;
+      if (clanTokFree(true) && Math.random() < 0.5) { C.tok = e; clanGo(e, 'hwarn'); } else { const A = clanAway(e, 260); c.hs = { x: A.x, y: A.y, at: 0 }; }
+    }
   },
   hwarn(e, c, d, dt) { c.cr = 0.9; c.coil = 1; if (c.t >= c.wT) { c.coil = 0; clanGo(e, 'hdart'); } },
   hdart(e, c, d, dt) {
@@ -606,7 +629,7 @@ function clanStep(dt) {
       const ready = H2.filter(e => e.cl.st === 'hunt' && e.cl.cd <= 0 && e.cl.d < 280);
       if (ready.length) { const behind = e => Math.abs(angDiff(Math.atan2(e.y - p.y, e.x - p.x), S.aimW)); ready.sort((a, b) => behind(b) - behind(a)); C.tok = ready[0]; clanGo(C.tok, 'hwarn'); }
     }
-    if (C.rage <= 0 || (!H2.length && !C.reinf)) { C.rage = 0; C.more = 0; for (const e of H2) { e.cl.hunter = 0; e.cl.orb = undefined; clanGo(e, 'retreat'); } }   // it's over: they fall back into the trees
+    if (C.rage <= 0 || (!H2.length && !C.reinf)) { C.rage = 0; C.more = 0; for (const e of H2) { e.cl.hunter = 0; e.cl.hs = null; clanGo(e, 'retreat'); } }   // it's over: they fall back into the trees
   }
   // now and then, far off, their calls
   if ((C.callT = (C.callT ?? 20) - dt) <= 0) {

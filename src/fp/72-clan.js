@@ -876,6 +876,7 @@ function clanPose(R, e, c, now, dt, dead) {
   const mx = e.x - (R.px ?? e.x), my = e.y - (R.py ?? e.y), md = dead || c.flyK || c.hop || c.climbing ? 0 : Math.hypot(mx, my); R.px = e.x; R.py = e.y;
   const vNow = dt > 0 && md < 40 ? md / dt : 0; R.vs = (R.vs ?? vNow) + (vNow - (R.vs ?? vNow)) * Math.min(1, dt * 7);
   if (md < 40) R.ph = (R.ph ?? c.seed * 6.283) + md * 1.348 / lerp(11, 15, clamp((R.vs - 45) / 50, 0, 1));
+  { const st = Math.floor((R.ph ?? 0) / Math.PI); if (R.stepI !== undefined && st !== R.stepI && R.vs > 8 && !dead && !(c.z > 1)) clanFoot(e, R.vs, c.crK); R.stepI = st; }   // a foot down, twice a stride
   const t = now + c.seed * 37, v = R.vs, ph = R.ph ?? 0, wk = smoothK(clamp((v - 3) / 26, 0, 1));
   c.crK += ((c.cr ?? 0.6) - c.crK) * Math.min(1, dt * 5); c.qK = 0;
   const cr = c.crK * (1 - 0.9 * clamp(v / 70, 0, 1)), q = 0;
@@ -974,6 +975,19 @@ function clanPose(R, e, c, now, dt, dead) {
     blob(PT.ball, b.x, b.y, b.z, 3.6, 3.2, 3.6, 0, hex('#4a3626'));
   }
 }
+// its feet on the forest floor: heavier and lower than yours, bare feet thudding through leaf litter; a run pounds, a creep
+// barely whispers. Placed round your head like every sound of theirs, so you can hear which way it's coming from.
+const CL_FOOT_FAR = 380;
+function clanFoot(e, v, cr) {
+  if (!actx || !stepBuf || !S) return;
+  const d = Math.hypot(e.x - S.p.x, e.y - S.p.y); if (d > CL_FOOT_FAR) return;
+  const run = clamp((v - 50) / 70, 0, 1), vol = (0.22 + 0.4 * run) * (1 - 0.6 * clamp(cr, 0, 1)) * (0.8 + Math.random() * 0.35);
+  const o = placeOut(e.x, e.y, vol, CL_FOOT_FAR); if (!o) return;
+  const s = actx.createBufferSource(), lp = actx.createBiquadFilter();
+  s.buffer = stepBuf; s.playbackRate.value = lerp(0.74, 0.9, run) + Math.random() * 0.1;
+  lp.type = 'lowpass'; lp.frequency.value = lerp(1500, 3200, run) * (1 - 0.4 * d / CL_FOOT_FAR);
+  s.connect(lp); lp.connect(o); s.start(actx.currentTime);
+}
 function clanDraw(now, dt) {
   if (!CLAN_ON || !S.rg) return;
   clanCampDraw();
@@ -983,7 +997,7 @@ function clanDraw(now, dt) {
     if (e.type !== 'cannibal' || e.dead || !e.cl) continue;
     if (Math.abs(e.x - p.x) > R0 || Math.abs(e.y - p.y) > R0) continue;
     const c = e.cl;
-    if (!c.rig || c.rig.owner !== e) { c.rig = clanRig(c.vi); if (!c.rig) continue; c.rig.owner = e; c.rig.keep = false; Object.values(c.rig.cur).forEach(a => a.fill(0)); c.rig.root = [0, -9 * c.crK]; c.rig.px = c.rig.py = c.rig.vs = undefined; }
+    if (!c.rig || c.rig.owner !== e) { c.rig = clanRig(c.vi); if (!c.rig) continue; c.rig.owner = e; c.rig.keep = false; Object.values(c.rig.cur).forEach(a => a.fill(0)); c.rig.root = [0, -9 * c.crK]; c.rig.px = c.rig.py = c.rig.vs = c.rig.stepI = undefined; }
     clanPose(c.rig, e, c, now, dt, null);
   }
   if (C) {

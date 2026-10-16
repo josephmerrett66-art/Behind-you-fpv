@@ -26,10 +26,19 @@ function placeOut(x, y, vol, far = 700) {
   if (!actx) return null;
   const p = S ? S.p : { x: 0, y: 0 }, dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy), a = S ? S.aimW : 0;
   const front = d > 1 ? (dx * Math.cos(a) + dy * Math.sin(a)) / d : 1, side = d > 1 ? (dx * -Math.sin(a) + dy * Math.cos(a)) / d : 0;
-  const g = actx.createGain(); g.gain.value = vol * Math.pow(clamp(1 - d / far, 0, 1), 1.4);
-  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = front < -0.2 ? 1300 + 1500 * (1 + front) : 12000;
+  const g = actx.createGain(); g.gain.value = vol * Math.pow(clamp(1 - d / far, 0, 1), 1.4) * lerp(0.72, 1, sstep(-1, 0.2, front));   // a little quieter behind your head
+  // behind you it goes dull, the further round the duller (smoothly, no step as it passes your shoulder)
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1400 + 12600 * sstep(-1, 0.15, front) ** 1.6;
   g.connect(lp);
-  if (actx.createStereoPanner) { const pn = actx.createStereoPanner(); pn.pan.value = clamp(side * 0.85, -1, 1); lp.connect(pn); pn.connect(sfxGain); } else lp.connect(sfxGain);
+  // where it is round your head: a head-shaped (HRTF) panner, so left, right, in front and behind each sound like it, best in
+  // headphones; the plain left-right pan only where a browser has no such panner. Loudness is still ours, not the panner's.
+  if (actx.createPanner) {
+    const pn = actx.createPanner(); pn.panningModel = 'HRTF'; pn.distanceModel = 'linear'; pn.refDistance = 1; pn.maxDistance = 1e4; pn.rolloffFactor = 0;
+    const px = side, pz = -front, py = 0.08;
+    if (pn.positionX) { pn.positionX.value = px; pn.positionY.value = py; pn.positionZ.value = pz; } else pn.setPosition(px, py, pz);
+    lp.connect(pn);
+    if (actx.createStereoPanner) { const bal = actx.createStereoPanner(); bal.pan.value = clamp(side * 0.95, -1, 1); pn.connect(bal); bal.connect(sfxGain); } else pn.connect(sfxGain);   // and plainly louder in the near ear, for phone speakers
+  } else if (actx.createStereoPanner) { const pn = actx.createStereoPanner(); pn.pan.value = clamp(Math.sign(side) * Math.abs(side) ** 0.7, -1, 1); lp.connect(pn); pn.connect(sfxGain); } else lp.connect(sfxGain);
   return g;
 }
 // the few sounds update() made itself

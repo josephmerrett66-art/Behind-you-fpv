@@ -105,7 +105,7 @@ function clanSpotAt(t, perch) {
 // ---------------- moving: round the trunks in the way ----------------
 function clanMove(e, tx, ty, v, dt) {   // toward (tx, ty) at v; how far it still has to go
   const c = e.cl, dx = tx - e.x, dy = ty - e.y, L = Math.hypot(dx, dy);
-  c.want = 0; v *= c.spd || 1;
+  c.want = 0; c.mvF = 1; v *= c.spd || 1;
   if (L < 0.5 || v <= 0) { c.v = 0; return L; }
   let ux = dx / L, uy = dy / L;
   for (const o of propsNear(e.x + ux * 20, e.y + uy * 20, 30)) {
@@ -284,6 +284,7 @@ function clanAI(e, d, dt) {
   else clanAnswer(e, c, d, dt);
   (CLAN_ST[c.st] || CLAN_ST.roam)(e, c, d, dt, closing);
   clanHopStep(e, dt);
+  if (!c.mvF) c.v = 0; c.mvF = 0;   // stood still this frame: not still mid-stride from the last time it moved
   if (c.lookT && S.t - c.lookT < 1.2 && c.lookAt) c.faceW = Math.atan2(c.lookAt.y - e.y, c.lookAt.x - e.x);   // a glance at the one that called it
   // it can't stand inside you: bodies push apart, and one that finds itself right on top of you springs back
   if (d < 24 && c.z < 1 && !['down', 'drag', 'pounce'].includes(c.st)) {   // bodies don't pass through each other: you bump into it (it isn't shoved along ahead of you)
@@ -311,7 +312,7 @@ const CLAN_ST = {
     if (!g || g.dead) { c.band = null; return clanGo(e, 'leave', { calm: 1 }); }
     c.off += dt * 0.15 * (c.seed - 0.5);
     const tx = g.x + Math.cos(c.off) * c.offR, ty = g.y + Math.sin(c.off) * c.offR, L = Math.hypot(tx - e.x, ty - e.y);
-    const v = g.stop > 0 ? (L > 30 ? CL.walk : 0) : L > 60 ? CL.run * 0.8 : 36 * (0.8 + 0.4 * c.seed);
+    const v = g.stop > 0 ? (L > 30 ? CL.walk * clamp((L - 30) / 25, 0.4, 1) : 0) : lerp(36 * (0.8 + 0.4 * c.seed), CL.run * 0.8, clamp((L - 35) / 60, 0, 1));   // easing between a walk and a run, not flicking
     clanMove(e, tx, ty, v, dt);
     c.cr = g.stop > 0 ? 0.85 : 0.35; if (c.v > 80) c.q = 0.6;
     c.faceW = c.v > 5 ? c.dir : c.sees && d < 500 ? Math.atan2(S.p.y - e.y, S.p.x - e.x) : c.face + Math.sin(S.t * 0.4 + c.seed * 9) * 0.02;   // looking about; stopped with you in sight, it turns to watch you
@@ -783,6 +784,7 @@ function clanSnd(k, x, y, v = 1, vp = 120) {
 // still has the orange beanie it crashed in.
 const clanHash = (x, y, z) => { const s = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453; return s - Math.floor(s); };
 const cmix = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
+const smoothK = u => u * u * (3 - 2 * u);
 const CL_BASE = { feet: [92, 70, 54], sole2: [52, 40, 32], mud: [64, 50, 38], belt: [96, 76, 50], band: [138, 26, 24], bandD: [96, 18, 18] };
 // Their look is one clan's: ash-grey or mud-dark skin, and painted over it in the same three colours every time, bone-white clay,
 // dried-blood red and soot black, in big shapes you can read across a clearing. Each wears a strip of red rag knotted round
@@ -869,7 +871,12 @@ function clanRig(vi) {
 // ---- the pose: hunched and watchful standing, a deep squat behind a tree, running upright like you ----
 function clanPose(R, e, c, now, dt, dead) {
   const P = {}; for (const [n] of BONES) P[n] = [0, 0, 0];
-  const t = now + c.seed * 37, v = c.v || 0, ph = e.phase || 0;
+  // how fast it is really going over the ground, from where it was last frame (not what its brain last asked for), smoothed,
+  // and the stride from the ground it covers: the legs only move when it does, and settle together as it stops
+  const mx = e.x - (R.px ?? e.x), my = e.y - (R.py ?? e.y), md = dead || c.flyK || c.hop || c.climbing ? 0 : Math.hypot(mx, my); R.px = e.x; R.py = e.y;
+  const vNow = dt > 0 && md < 40 ? md / dt : 0; R.vs = (R.vs ?? vNow) + (vNow - (R.vs ?? vNow)) * Math.min(1, dt * 7);
+  if (md < 40) R.ph = (R.ph ?? c.seed * 6.283) + md * 1.348 / lerp(11, 15, clamp((R.vs - 45) / 50, 0, 1));
+  const t = now + c.seed * 37, v = R.vs, ph = R.ph ?? 0, wk = smoothK(clamp((v - 3) / 26, 0, 1));
   c.crK += ((c.cr ?? 0.6) - c.crK) * Math.min(1, dt * 5); c.qK = 0;
   const cr = c.crK * (1 - 0.9 * clamp(v / 70, 0, 1)), q = 0;
   let rootY = -1.2, stiff = 12, lunge = 0, roll = 0;
@@ -880,7 +887,8 @@ function clanPose(R, e, c, now, dt, dead) {
   P.armL = [-0.14 + 0.04 * Math.sin(t * 0.9), 0, -0.16]; P.armR = [-0.14 - 0.04 * Math.sin(t * 0.9), 0, 0.16]; P.foreL[0] = P.foreR[0] = -0.35;
   P.hips[2] = 0.04 * Math.sin(t * 0.5); P.chest[2] = -0.03 * Math.sin(t * 0.5);
   // walking or running: the same run as yours (76-body), upright, arms pumping against the legs (Joe: human, not gorillas)
-  if (v > 4) {
+  if (wk > 0) {
+    const I = {}; for (const [n] of BONES) I[n] = P[n].slice(); const rY = rootY;
     const gk = Math.min(1, v / RUN) + 0.6 * clamp((v - 130) / 50, 0, 1), sw = Math.sin(ph), cw = Math.cos(ph), k = 0.35 + 0.65 * gk;
     P.legL = [-sw * 0.85 * k, 0, 0]; P.legR = [sw * 0.85 * k, 0, 0];
     P.shinL[0] = 0.2 + 1.35 * k * Math.max(0, cw) ** 1.5 + 0.15 * k; P.shinR[0] = 0.2 + 1.35 * k * Math.max(0, -cw) ** 1.5 + 0.15 * k;
@@ -890,6 +898,7 @@ function clanPose(R, e, c, now, dt, dead) {
     P.hips = [0, sw * 0.22 * k, -cw * 0.09 * k]; P.spine = [0.12 + 0.55 * (0.12 + 0.35 * gk), 0, 0]; P.chest = [0.35 * (0.12 + 0.35 * gk), -sw * 0.32 * k, cw * 0.05 * k];
     P.neck[0] = -0.05; P.head = [-0.1 - 0.2 * gk, sw * 0.08 * k, -cw * 0.03 * k];
     rootY = Math.abs(cw) * (1.5 + 0.8 * (1 - gk)) * k - 0.6 * k;
+    if (wk < 1) { for (const [n] of BONES) P[n] = cmix(I[n], P[n], wk); rootY = lerp(rY, rootY, wk); }   // easing out of the stance into the stride, and back
   }
   // crouching: a deep squat, weight forward, hands down near the ground, the head up and watching
   if (cr > 0.01) {
@@ -974,7 +983,7 @@ function clanDraw(now, dt) {
     if (e.type !== 'cannibal' || e.dead || !e.cl) continue;
     if (Math.abs(e.x - p.x) > R0 || Math.abs(e.y - p.y) > R0) continue;
     const c = e.cl;
-    if (!c.rig || c.rig.owner !== e) { c.rig = clanRig(c.vi); if (!c.rig) continue; c.rig.owner = e; c.rig.keep = false; Object.values(c.rig.cur).forEach(a => a.fill(0)); c.rig.root = [0, -9 * c.crK]; }
+    if (!c.rig || c.rig.owner !== e) { c.rig = clanRig(c.vi); if (!c.rig) continue; c.rig.owner = e; c.rig.keep = false; Object.values(c.rig.cur).forEach(a => a.fill(0)); c.rig.root = [0, -9 * c.crK]; c.rig.px = c.rig.py = c.rig.vs = undefined; }
     clanPose(c.rig, e, c, now, dt, null);
   }
   if (C) {

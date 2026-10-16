@@ -3,6 +3,7 @@
 // Ground coordinates are the game's (x, y); in 3D they are (x, height, y). A person is 38 tall; your eyes are at 35.
 const ATLAS_SRC = '/*ATLAS*/', ATLAS = /*ATLASMETA*/0, FLOOR_SRC = '/*FLOOR*/', SND = /*SND*/0, AMB_SRC = '/*AMB*/', VOX = /*VOX*/0;
 const V3 = THREE.Vector3, V4 = THREE.Vector4, M4 = THREE.Matrix4;
+const NIGHT_FOES = false;   // the night's own monsters (the wanderers, the tall one in the deep, the raid on a pen): off (Joe)
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, k) => a + (b - a) * k;

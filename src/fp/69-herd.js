@@ -119,7 +119,7 @@ function penStep(dt) {
       P.cT = 0; if (!addTo(P.inv, 'meat', 1)) dayChanged();
     }
     // the dark comes for a pen with nothing guarding it
-    if (!dayNight() || !herd.length || penSafe(P)) { P.raid = 0; continue; }
+    if (!NIGHT_FOES || !dayNight() || !herd.length || penSafe(P)) { P.raid = 0; continue; }
     if (!P.raid) { P.raid = 1; P.rT = 20 + Math.random() * 60; }
     if (P.raid === 1 && (P.rT -= dt) <= 0) {
       P.raid = 2;

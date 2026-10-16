@@ -127,9 +127,9 @@ FP.exStep = function (dt) {
     rg.spawnT = EX_GAP[ring] * (0.6 + Math.random() * 0.8);
     if (CLAN_ON && rmOn()) {}   // by day the clan (72-clan) keeps its own numbers
     else if (rg.enemies.length < cap && rmOn()) rmSpawn(ring, Math.min(cap - rg.enemies.length, 1 + Math.floor(Math.random() * 3) + (ring > 1 && Math.random() < 0.5 ? 1 : 0)));   // a band out roaming
-    else if (rg.enemies.length < cap) { if (ring > 0 && Math.random() < 0.25 && cap - rg.enemies.length >= 3) exPack(ring, Math.min(cap - rg.enemies.length, 3 + (Math.random() < 0.5 ? 1 : 0))); else exSpawn(exPickFoe(ring)); }
+    else if (NIGHT_FOES && rg.enemies.length < cap) { if (ring > 0 && Math.random() < 0.25 && cap - rg.enemies.length >= 3) exPack(ring, Math.min(cap - rg.enemies.length, 3 + (Math.random() < 0.5 ? 1 : 0))); else exSpawn(exPickFoe(ring)); }
   }
-  if (ring === 3 && !rg.enemies.some(e => e.type === 'tall') && (rg.tallCd -= dt) <= 0) {
+  if ((NIGHT_FOES || rmOn()) && ring === 3 && !rg.enemies.some(e => e.type === 'tall') && (rg.tallCd -= dt) <= 0) {
     exSpawn('tall'); rg.tallCd = 45;
     if (!rg.tallSeen) { rg.tallSeen = true; rg.ringMsg = { text: 'something tall', sub: 'walks the deep', t: 0 }; }
   }

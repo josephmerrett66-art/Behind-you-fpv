@@ -977,7 +977,7 @@ function clanPose(R, e, c, now, dt, dead) {
 }
 // its feet on the forest floor: heavier and lower than yours, bare feet thudding through leaf litter; a run pounds, a creep
 // barely whispers. Placed round your head like every sound of theirs, so you can hear which way it's coming from.
-const CL_FOOT_FAR = 380;
+const CL_FOOT_FAR = 460;   // far enough to hear them circling out in the trees (78-clan4)
 function clanFoot(e, v, cr) {
   if (!actx || !stepBuf || !S) return;
   const d = Math.hypot(e.x - S.p.x, e.y - S.p.y); if (d > CL_FOOT_FAR) return;

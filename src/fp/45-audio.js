@@ -12,7 +12,7 @@ function initAudio() {
   const dec = (b64, done) => { try { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); actx.decodeAudioData(u.buffer, done, () => {}); } catch (e) {} };
   dec(SND.step, b => { stepBuf = b; });
   for (const k of ['death', 'burn', 'big', 'small']) if (SND[k]) dec(SND[k], b => { mon[k] = b; if (k === 'burn') startBurnLoop(); });
-  if (VOX) for (const k in VOX) { CL_VB[k] = []; VOX[k].forEach((b, i) => dec(b, buf => { CL_VB[k][i] = buf; })); }   // the clan's recorded voices
+  if (VOX) for (const k in VOX) { CL_VB[k] = []; VOX[k].forEach((b, i) => dec(b, buf => { buf.lead = vocLead(buf); CL_VB[k][i] = buf; })); }   // the clan's recorded voices
   dec(AMB_SRC, b => { const s = actx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(ambG); s.start(); });
   noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
   const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
@@ -66,3 +66,5 @@ function audioFrame() {
   const low = S.rg.hp <= 1 && !S.rg.inCamp;
   OUT.frequency.setTargetAtTime(low ? 1100 : 20000, t, 0.3);
 }
+// where a clip's sound really starts: an mp3 opens on a few tens of milliseconds of nothing, which you'd hear as a lag
+function vocLead(buf) { const d = buf.getChannelData(0); let pk = 0; for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i])); for (let i = 0; i < d.length; i++) if (Math.abs(d[i]) > pk * 0.06) return Math.max(0, i / buf.sampleRate - 0.004); return 0; }

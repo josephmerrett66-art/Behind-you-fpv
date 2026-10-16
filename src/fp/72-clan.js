@@ -702,7 +702,7 @@ function clanRec(k, x, y, v, vp) {
   const s = actx.createBufferSource(), lp = actx.createBiquadFilter(), d = Math.hypot(x - S.p.x, y - S.p.y);
   s.buffer = B[i]; s.playbackRate.value = clamp(Math.pow(vp / 125, 0.4), 0.86, 1.18) * (0.97 + Math.random() * 0.06);
   lp.type = 'lowpass'; lp.frequency.value = 11000 * Math.pow(1 - clamp(d / CL_SND[k][1], 0, 0.85), 2) + 1400;
-  s.connect(lp); lp.connect(o); s.start(actx.currentTime + Math.random() * 0.04);
+  s.connect(lp); lp.connect(o); s.start(actx.currentTime, B[i].lead || 0);   // from where the voice starts, straight away
   return true;
 }
 const VOW = { a: [730, 1090, 2440], o: [570, 840, 2410], u: [320, 870, 2240], e: [530, 1840, 2480], i: [290, 2290, 3010], ae: [660, 1720, 2410], uh: [560, 1190, 2390] };

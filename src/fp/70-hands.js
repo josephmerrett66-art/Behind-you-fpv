@@ -93,7 +93,51 @@ function makeHand(mirror) {
   const t2 = new THREE.Group(); t2.position.z = -0.95; t1.add(t2); vmFlesh(t2, segGeo(0.37, 0.32, 0.8), skin);
   const tn = new THREE.Group(); tn.position.z = -0.8; t2.add(tn); vmFlesh(tn, new THREE.SphereGeometry(0.27, 8, 6).scale(0.85, 0.55, 1.05), nail).position.set(0, 0.2, 0.3);
   H.userData = { fingers, thumb: [t0, t1, t2], root };
+  bakeHand(H);
   return H;
+}
+// The hand above is some sixty little meshes, each with its outline: sixty draws a frame per hand, which a phone feels. So it is
+// baked into one mesh (and one outline): every vertex carries its colour and which joint it rides on, and the shader moves it
+// with that joint. The joints are still the groups above, posed the same way; the little meshes just aren't drawn any more.
+function bakeHand(H) {
+  const root = H.userData.root, parts = [], groups = [root];
+  root.traverse(o => { if (o.isMesh && o.material !== vmEdge && o.material !== vmEdgeThin) parts.push(o); });
+  let nV = 0, nI = 0; for (const o of parts) { const g = o.geometry; nV += g.attributes.position.count; nI += g.index ? g.index.count : g.attributes.position.count; }
+  const pos = new Float32Array(nV * 3), nor = new Float32Array(nV * 3), col = new Float32Array(nV * 3), gi = new Float32Array(nV), ew = new Float32Array(nV), idx = new Uint32Array(nI);
+  const v = new V3(), nm = new THREE.Matrix3(); let bv = 0, bi = 0;
+  for (const o of parts) {
+    o.updateMatrix(); nm.getNormalMatrix(o.matrix);
+    let k = groups.indexOf(o.parent); if (k < 0) k = groups.push(o.parent) - 1;
+    const g = o.geometry, P = g.attributes.position, N = g.attributes.normal, c = o.material.uniforms.col.value, e = o.children[0], w = e && e.material === vmEdge ? 0.16 : 0.07;
+    for (let i = 0; i < P.count; i++) {
+      v.fromBufferAttribute(P, i).applyMatrix4(o.matrix); pos.set([v.x, v.y, v.z], (bv + i) * 3);
+      v.fromBufferAttribute(N, i).applyMatrix3(nm).normalize(); nor.set([v.x, v.y, v.z], (bv + i) * 3);
+      col.set([c.x, c.y, c.z], (bv + i) * 3); gi[bv + i] = k; ew[bv + i] = w;
+    }
+    if (g.index) for (let i = 0; i < g.index.count; i++) idx[bi++] = bv + g.index.getX(i); else for (let i = 0; i < P.count; i++) idx[bi++] = bv + i;
+    bv += P.count; o.visible = false;
+  }
+  const G = new THREE.BufferGeometry();
+  G.setAttribute('position', new THREE.BufferAttribute(pos, 3)); G.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  G.setAttribute('cl', new THREE.BufferAttribute(col, 3)); G.setAttribute('gi', new THREE.BufferAttribute(gi, 1)); G.setAttribute('ew', new THREE.BufferAttribute(ew, 1));
+  G.setIndex(new THREE.BufferAttribute(idx, 1));
+  const M = groups.map(() => new M4()), inv = new M4(), NG = groups.length;
+  const head = `attribute float gi, ew; uniform mat4 J[${NG}];`;
+  const skin = new THREE.ShaderMaterial({
+    uniforms: { J: { value: M }, vmL: vmLight, colourK: LU.colourK },
+    vertexShader: `${head} attribute vec3 cl; varying vec3 vN, vC; void main() { mat4 m = J[int(gi + 0.5)]; vN = normalize(normalMatrix * (mat3(m) * normal)); vC = cl; gl_Position = projectionMatrix * modelViewMatrix * (m * vec4(position, 1.0)); }`,
+    fragmentShader: `uniform vec3 vmL; uniform float colourK; varying vec3 vN, vC;
+      void main() { float l = 0.5 + 0.55 * max(dot(normalize(vN), normalize(vec3(0.25, 0.55, 0.8))), 0.0); vec3 c = vC * l * vmL; float g = dot(c, vec3(0.3, 0.55, 0.15)); gl_FragColor = vec4(mix(vec3(g), c, colourK), 1.0); }`,
+  });
+  const line = new THREE.ShaderMaterial({
+    side: THREE.BackSide, uniforms: { J: { value: M }, vmL: vmLight },
+    vertexShader: `${head} void main() { mat4 m = J[int(gi + 0.5)]; gl_Position = projectionMatrix * modelViewMatrix * (m * vec4(position + normal * ew, 1.0)); }`,
+    fragmentShader: `uniform vec3 vmL; void main() { gl_FragColor = vec4(vec3(0.15, 0.15, 0.14) * vmL, 1.0); }`,
+  });
+  const sync = () => { inv.copy(root.matrixWorld).invert(); for (let i = 0; i < NG; i++) M[i].multiplyMatrices(inv, groups[i].matrixWorld); };   // each joint, as the hand is posed this frame
+  const body = new THREE.Mesh(G, skin), edge = new THREE.Mesh(G, line);
+  body.frustumCulled = edge.frustumCulled = false; body.onBeforeRender = edge.onBeforeRender = sync;
+  root.add(body); root.add(edge);
 }
 // how closed the hand is: 0 open and relaxed, 1 a tight fist round a handle; cup is a little open for holding something small
 const THUMB_OPEN = [0.55, 0.3], THUMB_GRIP = [1.05, -0.12];   // [turn in across the palm, lift]

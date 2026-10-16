@@ -12,6 +12,7 @@ function initAudio() {
   const dec = (b64, done) => { try { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); actx.decodeAudioData(u.buffer, done, () => {}); } catch (e) {} };
   dec(SND.step, b => { stepBuf = b; });
   for (const k of ['death', 'burn', 'big', 'small']) if (SND[k]) dec(SND[k], b => { mon[k] = b; if (k === 'burn') startBurnLoop(); });
+  if (VOX) for (const k in VOX) { CL_VB[k] = []; VOX[k].forEach((b, i) => dec(b, buf => { CL_VB[k][i] = buf; })); }   // the clan's recorded voices
   dec(AMB_SRC, b => { const s = actx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(ambG); s.start(); });
   noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
   const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;

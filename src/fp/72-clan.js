@@ -148,7 +148,7 @@ function clanGo(e, st, o = {}) {
   if (st === 'hwarn') { c.wT = 0.45 + Math.random() * 0.3; clanSay(e, 'scream'); c.gest = { k: 'scream', t: S.t }; }
   if (st === 'drop') clanSnd('rustle', e.x, e.y, 1.2);
 }
-function clanSay(e, k, v = 1) { clanSnd(k, e.x, e.y, v, e.cl.vp); if (k !== 'click' && k !== 'breath' && k !== 'grunt') e.cl.callT = S.t; }
+function clanSay(e, k, v = 1) { clanSnd(k, e.x, e.y, v, e.cl.vp); if (k !== 'click' && k !== 'breath' && k !== 'grunt' && k !== 'hurt') e.cl.callT = S.t; }
 function clanLater(dt, k, who, v = 1) { clan().q.push({ at: S.t + dt, k, who, v }); }
 function clanAllies(e) { let n = 0; for (const o of clanList()) if (o !== e && o.cl.eng && o.cl.st !== 'flee' && o.cl.st !== 'leave' && Math.hypot(o.x - e.x, o.y - e.y) < 420) n++; return n; }
 // how bold it feels right now: its nature, its friends about, its own ground, how weak you look, against its fear and your weapon
@@ -203,7 +203,7 @@ function clanNotice(e, quiet) {   // it has seen you: its band gathers round to 
   if (!quiet) { clanSay(e, Math.random() < 0.5 ? 'click' : 'chatter', 0.8); const o = M.find(q => q !== e); if (o) clanLater(0.7 + Math.random(), Math.random() < 0.5 ? 'chatter' : 'click', o, 0.7); }
 }
 function clanHurt(e) {   // hit: a grunt and a flinch, more afraid; then it runs, backs off, or turns on you
-  const c = e.cl; c.hp0 = e.hp; c.flinch = 1; clanSay(e, 'grunt'); clanAngAdd(0.6); c.wary = 1; if (clan().rd) clan().rd.aggr += 0.35; clanFriendHit(e);
+  const c = e.cl; c.hp0 = e.hp; c.flinch = 1; clanSay(e, 'hurt'); clanAngAdd(0.6); c.wary = 1; if (clan().rd) clan().rd.aggr += 0.35; clanFriendHit(e);
   if (c.st === 'down') return;
   if (c.saving) { const w = c.saving; c.saving = null; c.dragK = 0; if (w.cl) w.cl.saver = null; }   // hit while dragging: it lets go
   if (e.sw && e.sw.ph === 'wind') e.sw = null;
@@ -654,7 +654,21 @@ function clanStep(dt) {
 // through it, and three resonances for the vowel. Grunts, screams, calls to each other, growls, a jabbering chatter, a death cry.
 // Each of them has its own pitch (some deep, some higher), so you can tell there are several.
 const CL_SND = { clack: [1.1, 600], twig: [1.1, 520], rustle: [0.55, 420], click: [0.9, 700], thud: [1, 700], breath: [0.8, 380],
-  grunt: [1, 800], scream: [1.15, 1400], yell: [1, 1900], growl: [1, 700], chatter: [0.9, 1000], die: [1.15, 1400], wail: [1, 2100] };
+  grunt: [1, 800], hurt: [1, 800], scream: [1.15, 1400], yell: [1, 1900], growl: [1, 700], chatter: [0.9, 1000], die: [1.15, 1400], wail: [1, 2100] };
+// Real recorded voices (assets/voices.json, CC0 clips from Freesound, listed in assets/VOICES.md) take over from the built voice
+// once they're decoded. Each one is pitched a little by its owner's voice (deep leaders, high skinny ones), never the same clip
+// twice running, and dulled with distance so a call from far off sounds far off.
+const CL_VB = {}, CL_VLAST = {}, CL_VG = { grunt: 1.6, hurt: 1.6, scream: 2.4, yell: 1.4, growl: 1.2, chatter: 0.95, die: 2.2, wail: 2.2 };   // about as loud as the built voice was
+function clanRec(k, x, y, v, vp) {
+  const B = (CL_VB[k] || []).filter(Boolean); if (B.length < 2) return false;
+  let i = Math.floor(Math.random() * B.length); if (B[i] === CL_VLAST[k]) i = (i + 1) % B.length; CL_VLAST[k] = B[i];
+  const o = placeOut(x, y, CL_SND[k][0] * v * CL_VG[k], CL_SND[k][1]); if (!o) return true;
+  const s = actx.createBufferSource(), lp = actx.createBiquadFilter(), d = Math.hypot(x - S.p.x, y - S.p.y);
+  s.buffer = B[i]; s.playbackRate.value = clamp(Math.pow(vp / 125, 0.4), 0.86, 1.18) * (0.97 + Math.random() * 0.06);
+  lp.type = 'lowpass'; lp.frequency.value = 11000 * Math.pow(1 - clamp(d / CL_SND[k][1], 0, 0.85), 2) + 1400;
+  s.connect(lp); lp.connect(o); s.start(actx.currentTime + Math.random() * 0.04);
+  return true;
+}
 const VOW = { a: [730, 1090, 2440], o: [570, 840, 2410], u: [320, 870, 2240], e: [530, 1840, 2480], i: [290, 2290, 3010], ae: [660, 1720, 2410], uh: [560, 1190, 2390] };
 let CL_RASP = null;
 function clanNz(t, type, f, len, g, out, Q = 0.8) {
@@ -691,6 +705,8 @@ function clanVoice(t, out, o) {
 }
 function clanSnd(k, x, y, v = 1, vp = 120) {
   if (!actx || !noiseBuf || !sfxGain || !CL_SND[k]) return;
+  if (CL_VG[k] && clanRec(k, x, y, v, vp)) return;
+  if (k === 'hurt') k = 'grunt';
   const o = placeOut(x, y, CL_SND[k][0] * v, CL_SND[k][1]); if (!o) return;
   const t = actx.currentTime, R = Math.random, fk = vp > 160 ? 1.17 : 1, V = (q) => clanVoice(q.t ?? t, o, Object.assign({ fk }, q));
   if (k === 'twig') { clanNz(t, 'highpass', 2600, 0.025, 0.9, o); clanNz(t + 0.035 + R() * 0.03, 'bandpass', 1800, 0.045, 0.6, o, 3); boomAt(t, 260, 120, 0.05, 0.25, o); }

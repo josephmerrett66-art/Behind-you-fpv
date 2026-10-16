@@ -1,7 +1,7 @@
 // ================= the first-person view of Daylight =================
 // Everything here draws, hears and steers. What happens in the woods is the main game's own code (src/ported.js).
 // Ground coordinates are the game's (x, y); in 3D they are (x, height, y). A person is 38 tall; your eyes are at 35.
-const ATLAS_SRC = '/*ATLAS*/', ATLAS = /*ATLASMETA*/0, FLOOR_SRC = '/*FLOOR*/', SND = /*SND*/0, AMB_SRC = '/*AMB*/';
+const ATLAS_SRC = '/*ATLAS*/', ATLAS = /*ATLASMETA*/0, FLOOR_SRC = '/*FLOOR*/', SND = /*SND*/0, AMB_SRC = '/*AMB*/', VOX = /*VOX*/0;
 const V3 = THREE.Vector3, V4 = THREE.Vector4, M4 = THREE.Matrix4;
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;

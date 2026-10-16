@@ -193,3 +193,7 @@ function workStep(dt) {
     }
   }
 }
+
+// Joe: there's no camp now, so the fire pit has no camp box: the main game's still turned up in the pack whenever you stood
+// near the fire (an empty "Camp box, no limit"). Chests you build still work as ever.
+{ const conts = dayConts; dayConts = function (R) { return conts(R).filter(c => !(NO_CAMP && c.box)); }; }

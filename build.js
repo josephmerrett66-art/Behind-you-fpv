@@ -13,6 +13,7 @@ game = rep(game, '/*SND*/0', fs.readFileSync('assets/snd.json', 'utf8'));
 game = rep(game, '/*RAIN*/', fs.readFileSync('assets/rain.mp3').toString('base64'));
 game = rep(game, '/*VOX*/0', fs.readFileSync('assets/voices.json', 'utf8'));
 game = rep(game, '/*AMB*/', fs.readFileSync('assets/ambience.mp3').toString('base64'));
+game = rep(game, '/*BEACH*/false', process.env.BEACH ? 'true' : 'false');   // the test beach (src/fp/15-sea.js): BEACH=1 node build.js
 let html = fs.readFileSync('src/shell.html', 'utf8');
 html = rep(html, '/*DAYCSS*/', fs.readFileSync('src/daylight.css', 'utf8'));
 html = rep(html, '/*THREE*/', three.replace(/<\/script/g, '<\\/script'));

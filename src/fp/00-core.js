@@ -3,6 +3,7 @@
 // Ground coordinates are the game's (x, y); in 3D they are (x, height, y). A person is 38 tall; your eyes are at 35.
 const ATLAS_SRC = '/*ATLAS*/', ATLAS = /*ATLASMETA*/0, FLOOR_SRC = '/*FLOOR*/', SND = /*SND*/0, AMB_SRC = '/*AMB*/', VOX = /*VOX*/0;
 const V3 = THREE.Vector3, V4 = THREE.Vector4, M4 = THREE.Matrix4;
+const BEACH = /*BEACH*/false;   // the test beach (Joe): a stretch of coast north-east of the camp; only in the test build (BEACH=1 node build.js)
 const NIGHT_FOES = false;   // the night's own monsters (the wanderers, the tall one in the deep, the raid on a pen): off (Joe)
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -106,17 +107,53 @@ vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, d
 const TERR_N = 8;
 LU.occ = { value: new V4(0, 0, 0, 0) };   // from above: the line from the camera to you, which trees keep clear of (77-iso.js)
 LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) };   // level places: x, y, radius, height
-function terrBase(x, z) {
+function terrBase(x, z) { return coastH(terrBase0(x, z), x, z); }
+function terrBase0(x, z) {
   return 24 * Math.sin(x * 0.0061 + 1.3) * Math.sin(z * 0.0053 + 0.4) + 11 * Math.sin(x * 0.013 + z * 0.0081) * Math.cos(z * 0.0117 - x * 0.004) + 3 * Math.sin(x * 0.031 + 2.0) * Math.sin(z * 0.027 + 1.0);
 }
 const _sst = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+// ---------------- the test coast (BEACH) ----------------
+// The sea is a great round bay north-east of the camp (between the raiders' camps); coastS is how far out to sea a point is
+// (negative inland). The land runs down through dunes to a wide beach and shelves away under the water.
+const SEA_Y = -6, COAST = { cx: -770, cy: 2115, R: 1500 };
+function coastS(x, z) { const dx = x - COAST.cx, dz = z - COAST.cy, a = Math.atan2(dz, dx); return COAST.R - Math.hypot(dx, dz) + 55 * Math.sin(a * 9.0 + 0.7) + 22 * Math.sin(a * 23.0 + 1.9); }
+function coastProf(s, x, z) { return SEA_Y + 7 + 2.2 * Math.sin(x * 0.021 + z * 0.013) * (1 - _sst(-160, -50, s)) - 6.5 * _sst(-110, 10, s) - 4 * _sst(0, 170, s) - 40 * _sst(130, 800, s); }
+function coastH(h, x, z) { if (!BEACH) return h; const s = coastS(x, z); return s < -360 ? h : lerp(h, coastProf(s, x, z), _sst(-360, -140, s)); }
 function terrH(x, z) {
   let h = terrBase(x, z);
   for (const f of LU.terrF.value) if (f.z > 0) h = lerp(h, f.w, _sst(f.z * 1.9, f.z, Math.hypot(x - f.x, z - f.y)));
   return h;
 }
-const TERR_GLSL = `uniform vec4 terrF[${TERR_N}];
-float terrBase(vec2 p) { return 24.0 * sin(p.x * 0.0061 + 1.3) * sin(p.y * 0.0053 + 0.4) + 11.0 * sin(p.x * 0.013 + p.y * 0.0081) * cos(p.y * 0.0117 - p.x * 0.004) + 3.0 * sin(p.x * 0.031 + 2.0) * sin(p.y * 0.027 + 1.0); }
+const COAST_GLSL = `
+#ifndef COAST_DEF
+#define COAST_DEF
+${BEACH ? '#define BEACH 1' : ''}
+const float SEA_Y = ${SEA_Y.toFixed(1)};
+float cSst(float a, float b, float x) { float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
+float coastS(vec2 p) { vec2 d = p - vec2(${COAST.cx.toFixed(1)}, ${COAST.cy.toFixed(1)}); float a = atan(d.y, d.x); return ${COAST.R.toFixed(1)} - length(d) + 55.0 * sin(a * 9.0 + 0.7) + 22.0 * sin(a * 23.0 + 1.9); }
+float coastH(float h, vec2 p) {
+#ifdef BEACH
+  float s = coastS(p); if (s < -360.0) return h;
+  float pr = SEA_Y + 7.0 + 2.2 * sin(p.x * 0.021 + p.y * 0.013) * (1.0 - cSst(-160.0, -50.0, s)) - 6.5 * cSst(-110.0, 10.0, s) - 4.0 * cSst(0.0, 170.0, s) - 40.0 * cSst(130.0, 800.0, s);
+  return mix(h, pr, cSst(-360.0, -140.0, s));
+#else
+  return h;
+#endif
+}
+float coastGrass(vec2 p) {
+#ifdef BEACH
+  return 1.0 - cSst(-215.0, -150.0, coastS(p) + 30.0 * sin(p.x * 0.05) * sin(p.y * 0.043));
+#else
+  return 1.0;
+#endif
+}
+#endif
+`;
+const TERR_GLSL = COAST_GLSL + `uniform vec4 terrF[${TERR_N}];
+float terrBase0(vec2 p);
+float terrBase(vec2 p) { return coastH(terrBase0(p), p); }
+float terrBase0(vec2 p) { return 24.0 * sin(p.x * 0.0061 + 1.3) * sin(p.y * 0.0053 + 0.4) + 11.0 * sin(p.x * 0.013 + p.y * 0.0081) * cos(p.y * 0.0117 - p.x * 0.004) + 3.0 * sin(p.x * 0.031 + 2.0) * sin(p.y * 0.027 + 1.0); }
 float terrLevel(vec2 p, inout float h) {   // pulls h onto any level place here; returns how level it is
   float lv = 0.0;
   for (int i = 0; i < ${TERR_N}; i++) { vec4 f = terrF[i]; if (f.z <= 0.0) continue; float k = smoothstep(f.z * 1.9, f.z, distance(p, f.xy)); h = mix(h, f.w, k); lv = max(lv, k); }
@@ -124,7 +161,12 @@ float terrLevel(vec2 p, inout float h) {   // pulls h onto any level place here;
 }
 float terrH(vec2 p) { float h = terrBase(p); terrLevel(p, h); return h; }
 // the ground's slope as a normal (from the swells themselves; flat where the land's been levelled)
+#ifdef BEACH
+vec3 terrN(vec2 p) { float hx = terrH(p + vec2(3.0, 0.0)) - terrH(p - vec2(3.0, 0.0)), hz = terrH(p + vec2(0.0, 3.0)) - terrH(p - vec2(0.0, 3.0)); return normalize(vec3(-hx / 6.0, 1.0, -hz / 6.0)); }
+vec3 terrN0(vec2 p) {
+#else
 vec3 terrN(vec2 p) {
+#endif
   float a = p.x * 0.0061 + 1.3, b = p.y * 0.0053 + 0.4, u = p.x * 0.013 + p.y * 0.0081, v = p.y * 0.0117 - p.x * 0.004, c = p.x * 0.031 + 2.0, d = p.y * 0.027 + 1.0;
   float dx = 24.0 * 0.0061 * cos(a) * sin(b) + 11.0 * (0.013 * cos(u) * cos(v) + 0.004 * sin(u) * sin(v)) + 3.0 * 0.031 * cos(c) * sin(d);
   float dz = 24.0 * 0.0053 * sin(a) * cos(b) + 11.0 * (0.0081 * cos(u) * cos(v) - 0.0117 * sin(u) * sin(v)) + 3.0 * 0.027 * sin(c) * cos(d);
@@ -134,7 +176,7 @@ vec3 terrN(vec2 p) {
 // The soil changes as you walk: broad patches of dry sandy ground, dark rich loam, a reddish clay and stony bare ground,
 // laid out by slow noise so each patch runs a long way. The bare ground and the turf over it (12-grass) read the same patches,
 // so dry ground grows short straw-coloured grass, loam grows it deep and green, and the stony bits are thin.
-const SOIL_GLSL = `uniform sampler2D landT; vec4 landW(vec2 p) { return texture2D(landT, p / ${AREA_P.toFixed(1)}); }
+const SOIL_GLSL = COAST_GLSL + `uniform sampler2D landT; vec4 landW(vec2 p) { return texture2D(landT, p / ${AREA_P.toFixed(1)}); }
 float sHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float sNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(sHash(i), sHash(i + vec2(1.0, 0.0)), f.x), mix(sHash(i + vec2(0.0, 1.0)), sHash(i + vec2(1.0)), f.x), f.y); }
@@ -235,7 +277,7 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms; varying vec3 vW, vTN;
+    fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms, time; varying vec3 vW, vTN;
       void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb;
         vec4 s = soilW(vW.xz);
         t *= 0.86 + 0.28 * sNoise(vW.xz * 0.006 + 40.0);                              // broad light and dark, so the texture never reads as tiles
@@ -251,6 +293,21 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
         float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
         vec3 under = mix(vec3(0.34, 0.42, 0.19), vec3(0.5, 0.47, 0.24), s.x); under = mix(under, vec3(0.22, 0.34, 0.13), s.y);
         t = mix(t, under * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm) * (1.0 - 0.75 * s.w));
+        #ifdef BEACH
+        { float cs = coastS(vW.xz), n1 = sNoise(vW.xz * 0.035), n2 = sNoise(vW.xz * 0.6 + 3.0);
+          float sandK = smoothstep(-205.0, -140.0, cs + 30.0 * sin(vW.x * 0.05) * sin(vW.z * 0.043) + (n1 - 0.5) * 40.0);   // 1 on the sand
+          vec3 sand = vec3(0.92, 0.84, 0.66) * (0.9 + 0.14 * n1) * (0.94 + 0.1 * n2);
+          sand = mix(sand, sand * vec3(0.95, 0.9, 0.82), smoothstep(0.55, 0.8, sNoise(vW.xz * 0.012 + 7.0)) * 0.5);   // drifts of darker sand
+          float rip = sin((cs * 0.9 + 6.0 * sNoise(vW.xz * 0.02)) * 0.55);              // wind ripples across the dry sand
+          sand *= 1.0 + 0.035 * rip * (1.0 - smoothstep(-40.0, 10.0, cs));
+          t = mix(t, sand, sandK);
+          float wl = SEA_Y + 0.55 * sin(time * 0.55 + vW.z * 0.004) + 0.55;            // how high the last wave washed
+          float wet = 1.0 - smoothstep(wl - 0.2, wl + 1.2, vW.y);
+          t = mix(t, t * vec3(0.7, 0.68, 0.64), wet * sandK);                          // dark wet sand where the waves reach
+          float under = smoothstep(SEA_Y + 0.3, SEA_Y - 3.0, vW.y);
+          t = mix(t, t * vec3(0.55, 0.75, 0.72), under);                               // under the water, the sand goes green-blue
+        }
+        #endif
         gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0); }`,
   });
   var groundMesh = new THREE.Mesh(g, m); groundMesh.frustumCulled = false; scene.add(groundMesh);

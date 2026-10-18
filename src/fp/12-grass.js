@@ -20,7 +20,7 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
     float want = min(1.0, pow(40.0 / max(d, 1.0), 2.0)), dens = pow(R / R0, 2.0);
     float share = ring < 0.5 ? fin(R0, d) : ring < 1.5 ? fin(R1, d) - fin(R0, d) : fin(R2, d) - fin(R1, d);
     float m = texture2D(mask, (rt - mo) / ms).r;
-    float k = (bd.w < want * dens * share ? 1.0 : 0.0) * smoothstep(0.35, 0.7, m);
+    float k = (bd.w < want * dens * share ? 1.0 : 0.0) * smoothstep(0.35, 0.7, m) * step(0.5, coastGrass(rt));
     vS = vec4(0.0);
     if (k > 0.0) {                                                     // (only for the blades that stand: most are hidden)
       vec4 sw = soilW(rt); vS = sw;

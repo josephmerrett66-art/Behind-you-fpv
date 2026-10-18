@@ -29,7 +29,7 @@ const fRnd = (a, b) => a + Math.random() * (b - a);
 // the water at a spot: the sea (its surface rides the swell, as 15-sea draws it) or a pond
 function seaSurfY(x, y) {
   const s = coastS(x, y), t = LU.time.value, k = _sst(-40, 60, s);
-  return SEA_Y + k * (0.55 * Math.sin(s * 0.12 - t * 1.3) * _sst(-20, 140, s) + 0.18 * Math.sin(x * 0.07 + y * 0.05 + t * 1.7) + 0.12 * Math.sin(x * -0.05 + y * 0.09 + t * 2.3));
+  return SEA_Y + k * ((0.3 + 0.55 * LU.wsz.value) * Math.sin(s * 0.12 + LU.wph.value) * _sst(-20, 140, s) + 0.18 * Math.sin(x * 0.07 + y * 0.05 + t * 1.7) + 0.12 * Math.sin(x * -0.05 + y * 0.09 + t * 2.3));
 }
 function fishWater(x, y) {
   if (BEACH) { const d = SEA_Y - terrH(x, y); if (d > 0.5) return { sea: true, y: seaSurfY(x, y), depth: d }; }

@@ -105,6 +105,7 @@ vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, d
 // every tree, the camp, the raiders and you all stand on the same slopes. A few broad swells with smaller rises over them;
 // the camp, the raiders' camps and the ponds sit on level ground let into the hillside.
 const TERR_N = 8;
+LU.wph = { value: 0 }; LU.wsz = { value: 0.5 }; LU.wash = { value: 0 }; LU.wet = { value: 0 };   // the waves on the shore, timed to the surf's sound (15-sea)
 LU.occ = { value: new V4(0, 0, 0, 0) };   // from above: the line from the camera to you, which trees keep clear of (77-iso.js)
 LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) };   // level places: x, y, radius, height
 function terrBase(x, z) { return coastH(terrBase0(x, z), x, z); }
@@ -289,7 +290,7 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms, time; varying vec3 vW, vTN;
+    fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms, time, wet; varying vec3 vW, vTN;
       void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb;
         vec4 s = soilW(vW.xz);
         t *= 0.86 + 0.28 * sNoise(vW.xz * 0.006 + 40.0);                              // broad light and dark, so the texture never reads as tiles
@@ -313,7 +314,7 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
           float rip = sin((cs * 0.9 + 6.0 * sNoise(vW.xz * 0.02)) * 0.55);              // wind ripples across the dry sand
           sand *= 1.0 + 0.035 * rip * (1.0 - smoothstep(-40.0, 10.0, cs));
           t = mix(t, sand, sandK);
-          float wl = SEA_Y + 0.55 * sin(time * 0.55 + vW.z * 0.004) + 0.55;            // how high the last wave washed
+          float wl = SEA_Y + wet + 0.12 * sin(vW.z * 0.004 + vW.x * 0.003);              // how high the last waves washed
           float wet = 1.0 - smoothstep(wl - 0.2, wl + 1.2, vW.y);
           t = mix(t, t * vec3(0.7, 0.68, 0.64), wet * sandK);                          // dark wet sand where the waves reach
           float under = smoothstep(SEA_Y + 0.3, SEA_Y - 3.0, vW.y);

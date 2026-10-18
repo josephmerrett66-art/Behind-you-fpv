@@ -10,22 +10,22 @@ if (BEACH) {
   const seaMat = new THREE.ShaderMaterial({
     uniforms: Object.assign({ lt: { value: 1 }, sky: { value: SKY.hor }, skyTop: { value: SKY.top } }, LU),
     transparent: true, depthWrite: true,
-    vertexShader: TERR_GLSL + `uniform float time; varying vec3 vW; varying float vS;
+    vertexShader: TERR_GLSL + `uniform float time, wph, wsz; varying vec3 vW; varying float vS;
       float swell(vec2 p, float s) {   // long swells rolling in toward the shore, smaller chop across them
-        float a = s * 0.12 - time * 1.3;
-        return 0.55 * sin(a) * smoothstep(-20.0, 140.0, s) + 0.18 * sin(p.x * 0.07 + p.y * 0.05 + time * 1.7) + 0.12 * sin(p.x * -0.05 + p.y * 0.09 + time * 2.3);
+        float a = s * 0.12 + wph;
+        return (0.3 + 0.55 * wsz) * sin(a) * smoothstep(-20.0, 140.0, s) + 0.18 * sin(p.x * 0.07 + p.y * 0.05 + time * 1.7) + 0.12 * sin(p.x * -0.05 + p.y * 0.09 + time * 2.3);
       }
       void main() { vec4 w = modelMatrix * vec4(position, 1.0); float s = coastS(w.xz); vS = s;
         w.y = SEA_Y + swell(w.xz, s) * smoothstep(-40.0, 60.0, s);
         vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: TERR_GLSL + LIGHT_GLSL + `uniform float lt, time; uniform vec3 sky, skyTop; varying vec3 vW; varying float vS;
+    fragmentShader: TERR_GLSL + LIGHT_GLSL + `uniform float lt, time, wph, wash; uniform vec3 sky, skyTop; varying vec3 vW; varying float vS;
       float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float n2(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0)), f.x), f.y); }
       void main() {
         float s = coastS(vW.xz); if (s < -120.0) discard;
         float ground = terrH(vW.xz);
-        float wash = 0.55 * sin(time * 0.55 + vW.z * 0.004) + 0.55;                     // the waves running up the sand and back
-        float lvl = vW.y + wash * (1.0 - smoothstep(0.0, 90.0, s));
+        float wsh = wash + 0.12 * sin(vW.z * 0.004 + vW.x * 0.003);                        // each wave running up the sand and back
+        float lvl = vW.y + wsh * (1.0 - smoothstep(0.0, 90.0, s));
         float depth = lvl - ground; if (depth < 0.0) discard;
         // colour: turquoise over the sand, through green-blue, to the deep
         vec3 shal = vec3(0.36, 0.78, 0.74), mid = vec3(0.12, 0.5, 0.6), deep = vec3(0.05, 0.22, 0.36);
@@ -42,7 +42,7 @@ if (BEACH) {
         float sp = pow(max(dot(reflect(-V, N), sunDir), 0.0), 140.0);
         c += vec3(1.0, 0.95, 0.82) * sp * 2.2 * sunK;                                   // sun glints
         // foam: lines where the swells break, running in across the shallows, and a lace along the edge of the water
-        float f = fract(s * 0.12 / 6.2832 - time * 1.3 / 6.2832 + 0.6);                  // in step with the swell (one line per crest)
+        float f = fract((s * 0.12 + wph) / 6.2832 + 0.6);                  // in step with the swell (one line per crest)
         float crest = smoothstep(0.78, 0.9, f) * (1.0 - smoothstep(0.9, 0.985, f));
         float br = n2(vW.xz * 0.08 + vec2(time * 0.3, 0.0)) * 0.6 + n2(vW.xz * 0.3 - time * 0.2) * 0.4;
         float surf = crest * smoothstep(-10.0, 25.0, s) * (1.0 - smoothstep(110.0, 190.0, s)) * smoothstep(0.35, 0.6, br);
@@ -81,23 +81,53 @@ if (BEACH) {
       seaSound(dt);
     }; }
 
-  // the surf: a low roar all along the shore, and each wave a rush as it breaks and a hiss as it runs back
-  let surf = null;
-  function seaSound(dt) {
-    if (!actx || !noiseBuf || !sfxGain || !S) return;
-    if (!surf) {
-      const src = actx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
-      const lo = actx.createBiquadFilter(); lo.type = 'lowpass'; lo.frequency.value = 420;
-      const hi = actx.createBiquadFilter(); hi.type = 'bandpass'; hi.frequency.value = 2400; hi.Q.value = 0.6;
-      const gl = actx.createGain(), gh = actx.createGain(); gl.gain.value = gh.gain.value = 0;
-      src.connect(lo); lo.connect(gl); gl.connect(sfxGain); src.connect(hi); hi.connect(gh); gh.connect(sfxGain); src.start();
-      surf = { gl, gh, lo };
-    }
-    const p = S.p, s = coastS(p.x, p.y), near = Math.pow(clamp(1 - Math.abs(s + 10) / 650, 0, 1), 1.6);
-    const ph = (-s * 0.12 + LU.time.value * 1.3) % 6.2832, wave = 0.5 + 0.5 * Math.sin(ph);   // the swell, as it reaches the beach
-    const t = actx.currentTime, k = state === 'play' ? 1 : 0;
-    surf.gl.gain.setTargetAtTime(k * near * (0.16 + 0.22 * wave), t, 0.25);
-    surf.gh.gain.setTargetAtTime(k * near * near * (0.02 + 0.07 * Math.pow(wave, 3)), t, 0.35);
-    surf.lo.frequency.setTargetAtTime(300 + 500 * wave, t, 0.3);
+  // the surf: Joe's recording of waves on a beach, looped, and the waves on the shore timed to it. The loudest moment of each wave
+  // in the recording (found by tools, stored in assets/surf.json) is when a crest breaks on the beach; the swell, the foam lines
+  // and the run of water up the sand all follow that clock. Big waves in the sound are big on the shore and run further up.
+  const SURF = /*SURFT*/0, SURF_B64 = '/*SURF*/', BREAK_S = 25;
+  let surf = null, surfBuf = null, surfLoading = false;
+  function surfClock() {   // seconds into the loop: from the sound itself once it plays, else from the clock
+    if (surf && actx) return ((actx.currentTime - surf.t0) % SURF.len + SURF.len) % SURF.len;
+    return LU.time.value % SURF.len;
   }
+  let wetH = 0, lastC = 0;
+  function waveFrame() {
+    const C = SURF.crash, K = SURF.k, N = C.length, tc = surfClock();
+    let i = -1; for (let j = 0; j < N; j++) if (C[j] <= tc) i = j;
+    const prev = i >= 0 ? C[i] : C[N - 1] - SURF.len, ci = i >= 0 ? i : N - 1, ni = (ci + 1) % N, next = ni === 0 ? C[0] + (i >= 0 ? SURF.len : 0) : C[ni];
+    const f = clamp((tc - prev) / (next - prev), 0, 1), k = K[ci];
+    LU.wph.value = (Math.PI / 2 - BREAK_S * 0.12 + 2 * Math.PI * f) % (2 * Math.PI);   // at the crash, a crest on the break line
+    LU.wsz.value = lerp(k, K[ni], _sst(0.3, 0.9, f));
+    LU.wash.value = (0.35 + 1.25 * k) * _sst(0.0, 0.14, f) * (1 - _sst(0.18, 0.9, f));   // runs up fast, slides back slowly
+    const t = LU.time.value, dt = clamp(t - lastC, 0, 0.2); lastC = t;
+    wetH = Math.max(LU.wash.value, wetH - dt * 0.12); LU.wet.value = wetH;
+  }
+  function surfLoad() {
+    if (surfLoading || !actx) return; surfLoading = true;
+    try { const bin = atob(SURF_B64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      actx.decodeAudioData(u.buffer, b => { surfBuf = b; }, () => {}); } catch (e) {}
+  }
+  function seaSound(dt) {
+    if (!actx || !sfxGain || !S) return;
+    if (!surfBuf) { surfLoad(); return; }
+    if (!surf) {
+      const src = actx.createBufferSource(); src.buffer = surfBuf; src.loop = true;
+      const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 800;
+      const g = actx.createGain(); g.gain.value = 0;
+      const pan = actx.createStereoPanner ? actx.createStereoPanner() : null;
+      src.connect(lp); lp.connect(g); if (pan) { g.connect(pan); pan.connect(sfxGain); } else g.connect(sfxGain);
+      const t0 = actx.currentTime + 0.05; src.start(t0);
+      surf = { src, lp, g, pan, t0 };
+    }
+    const p = S.p, s = coastS(p.x, p.y), near = Math.pow(clamp(1 - Math.abs(Math.min(s, 0) + 15) / 900, 0, 1), 1.5);
+    const t = actx.currentTime, k = state === 'play' ? 1 : 0;
+    surf.g.gain.setTargetAtTime(k * near * 0.9, t, 0.3);
+    surf.lp.frequency.setTargetAtTime(500 + 17000 * near * near * near, t, 0.3);   // far off, only the low roar comes through the trees
+    if (surf.pan) {   // which way the sea is: out from the middle of the island (or the islet's shore, when that's nearer)
+      const di = Math.hypot(p.x - ISLET.x, p.y - ISLET.y) - ISLET.r, a = di < Math.hypot(p.x, p.y) - isleR(Math.atan2(p.y, p.x)) ? Math.atan2(ISLET.y - p.y, ISLET.x - p.x) : Math.atan2(p.y, p.x);
+      const side = -Math.sin(S.aimW || 0) * Math.cos(a) + Math.cos(S.aimW || 0) * Math.sin(a);
+      surf.pan.pan.setTargetAtTime(clamp(side * 0.6 * (1 - near * 0.5), -1, 1), t, 0.2);
+    }
+  }
+  { const ws = worldSync; worldSync = function (f) { const r = ws(f); waveFrame(); return r; }; }
 }

@@ -12,6 +12,8 @@ game = rep(game, '/*FLOOR*/', 'data:image/jpeg;base64,' + fs.readFileSync('asset
 game = rep(game, '/*SND*/0', fs.readFileSync('assets/snd.json', 'utf8'));
 game = rep(game, '/*RAIN*/', fs.readFileSync('assets/rain.mp3').toString('base64'));
 game = rep(game, '/*VOX*/0', fs.readFileSync('assets/voices.json', 'utf8'));
+game = rep(game, '/*SURF*/', fs.readFileSync('assets/surf.mp3').toString('base64'));   // the surf (Joe's recording, looped by tools: see 15-sea.js)
+game = rep(game, '/*SURFT*/0', fs.readFileSync('assets/surf.json', 'utf8'));
 game = rep(game, '/*AMB*/', fs.readFileSync('assets/ambience.mp3').toString('base64'));
 game = rep(game, '/*BEACH*/true', process.env.BEACH === '0' ? 'false' : 'true');   // the island (src/fp/15-sea.js); BEACH=0 node build.js for the old endless woods
 let html = fs.readFileSync('src/shell.html', 'utf8');

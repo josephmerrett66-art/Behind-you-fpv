@@ -16593,6 +16593,1227 @@ function lifeFrame(rdt) {
 }
 
 ;
+// ================= small life: lizards, grouse and turtles (Joe's number 7) =================
+// Lizards bask beside the warm rocks and out on the sand. Come near and one darts off in quick stop-start bursts, freezes,
+// darts again, and is gone into a crack. Grouse peck about the woods in little flocks; get too close and they burst up all
+// together with a whirr of wings, fly off low and glide down again a way off (and the deer nearby hear it and bolt). Turtles
+// plod about the edges of ponds and up the beach, and pull into their shells when you come up to them.
+// All three are animals like the rest (D.beasts): you can hunt them, sneak up and stab them, shoot them, even out of the air.
+// They have their own ways and their own bodies here; the woods' beast step and drawing leave them alone.
+Object.assign(BEAST, {
+  lizard: { hp: 0.35, sp: 250, w: 5, h: 3, scare: 80, drop: { meat: 1 }, crit: 1 },
+  grouse: { hp: 0.7, sp: 230, w: 6, h: 9, scare: 145, drop: { meat: 1, feather: 2 }, crit: 1 },
+  turtle: { hp: 2.6, sp: 12, w: 9, h: 6, scare: 70, drop: { meat: 2, shell: 1 }, crit: 1 },
+});
+Object.assign(DIT, {
+  feather: { n: 'Feathers', c: '#d8cbb0', st: 30, k: 'mat', b: 'From grouse · fletch arrows with them and the same wood makes more' },
+  shell: { n: 'Turtle shell', c: '#6e6a3e', st: 5, k: 'mat', b: 'Hard and light · plates for armour, or a bowl to mix herbs in' },
+});
+DREC.push({ id: 'arrowsFe', g: 'wpn', out: 'arrows', n: 10, at: 'hand', cost: { sticks: 3, flint: 1, feather: 2 } });
+Object.assign(ICON, {
+  feather: '<path d="M5 20.5C8 13 12.5 6.5 19.5 3.5c-.6 7.4-5.4 12.6-12.4 15.2z" fill="#d8cbb0"/><path d="M4 21.5L17 6" stroke="#8a7a5a" stroke-width="1.1" stroke-linecap="round"/><path d="M9.5 15.5l-2.6-1.2M12 12.4l-2.8-1.4M14.4 9.6l-2.4-1.6M11.6 14.6l2.6.4M14 11.6l2.8.2" stroke="#a8987a" stroke-width=".8"/>',
+  shell: '<path d="M2.5 15.5C3 9 7 5.5 12 5.5S21 9 21.5 15.5z" fill="#6e6a3e"/><path d="M2 15.5h20v1.6c-3 1.6-17 1.6-20 0z" fill="#b4a676"/><g fill="none" stroke="#3e3d28" stroke-width="1"><path d="M9 7.6l-1.4 3.6 2 4.3M15 7.6l1.4 3.6-2 4.3M7.6 11.2h8.8M5 12.8l2.6-1.6M19 12.8l-2.6-1.6"/></g>',
+});
+Object.assign(MAT_GET, { feather: 'hunt grouse, in the woods', shell: 'hunt turtles, at the ponds and on the beach' });
+{ const H = BOOK.find(b => b.id === 'hunt'); if (H) H.items.push('feather', 'shell'); }
+
+const CRIT = { C: 560, back: DAY_LEN * 1.2, cap: 18, near: 300, hide: { lizard: 0.3, grouse: 0.36, turtle: 0.5 } };   // hide: crouched, how much of its notice is left at best (a grouse is hard to creep up on)
+const critOf = b => !!(b && BEAST[b.k] && BEAST[b.k].crit);
+const CRT = { ch: new Map(), clk: 2 };
+
+// ---------------- where they live ----------------
+function critOk(x, y, wet) {
+  if (x > CAVE_X0 - 400 || inPlaza(x, y)) return false;
+  if (!NO_CAMP && Math.hypot(x, y) < CAMP_R + 120) return false;
+  if (BEACH && (coastS(x, y) > -34 || terrH(x, y) < SEA_Y + 1.2)) return false;
+  if (!wet && pondAt(x, y, 6)) return false;
+  if (propsNear(x, y, 30).some(o => (o.kind === 'tree' || o.kind === 'rock' || o.kind === 'rockIron' || o.kind === 'crag') && Math.hypot(o.x - x, o.y - y) < (o.r || 8) * (o.s || 1) * 0.6 + 5)) return false;
+  if (S.day.builds.some(B => Math.hypot(B.x - x, B.y - y) < 150)) return false;   // they keep away from where you've built
+  return Math.hypot(x - S.p.x, y - S.p.y) > CRIT.near;
+}
+function critMake(k, x, y, key, o) {
+  const b = Object.assign({ kind: 'beast', k, chunk: key, x, y, r: 0, s: 1, hp: BEAST[k].hp, st: 'graze', t: Math.random() * 3, dir: Math.random() * 6.283, sp: 0, ph: Math.random() * 9, flash: 0, z: 0, hx: x, hy: y, seed: Math.random() }, o);
+  S.day.beasts.push(b); return b;
+}
+function critStock(dt) {
+  const D = S.day, p = S.p;
+  if ((CRT.clk -= dt) > 0) return; CRT.clk = 1.5;
+  if (caveIn()) return;
+  let alive = D.beasts.filter(b => !b.dead && critOf(b)).length; if (alive >= CRIT.cap) return;
+  const C = CRIT.C, R = 1150;
+  for (let ci = Math.floor((p.x - R) / C); ci <= Math.floor((p.x + R) / C); ci++)
+    for (let cj = Math.floor((p.y - R) / C); cj <= Math.floor((p.y + R) / C); cj++) {
+      const key = 'cr' + ci + ',' + cj, at = CRT.ch.get(key);
+      if (at !== undefined && D.t - at < CRIT.back) continue;
+      CRT.ch.set(key, D.t);
+      if (alive >= CRIT.cap || D.beasts.some(b => b.chunk === key && !b.dead)) continue;
+      const cx = (ci + 0.5) * C, cy = (cj + 0.5) * C, s = BEACH ? coastS(cx, cy) : -9999, r = Math.random();
+      const spot = (f, wet) => { for (let k = 0; k < 14; k++) { const q = f(); if (q && critOk(q[0], q[1], wet)) return q; } return null; };
+      const inChunk = () => [cx + (Math.random() - 0.5) * C * 0.9, cy + (Math.random() - 0.5) * C * 0.9];
+      const pond = lakesNear(cx, cy, C * 0.5).find(P => Math.abs(P.x - cx) < C / 2 && Math.abs(P.y - cy) < C / 2);
+      let made = 0;
+      if (pond && r < 0.55) {   // turtles round the edge of the pond
+        const n = 1 + (Math.random() < 0.45 ? 1 : 0);
+        for (let i = 0; i < n; i++) { const q = spot(() => { const a = Math.random() * 6.283, d = pond.rad + 6 + Math.random() * 16; return [pond.x + Math.cos(a) * d, pond.y + Math.sin(a) * d]; }, true); if (q) { critMake('turtle', q[0], q[1], key); made++; } }
+      } else if (s > -460 && r < 0.6) {   // the beach: turtles up from the sea, lizards on the warm sand
+        const turt = Math.random() < 0.45, k = turt ? 'turtle' : 'lizard', n = turt ? 1 + (Math.random() < 0.3 ? 1 : 0) : 1 + (Math.random() * 2 | 0);
+        for (let i = 0; i < n; i++) { const q = spot(() => { const [x, y] = inChunk(), cs = coastS(x, y); return cs > -150 && cs < -40 ? [x, y] : null; }); if (q) { critMake(k, q[0], q[1], key); made++; } }
+      } else if (r < 0.5) {   // a flock of grouse in the woods
+        const c = spot(inChunk), n = 3 + (Math.random() * 3 | 0);
+        if (c) for (let i = 0; i < n; i++) { const q = spot(() => [c[0] + (Math.random() - 0.5) * 50, c[1] + (Math.random() - 0.5) * 50]); if (q) { critMake('grouse', q[0], q[1], key); made++; } }
+      } else if (r < 0.78) {   // lizards by the rocks
+        const rocks = propsNear(cx, cy, C * 0.45).filter(o => o.kind === 'rock' || o.kind === 'crag'), n = 1 + (Math.random() * 2 | 0);
+        for (let i = 0; i < n; i++) { const q = spot(() => { const o = rocks[(Math.random() * rocks.length) | 0]; if (!o) return null; const a = Math.random() * 6.283, d = (o.r || 10) * (o.s || 1) * 0.6 + 6 + Math.random() * 8; return [o.x + Math.cos(a) * d, o.y + Math.sin(a) * d]; }); if (q) { critMake('lizard', q[0], q[1], key); made++; } }
+      }
+      alive += made;
+    }
+}
+
+// ---------------- how they behave ----------------
+function critScare(b) {
+  const p = S.p, a = Math.atan2(b.y - p.y, b.x - p.x);
+  if (b.dead) return;
+  if (b.k === 'lizard') {
+    if (b.st === 'dart' || b.st === 'freeze') return;
+    b.st = 'dart'; b.t = 0.18 + Math.random() * 0.2; b.dir = a + (Math.random() - 0.5) * 1.2; b.n = 0; b.nMax = 3 + (Math.random() * 3 | 0); critSnd(b, 'skit');
+  } else if (b.k === 'grouse') {
+    if (b.st !== 'graze') return;
+    critFlush(b, a, true);
+    for (const o of S.day.beasts) if (o !== b && o.k === 'grouse' && !o.dead && o.st === 'graze' && o.fd === undefined && dist2(o, b) < 150) o.fd = 0.06 + Math.random() * 0.4;   // the rest of the flock go up with it
+  } else if (b.k === 'turtle') {
+    if (b.st === 'shell') { b.t = Math.max(b.t, 4); return; }
+    b.st = 'shell'; b.t = 5 + Math.random() * 4; b.sp = 0; critSnd(b, 'hiss');
+  }
+}
+function critFlush(b, a, first) {
+  const p = S.p; if (a === undefined) a = Math.atan2(b.y - p.y, b.x - p.x);
+  b.st = 'fly'; b.ft = 0; b.flyT = 2.2 + Math.random() * 1.4; b.dir = a + (Math.random() - 0.5) * 1.1; b.turn = (Math.random() - 0.5) * 0.6;
+  b.zT = 34 + Math.random() * 24; b.sp = 60; b.fd = undefined;
+  critSnd(b, 'flush'); if (first) critSnd(b, 'cackle');
+  for (const o of S.day.beasts) if (!o.dead && !critOf(o) && !o.tame && !o.pen && !(o.lead > 0) && o.st === 'graze' && dist2(o, b) < 260 && !BEAST[o.k].angry && !BEAST[o.k].pack) beastScare(o);   // the deer hear it and go
+}
+function critStep(dt) {
+  const D = S.day, p = S.p, pv = Math.hypot(p.vx, p.vy);
+  const flock = new Map();   // where each flock of grouse is, so the stragglers keep up
+  for (const b of D.beasts) if (b.k === 'grouse' && !b.dead && b.st === 'graze') { const f = flock.get(b.chunk) || { x: 0, y: 0, n: 0 }; f.x += b.x; f.y += b.y; f.n++; flock.set(b.chunk, f); }
+  for (const b of D.beasts) {
+    if (!critOf(b)) continue;
+    const B = BEAST[b.k], dx = b.x - p.x, dy = b.y - p.y, d = Math.hypot(dx, dy) || 1;
+    if (b.z === undefined) { b.z = 0; b.hx = b.x; b.hy = b.y; b.seed = Math.random(); }
+    b.flash = Math.max(0, b.flash - dt * 4); b.wary = Math.max(0, (b.wary || 0) - dt);
+    if (b.dead) { b.dieT += dt; if (b.z > 0) { b.vz = (b.vz || 0) - 320 * dt; b.z = Math.max(0, b.z + b.vz * dt); } continue; }
+    b.t -= dt;
+    const notice = B.scare * (D.crouch ? Math.max(sneakHide(b, dx, dy), CRIT.hide[b.k]) : pv > 60 ? 1 : 0.62) * (b.wary > 0 ? 1.5 : 1) * (dayLight() < 0.3 ? 0.75 : 1);
+    if (b.k === 'lizard') {
+      b.pu = Math.max(0, (b.pu || 0) - dt);
+      if (b.st === 'graze') {
+        b.sp = 0;
+        if (b.t <= 0) { const r = Math.random(); if (r < 0.35) { b.st = 'scoot'; b.t = 0.2 + Math.random() * 0.25; b.dir += (Math.random() - 0.5) * 2.5; } else if (r < 0.6) { b.pu = 0.9; b.t = 1.5 + Math.random() * 2; } else { b.look = (Math.random() - 0.5) * 1.2; b.t = 1.2 + Math.random() * 2.5; } }
+        if (d < notice) critScare(b);
+      } else if (b.st === 'scoot') { b.sp = 75; if (b.t <= 0) { b.st = 'graze'; b.t = 1 + Math.random() * 2; } if (d < notice) critScare(b); }
+      else if (b.st === 'dart') {
+        b.sp = B.sp;
+        if (b.t <= 0) { b.n++; if (b.n >= b.nMax || d > 320) { b.dead = true; b.hid = 1; b.dieT = 99; continue; } b.st = 'freeze'; b.t = 0.25 + Math.random() * 0.6; }   // into a crack in the rock, and gone
+      } else if (b.st === 'freeze') { b.sp = 0; if (b.t <= 0) { b.st = 'dart'; b.t = 0.16 + Math.random() * 0.26; b.dir = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.6; critSnd(b, 'skit'); } }
+      else { b.st = 'graze'; b.t = 1; }
+    } else if (b.k === 'grouse') {
+      if (b.st === 'graze') {
+        if (b.t <= 0) { b.t = 0.8 + Math.random() * 2.2; const r = Math.random(); b.sp = r < 0.5 ? 0 : 12 + Math.random() * 12; b.dir += (Math.random() - 0.5) * 2; b.peck = r < 0.5 ? 1 : 0; }
+        const f = flock.get(b.chunk); if (f && f.n > 1) { const fx = f.x / f.n, fy = f.y / f.n; if (Math.hypot(fx - b.x, fy - b.y) > 42) { b.dir = Math.atan2(fy - b.y, fx - b.x); b.sp = Math.max(b.sp, 20); b.peck = 0; } }
+        if (b.fd !== undefined) { b.fd -= dt; if (b.fd <= 0) critFlush(b); }
+        else if (d < notice) critScare(b);
+        if (d < 280 && Math.random() < dt * 0.25) critSnd(b, 'cluck');
+      } else if (b.st === 'fly') {
+        b.ft += dt; b.dir += b.turn * dt;
+        b.sp = lerp(b.sp, B.sp, Math.min(1, dt * 2.2)); b.z += (b.zT - b.z) * Math.min(1, dt * (b.ft < 0.5 ? 3.2 : 1.6));
+        if (b.ft > b.flyT) { b.st = 'glide'; b.ft = 0; b.z0 = b.z; }
+      } else if (b.st === 'glide') {
+        b.ft += dt; b.dir += b.turn * dt * 0.5; b.sp = lerp(b.sp, 85, Math.min(1, dt * 1.2));
+        b.z = b.z0 * Math.max(0, 1 - b.ft / 2.2);
+        if (b.z <= 0.2) { b.z = 0; b.st = 'graze'; b.t = 1 + Math.random(); b.sp = 0; b.wary = 12; b.hx = b.x; b.hy = b.y; }
+      } else { b.st = 'graze'; b.t = 1; b.z = 0; }
+      if (d > 1700) { b.dead = true; b.hid = 1; b.dieT = 99; continue; }   // flown right away
+    } else if (b.k === 'turtle') {
+      b.inT = (b.st === 'shell' ? 1 : b.st === 'peek' ? 0.45 : 0);
+      if (b.st === 'graze') {
+        if (b.t <= 0) { b.t = 1.5 + Math.random() * 3; b.sp = Math.random() < 0.5 ? 0 : B.sp * (0.7 + Math.random() * 0.5); const hd = Math.hypot(b.hx - b.x, b.hy - b.y); b.dir = hd > 55 ? Math.atan2(b.hy - b.y, b.hx - b.x) + (Math.random() - 0.5) * 0.8 : b.dir + (Math.random() - 0.5) * 1.8; }
+        if (d < notice) critScare(b);
+      } else if (b.st === 'shell') { b.sp = 0; if (d < B.scare * 1.4) b.t = Math.max(b.t, 1.2); if (b.t <= 0) { b.st = 'peek'; b.t = 1.6; } }
+      else if (b.st === 'peek') { b.sp = 0; if (d < notice * 1.2) { b.st = 'shell'; b.t = 4; critSnd(b, 'hiss'); } else if (b.t <= 0) { b.st = 'graze'; b.t = 1; } }
+      else { b.st = 'graze'; b.t = 1; }
+    }
+    // moving: off the walls, the trees, the rocks and the water (a turtle may go to the water's edge); in the air, over it all
+    if (b.sp > 0) {
+      const nx = b.x + Math.cos(b.dir) * b.sp * dt, ny = b.y + Math.sin(b.dir) * b.sp * dt;
+      if (b.z > 14) { b.x = nx; b.y = ny; }
+      else {
+        const blocked = (!NO_CAMP && Math.hypot(nx, ny) < CAMP_R + 40) || (BEACH && terrH(nx, ny) < SEA_Y + 0.6) || (b.k !== 'turtle' && pondAt(nx, ny, 0)) || (b.k === 'turtle' && pondAt(nx, ny, -6))
+          || daySolidsNear(nx, ny, 8).some(o => dist2(o, { x: nx, y: ny }) < (o.r || 10) + 3)
+          || propsNear(nx, ny, 16).some(o => (o.kind === 'tree' || o.kind === 'rock' || o.kind === 'rockIron' || o.kind === 'crag') && Math.hypot(o.x - nx, o.y - ny) < (o.r || 8) * (o.s || 1) * 0.5 + 2);
+        if (!blocked) { b.x = nx; b.y = ny; }
+        else if (b.k === 'lizard' && b.st === 'dart') b.dir += (Math.random() < 0.5 ? 1 : -1) * 1.3;
+        else b.dir += Math.PI * (0.6 + Math.random() * 0.8);
+      }
+    }
+    b.ph += dt * (2 + b.sp * 0.25);
+  }
+  D.beasts = D.beasts.filter(b => !critOf(b) || !(b.hid || (b.dead && b.dieT > 1.2) || Math.hypot(b.x - p.x, b.y - p.y) > 2600));
+}
+// the woods' own animal step leaves them out; the rest of the game (your blows, arrows, the journal) treats them like any other
+{ const bs = beastStep; beastStep = function (dt) {
+    const D = S.day; if (!D) return bs(dt);
+    const cr = D.beasts.filter(critOf); if (cr.length) D.beasts = D.beasts.filter(b => !critOf(b));
+    bs(dt);
+    if (cr.length) D.beasts.push(...cr);
+    critStock(dt); critStep(dt);
+  }; }
+{ const sc = beastScare; beastScare = function (b) { if (critOf(b)) { if (b.k === 'grouse' && (b.st === 'fly' || b.st === 'glide')) return; return critScare(b); } return sc(b); }; }
+// a bird up in the air is out of reach of a swing (an arrow or a thrown axe still finds it)
+{ const dh = dayHarvest; dayHarvest = function (...a) {
+    const D = S.day, up = D ? D.beasts.filter(b => !b.dead && b.z > 14) : [];
+    for (const b of up) b.dead = true;
+    try { return dh.apply(this, a); } finally { for (const b of up) b.dead = false; }
+  }; }
+{ const dj = dayJournal; dayJournal = function () {
+    const out = dj(), D = S.day, bag = D.bag || {}, C = out.find(s => s.n === 'Creatures');
+    const ks = ['lizard', 'grouse', 'turtle'].filter(k => bag[k]);
+    if (C && ks.length) { if (!C.rows.length) C.blurb = ''; C.rows.push(...ks.map(k => [k[0].toUpperCase() + k.slice(1), `${bag[k]} taken · ${Object.entries(BEAST[k].drop).map(([i, n]) => `${n} ${DIT[i].n.toLowerCase()}`).join(', ')}`])); }
+    return out;
+  }; }
+
+// ---------------- their sounds ----------------
+function critSnd(b, k) {
+  if (!actx || !noiseBuf) return;
+  const d = Math.hypot(b.x - S.p.x, b.y - S.p.y); if (d > 750) return;
+  const out = placeOut(b.x, b.y, 1, 750); if (!out) return;
+  const t = actx.currentTime;
+  if (k === 'skit') noiseAt(t, 6500, 2400, 0.08, 0.1, out);   // claws on grit
+  else if (k === 'hiss') noiseAt(t, 3400, 900, 0.5, 0.16, out);
+  else if (k === 'flush') {   // the whirr of a grouse going up: a run of quick wingbeats, slowing as it gets away
+    const src = actx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    const bp = actx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 800 + Math.random() * 500; bp.Q.value = 0.8;
+    const g = actx.createGain(); g.gain.setValueAtTime(0.0001, t);
+    let tt = t + Math.random() * 0.03;
+    for (let i = 0; i < 16; i++) { const w = 0.042 + i * 0.006, a = 0.55 * (1 - i / 18); g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(a, tt + w * 0.3); g.gain.exponentialRampToValueAtTime(0.0001, tt + w); tt += w; }
+    src.connect(bp); bp.connect(g); g.connect(out); src.start(t); src.stop(tt + 0.05);
+  } else if (k === 'cackle' || k === 'cluck') {   // the alarm, kuk-kuk-kuk, or a soft cluck while they feed
+    const n = k === 'cackle' ? 5 : 1, f0 = k === 'cackle' ? 760 : 520 + Math.random() * 80, vol = k === 'cackle' ? 0.12 : 0.05;
+    for (let i = 0; i < n; i++) {
+      const o = actx.createOscillator(), g = actx.createGain(), t0 = t + 0.12 + i * (0.085 + i * 0.012);
+      o.type = 'triangle'; o.frequency.setValueAtTime(f0 * (1 - i * 0.05), t0); o.frequency.exponentialRampToValueAtTime(f0 * 0.62, t0 + 0.06);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.075);
+      o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.09);
+    }
+  }
+}
+
+// ---------------- their bodies ----------------
+// Built the way the woods' animals are (20-figures): soft rounded parts in the animal's own frame (x across, y up, z forward),
+// turned into the woods by one matrix, so a lizard can flip on its back dead or a grouse bank into a turn.
+const critTint = (o, h) => { const c = hexK(h), f = o.flash > 0 ? o.flash : 0; return f ? c.map(v => lerp(v, 1.5, f)) : c; };
+function critFrame(o, dt, turnK, pitch, roll, lift, sc = 1) {
+  const want = o.dir ?? 0;
+  o.fa = o.fa === undefined ? want : o.fa + clamp(angDiff(want, o.fa), -turnK * dt, turnK * dt);
+  _B.compose(_aV.set(o.x, (o.z || 0) + (lift || 0), o.y), _aQ.setFromEuler(_e.set(pitch || 0, faceYaw(o.fa), roll || 0, 'YXZ')), _aS.set(sc, sc, sc));
+}
+function lizardPose(o, now, dt) {
+  const em = (o.flash > 0 ? o.flash : 0) * 0.7, col = critTint(o, '#8c8e54'), back = critTint(o, '#5e6238'), belly = critTint(o, '#dcd4ae'), stripe = critTint(o, '#e0cc84'), dark = hexK('#15130f');
+  AO_H = 3;
+  const dead = !!o.dead, mv = !dead && o.sp > 5 ? 1 : 0;
+  o.gph = (o.gph || 0) + dt * (o.sp || 0) * 0.32;
+  const pk = !dead && o.pu > 0 ? Math.max(0, Math.sin((1 - o.pu / 0.9) * Math.PI * 3)) : 0;   // the push-up: the front of it bobbing up and down
+  o.lk = lerp(o.lk || 0, mv ? 0 : (o.look || 0), Math.min(1, dt * 6));
+  critFrame(o, dt, o.st === 'dart' ? 30 : 10, 0, dead ? Math.PI : 0, dead ? 3.9 : 0, 1.3);
+  const sw = Math.sin(o.gph * 6.283), wv = mv ? 0.55 : 0.08 * Math.sin(now * 1.3 + o.seed * 9);
+  const H = [sw * wv, 1.2, -2.2], Sh = [-sw * wv, 1.35 + pk * 0.9, 2.0];
+  bOval(PT.aBall, H, Sh, 3.0, 1.55, col, em, 1.3);
+  bOval(PT.aBall, addv(H, [0, 0.62, 0]), addv(Sh, [0, 0.62, 0]), 0.9, 0.5, stripe, em, 1.2);
+  for (const s of [-1, 1]) bOval(PT.aBall, addv(H, [0.95 * s, 0.35, 0.3]), addv(Sh, [0.95 * s, 0.35, -0.3]), 0.5, 0.45, back, em, 1.05);
+  bOval(PT.aBall, addv(H, [0, -0.4, 0]), addv(Sh, [0, -0.4, 0]), 2.5, 1.0, belly, em, 1.2);
+  // the head on its short neck, turning to look about
+  const N = [Sh[0] * 1.3, 1.45 + pk * 1.3, 2.9], la = o.lk, Hd = [N[0] + Math.sin(la) * 1.5, 1.6 + pk * 1.5, N[2] + Math.cos(la) * 1.5], Sn = [N[0] + Math.sin(la) * 2.7, 1.45 + pk * 1.5, N[2] + Math.cos(la) * 2.7];
+  bOval(PT.aBall, N, Hd, 2.2, 1.4, col, em, 1.35); bBall(PT.aBall, Sn, 1.5, 1.0, 1.9, 0, la, col, em);
+  for (const s of [-1, 1]) bBall(PT.aBall, [Hd[0] + Math.cos(la) * 0.75 * s, Hd[1] + 0.35, Hd[2] - Math.sin(la) * 0.75 * s], 0.5, 0.5, 0.5, 0, 0, dark, 0);
+  // the tail, long and whipping side to side as it runs
+  let q = [H[0], 1.1, -2.6];
+  for (let i = 1; i <= 5; i++) {
+    const n = [q[0] + Math.sin(o.gph * 6.283 - i * 0.9) * (dead ? 0 : wv) * 1.1 + (dead ? 0 : 0.12 * Math.sin(now * 0.8 + o.seed * 5 + i)), 0.95 - i * 0.12, q[2] - 1.95];
+    bSeg(PT.aLimb, q, n, 0.9 - i * 0.14, col, em); q = n;
+  }
+  // four legs splayed out to the sides, the diagonal pairs going together
+  for (const [fx, fz, po] of [[1, 1.7, 0], [-1, 1.7, Math.PI], [1, -1.9, Math.PI], [-1, -1.9, 0]]) {
+    const base = fz > 0 ? Sh : H, ph = o.gph * 6.283 + po, swing = mv ? Math.sin(ph) * 1.3 : 0, lift = mv ? Math.max(0, Math.cos(ph)) * 0.8 : 0;
+    const R0 = [base[0] + fx * 1.1, base[1] - 0.2, fz], K0 = [base[0] + fx * 2.0, 1.25 + lift * 0.4 + (fz > 0 ? pk * 0.5 : 0), fz + swing * 0.4 - (fz > 0 ? 0.3 : -0.3)], F0 = [fx * 2.5, 0.2 + lift, fz + swing + (fz > 0 ? 0.5 : -0.4)];
+    bSeg(PT.aLimb, R0, K0, 0.5, col, em); bSeg(PT.aLimb, K0, F0, 0.4, col, em); bBall(PT.aBall, F0, 1.2, 0.35, 1.1, 0, 0, back, em);
+  }
+}
+function grousePose(o, now, dt) {
+  const em = (o.flash > 0 ? o.flash : 0) * 0.7, col = critTint(o, '#9a7650'), back = critTint(o, '#684c34'), belly = critTint(o, '#d6c29e'), bar = critTint(o, '#3e2e20');
+  const red = hexK('#c8402c'), beak = hexK('#3a3026'), leg = hexK('#a08a66'), dark = hexK('#120f0c');
+  AO_H = 8;
+  const dead = !!o.dead, air = !dead && (o.st === 'fly' || o.st === 'glide') && o.z > 0.3, mv = !dead && !air && o.sp > 4;
+  o.fph = (o.fph || 0) + dt * (o.st === 'fly' ? 24 : 0);
+  o.bank = lerp(o.bank || 0, air ? -clamp((o.turn || 0) * 1.2, -0.4, 0.4) : 0, Math.min(1, dt * 4));
+  critFrame(o, dt, air ? 4 : 8, air ? 0.08 : -0.06, dead ? 1.45 : o.bank, dead ? 2.7 : 0, 1.12);
+  // pecking at the ground when it's stopped to feed
+  const pk = !dead && !air && !mv && o.peck ? Math.pow(Math.max(0, Math.sin(now * 6.5 + o.seed * 20)), 6) : 0;
+  bBall(PT.aBall, [0, 4.4, 0], 5.6, 5, 8.4, -0.08, 0, col, em);
+  bBall(PT.aBall, [0, 3.7, 1.5], 4.8, 4, 5.6, 0, 0, belly, em);
+  bBall(PT.aBall, [0, 5.7, -0.8], 4.4, 2.2, 6, 0.1, 0, back, em);
+  for (let i = 0; i < 3; i++) bBall(PT.aBall, [0, 5.95, 1.2 - i * 1.9], 3.6 - i * 0.4, 0.5, 0.7, 0, 0, bar, em);   // the dark bars across its back
+  const tw = air ? 5.4 : 3.6, tu = air ? 0.2 : 0.5 + 0.25 * Math.sin(now * 2 + o.seed * 3);
+  bOval(PT.aBall, [0, 5.0, -3.4], [0, 5.0 + tu, -7.0], tw, 0.75, back, em);
+  bBall(PT.aBall, [0, 5.0 + tu, -6.9], tw * 0.9, 0.5, 0.9, 0, 0, bar, em);
+  // its neck and head: bobbing as it walks, dipped to the ground to peck, stretched out in flight
+  const bob = mv ? Math.sin(o.ph * 3) * 0.4 : 0, Hc = air ? [0, 6.2, 5.2] : dead ? [0, 4.2, 5.4] : [0, 7.6 - pk * 4.6 + bob, 3.4 + pk * 2.4];
+  bOval(PT.aBall, [0, 5.6, 2.4], Hc, 2.4, 2.4, col, em, 1.1); bBall(PT.aBall, Hc, 2.6, 2.6, 2.9, 0, 0, col, em);
+  bSeg(PT.aCone, addv(Hc, [0, -0.2, 1.1]), addv(Hc, [0, -0.7, 2.4]), 0.55, beak, 0);
+  for (const s of [-1, 1]) { bBall(PT.aBall, addv(Hc, [0.85 * s, 0.6, 0.35]), 0.6, 0.5, 1.2, 0, 0, red, 0); bBall(PT.aBall, addv(Hc, [1.05 * s, 0.2, 0.7]), 0.55, 0.55, 0.55, 0, 0, dark, 0); }
+  if (air) {   // the wings: beating hard going up, held out stiff in the glide
+    const f = o.st === 'fly' ? Math.sin(o.fph) * 0.95 : 0.18 + 0.05 * Math.sin(now * 3);
+    for (const s of [-1, 1]) {
+      const W0 = [2.1 * s, 5.4, 0.5], W1 = [W0[0] + 4.6 * Math.cos(f) * s, W0[1] + 4.6 * Math.sin(f), 0], W2 = [W1[0] + 3.9 * Math.cos(f * 1.3) * s, W1[1] + 3.9 * Math.sin(f * 1.3), -1.3];
+      bOval(PT.aBall, W0, W1, 4.4, 0.7, col, em, 1.1); bOval(PT.aBall, W1, W2, 3.4, 0.55, back, em, 1.1);
+    }
+  } else {
+    for (const s of [-1, 1]) bBall(PT.aBall, [2.5 * s, 4.7, -0.4], 1.2, 3.6, 6.6, 0.1, 0.08 * s, back, em);
+    // the legs: short, feathered, stepping
+    for (const s of [-1, 1]) {
+      const st = mv ? Math.sin(o.ph * 1.5 + (s > 0 ? 0 : Math.PI)) * 1.2 : 0, lf = mv ? Math.max(0, Math.cos(o.ph * 1.5 + (s > 0 ? 0 : Math.PI))) * 0.7 : 0;
+      const hip = [1.1 * s, 2.6, 0.3], ft = dead ? [1.6 * s, 0.4, 2] : [1.1 * s, lf, 0.6 + st];
+      bSeg(PT.aLimb, hip, ft, 0.32, leg, em); bBall(PT.aBall, addv(ft, [0, 0.15, 0.6]), 0.7, 0.3, 1.7, 0, 0, leg, em);
+    }
+  }
+}
+function turtlePose(o, now, dt) {
+  const em = (o.flash > 0 ? o.flash : 0) * 0.7, shell = critTint(o, '#66643e'), scute = critTint(o, '#837a48'), rim = critTint(o, '#4a482e'), plast = critTint(o, '#c4b684'), skin = critTint(o, '#8a865a'), dark = hexK('#120f0c'), yel = critTint(o, '#c8b860');
+  AO_H = 5;
+  const dead = !!o.dead, mv = !dead && o.sp > 2;
+  o.inK = lerp(o.inK || 0, dead ? 0 : (o.inT || 0), Math.min(1, dt * ((o.inT || 0) > (o.inK || 0) ? 9 : 1.6)));   // snapping in fast, coming out slow
+  const ext = 1 - o.inK, sc = 0.35 + 0.65 * ext;
+  o.gph = (o.gph || 0) + dt * (o.sp || 0) * 0.09;
+  critFrame(o, dt, 1.6, 0, dead ? Math.PI : Math.sin(o.gph * 6.283) * 0.03 * (mv ? 1 : 0), dead ? 6.8 : 0, 1.1);
+  bBall(PT.aBall, [0, 1.4, 0], 9, 1.8, 11, 0, 0, plast, em);
+  bBall(PT.aBall, [0, 1.9, 0], 10.6, 1.6, 12.8, 0, 0, rim, em);
+  bBall(PT.aBall, [0, 2.5, 0], 9.8, 5.6, 12.2, 0, 0, shell, em);
+  for (const z of [-3.2, 0, 3.2]) bBall(PT.aBall, [0, 5.0 - Math.abs(z) * 0.12, z], 3.4, 0.9, 3.0, -z * 0.06, 0, scute, em);
+  for (const s of [-1, 1]) for (const z of [-1.8, 1.8]) bBall(PT.aBall, [2.9 * s, 4.15, z], 2.6, 0.8, 2.8, -z * 0.08, 0, scute, em);
+  // the head on its long neck: out and looking about, or pulled right in
+  const look = mv ? 0 : 0.5 * Math.sin(now * 0.4 + o.seed * 7) * ext, bob = mv ? Math.sin(o.gph * 12.566) * 0.25 : 0;
+  const Hd = [Math.sin(look) * 1.4 * ext, 2.3 + 0.6 * ext + bob, 4.9 + 3.6 * ext];
+  bOval(PT.aBall, [0, 2.1, 4.4], Hd, 1.9 * sc, 1.7 * sc, skin, em, 1.1);
+  bBall(PT.aBall, Hd, 2.4 * sc, 2.0 * sc, 3.0 * sc, 0, look, skin, em);
+  if (ext > 0.3) { bBall(PT.aBall, addv(Hd, [0, 0.55 * sc, -0.4]), 1.4 * sc, 0.4, 2.2 * sc, 0, look, yel, em); for (const s of [-1, 1]) bBall(PT.aBall, addv(Hd, [1.05 * s * sc, 0.35 * sc, 0.5 * sc]), 0.5, 0.5, 0.5, 0, 0, dark, 0); }
+  // four stumpy legs, the diagonal pairs stepping together; and the tail
+  for (const [fx, fz, po] of [[1, 3.6, 0], [-1, 3.6, Math.PI], [1, -3.6, Math.PI], [-1, -3.6, 0]]) {
+    const ph = o.gph * 6.283 + po, swing = mv ? Math.sin(ph) * 1.4 : 0, lift = mv ? Math.max(0, Math.cos(ph)) * 0.6 : 0;
+    const R0 = [fx * 3.4, 1.9, fz], F0 = dead ? [fx * 5.2, 1.6, fz * 1.15] : [fx * (3.4 + 1.9 * ext), 0.2 + lift + o.inK * 1.3, fz + swing * ext + (fz > 0 ? 0.6 : -0.6) * ext];
+    bSeg(PT.aLimb, R0, F0, 1.0 * sc + 0.15, skin, em);
+  }
+  if (ext > 0.2) bSeg(PT.aCone, [0, 1.9, -5.9], [0, 1.3, -7.6 * (0.6 + 0.4 * ext)], 0.65, skin, em);
+}
+function critPose(o, now, dt) { if (o.k === 'lizard') lizardPose(o, now, dt); else if (o.k === 'grouse') grousePose(o, now, dt); else if (o.k === 'turtle') turtlePose(o, now, dt); }
+{ const df = drawFigures; drawFigures = function (now, dt) {
+    df(now, dt);
+    const D = S.day, p = S.p; if (!D) return;
+    for (const o of D.beasts) if (critOf(o) && Math.abs(o.x - p.x) < drawR() && Math.abs(o.y - p.y) < drawR()) critPose(o, now, dt);
+  }; }
+
+;
+// ================= snares and fish traps: traps that hunt for you while you're away (Joe's number 7) =================
+// A snare is a bent sapling, a trigger peg and a noose on a cord. Set it out in the woods, away from your camp, and now and
+// then a rabbit or a grouse runs into it: come back and it's hanging there for you to take. Bait it with berries and it
+// catches twice as often; hang about right next to it and nothing comes.
+// A fish trap is a woven cone of sticks staked into shallow water, at a pond or the edge of the sea. Fish swim in and can't
+// find the way out; up to three at a time. Bait it with raw meat (or fish) and they come quicker.
+// Both are chests that work by themselves, like the smokehouse: open one with E to take what's in it, or put the bait in.
+Object.assign(DIT, {
+  snare: { n: 'Snare', c: '#a08a5a', st: 4, k: 'place', build: 'snare', b: 'Set it in the woods, away from camp · rabbits and grouse get caught in it · bait it with berries' },
+  ftrap: { n: 'Fish trap', c: '#b08a52', st: 2, k: 'place', build: 'ftrap', b: 'Set it in shallow water · fish swim in and can\'t get out · bait it with raw meat' },
+});
+DREC.push(
+  { id: 'snare', g: 'build', out: 'snare', n: 2, at: 'hand', cost: { sticks: 3, rope: 1 } },
+  { id: 'ftrap', g: 'build', out: 'ftrap', at: 'bench', cost: { sticks: 10, rope: 2, fibre: 4 } },
+);
+Object.assign(ICON, {
+  snare: '<path d="M5 21.5c-.5-7 1-12.5 6-16" stroke="#8a6a44" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M11 5.5L15 15" stroke="#c8b07a" stroke-width="1"/><circle cx="16" cy="17.5" r="3.4" stroke="#c8b07a" stroke-width="1.3" fill="none"/><path d="M12.5 21.5v-4.5M19.5 21.5v-4.5" stroke="#6e5235" stroke-width="1.6" stroke-linecap="round"/>',
+  ftrap: '<path d="M3 8.5l15 2.8v4.4L3 18.5z" fill="#b08a52"/><path d="M18 11.3c2.4.3 3.4 1.2 3.4 2.2s-1 1.9-3.4 2.2z" fill="#8a6a3c"/><g stroke="#7a5a32" stroke-width=".9"><path d="M7 9.3v8.4M11 10v7M15 10.8v5.6M3 13.5h15"/></g><path d="M1.5 20.5c3-1.2 6-1.2 9 0s6 1.2 9 0" stroke="#6eaae6" stroke-width="1.2" fill="none"/>',
+});
+const TRAP = { snareT: 230, fishT: 160, near: 160, camp: 260, fishMax: 3, rot: DAY_LEN * 1.25 };
+const SNARE_BAIT = new Set(['berries', 'sweetroot']), FISH_BAIT = new Set(['meat', 'fish']);
+const isTrap = B => !!(B && (B.snare || B.ftrap));
+
+// ---------------- making one, putting one down ----------------
+{ const mb = dayMakeBuild; dayMakeBuild = function (t, cx, cy, a, fake) {
+    if (t !== 'snare' && t !== 'ftrap') return mb(t, cx, cy, a, fake);
+    const B = mb('chest', cx, cy, a, fake);
+    B[t] = 1; B.inv = Array(4).fill(null); B.tT = B.tT || Math.random() * 30;
+    for (const q of B.parts) q.r = t === 'snare' ? 5 : 8;
+    return B;
+  }; }
+const trapWet = (x, y) => { const W = fishWater(x, y); return W && W.depth < 16 ? W : null; };
+{ const ps = dayPlaceSpot; dayPlaceSpot = function (t) {
+    const D = S.day, mv = D && D.mv && D.mv.kind === 'b' ? D.mv.B : null;   // carrying one you're moving: it goes back in the water, or on dry land
+    const kind = t === 'ftrap' || (mv && mv.ftrap && t === 'chest') ? 'ftrap' : t === 'snare' || (mv && mv.snare && t === 'chest') ? 'snare' : null;
+    const sp = ps(t);
+    if (kind === 'ftrap') sp.ok = sp.ok && !!trapWet(sp.x, sp.y);
+    else if (kind === 'snare') sp.ok = sp.ok && !fishWater(sp.x, sp.y);
+    return sp;
+  }; }
+{ const ph = dayPlaceHeld; dayPlaceHeld = function () {
+    const s = heldSlot(), T = s && DIT[s.id];
+    if (T && T.build === 'ftrap') { const sp = dayPlaceSpot('ftrap'); if (!sp.ok && !trapWet(sp.x, sp.y)) { dayNote('noroom', 'set it down in shallow water', 1.4); if (actx) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; } }
+    return ph();
+  }; }
+// moving one keeps it what it is, and its ghost shows it; recycling one gives you the trap back, not a chest
+{ const mp = mvPut; mvPut = function (back) {
+    const M = S.day && S.day.mv, B = M && M.kind === 'b' ? M.B : null; mp(back);
+    if (isTrap(B)) for (const q of B.parts) q.r = B.snare ? 5 : 8;
+  }; }
+{ const dg = dayGhost; dayGhost = function () {
+    const g = dg(), M = S.day && S.day.mv;
+    if (g && M && M.kind === 'b' && isTrap(M.B)) g.build = M.B.snare ? 'snare' : 'ftrap';
+    return g;
+  }; }
+{ const rc = mvRecycle; mvRecycle = function (B) {
+    if (!isTrap(B)) return rc(B);
+    const D = S.day, id = B.snare ? 'snare' : 'ftrap';
+    for (const s of B.inv) if (s) dayDrop(B.x, B.y, s.id, s.n || 1, s);
+    D.builds = D.builds.filter(q => q !== B); dayGive(id, 1, B.x, B.y, true);
+    ashBurst(B.x, B.y, 6, 10); addShake(0.12); exNote(`recycled · ${DIT[id].n.toLowerCase()} back in your pack`);
+    if (actx) noiseAt(actx.currentTime, 700, 200, 0.3, 0.35, sfxGain);
+    try { thingsSync(true); } catch (e) {}
+    dayChanged();
+  }; }
+{ const oc = openCraft; openCraft = function (t) {
+    if (t && t.snare && t.robbed) { t.robbed = 0; exNote('a fox got to your snare first · only scraps left', true); }
+    return oc.apply(this, arguments);
+  }; }
+// opened with E, it's named for what it is
+{ const dc = dayConts; dayConts = function (R) {
+    return dc(R).filter(c => !(c.far && isTrap(c.B))).map(c => isTrap(c.B) ? Object.assign(c, { name: c.B.snare ? 'Snare' : 'Fish trap' }) : c);
+  }; }
+
+// ---------------- the catch ----------------
+function trapStep(dt) {
+  const D = S.day, p = S.p;
+  for (const B of D.builds) {
+    if (!isTrap(B)) continue;
+    const d = Math.hypot(p.x - B.x, p.y - B.y);
+    if (B.snare) {
+      if (B.got && !B.inv.some(s => s && (s.id === 'meat' || s.id === 'hide' || s.id === 'feather'))) B.got = null;   // you've taken it out
+      if (B.got && (B.gotT = (B.gotT || 0) + dt) > TRAP.rot && d > 300) {   // left too long: a fox gets to it first, and leaves you the scraps
+        const i = B.inv.findIndex(s => s && s.id === 'meat'); if (i >= 0) B.inv[i] = null;
+        B.got = null; B.gotT = 0; B.robbed = 1; dayChanged();
+      }
+      if (B.got) continue;
+      const bait = B.inv.findIndex(s => s && SNARE_BAIT.has(s.id));
+      const camp = D.builds.some(o => (o.t === 'fire' || STN_N[o.t]) && Math.hypot(o.x - B.x, o.y - B.y) < TRAP.camp);
+      const k = (bait >= 0 ? 2 : 1) * (d < TRAP.near ? 0.15 : 1) * (camp ? 0.35 : 1) * (caveIn() ? 0 : 1);
+      if ((B.tT = (B.tT || 0) + dt * k) < TRAP.snareT) continue;
+      B.tT = Math.random() * 25;
+      const bird = Math.random() < 0.38, got = bird ? { meat: 1, feather: 2 } : Math.random() < 0.4 ? { meat: 1, hide: 1 } : { meat: 1 };
+      if (Object.entries(got).some(([id, n]) => addTo(B.inv, id, n))) { B.tT = TRAP.snareT; continue; }   // no room in it: it waits
+      B.got = bird ? 'grouse' : 'rabbit'; B.gotT = 0; B.robbed = 0;
+      if (bait >= 0) { const s = B.inv[bait]; s.n--; if (!s.n) B.inv[bait] = null; }
+      dayKillLog(B.got);
+      if (d < 900) exNote(`something is caught in your snare`, true);
+      dayChanged();
+    } else {
+      const fish = countIn(B.inv, 'fish');
+      if (fish >= TRAP.fishMax) continue;
+      const bait = B.inv.findIndex(s => s && FISH_BAIT.has(s.id) && !(s.id === 'fish' && fish > 0));
+      const k = (bait >= 0 ? 1.8 : 1) * (d < 60 ? 0.3 : 1);
+      if ((B.tT = (B.tT || 0) + dt * k) < TRAP.fishT) continue;
+      B.tT = Math.random() * 20;
+      if (addTo(B.inv, 'fish', 1)) { B.tT = TRAP.fishT; continue; }
+      if (bait >= 0 && B.inv[bait] && B.inv[bait].id === 'meat') { const s = B.inv[bait]; s.n--; if (!s.n) B.inv[bait] = null; }
+      if (d < 500) exNote('a fish in your trap', false);
+      dayChanged();
+    }
+  }
+}
+{ const ws = workStep; workStep = function (dt) { ws(dt); if (S.day) trapStep(dt); }; }
+// a trap redraws when what's in it changes
+let trapKey = '';
+{ const ts = thingsSync; thingsSync = function (force) {
+    const D = S.day;
+    if (D) { const k = D.builds.filter(isTrap).map(B => (B.got || '') + countIn(B.inv, 'fish') + (B.inv.some(s => s && (SNARE_BAIT.has(s.id) || FISH_BAIT.has(s.id))) ? 'b' : '')).join(); if (k !== trapKey) { trapKey = k; force = true; } }
+    return ts(force);
+  }; }
+
+// ---------------- saving: which chests are traps ----------------
+{ const sv = daySave; daySave = function () {
+    const r = sv.apply(this, arguments);
+    try {
+      const D = S && S.day, M = D && D.mv, all = D ? D.builds.concat(M && M.kind === 'b' ? [M.B] : []).filter(isTrap) : [];   // one you're carrying is saved where it came from
+      if (!all.length || ARENA) return r;
+      const k = dayKey(), raw = localStorage.getItem(k); if (!raw) return r;
+      const o = JSON.parse(raw); if (!o || !o.d || !o.d.builds) return r;
+      for (const B of all) { const q = o.d.builds.find(q => q.t === 'chest' && !q.trap && q.x === B.x && q.y === B.y); if (q) { q.trap = B.snare ? 'snare' : 'ftrap'; q.tT = B.tT; q.got = B.got; q.gotT = B.gotT; } }
+      localStorage.setItem(k, JSON.stringify(o));
+    } catch (e) {}
+    return r;
+  }; }
+{ const dl = dayLoad; dayLoad = function (sv) {
+    const traps = [];
+    if (sv && sv.d && sv.d.builds) for (const q of sv.d.builds) if (q.trap) { traps.push(q); q.t = q.trap; }
+    const r = dl.apply(this, arguments);
+    for (const q of traps) { const B = S.day.builds.find(o => isTrap(o) && o.x === q.x && o.y === q.y); if (B) { if (q.tT !== undefined) B.tT = q.tT; if (q.got) { B.got = q.got; B.gotT = q.gotT || 0; } } }
+    return r;
+  }; }
+
+// ---------------- what they look like ----------------
+{ const bk = buildKit; buildKit = function (K, o) {
+    const B = o.build || o;
+    if (o.sub !== 'chest' || !isTrap(B)) return bk(K, o);
+    const a = B.a || 0, x = o.x, y = o.y, at = (f, s) => { const [dx, dy] = U(a, f, s); return [x + dx, y + dy]; };
+    const rod = (f0, s0, h0, f1, s1, h1, r, col) => { const [ax, ay] = at(f0, s0), [bx, by] = at(f1, s1); K.rod(P_CYL(5), ax, h0, ay, bx, h1, by, r, col); };
+    const ball = (f, s, h, sx, sy, sz, col, pitch = 0, roll = 0) => { const [px, py] = at(f, s); K.add(P_BALL(), px, h, py, sx, sy, sz, col, -a, pitch, roll); };
+    const bend = (pts, r0, r1, col) => { for (let i = 0; i < pts.length - 1; i++) rod(...pts[i], ...pts[i + 1], lerp(r0, r1, i / (pts.length - 2)), col); };
+    const wood = hex('#7a5a3a'), dk = hex('#5a4028'), cord = hex('#d8c08a'), leaf = hex('#5e7a3a');
+    if (B.snare) {
+      const caught = B.got;
+      K.mt = 'wood';
+      for (const s of [-2.6, 2.6]) rod(3, s, -0.5, 3, s, 5.6, 0.55, dk);   // the two trigger pegs, driven in
+      if (!caught) {
+        // set: the sapling bent right over and held down by the cord on the trigger bar; the noose hangs open across the run
+        const tip = [0.5, 0, 17.5];
+        bend([[-11, 0, 0], [-10.6, 0, 7], [-9, 0, 12.6], [-5.6, 0, 16.4], tip], 0.8, 0.35, wood);
+        rod(3, -2.8, 5, 3, 2.8, 5, 0.4, wood);
+        K.mt = 'cloth'; rod(...tip, 3, 0, 5.2, 0.17, cord);
+        for (let i = 0; i < 12; i++) { const t0 = i / 12 * 6.283, t1 = (i + 1) / 12 * 6.283; rod(5.6, Math.cos(t0) * 3, 5.6 + Math.sin(t0) * 3.4, 5.6, Math.cos(t1) * 3, 5.6 + Math.sin(t1) * 3.4, 0.15, cord); }
+        rod(3, 0, 5, 5.6, 0, 9, 0.15, cord);
+        K.mt = null;
+        ball(...tip.slice(0, 2), tip[2] + 1, 4.5, 3, 4, leaf); ball(-4, 1.2, 16.8, 3.6, 2.6, 3.4, leaf);
+        if (B.inv.some(s => s && SNARE_BAIT.has(s.id))) for (let i = 0; i < 5; i++) ball(6.8 + (i % 2) * 1.4, -1.6 + i * 0.8, 0.7, 1.4, 1.3, 1.4, hex('#c23a4a'));
+      } else {
+        // sprung: the sapling has whipped back up, and what it caught hangs off the ground by the neck
+        const tip = [-4, 0, 31], nk = [-2.6, 0, 20];
+        bend([[-11, 0, 0], [-10.7, 0, 10], [-9.4, 0, 19], [-7.2, 0, 26], tip], 0.8, 0.35, wood);
+        rod(3, -2.6, 0.6, 5, 1.2, 0.4, 0.4, wood);   // the trigger bar knocked aside
+        K.mt = 'cloth'; rod(...tip, ...nk, 0.17, cord); K.mt = null;
+        ball(tip[0] + 0.6, 0, tip[2] + 1, 5, 3.4, 4.6, leaf); ball(-8.4, 1.4, 25, 3.8, 2.8, 3.6, leaf);
+        if (caught === 'rabbit') {
+          const fur = hex('#93745a'), pale = hex('#e6dccb'), dkf = hex('#6e5640');
+          ball(nk[0], 0, 17.6, 4.4, 4.2, 4, fur);                                   // head
+          for (const s of [-1, 1]) ball(nk[0] - 0.6, s * 1.1, 22.4, 1.6, 6.2, 1.1, s > 0 ? fur : dkf, s * 0.22);   // the long ears, laid back up the cord
+          ball(nk[0] + 1.8, 0, 17, 1.5, 1.3, 1.5, hex('#3a2c22'));                  // nose
+          for (const s of [-1, 1]) ball(nk[0] + 1, s * 1.7, 18.2, 0.9, 0.9, 0.9, hex('#1a1612'));   // eyes, shut
+          ball(nk[0], 0, 11, 5.4, 9.6, 5.8, fur); ball(nk[0] + 1.6, 0, 11.4, 2.6, 7.4, 4.2, pale);   // body, hanging straight, the pale belly
+          for (const s of [-1, 1]) ball(nk[0] + 1.4, s * 1.3, 14.2, 1.4, 3.8, 1.6, fur);   // forepaws hanging
+          for (const s of [-1, 1]) { ball(nk[0] - 0.4, s * 1.8, 6.2, 2.4, 5.2, 2.6, fur); ball(nk[0] + 0.6, s * 1.8, 3.4, 3.4, 1.4, 1.8, dkf); }   // hind legs, feet
+          ball(nk[0] - 2.8, 0, 7.4, 2.4, 2.4, 2.4, pale);   // the tail
+        } else if (caught === 'grouse') {
+          const br = hex('#9a7650'), dkb = hex('#684c34'), pale = hex('#d6c29e');
+          ball(nk[0], 0, 18, 3, 3.2, 3, br); ball(nk[0] + 1.8, 0, 17.6, 1.6, 0.9, 1, hex('#3e2e20'));   // head, beak
+          ball(nk[0] + 0.4, 0, 19.4, 1.4, 0.9, 2.4, hex('#c0402c'));   // the red over its eye
+          ball(nk[0], 0, 11.4, 6.6, 10, 6.4, br); ball(nk[0] + 1.6, 0, 11.6, 3, 7, 4.4, pale);
+          for (const s of [-1, 1]) ball(nk[0] - 0.6, s * 3.8, 10.6, 3.6, 9.4, 1, dkb, s * 0.35);   // wings fallen open
+          ball(nk[0] - 0.6, 0, 4.6, 1.4, 5, 6.4, dkb);   // the tail fanned under it
+          for (const s of [-1, 1]) rod(nk[0] + 0.6, s * 1.2, 7.4, nk[0] + 1, s * 1.4, 4.4, 0.35, hex('#a89a7a'));
+        }
+      }
+    } else {
+      // a long woven cone of sticks staked into the bed of the shallows, its open mouth upstream; fish showing through the weave
+      const W = trapWet(x, y), dep = W ? Math.min(7, W.depth) : 0, hc = Math.max(3.2, dep - 0.6), wv = hex('#b08a52'), wd = hex('#7e5e36');
+      K.mt = 'wood';
+      for (let i = 0; i < 10; i++) {   // the ribs along it, from the wide mouth to the tied-off tail
+        const t = i / 10 * 6.283, c = Math.cos(t), s = Math.sin(t);
+        rod(-11, c * 5.6, hc + s * 5, 10, c * 1.1, hc + s * 1, 0.32, i % 2 ? wv : wd);
+      }
+      for (const f of [-10.5, -6, -1.5, 3, 7.5]) { const R = lerp(5.6, 1.1, (f + 11) / 21); for (let i = 0; i < 14; i++) { const t0 = i / 14 * 6.283, t1 = (i + 1) / 14 * 6.283; rod(f, Math.cos(t0) * R, hc + Math.sin(t0) * R * 0.9, f, Math.cos(t1) * R, hc + Math.sin(t1) * R * 0.9, 0.34, f === -10.5 ? wd : wv); } }
+      rod(10, 0, hc, 12.6, 0, hc + 0.4, 0.7, wd);   // the tail tied off
+      for (const [f, s] of [[-8, -7.4], [-8, 7.4], [6, -4], [6, 4]]) rod(f, s, -1, f, s + (s > 0 ? 0.6 : -0.6), dep + 7, 0.62, hex('#5a4028'));   // stakes driven into the bed
+      K.mt = 'cloth'; for (const [f, s] of [[-8, -7.4], [-8, 7.4], [6, -4], [6, 4]]) rod(f, s, dep + 5, f * 0.92, s * 0.62, hc + 2, 0.15, cord); K.mt = null;
+      const n = countIn(B.inv, 'fish');
+      for (let i = 0; i < n; i++) { const f = -4 + i * 4.2, s = (i % 2 ? 1 : -1) * 1.3, h = hc - 0.6 + i * 0.5; ball(f, s, h, 6.8, 2.6, 2.2, hex('#a4c0c6'), 0, 0.2); ball(f, s, h + 0.8, 5.6, 1, 1.4, hex('#5e7e86')); ball(f - 3.6, s, h, 1.6, 2.6, 0.6, hex('#6a8a94')); }
+      if (B.inv.some(s => s && s.id === 'meat')) ball(2, 0, hc - 1.6, 2.8, 1.8, 2.2, hex('#b04a3a'));
+    }
+  }; }
+
+// ---------------- what it says when you're at one, or carrying one ----------------
+{ const pk = mvPick; mvPick = function (t) {
+    pk(t);
+    if (t && t.kind === 'b' && isTrap(t.B)) { const n = S.rg.notes[S.rg.notes.length - 1]; if (n && n.text.startsWith('moving · ')) n.text = `moving · ${t.B.snare ? 'snare' : 'fish trap'} · Attack to put it down`; }
+  }; }
+{ const dh = drawHud; drawHud = function (...a) {
+    const r = dh.apply(this, a), D = S && S.day;
+    if (D && D.builds.some(isTrap)) {
+      const o = dayUseTarget();
+      if (isTrap(o)) {
+        const n = countIn(o.inv, 'fish'), t = (inputMode === 'kb' ? 'E · ' : inputMode === 'pad' ? 'X · ' : '') + (o.snare ? (o.got ? `TAKE THE ${o.got.toUpperCase()}` : 'CHECK SNARE') : n ? `EMPTY FISH TRAP · ${n} FISH` : 'CHECK FISH TRAP');
+        if (hudEl.prompt.textContent !== t) hudEl.prompt.textContent = t;
+      }
+    }
+    return r;
+  }; }
+
+;
+// ================= bone armour, and a leaf cloak to creep about in (Joe's number 7) =================
+// Bone armour is the strong stuff between hide and iron, made at the workbench from what the hunt leaves you:
+//   Bone helm      bones lashed over a hide cap, a nose guard, two tusks      soaks two hits
+//   Bone plate     a turtle shell for a breastplate, bone ribs round it        one more heart, and soaks a hit
+//   Bone greaves   splints down the shins, a cap over each knee                soaks two hits
+// It rattles: each piece lets things hear you a little further off.
+// The leaf cloak is the other way to go: a mantle and hood of grass and leaves bound on a hide backing. It soaks a hit,
+// and everything that would see you (deer, birds, wolves, the clan) has to be a lot nearer before it does; the pale
+// ones in the caves hear you a little less. It takes the body slot, so it's that or the vest's extra heart.
+// What you wear now shows on you in third person and from above.
+Object.assign(DIT, {
+  bhelm: { n: 'Bone helm', c: '#e2dccb', st: 1, k: 'gear', slot: 'head', arm: 2, loud: 1.08, b: 'Armour · soaks two hits, then mends · it rattles' },
+  bplate: { n: 'Bone plate', c: '#e2dccb', st: 1, k: 'gear', slot: 'body', heart: 1, arm: 1, loud: 1.12, b: 'One more heart, and soaks a hit · a turtle shell bound in bone · it rattles' },
+  bgreave: { n: 'Bone greaves', c: '#e2dccb', st: 1, k: 'gear', slot: 'legs', arm: 2, loud: 1.08, b: 'Armour · soaks two hits, then mends · it rattles' },
+  cloak: { n: 'Leaf cloak', c: '#6a7a3a', st: 1, k: 'gear', slot: 'body', arm: 1, hush: 0.6, b: 'Soaks a hit · things have to be much nearer to see you · quieter too' },
+});
+DREC.push(
+  { id: 'bhelm', g: 'gear', out: 'bhelm', at: 'bench', cost: { bone: 3, hide: 1, rope: 1 } },
+  { id: 'bplate', g: 'gear', out: 'bplate', at: 'bench', cost: { bone: 4, shell: 1, hide: 1, rope: 2 } },
+  { id: 'bgreave', g: 'gear', out: 'bgreave', at: 'bench', cost: { bone: 3, hide: 1, rope: 1 } },
+  { id: 'cloak', g: 'gear', out: 'cloak', at: 'bench', cost: { fibre: 12, rope: 2, hide: 1 } },
+);
+Object.assign(ICON, {
+  bhelm: '<path d="M4.5 14a7.5 7.5 0 0 1 15 0v5h-3.6v-2.6a3.9 3.9 0 0 0-7.8 0V19H4.5z" fill="#e2dccb"/><path d="M11.1 8.5h1.8v8.2h-1.8z" fill="#bfb8a6"/><path d="M4.8 11.5C3 10 2.4 7.5 2.8 5c1.2 2.2 2.6 3.6 4 4.2M19.2 11.5c1.8-1.5 2.4-4 2-6.5-1.2 2.2-2.6 3.6-4 4.2" fill="#d6cfb8"/><path d="M5 14.5h14" stroke="#8e8878" stroke-width="1.2"/>',
+  bplate: '<path d="M7.5 3.5L3.5 6.5v8.5c2 3 5 5 8.5 5.5 3.5-.5 6.5-2.5 8.5-5.5V6.5l-4-3c-.4 1.8-2.2 3-4.5 3s-4.1-1.2-4.5-3z" fill="#6e6a3e"/><path d="M12 8.5l3 2.2v3.6l-3 2.2-3-2.2v-3.6z" fill="#8a865a"/><g stroke="#e2dccb" stroke-width="1.5" stroke-linecap="round"><path d="M4 9.5l3 .8M4 12.5l3 .4M20 9.5l-3 .8M20 12.5l-3 .4"/></g><circle cx="5.5" cy="5.8" r="1.5" fill="#e2dccb"/><circle cx="18.5" cy="5.8" r="1.5" fill="#e2dccb"/>',
+  bgreave: '<g fill="#e2dccb"><path d="M5 4h3.2l.4 15H4.6z"/><path d="M15.8 4H19l.4 15h-4z"/></g><g fill="#bfb8a6"><ellipse cx="6.6" cy="5" rx="2.6" ry="1.8"/><ellipse cx="17.6" cy="5" rx="2.6" ry="1.8"/></g><path d="M4.4 10.5h4.4M4.4 15h4.4M15.4 10.5h4.4M15.4 15h4.4" stroke="#6e5235" stroke-width="1.2"/><path d="M4 19.5h5.2l.6 1.8H3.4zM15 19.5h5.2l.6 1.8H14.4z" fill="#7a5a3a"/>',
+  cloak: '<path d="M12 3c-3 0-5 2.2-5.4 5L3.5 20.5h17L17.4 8C17 5.2 15 3 12 3z" fill="#5e7a3a"/><path d="M9 9.5c.6-2 1.7-3 3-3s2.4 1 3 3l-1.2 5H10.2z" fill="#2e2a20"/><g fill="#7a9a4a"><path d="M5 16l2.5-1 .5 2.6z"/><path d="M16 15l2.6 1-2 1.8z"/><path d="M10.5 18l2-1.6 1.4 2.2z"/><path d="M7.5 11l2-.4-.8 2z"/></g><g fill="#8a7a3a"><path d="M14 11.5l2 .8-1.8 1.2z"/><path d="M6 19l1.8-.9.3 1.9z"/></g>',
+});
+
+// ---------------- what it does: armour from the body slot too, and how far things notice you ----------------
+{ const gf = dayGearFx; dayGearFx = function () {
+    const D = S.day, rg = S.rg, pre = steelMax(), preS = rg.steel || 0;
+    gf.apply(this, arguments);
+    const body = D && D.gear.body && DIT[D.gear.body.id];
+    if (!body || !body.arm || !XS || !XS.arm) return;   // the original only counted helmets and leggings: a breastplate's armour counts as well
+    const arm = (XS.arm.steel || 0) + body.arm; XS.arm.steel = arm;
+    rg.steel = arm > pre ? Math.min(arm, preS + (arm - pre)) : Math.min(preS, arm); D.steelSeen = rg.steel;
+  }; }
+function gearSense() {   // [how far things see you, how far things hear you], as a share of the usual
+  const D = S && S.day; let see = 1, hear = 1; if (!D || !D.gear) return [1, 1];
+  for (const k of ['head', 'body', 'legs']) { const s = D.gear[k], T = s && DIT[s.id]; if (!T) continue; if (T.hush) { see *= T.hush; hear *= 0.85; } if (T.loud) hear *= T.loud; }
+  return [see, hear];
+}
+const SENSE0 = { beast: Object.fromEntries(Object.entries(BEAST).map(([k, B]) => [k, B.scare])), clan: CL.notice,
+  ear: { sneak: PALE_EAR.sneak.slice(), walk: PALE_EAR.walk.slice(), sprint: PALE_EAR.sprint, swing: PALE_EAR.swing } };
+let senseK = '';
+function senseApply() {
+  const [see, hear] = gearSense(), k = see + ':' + hear; if (k === senseK) return; senseK = k;
+  for (const b in SENSE0.beast) if (BEAST[b]) BEAST[b].scare = SENSE0.beast[b] * see;
+  CL.notice = SENSE0.clan * see;
+  PALE_EAR.sneak = [SENSE0.ear.sneak[0] * hear, SENSE0.ear.sneak[1] * hear]; PALE_EAR.walk = [SENSE0.ear.walk[0] * hear, SENSE0.ear.walk[1] * hear];
+  PALE_EAR.sprint = SENSE0.ear.sprint * hear; PALE_EAR.swing = SENSE0.ear.swing * hear;
+}
+{ const ws = workStep; workStep = function (dt) { senseApply(); return ws(dt); }; }
+
+// ---------------- what it looks like on you ----------------
+const ARM_COL = { bone: [226, 219, 200], boneD: [186, 178, 158], boneE: [150, 142, 124], shell: [112, 106, 62], shellD: [82, 78, 46], shellL: [138, 132, 84],
+  leaf: [94, 122, 58], leafD: [70, 96, 46], leafL: [122, 150, 74], leafB: [128, 112, 60] };
+function armourExtra(ids) {
+  return ({ tube, lump, one, R, C }) => {
+    const A = ARM_COL, c = k => () => A[k], S2 = s => s > 0 ? 'R' : 'L';
+    if (ids.head === 'bhelm') {
+      lump([0, 38.1, -0.1], [4.5, 4.5, 4.55], one('cap'), c('bone'), 18, 10, Math.PI * 0.52);
+      tube([0, 39.1, -0.1], [0, 37.9, -0.1], () => [4.68, 4.7], one('cap'), (x, y, z) => Math.cos(Math.atan2(x, z) * 9) > 0.55 ? A.boneE : A.boneD, 2, 36);   // the lashed brow band
+      lump([0, 41.9, -0.5], [0.75, 1.2, 3.6], one('cap'), c('boneD'), 8, 6);   // a ridge over the crown
+      lump([0, 37.5, 4.5], [0.55, 1.3, 0.45], one('cap'), c('bone'), 6, 6);     // the nose guard
+      for (const s of [-1, 1]) {
+        tube([s * 4.1, 39.4, 0.6], [s * 5.6, 43.4, 1.5], t => [0.75 * (1 - t * 0.8), 0.75 * (1 - t * 0.8)], one('cap'), c('bone'), 5, 8);   // boar tusks for horns
+        lump([s * 3.9, 36.6, -0.6], [0.75, 2.2, 1.9], one('head'), c('boneD'), 8, 6);   // guards over the ears
+      }
+    }
+    if (ids.body === 'bplate') {
+      const bw = (x, y) => { const k = smooth(clamp((y - 21) / 4, 0, 1)); return [['spine', 1 - k], ['chest', k]]; };
+      lump([0, 25.4, 2.7], [4.7, 5.4, 2.2], bw, c('shell'), 16, 12);   // the shell, worn as a breastplate
+      lump([0, 26.4, 4.55], [1.7, 1.9, 0.45], bw, c('shellL'), 8, 6);
+      for (const [x, y] of [[-2.5, 28.2], [2.5, 28.2], [-2.6, 24.2], [2.6, 24.2], [0, 22.6]]) lump([x, y, 4.15], [1.25, 1.35, 0.4], bw, c('shellD'), 8, 6);   // its plates
+      for (const s of [-1, 1]) {
+        for (const y of [22.6, 24.8, 27]) tube([s * 3.9, y, 3.2], [s * 5.5, y + 0.5, 0.2], () => [0.55, 0.5], bw, c('bone'), 3, 6);   // bone ribs round the flanks
+        lump([s * 5.9, 30.1, 0], [3.0, 1.75, 3.0], (x, y) => [['chest', 0.55], ['arm' + S2(s), 0.45]], c('bone'), 12, 8, Math.PI * 0.55);   // shoulder caps
+        lump([s * 6.4, 30.6, 0], [1.1, 0.7, 1.1], (x, y) => [['chest', 0.5], ['arm' + S2(s), 0.5]], c('boneD'), 6, 4);
+      }
+    }
+    if (ids.legs === 'bgreave') {
+      for (const s of [-1, 1]) {
+        const S = S2(s), kn = R['shin' + S], an = R['foot' + S], hp = R['leg' + S];
+        for (const dx of [-0.75, 0.75]) tube([an[0] + dx, kn[1] - 0.4, 2.15], [an[0] + dx * 0.9, an[1] + 3.8, 2.4], () => [0.6, 0.5], one('shin' + S), c('bone'), 4, 6);   // splints down the shin
+        lump([kn[0], kn[1] + 0.2, 2.0], [1.6, 1.5, 1.05], one('shin' + S), c('boneD'), 10, 8);   // the knee cap
+        lump([hp[0], hp[1] - 4.6, 2.0], [1.8, 2.7, 0.85], one('leg' + S), c('bone'), 10, 8);   // a plate down the thigh
+        for (const y of [kn[1] - 1.6, an[1] + 5.1]) tube([an[0], y + 0.3, 0.15], [an[0], y - 0.3, 0.15], () => [2.42, 2.48], one('shin' + S), () => C.strap, 1, 14);   // lashed on
+      }
+    }
+    if (ids.body === 'cloak') {
+      // a capelet of leaves and grass over the shoulders and down the back, its hem ragged with leaves, and a leafy hood
+      const cw = (x, y) => { const k = smooth(clamp((y - 22) / 5, 0, 1)); return [['spine', 1 - k], ['chest', k]]; };
+      const patch = (x, y, z) => { const h = hash(Math.floor(x / 1.6) * 3.1 + Math.floor(z / 1.6) * 1.7, Math.floor(y / 1.6) * 2.3); return h < 0.3 ? A.leafD : h < 0.66 ? A.leaf : h < 0.9 ? A.leafL : A.leafB; };
+      tube([0, 32.6, -0.4], [0, 21.0, -1.0], t => { const k = smooth(Math.min(1, t * 3.2)); return [lerp(3.3, 8.7, k) - t * 0.6, lerp(3.1, 6.3, k) - t * 0.2]; }, cw, patch, 16, 20);
+      for (let i = 0; i < 22; i++) { const a = i / 22 * Math.PI * 2, y = 21.6 + (i % 2) * 0.6; lump([Math.sin(a) * 8.1, y, Math.cos(a) * 6.1 - 1.0], [1.3, 1.8, 1.3], cw, patch, 6, 5); }   // the ragged hem
+      for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2 + 0.3, y = 23.8 + (i % 3) * 1.9; lump([Math.sin(a) * 8.5, y, Math.cos(a) * 6.4 - 0.9], [1.2, 1.5, 1.2], cw, patch, 6, 5); }   // leaves stuck through it
+      if (ids.head !== 'bhelm') {
+        lump([0, 37.8, -0.7], [4.75, 4.9, 4.85], one('head'), patch, 16, 10, Math.PI * 0.5);   // the hood over the crown
+        lump([0, 35.6, -1.7], [4.7, 4.6, 3.7], one('head'), patch, 14, 10);                  // and down round the back and the ears
+        tube([0, 38.0, -0.7], [0, 37.2, -0.7], () => [4.95, 5.0], one('head'), patch, 2, 18);   // its rim
+        for (const [x, y, z] of [[0, 40.6, -4.2], [3.9, 38.6, -2.6], [-4.0, 38.4, -2.2], [2.2, 35.4, -4.6], [-2.4, 35.2, -4.5]]) lump([x, y, z], [1.2, 1.4, 1.2], one('head'), patch, 6, 5);
+      }
+    }
+  };
+}
+let armLookKey = 'none';
+function armourLook() {
+  const D = S && S.day, g = D && D.gear, ids = { head: g && g.head ? g.head.id : '', body: g && g.body ? g.body.id : '', legs: g && g.legs ? g.legs.id : '' };
+  const shows = ids.head === 'bhelm' || ids.body === 'bplate' || ids.body === 'cloak' || ids.legs === 'bgreave';
+  const key = shows ? ids.head + '|' + ids.body + '|' + ids.legs : '';
+  if (key === armLookKey) return; armLookKey = key;
+  const geo = buildBody(shows ? { cap: !(ids.head === 'bhelm' || ids.body === 'cloak'), extra: armourExtra(ids) } : {});
+  const old = BODY.mesh.geometry; BODY.mesh.geometry = geo; BODY.edge.geometry = geo; old.dispose();
+}
+{ const tf = thingsFrame; thingsFrame = function (now) { const r = tf(now); try { armourLook(); } catch (e) { console.error(e); } return r; }; }
+
+;
+// ================= healing plants, and the mixes you make from them (Joe's number 7) =================
+// Four herbs grow wild, each in its own kind of place, in little patches of two to four:
+//   yarrow      flat white heads in the open meadows · chew it on a wound and the bleeding stops
+//   aloe        a rosette of thick spiky leaves on sunny ground, by the rocks and up the beach · heals a little
+//   coneflower  pink-purple daisies round a dark cone, at the edges of the woods · eases sickness
+//   chicory     sky-blue flowers on wiry stems out in the open · a little energy
+// Walk up and press E to pick one. It grows back after a couple of days. Mash two together, in your hands:
+//   Health mix  aloe + yarrow            heals a heart and a half, stops bleeding
+//   Energy mix  coneflower + chicory     stamina full, and for a while it hardly drains · cures sickness
+//   Herb poultice  yarrow ×2 + fibre ×2  a better bandage: stops bleeding, heals a whole heart
+Object.assign(DIT, {
+  yarrow: { n: 'Yarrow', c: '#ece6d2', st: 12, k: 'food', eat: { food: 1 }, herb: { stanch: 1 }, b: 'Flat white heads in open meadows · chew it on a wound and the bleeding stops' },
+  aloe: { n: 'Aloe', c: '#7a9a6a', st: 12, k: 'food', eat: { food: 1, water: 4 }, herb: { heal: 0.25 }, b: 'Thick spiky leaves on sunny ground, by rocks and up the beach · soothing, heals a little' },
+  coneflower: { n: 'Coneflower', c: '#c46aa8', st: 12, k: 'food', eat: { food: 1 }, herb: { ease: 1 }, b: 'Pink-purple, at the edges of the woods · eases sickness' },
+  chicory: { n: 'Chicory', c: '#7ea6e0', st: 12, k: 'food', eat: { food: 2 }, herb: { st: 30 }, b: 'Sky-blue flowers on wiry stems, out in the open · a little energy' },
+  hmix: { n: 'Health mix', c: '#c8504a', st: 6, k: 'food', eat: { food: 2, water: 8 }, herb: { heal: 1.5, stanch: 1 }, b: 'Aloe and yarrow mashed together · heals a heart and a half, and stops bleeding' },
+  emix: { n: 'Energy mix', c: '#e0b040', st: 6, k: 'food', eat: { food: 2, water: 8 }, herb: { st: STA_MAX, buff: 150, cure: 1 }, b: 'Coneflower and chicory · stamina full, and for a while it hardly drains · cures sickness' },
+  poultice: { n: 'Herb poultice', c: '#a8b86a', st: 6, k: 'med', b: 'Yarrow bound up in fibre · stops bleeding, heals a whole heart' },
+});
+DREC.push(
+  { id: 'hmix', g: 'food', out: 'hmix', at: 'hand', cost: { aloe: 1, yarrow: 1 } },
+  { id: 'emix', g: 'food', out: 'emix', at: 'hand', cost: { coneflower: 1, chicory: 1 } },
+  { id: 'poultice', g: 'gear', out: 'poultice', at: 'hand', cost: { yarrow: 2, fibre: 2 } },
+);
+Object.assign(ICON, {
+  yarrow: '<path d="M12 22V9M12 15l-4-5M12 13l4-4" stroke="#6a8040" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M6 21c1.5-2.5 3.5-3 6-3M18 21c-1.5-2.5-3.5-3-6-3" stroke="#5f7a3a" stroke-width="1.3" fill="none"/><g fill="#ece6d2"><ellipse cx="12" cy="7.5" rx="5" ry="2.4"/><ellipse cx="7" cy="9" rx="3" ry="1.6"/><ellipse cx="16.5" cy="8" rx="3" ry="1.6"/></g><g fill="#cfc6a8"><circle cx="10.5" cy="7" r=".7"/><circle cx="13.5" cy="7.6" r=".7"/><circle cx="7" cy="8.6" r=".6"/><circle cx="16.4" cy="7.6" r=".6"/></g>',
+  aloe: '<g fill="#7a9a6a"><path d="M12 21c-1-5-1-11 0-17 1 6 1 12 0 17z"/><path d="M11 21c-3-3-5.5-7-7-12 3.5 3.5 6 7.5 7 12z"/><path d="M13 21c3-3 5.5-7 7-12-3.5 3.5-6 7.5-7 12z"/></g><g fill="#5f7d52"><path d="M10.5 21.5C7 20 4 18 2 15.5c3.5.8 6.5 2.8 8.5 6z"/><path d="M13.5 21.5c3.5-1.5 6.5-3.5 8.5-6-3.5.8-6.5 2.8-8.5 6z"/></g><g fill="#d6e2c4"><circle cx="12" cy="12" r=".6"/><circle cx="7.6" cy="13" r=".5"/><circle cx="16.4" cy="13" r=".5"/></g>',
+  coneflower: '<path d="M12 22V12" stroke="#5f7a3a" stroke-width="1.4"/><path d="M12 19c-2-1-4-1-5.5 0 1.5-2.4 3.6-2.6 5.5 0z" fill="#5f7a3a"/><g fill="#c46aa8"><path d="M12 10l-7 3.2 1.2-2.6z"/><path d="M12 10l7 3.2-1.2-2.6z"/><path d="M12 10l-5 5 .4-3z"/><path d="M12 10l5 5-.4-3z"/><path d="M12 10l-7.5.5 2.5-2z"/><path d="M12 10l7.5.5-2.5-2z"/></g><path d="M9 10.5c0-3 1.4-5.5 3-5.5s3 2.5 3 5.5z" fill="#7a3e1e"/>',
+  chicory: '<path d="M12 22V5M12 12l4.5-4M12 16l-4.5-3" stroke="#6a8040" stroke-width="1.2" fill="none"/><g fill="#7ea6e0"><circle cx="12" cy="5" r="3.2"/><circle cx="17" cy="7.5" r="2.6"/><circle cx="7" cy="12.5" r="2.6"/></g><g fill="#3e5a9a"><circle cx="12" cy="5" r=".9"/><circle cx="17" cy="7.5" r=".7"/><circle cx="7" cy="12.5" r=".7"/></g>',
+  hmix: '<path d="M4.5 11h15c0 5-3.4 8.5-7.5 8.5S4.5 16 4.5 11z" fill="#8a6440"/><path d="M5 11.2c.8-1.2 3.6-2 7-2s6.2.8 7 2c-.8 1-3.6 1.6-7 1.6S5.8 12.2 5 11.2z" fill="#c8504a"/><path d="M14 9.5l5-6" stroke="#cfc6a8" stroke-width="2" stroke-linecap="round"/><g fill="#7a9a6a"><path d="M8 10.5l-2-4 3 3z"/></g><g fill="#ece6d2"><circle cx="10" cy="10.6" r=".8"/></g>',
+  emix: '<path d="M4.5 11h15c0 5-3.4 8.5-7.5 8.5S4.5 16 4.5 11z" fill="#8a6440"/><path d="M5 11.2c.8-1.2 3.6-2 7-2s6.2.8 7 2c-.8 1-3.6 1.6-7 1.6S5.8 12.2 5 11.2z" fill="#e0b040"/><path d="M14 9.5l5-6" stroke="#cfc6a8" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="10.4" r="1.1" fill="#7ea6e0"/><circle cx="11" cy="10.8" r="1" fill="#c46aa8"/>',
+  poultice: '<rect x="3" y="8.5" width="18" height="7.5" rx="3.4" fill="#cfc29a" transform="rotate(-20 12 12)"/><rect x="8" y="8.5" width="8" height="7.5" rx="1.6" fill="#8aa05a" transform="rotate(-20 12 12)"/><g stroke="#a8986a" stroke-width=".9"><path d="M6 15l2.5-7M17.5 11l-2.4 6.8" /></g><circle cx="12" cy="12" r="1.3" fill="#ece6d2"/>',
+});
+Object.assign(MAT_GET, { yarrow: 'pick it in open meadows', aloe: 'pick it on sunny ground, by rocks and on the beach', coneflower: 'pick it at the edges of the woods', chicory: 'pick it out in the open' });
+BOOK.splice(BOOK.findIndex(b => b.id === 'made'), 0, { id: 'herbs', n: 'Herbs and mixes', icon: 'yarrow', blurb: 'Picked wild with E, each in its own kind of place. They grow back. Mash two together for something stronger.', items: ['yarrow', 'aloe', 'coneflower', 'chicory', 'hmix', 'emix', 'poultice'] });
+{ const sh = DIT.shell; if (sh) sh.b = 'Hard and light · plates for bone armour'; }
+
+// ---------------- where they grow ----------------
+const HERB = { C: 480, R: 520, regrow: DAY_LEN * 2, reach: 34, ch: new Map() };
+const HERB_KINDS = ['yarrow', 'aloe', 'coneflower', 'chicory'];
+function herbNear(x, y, R, kinds) { let d = 1e9; for (const o of propsNear(x, y, R)) if (kinds.includes(o.kind)) d = Math.min(d, Math.hypot(o.x - x, o.y - y) - (o.r || 8) * (o.s || 1) * 0.5); return d; }
+function herbKind(x, y, h) {   // what grows here, if anything: from how open it is, the rocks and the sea
+  if (inPlaza(x, y) || (!NO_CAMP && Math.hypot(x, y) < CAMP_R + 80) || x > CAVE_X0 - 500) return null;
+  const s = BEACH ? coastS(x, y) : -9999; if (s > -70) return null;
+  if (s > -280) return h < 0.75 ? 'aloe' : 'chicory';   // sandy and sunny, up from the sea
+  const dT = herbNear(x, y, 150, ['tree']), dR = herbNear(x, y, 110, ['rock', 'rockIron', 'crag']);
+  if (dR < 70 && dT > 50) return h < 0.6 ? 'aloe' : 'yarrow';   // warm stone, in the sun
+  if (dT > 80) return h < 0.55 ? 'yarrow' : 'chicory';          // out in the open
+  if (dT > 30) return h < 0.7 ? 'coneflower' : 'yarrow';       // the edge of the woods
+  return h < 0.35 ? 'coneflower' : null;                        // under the trees, now and then
+}
+function herbSpot(x, y) {
+  if (fishWater(x, y) || pondAt(x, y, 10) || inPlaza(x, y)) return false;
+  if (BEACH && coastS(x, y) > -70) return false;
+  return !propsNear(x, y, 40).some(o => (o.kind === 'tree' || o.kind === 'rock' || o.kind === 'rockIron' || o.kind === 'crag') && Math.hypot(o.x - x, o.y - y) < (o.r || 8) * (o.s || 1) * 0.6 + 7);
+}
+function herbChunk(ci, cj) {   // the same patches every run, worked out from where they are
+  const key = ci + ',' + cj; let L = HERB.ch.get(key); if (L) return L;
+  L = []; HERB.ch.set(key, L);
+  for (let k = 0; k < 3; k++) {
+    if (hash(ci * 3.1 + k * 17.3, cj * 5.7 - k * 11.1) > 0.44) continue;
+    const x = (ci + 0.08 + 0.84 * hash(ci + k * 9.1, cj * 1.3 + 4.4)) * HERB.C, y = (cj + 0.08 + 0.84 * hash(ci * 2.2 + 7.7, cj + k * 3.3)) * HERB.C;
+    const kind = herbKind(x, y, hash(ci + k * 0.7, cj - k * 1.9)); if (!kind) continue;
+    const n = 2 + Math.floor(hash(x * 0.01, y * 0.01) * 3);
+    for (let i = 0; i < n; i++) {
+      const a = hash(x * 0.01 + i, y * 0.01) * 6.283, r = i ? 6 + hash(x * 0.01, y * 0.01 + i) * 16 : 0, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+      if (!herbSpot(px, py)) continue;
+      L.push({ kind: 'dherb', k: kind, x: px, y: py, id: key + ':' + k + ':' + i, sd: hash(px * 0.37, py * 0.53), r: 0, s: 1 });
+    }
+  }
+  return L;
+}
+const herbTaken = o => { const D = S.day, t = D && D.herbs && D.herbs[o.id]; return t !== undefined && D.t - t < HERB.regrow; };
+function herbsNear(x, y, R) {
+  const out = []; if (!S.day || caveIn()) return out;
+  for (let ci = Math.floor((x - R) / HERB.C); ci <= Math.floor((x + R) / HERB.C); ci++)
+    for (let cj = Math.floor((y - R) / HERB.C); cj <= Math.floor((y + R) / HERB.C); cj++)
+      for (const o of herbChunk(ci, cj)) if (Math.abs(o.x - x) < R && Math.abs(o.y - y) < R && !herbTaken(o)) out.push(o);
+  return out;
+}
+const herbBuilt = o => S.day.builds.some(B => B.parts.some(q => Math.hypot(q.x - o.x, q.y - o.y) < (q.r || 8) + 4)) || stNear(o.x, o.y, 2).some(q => Math.hypot(q.x - o.x, q.y - o.y) < GRID * 0.6);
+
+// ---------------- what they look like ----------------
+function herbKit(K0, o) {
+  let K;
+  const x = o.x, y = o.y, sd = o.sd, r0 = sd * 6.283, R = (i, j = 0) => hash(sd * 91 + i * 7.3, j * 3.1 + sd * 17);
+  const sc = { yarrow: 0.82, aloe: 0.8, coneflower: 0.8, chicory: 0.8 }[o.k] || 1;   // every part scaled in about the plant's foot
+  const P = (a, d) => [x + Math.cos(a) * d, y + Math.sin(a) * d];
+  const sx_ = v => x + (v - x) * sc, sy_ = v => y + (v - y) * sc;
+  K = { add: (g, px, h, py, a, b, c, col, yaw = 0, pitch = 0, roll = 0) => K0.add(g, sx_(px), h * sc, sy_(py), a * sc, b * sc, c * sc, col, yaw, pitch, roll),
+        rod: (g, ax, ah, ay, bx, bh, by, r, col) => K0.rod(g, sx_(ax), ah * sc, sy_(ay), sx_(bx), bh * sc, sy_(by), r * sc, col) };
+  const rod = (ax, ah, ay, bx, bh, by, r, col) => K.rod(P_CYL(4), ax, ah, ay, bx, bh, by, r, col);
+  const leafC = hex('#5f7a3a'), leafD = hex('#4e6a32'), stemC = hex('#6a8040');
+  const leaf = (a, d, h, len, w, col, droop = 0.25) => { const [lx, ly] = P(a, d); K.add(P_BALL(), lx, h, ly, len, Math.max(0.8, w * 0.35), w, col, -a, 0, -droop); };
+  if (o.k === 'yarrow') {
+    for (let i = 0; i < 5; i++) leaf(r0 + i * 1.3, 3.2, 1, 7, 1.6, i % 2 ? leafC : leafD, 0.2);   // the feathery leaves at its foot
+    const n = 2 + (R(1) < 0.6 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const a = r0 + i * 2.1, [bx, by] = P(a, 1.2), [tx, ty] = P(a, 2.4 + R(i, 2) * 2), h = 11 + R(i, 3) * 4;
+      rod(bx, 0, by, tx, h, ty, 0.32, stemC);
+      { const [mx, my] = P(a + 0.5, 1.6); K.add(P_BALL(), mx, h * 0.5, my, 3.4, 0.9, 1.3, leafC, -a - 0.5, 0, -0.5); }
+      K.add(P_BALL(), tx, h + 0.3, ty, 4.4, 1.5, 4.4, hex('#ece6d2'));   // the flat head of little flowers
+      for (let k = 0; k < 6; k++) { const t = k / 6 * 6.283 + sd, px = tx + Math.cos(t) * 1.6, py = ty + Math.sin(t) * 1.6; K.add(P_BALL(), px, h + 0.7 + (k % 2) * 0.25, py, 1.4, 1.1, 1.4, hex(k % 2 ? '#f4efe0' : '#dcd4bc')); }
+    }
+  } else if (o.k === 'aloe') {
+    // a rosette of fat spikes: the inner ones near upright, the outer spread low
+    const outer = hex('#6a8a5a'), inner = hex('#86a676'), N = 11;
+    for (let i = 0; i < N; i++) {
+      const a = r0 + i / N * 6.283 + (i % 2) * 0.2, ring = i % 3, tilt = [0.95, 0.6, 0.28][ring], len = [7.4, 9, 10][ring], wd = [2.6, 2.4, 2.1][ring];
+      const [px, py] = P(a, [1.6, 1, 0.4][ring]); K.add(P_CONE(5), px, 0.2, py, wd, len, wd * 0.62, ring === 2 ? inner : ring ? hex('#7a9a6a') : outer, -a, 0, -tilt);
+    }
+    K.add(P_BALL(), x, 1, y, 4, 2.2, 4, outer);
+    if (R(5) < 0.45) {   // in flower: a tall stalk hung with orange tubes
+      const [tx, ty] = P(r0 + 1, 1.4); rod(x, 1, y, tx, 17, ty, 0.36, hex('#7a8a52'));
+      for (let k = 0; k < 6; k++) { const t = k / 6 * 6.283, hh = 13.6 + (k % 3) * 1.2; K.add(P_CONE(4), tx + Math.cos(t) * 0.9, hh + 1.6, ty + Math.sin(t) * 0.9, 0.9, -2.2, 0.9, hex(k % 2 ? '#e0703a' : '#f0a040')); }
+    }
+  } else if (o.k === 'coneflower') {
+    for (let i = 0; i < 4; i++) leaf(r0 + i * 1.6, 3.4, 1.2, 7.4, 2.2, i % 2 ? leafC : leafD, 0.15);
+    const n = 2 + (R(1) < 0.5 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const a = r0 + i * 2.3 + 0.4, [bx, by] = P(a, 1), [tx, ty] = P(a, 2.2 + R(i, 2) * 2.4), h = 13 + R(i, 3) * 4;
+      rod(bx, 0, by, tx, h, ty, 0.34, stemC);
+      { const [mx, my] = P(a - 0.4, 1.8); K.add(P_BALL(), mx, h * 0.45, my, 4.2, 1, 1.6, leafC, -a + 0.4, 0, -0.35); }
+      for (let k = 0; k < 11; k++) {   // the petals, drooping back off the cone
+        const t = k / 11 * 6.283 + sd * 3, px = tx + Math.cos(t) * 1.6, py = ty + Math.sin(t) * 1.6;
+        K.add(P_BALL(), px, h - 0.4, py, 2.7, 0.6, 1.1, hex(k % 2 ? '#c46aa8' : '#b45a98'), -t, 0, -0.5);
+      }
+      K.add(P_BALL(), tx, h + 0.2, ty, 2.1, 1.4, 2.1, hex('#6a3418'));
+      K.add(P_CONE(6), tx, h + 0.4, ty, 2, 1.9, 2, hex('#8a4a22'));
+    }
+  } else {   // chicory: two or three wiry stems, branching, with blue flowers along the top
+    for (let i = 0; i < 5; i++) leaf(r0 + i * 1.25, 3, 0.9, 6.4, 1.8, i % 2 ? leafC : leafD, 0.1);
+    const n = 2 + (R(1) < 0.5 ? 1 : 0), blue = [hex('#7ea6e0'), hex('#6e96d8'), hex('#92b6ea')];
+    for (let i = 0; i < n; i++) {
+      const a = r0 + i * 2.2, [bx, by] = P(a, 0.8), [tx, ty] = P(a, 2 + R(i, 2) * 3), h = 15 + R(i, 3) * 5;
+      rod(bx, 0, by, tx, h, ty, 0.26, stemC);
+      const [cx, cy] = P(a + 0.9, 4.4 + R(i, 4) * 2), hb = h * 0.62, [sx, sy] = P(a, 1.2 + R(i, 2) * 1.6);
+      rod(sx, hb, sy, cx, h * 0.86, cy, 0.22, stemC);   // a side branch
+      const fl = [[tx, h, ty], [cx, h * 0.86, cy], [(sx + tx) / 2, h * 0.78, (sy + ty) / 2]];
+      fl.forEach(([fx, fh, fy], k) => {
+        const t = a + k * 1.9 + sd;
+        K.add(P_BALL(), fx, fh + 0.2, fy, 2.5, 1, 2.5, blue[(i + k) % 3], -t, 0, -0.55);
+        K.add(P_BALL(), fx + Math.cos(t) * 0.3, fh + 0.55, fy + Math.sin(t) * 0.3, 0.7, 0.7, 0.7, hex('#3e5a9a'));
+      });
+    }
+  }
+}
+const herbK = new KitMesh(true); let herbKey = '', herbAt = { x: 1e9, y: 1e9 };
+function herbSync() {
+  const D = S && S.day, p = S && S.p;
+  if (!D || !p || ARENA || caveIn()) { if (herbK.visible) herbK.visible = false; return; }
+  herbK.visible = true;
+  const L = herbsNear(p.x, p.y, HERB.R), key = L.length + ':' + Object.keys(D.herbs || {}).length + ':' + D.builds.length + ':' + D.bld.size + ':' + Math.floor(D.t / 60);
+  if (key === herbKey && Math.hypot(p.x - herbAt.x, p.y - herbAt.y) < 120) return;
+  herbKey = key; herbAt = { x: p.x, y: p.y };
+  const K = new Kit(); for (const o of L) if (!herbBuilt(o)) herbKit(K, o); herbK.set(K);
+}
+{ const tf = thingsFrame; thingsFrame = function (now) { const r = tf(now); try { herbSync(); } catch (e) { console.error(e); } return r; }; }
+
+// ---------------- picking one ----------------
+function herbAimed() {   // the nearest one in reach, in front of you
+  const p = S.p; let best = null, bd = HERB.reach;
+  for (const o of herbsNear(p.x, p.y, 70)) { const d = Math.hypot(o.x - p.x, o.y - p.y); if (d < bd && !herbBuilt(o)) { bd = d; best = o; } }
+  return best ? { o: best, d: bd } : null;
+}
+{ const ut = dayUseTarget; dayUseTarget = function () {
+    const best = ut(), D = S.day; if (!D) return best;
+    const h = herbAimed(); if (!h) return best;
+    if (best && Math.hypot(best.x - S.p.x, best.y - S.p.y) - (best.t === 'chest' ? 12 : 0) < h.d) return best;
+    return h.o;
+  }; }
+function herbPick(o) {
+  const D = S.day; D.herbs = D.herbs || {};
+  if (dayRoom(o.k) <= 0) { dayNote('full', 'pack full', 1); return; }
+  dayAct(7, 0.42); S.p.vx *= 0.3; S.p.vy *= 0.3;
+  D.herbs[o.id] = D.t;
+  const n = 1 + (o.sd < 0.35 ? 1 : 0); dayGive(o.k, n, o.x, o.y, true);
+  exNote(`picked ${DIT[o.k].n.toLowerCase()}${n > 1 ? ' ×' + n : ''}`);
+  dayChips(o.x, o.y, 8, o.k === 'aloe' ? 'leaf' : 'petal', 6);
+  pickSnd(); if (actx) noiseAt(actx.currentTime, 2600, 900, 0.14, 0.12, sfxGain);
+  herbKey = ''; dayChanged();
+}
+{ const du = dayUse; dayUse = function () {
+    const D = S.day, rg = S.rg;
+    if (D && rg && rg.phase === 'fight' && S.running) { const o = dayUseTarget(); if (o && o.kind === 'dherb') { herbPick(o); return; } }
+    return du.apply(this, arguments);
+  }; }
+
+// ---------------- what they do ----------------
+function herbFx(id) {
+  const D = S.day, rg = S.rg, H = DIT[id] && DIT[id].herb; if (!H) return;
+  if (H.heal && rg.hp < rg.maxHp) { rg.hp = Math.min(rg.maxHp, rg.hp + H.heal); rg.pop = { t: 0, gained: Math.ceil(rg.hp) - 1 }; }
+  if (H.stanch && D.bleed > 0) { D.bleed = 0; D.bleedT = 0; exNote('the bleeding stops', true); }
+  if (H.cure && D.sick > 0) { D.sick = 0; exNote('the sickness passes', true); }
+  else if (H.ease && D.sick > 0) { D.sick *= 0.4; exNote('the sickness eases'); }
+  if (H.st) D.st = Math.min(STA_MAX, D.st + H.st);
+  if (H.buff) { D.buffE = D.t + H.buff; exNote('your legs feel light', true); }
+}
+{ const de = dayEat; dayEat = function (arr, i) {
+    const s = arr && arr[i], id = s && s.id, n0 = s ? s.n : 0;
+    const r = de.apply(this, arguments);
+    if (id && DIT[id].herb && (!arr[i] || arr[i] !== s || s.n < n0)) herbFx(id);
+    return r;
+  }; }
+{ const db = dayBind; dayBind = function (arr, i) {
+    const s = arr && arr[i], id = s && s.id, rg = S.rg;
+    const r = db.apply(this, arguments);
+    if (id === 'poultice' && rg.hp < rg.maxHp) { rg.hp = Math.min(rg.maxHp, rg.hp + 0.5); rg.pop = { t: 0, gained: Math.ceil(rg.hp) - 1 }; }
+    return r;
+  }; }
+const herbBuffed = () => { const D = S && S.day; return !!(D && D.buffE && D.buffE > D.t); };
+{ const st = dayStam; dayStam = function (cost) { return st(herbBuffed() ? cost * 0.4 : cost); }; }
+{ const ws = workStep; workStep = function (dt) {
+    ws(dt); const D = S.day;
+    if (herbBuffed()) D.st = Math.min(STA_MAX, D.st + 14 * dt);
+    else if (D.buffE) { D.buffE = 0; exNote('the energy mix wears off'); }
+  }; }
+{ const sv = daySave; daySave = function () {
+    const r = sv.apply(this, arguments);
+    try { const D = S && S.day; if (D && !ARENA && (D.herbs || D.buffE)) { const k = dayKey(), raw = localStorage.getItem(k); if (raw) { const o = JSON.parse(raw); if (o && o.d) { o.d.herbs = D.herbs || {}; o.d.buffE = D.buffE || 0; localStorage.setItem(k, JSON.stringify(o)); } } } } catch (e) {}
+    return r;
+  }; }
+
+// ---------------- what it says when you're at one ----------------
+{ const dh = drawHud; drawHud = function (...a) {
+    const r = dh.apply(this, a), D = S && S.day;
+    if (D) {
+      const o = dayUseTarget();
+      if (o && o.kind === 'dherb') {
+        const t = (inputMode === 'kb' ? 'E · ' : inputMode === 'pad' ? 'X · ' : '') + 'PICK ' + DIT[o.k].n.toUpperCase();
+        if (hudEl.prompt.textContent !== t) { hudEl.prompt.textContent = t; hudEl.prompt.className = ''; }
+        if (useBtn.textContent !== 'Pick') useBtn.textContent = 'Pick';
+      } else if (isTrap(o) && useBtn.textContent !== 'Check') useBtn.textContent = 'Check';
+      if (herbBuffed() && !hudEl.say.textContent) hudEl.say.textContent = 'ENERGISED';
+    }
+    return r;
+  }; }
+
+;
+// ================= a map that fills in as you go, and a compass (Joe's number 7) =================
+// You remember where you've been from the start; make a Map (a hide and a stick of charcoal, in your hands) and it's drawn
+// out for you: hold it and press Attack, or press M (with the hammer out, M is still Move). The island as far as you've
+// walked it, in ink on old hide: the coast and the sea, the beaches, the ponds, the thick woods and the open glades, the
+// places with a story to them, the raider camps and the clan's villages you've come near, the cave mouths you've found,
+// your home and what you've built, and you, the red arrow. The wheel (or + and -) zooms. Down in a cave it shows the cave
+// instead, as far as your torch has shown it. A Compass, made at the workbench, puts a strip across the top of the
+// screen: the way you're facing, with home, the caves you've found and the camps you know marked along it.
+Object.assign(DIT, {
+  map: { n: 'Map', c: '#d8c8a0', st: 1, k: 'tool', tool: 'map', b: 'Hold it and press Attack, or press M · it fills in wherever you go' },
+  compass: { n: 'Compass', c: '#c8a050', st: 1, k: 'tool', tool: 'compass', b: 'Carry it: the way you face shows across the top of the screen, with home and the caves you\'ve found on it' },
+});
+DREC.push(
+  { id: 'map', g: 'tool', out: 'map', at: 'hand', cost: { hide: 1, sticks: 1 } },
+  { id: 'compass', g: 'tool', out: 'compass', at: 'bench', cost: { flint: 2, sticks: 2, rope: 1 } },
+);
+Object.assign(ICON, {
+  map: '<path d="M3 5.5l5.5-2 7 2 5.5-2v15l-5.5 2-7-2-5.5 2z" fill="#d8c8a0"/><path d="M8.5 3.5v15M15.5 5.5v15" stroke="#a8946a" stroke-width="1"/><path d="M4.5 13c2-1 3-3.5 5.5-3.5s3 2.5 5 2 2.5-3 4-3.5" stroke="#5a7a8a" stroke-width="1.3" fill="none"/><path d="M14 15.5l1.6 1.6M15.6 15.5L14 17.1" stroke="#a83a2a" stroke-width="1.3"/><circle cx="7" cy="8" r="1.1" fill="#5e7a3a"/>',
+  compass: '<circle cx="12" cy="12" r="9" fill="#c8a050"/><circle cx="12" cy="12" r="7" fill="#efe6d0"/><path d="M12 5.6l2 6.4h-4z" fill="#b8402c"/><path d="M12 18.4l-2-6.4h4z" fill="#3e3a34"/><circle cx="12" cy="12" r="1.1" fill="#8a6a30"/><path d="M12 2.2v1.6" stroke="#8a6a30" stroke-width="1.6"/>',
+});
+
+// ---------------- remembering where you've been ----------------
+const MAPG = { N: 160, W: 6400, R: 430 }, MAPC = { N: 72, W: 1720, R: 250 };   // cells across, half the width it covers, how far round you you see
+const b64Of = A => { let s = ''; for (let i = 0; i < A.length; i += 8192) s += String.fromCharCode.apply(null, A.subarray(i, i + 8192)); return btoa(s); };
+const bitsOf = (s, n) => { const A = new Uint8Array(n); if (s) try { const t = atob(s); for (let i = 0; i < Math.min(n, t.length); i++) A[i] = t.charCodeAt(i); } catch (e) {} return A; };
+function mapSeen() { const D = S.day; if (!D._mapA) D._mapA = bitsOf(D.mapSeen, MAPG.N * MAPG.N / 8); return D._mapA; }
+function mapCaveSeen(si) { const D = S.day; D._mapC = D._mapC || {}; if (!D._mapC[si]) D._mapC[si] = bitsOf((D.mapCave || {})[si], MAPC.N * MAPC.N / 8); return D._mapC[si]; }
+const bitGet = (A, i) => (A[i >> 3] >> (i & 7)) & 1;
+function bitsReveal(A, G, x, y, R) {   // every cell within R of (x, y)
+  const c = G.W * 2 / G.N, ci = (x + G.W) / c, cj = (y + G.W) / c, r = R / c; let n = 0;
+  for (let j = Math.max(0, Math.floor(cj - r)); j <= Math.min(G.N - 1, Math.ceil(cj + r)); j++)
+    for (let i = Math.max(0, Math.floor(ci - r)); i <= Math.min(G.N - 1, Math.ceil(ci + r)); i++) {
+      if ((i + 0.5 - ci) ** 2 + (j + 0.5 - cj) ** 2 > r * r) continue;
+      const k = j * G.N + i; if (!bitGet(A, k)) { A[k >> 3] |= 1 << (k & 7); n++; }
+    }
+  return n;
+}
+const mapSeenAt = (A, G, x, y) => { const c = G.W * 2 / G.N, i = Math.floor((x + G.W) / c), j = Math.floor((y + G.W) / c); return i >= 0 && j >= 0 && i < G.N && j < G.N && bitGet(A, j * G.N + i); };
+const MAP = { at: { x: 1e9, y: 1e9 }, gen: 0, open: false, zoom: 1, base: null, caveBase: {}, drawT: 0 };
+function mapReveal() {
+  const D = S.day, p = S.p; if (!D || !p) return;
+  if (MAP.D !== D) { MAP.D = D; MAP.at = { x: 1e9, y: 1e9 }; }   // a new run, or one picked up again
+  if (Math.hypot(p.x - MAP.at.x, p.y - MAP.at.y) < 36) return; MAP.at = { x: p.x, y: p.y };
+  const si = caveSysAt(p.x);
+  if (si >= 0) { const Sy = caveSys(si); if (bitsReveal(mapCaveSeen(si), MAPC, p.x - Sy.C.x, p.y - Sy.C.y, MAPC.R)) MAP.gen++; }
+  else if (bitsReveal(mapSeen(), MAPG, p.x, p.y, MAPG.R)) MAP.gen++;
+}
+{ const ws = workStep; workStep = function (dt) { ws(dt); try { mapReveal(); } catch (e) { console.error(e); } }; }
+{ const sv = daySave; daySave = function () {
+    const r = sv.apply(this, arguments);
+    try { const D = S && S.day; if (D && !ARENA && (D._mapA || D.mapSeen)) { const k = dayKey(), raw = localStorage.getItem(k); if (raw) { const o = JSON.parse(raw); if (o && o.d) {
+      o.d.mapSeen = D._mapA ? b64Of(D._mapA) : D.mapSeen; const mc = Object.assign({}, D.mapCave || {}); for (const si in D._mapC || {}) mc[si] = b64Of(D._mapC[si]); o.d.mapCave = mc;
+      localStorage.setItem(k, JSON.stringify(o)); } } } } catch (e) {}
+    return r;
+  }; }
+
+// ---------------- the island, drawn once ----------------
+const MCOL = { paper: [226, 212, 178], paperD: [196, 178, 138], ink: [62, 48, 34], sea: [150, 172, 172], seaD: [118, 146, 152], sand: [226, 206, 150], land: [168, 172, 112],
+  thick: [96, 120, 72], rock: [150, 146, 126], dry: [196, 178, 112], glade: [184, 196, 120], pond: [116, 152, 166] };
+const mixC = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+function mapBase() {
+  if (MAP.base) return MAP.base;
+  const n = 512, W = MAPG.W, cv = document.createElement('canvas'); cv.width = cv.height = n;
+  const g = cv.getContext('2d'), img = g.createImageData(n, n), d = img.data, sea = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const x = (i + 0.5) / n * 2 * W - W, y = (j + 0.5) / n * 2 * W - W; sea[j * n + i] = BEACH ? coastS(x, y) : -9999; }
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * n + i, s = sea[k], x = (i + 0.5) / n * 2 * W - W, y = (j + 0.5) / n * 2 * W - W; let c;
+    if (s > 0) { c = mixC(MCOL.sea, MCOL.seaD, clamp(s / 900, 0, 1)); if (((i + j * 3) % 23 === 0 || (i * 2 + j) % 29 === 0) && s > 60) c = mixC(c, MCOL.paper, 0.35); }   // a few pale strokes for the swell
+    else if (s > -150) c = mixC(MCOL.sand, MCOL.land, clamp((-s - 90) / 60, 0, 1));
+    else {
+      const L = landAt(x, y); c = MCOL.land;
+      c = mixC(c, MCOL.thick, clamp(L[0] * 1.2, 0, 1)); c = mixC(c, MCOL.rock, clamp(L[1] * 1.1, 0, 1)); c = mixC(c, MCOL.dry, clamp(L[2], 0, 1)); c = mixC(c, MCOL.glade, clamp(L[3] * 1.2, 0, 1));
+      if (L[0] > 0.45 && hash(i * 0.71, j * 1.37) < 0.22 * L[0]) c = mixC(c, [60, 84, 50], 0.6);   // stipple: trees
+    }
+    let edge = false;   // the coastline, inked
+    if (s <= 0) for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const q = sea[(j + dj) * n + i + di]; if (i + di >= 0 && i + di < n && j + dj >= 0 && j + dj < n && q > 0) edge = true; }
+    if (edge) c = MCOL.ink;
+    d[k * 4] = c[0]; d[k * 4 + 1] = c[1]; d[k * 4 + 2] = c[2]; d[k * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const px = v => (v + W) / (2 * W) * n;
+  g.fillStyle = `rgb(${MCOL.pond})`; g.strokeStyle = `rgb(${MCOL.ink})`; g.lineWidth = 0.8;
+  for (const P of lakesNear(0, 0, W)) {
+    if (BEACH && coastS(P.x, P.y) > -150) continue;
+    g.beginPath();
+    const rays = P.rays, N = rays ? rays.length : 24;
+    for (let k = 0; k <= N; k++) { const a = k / N * Math.PI * 2, r = rays ? rays[k % N] : P.rad; g[k ? 'lineTo' : 'moveTo'](px(P.x + Math.cos(a) * r), px(P.y + Math.sin(a) * r)); }
+    g.fill(); g.stroke();
+  }
+  return (MAP.base = cv);
+}
+function mapCaveBase(si) {   // the cave's floor, pale on dark, from its chambers and passages
+  if (MAP.caveBase[si]) return MAP.caveBase[si];
+  const Sy = caveSys(si), n = 512, W = MAPC.W, cv = document.createElement('canvas'); cv.width = cv.height = n;
+  const g = cv.getContext('2d'), px = v => (v + W) / (2 * W) * n, sc = n / (2 * W);
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const [col, grow] of [['#1c1712', 10], ['#a8987a', 0]]) {
+    g.strokeStyle = g.fillStyle = col;
+    for (const t of Sy.tubes) { g.lineWidth = (t.w * 2 + grow * 2) * sc; g.beginPath(); g.moveTo(px(t.ax), px(t.ay)); g.lineTo(px(t.bx), px(t.by)); g.stroke(); }
+    for (const o of Sy.rooms) { g.beginPath(); g.arc(px(o.x), px(o.y), (o.r + grow) * sc, 0, Math.PI * 2); g.fill(); }
+  }
+  g.fillStyle = '#6a8a98'; for (const P of Sy.pools || []) { g.beginPath(); g.arc(px(P.x), px(P.y), (P.r || P.rad || 30) * sc, 0, Math.PI * 2); g.fill(); }
+  return (MAP.caveBase[si] = cv);
+}
+
+// ---------------- the map itself: an overlay you look at while the world goes on ----------------
+const mapStyle = document.createElement('style');
+mapStyle.textContent = `
+#mapEl { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(8,6,4,0.25), rgba(8,6,4,0.7)); }
+#mapEl[hidden] { display: none; }
+#mapEl canvas { box-shadow: 0 10px 40px rgba(0,0,0,0.6); border-radius: 6px; touch-action: none; }
+#mapEl .mbtn { position: absolute; font: 700 13px var(--mono, monospace); letter-spacing: 0.08em; color: #3e3022; background: rgba(226,212,178,0.92); border: 1px solid #8a7450; padding: 6px 11px; border-radius: 4px; }
+#bMap { position: fixed; right: calc(196px + env(safe-area-inset-right, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); padding: 0.5rem 0.75rem; font-size: 0.7rem; letter-spacing: 0.12em; color: var(--ash); background: rgba(5,5,5,0.6); border: 1px solid rgba(138,138,138,0.45); display: none; z-index: 4; }
+body.playing #bMap.have { display: block; }
+body.touch #bMap { right: calc(86px + env(safe-area-inset-right, 0px)); }
+#compassEl { position: fixed; left: 50%; top: calc(8px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); z-index: 3; pointer-events: none; }
+#compassEl[hidden] { display: none; }`;
+document.head.append(mapStyle);
+const mapEl = document.createElement('div'); mapEl.id = 'mapEl'; mapEl.hidden = true;
+const mapCv = document.createElement('canvas'), mapG = mapCv.getContext('2d'); mapEl.append(mapCv);
+const mapClose = document.createElement('button'); mapClose.className = 'mbtn'; mapClose.textContent = 'Close · M';
+const mapIn = document.createElement('button'); mapIn.className = 'mbtn'; mapIn.textContent = '+';
+const mapOut = document.createElement('button'); mapOut.className = 'mbtn'; mapOut.textContent = '−';
+mapEl.append(mapClose, mapIn, mapOut); document.body.append(mapEl);
+const mapBtn = document.createElement('button'); mapBtn.id = 'bMap'; mapBtn.textContent = 'Map · M'; document.body.append(mapBtn);
+const compassCv = document.createElement('canvas'); compassCv.id = 'compassEl'; compassCv.hidden = true; document.body.append(compassCv);
+const ZOOMS = [1, 2.2, 4.6];
+const mapHave = id => { const D = S && S.day; return !!(D && D.inv.some(s => s && s.id === id)); };
+function mapToggle(on = !MAP.open) {
+  if (on && !(S && S.day && mapHave('map'))) return;
+  MAP.open = on; mapEl.hidden = !on;
+  if (on) { MAP.drawT = 0; if (MAP.zoomSet === undefined) { MAP.zi = 1; MAP.zoomSet = 1; } sfx(1.6, 0.2, 'bandpass', 2400, 0.12); if (actx) noiseAt(actx.currentTime, 3000, 1200, 0.25, 0.1, sfxGain); }
+}
+const mapZoom = dz => { MAP.zi = clamp((MAP.zi ?? 1) + dz, 0, ZOOMS.length - 1); MAP.drawT = 0; };
+mapClose.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); mapToggle(false); });
+mapIn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); mapZoom(1); });
+mapOut.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); mapZoom(-1); });
+mapBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); mapToggle(); });
+mapEl.addEventListener('mousedown', e => { e.stopPropagation(); }, false);
+addEventListener('keydown', e => {
+  if (!MAP.open) return;
+  if (e.code === 'Escape' || (e.code === 'KeyM' && !e.repeat)) { e.stopImmediatePropagation(); e.preventDefault(); mapToggle(false); return; }
+  if (e.key === '+' || e.key === '=') { e.stopImmediatePropagation(); mapZoom(1); } else if (e.key === '-' || e.key === '_') { e.stopImmediatePropagation(); mapZoom(-1); }
+}, true);
+addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && !MAP.open && state === 'play' && S && S.day && S.running && dayTool() !== 'build' && !menusOpen()) mapToggle(true); });
+addEventListener('wheel', e => { if (!MAP.open) return; e.stopPropagation(); mapZoom(e.deltaY < 0 ? 1 : -1); }, { capture: true, passive: true });
+// holding it: Attack opens it
+{ const dp = dayPrimary; dayPrimary = function () {
+    const T = heldIt();
+    if (T && T.tool === 'map') { if (!S.p.act) mapToggle(); return true; }
+    if (T && T.tool === 'compass') { if (!S.p.act) { dayAct(10, 0.5); exNote(`facing ${compassWord(camHeading())} · ${Math.round(camHeading())}°`); } return true; }
+    return dp();
+  }; }
+{ const dv = dayVerb; dayVerb = function () { const T = heldIt(); if (T && T.tool === 'map') return 'Look'; if (T && T.tool === 'compass') return 'Check'; return dv(); }; }
+
+// which way the camera faces, as a bearing: north is up the map (towards -y), east is +x
+const _cd = new V3();
+function camHeading() { cam.getWorldDirection(_cd); const a = Math.atan2(_cd.z, _cd.x); return ((a + Math.PI / 2) * 180 / Math.PI % 360 + 360) % 360; }
+const bearingTo = (x, y) => { const p = S.p, a = Math.atan2(y - p.y, x - p.x); return ((a + Math.PI / 2) * 180 / Math.PI % 360 + 360) % 360; };
+const compassWord = h => ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'][Math.round(h / 45) % 8];
+
+// what goes on it: [kind, x, y, label]
+function mapMarks() {
+  const D = S.day, out = [];
+  const h = homeAt(); if (h) out.push(['home', h.x, h.y, 'home']);
+  for (const B of D.builds) {
+    if (B.t === 'fire') out.push(['fire', B.x, B.y]);
+    else if (B.snare || B.ftrap) out.push(['trap', B.x, B.y]);
+    else if (B.t === 'chest' || STN_N[B.t] || B.t === 'tpost' || B.t === 'signal') out.push(['build', B.x, B.y]);
+    else if (B.t === 'cache') out.push(['cache', B.x, B.y]);
+  }
+  { const seenG = new Set(); for (const o of D.bld.values()) { const k = Math.round(o.x / 60) + ',' + Math.round(o.y / 60); if (!seenG.has(k)) { seenG.add(k); out.push(['piece', o.x, o.y]); } } }
+  for (const C of dayCampList()) out.push([dayCampState(C.i).took ? 'campDone' : 'camp', C.x, C.y, 'raider camp']);
+  try { for (const k of clanCamps()) out.push(['clan', k.x, k.y, 'clan village']); } catch (e) {}
+  try { for (const m of caveEnts()) if (D.cave && D.cave.found && D.cave.found[m.key]) out.push(['cave', m.x, m.y, caveSys(m.si).sp.n]); } catch (e) {}
+  for (const M of AREA.marks) for (const ox of [0, -AREA_P]) for (const oy of [0, -AREA_P]) { const x = M.x + ox, y = M.y + oy; if (Math.abs(x) < MAPG.W && Math.abs(y) < MAPG.W && (!BEACH || coastS(x, y) < -200)) out.push(['mark', x, y, MARK_LABEL[M.t]]); }
+  return out;
+}
+const MARK_LABEL = { stones: 'standing stones', grove: 'old oaks', deadwood: 'dead wood', fairy: 'fairy ring', fallen: 'storm-felled', boulders: 'boulder field' };
+function mapGlyph(g, kind, x, y, s) {   // little ink drawings
+  g.save(); g.translate(x, y); g.lineJoin = 'round'; g.lineCap = 'round';
+  const ink = '#3e3022';
+  if (kind === 'home') { g.fillStyle = '#c8901c'; g.strokeStyle = ink; g.lineWidth = 1.4; g.beginPath(); g.moveTo(0, -8 * s); g.lineTo(8 * s, -1 * s); g.lineTo(5.5 * s, -1 * s); g.lineTo(5.5 * s, 6 * s); g.lineTo(-5.5 * s, 6 * s); g.lineTo(-5.5 * s, -1 * s); g.lineTo(-8 * s, -1 * s); g.closePath(); g.fill(); g.stroke(); }
+  else if (kind === 'fire') { g.fillStyle = '#d0602a'; g.beginPath(); g.moveTo(0, -5 * s); g.quadraticCurveTo(4 * s, 0, 2.5 * s, 3.5 * s); g.lineTo(-2.5 * s, 3.5 * s); g.quadraticCurveTo(-4 * s, 0, 0, -5 * s); g.fill(); }
+  else if (kind === 'build' || kind === 'piece') { g.fillStyle = '#7a5a3a'; g.fillRect(-2.6 * s, -2.6 * s, 5.2 * s, 5.2 * s); }
+  else if (kind === 'trap') { g.strokeStyle = '#6a4a2a'; g.lineWidth = 1.3; g.beginPath(); g.arc(0, 0, 2.6 * s, 0, Math.PI * 2); g.stroke(); }
+  else if (kind === 'cache') { g.strokeStyle = ink; g.lineWidth = 1.2; g.strokeRect(-3 * s, -2.2 * s, 6 * s, 4.4 * s); }
+  else if (kind === 'camp' || kind === 'campDone') { g.strokeStyle = kind === 'camp' ? '#a8301e' : '#7a6a58'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(-5 * s, -5 * s); g.lineTo(5 * s, 5 * s); g.moveTo(5 * s, -5 * s); g.lineTo(-5 * s, 5 * s); g.stroke(); }
+  else if (kind === 'clan') { g.fillStyle = '#5a2a1e'; for (const [dx, dy] of [[-4, 2], [0, -2], [4, 2]]) { g.beginPath(); g.moveTo((dx - 3) * s, (dy + 3) * s); g.lineTo(dx * s, (dy - 3) * s); g.lineTo((dx + 3) * s, (dy + 3) * s); g.fill(); } }
+  else if (kind === 'cave') { g.fillStyle = '#7a7266'; g.beginPath(); g.ellipse(0, 1 * s, 7 * s, 5 * s, 0, Math.PI, 0); g.lineTo(7 * s, 3 * s); g.lineTo(-7 * s, 3 * s); g.fill(); g.fillStyle = '#16120e'; g.beginPath(); g.ellipse(0, 3 * s, 3.4 * s, 4 * s, 0, Math.PI, 0); g.fill(); }
+  else if (kind === 'mark') { g.fillStyle = 'rgba(62,48,34,0.55)'; for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; g.beginPath(); g.arc(Math.cos(a) * 3.4 * s, Math.sin(a) * 3.4 * s, 1 * s, 0, Math.PI * 2); g.fill(); } }
+  g.restore();
+}
+function mapDraw(now) {
+  const D = S.day, p = S.p, dpr = Math.min(2, devicePixelRatio || 1);
+  const size = Math.floor(Math.min(innerWidth * 0.94, innerHeight * 0.9));
+  if (mapCv.width !== size * dpr) { mapCv.width = mapCv.height = size * dpr; mapCv.style.width = mapCv.style.height = size + 'px'; }
+  const bx = (innerWidth - size) / 2, by = (innerHeight - size) / 2;
+  mapClose.style.left = (bx + size - 108) + 'px'; mapClose.style.top = (by + 10) + 'px';
+  mapIn.style.left = (bx + 10) + 'px'; mapIn.style.top = (by + size - 44) + 'px'; mapOut.style.left = (bx + 48) + 'px'; mapOut.style.top = (by + size - 44) + 'px';
+  const g = mapG, Wd = size * dpr, si = caveSysAt(p.x), cave = si >= 0, G = cave ? MAPC : MAPG;
+  const zoom = ZOOMS[MAP.zi ?? 1], k = Wd / (2 * G.W) * zoom;
+  const Sy = cave ? caveSys(si) : null, lx = cave ? p.x - Sy.C.x : p.x, ly = cave ? p.y - Sy.C.y : p.y;
+  const half = G.W / zoom, cx = zoom === 1 ? 0 : clamp(lx, -G.W + half, G.W - half), cy = zoom === 1 ? 0 : clamp(ly, -G.W + half, G.W - half);
+  const X = x => (x - cx) * k + Wd / 2, Y = y => (y - cy) * k + Wd / 2;
+  // the hide it's drawn on
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const pg = g.createRadialGradient(Wd / 2, Wd / 2, Wd * 0.2, Wd / 2, Wd / 2, Wd * 0.75);
+  pg.addColorStop(0, cave ? '#4a4036' : `rgb(${MCOL.paper})`); pg.addColorStop(1, cave ? '#2a241e' : `rgb(${MCOL.paperD})`);
+  g.fillStyle = pg; g.fillRect(0, 0, Wd, Wd);
+  // what you've seen of it, the edges soft
+  const A = cave ? mapCaveSeen(si) : mapSeen(), base = cave ? mapCaveBase(si) : mapBase();
+  const fog = MAP.fog || (MAP.fog = document.createElement('canvas')); if (fog.width !== G.N) fog.width = fog.height = G.N;
+  { const fg = fog.getContext('2d'), im = fg.createImageData(G.N, G.N); for (let i = 0; i < G.N * G.N; i++) if (bitGet(A, i)) im.data[i * 4 + 3] = 255; fg.putImageData(im, 0, 0); }
+  const tmp = MAP.tmp || (MAP.tmp = document.createElement('canvas')); if (tmp.width !== Wd) tmp.width = tmp.height = Wd;
+  const tg = tmp.getContext('2d'); tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, Wd, Wd); tg.imageSmoothingEnabled = true;
+  tg.drawImage(base, X(-G.W), Y(-G.W), 2 * G.W * k, 2 * G.W * k);
+  tg.globalCompositeOperation = 'destination-in'; tg.filter = `blur(${Math.max(2, 2 * G.W / G.N * k * 0.6)}px)`;
+  tg.drawImage(fog, X(-G.W), Y(-G.W), 2 * G.W * k, 2 * G.W * k); tg.filter = 'none'; tg.globalCompositeOperation = 'source-over';
+  g.drawImage(tmp, 0, 0);
+  // a faint grid, every 50 m
+  g.strokeStyle = cave ? 'rgba(220,200,160,0.07)' : 'rgba(62,48,34,0.09)'; g.lineWidth = 1;
+  for (let v = -G.W; v <= G.W; v += 1000) { g.beginPath(); g.moveTo(X(v), 0); g.lineTo(X(v), Wd); g.moveTo(0, Y(v)); g.lineTo(Wd, Y(v)); g.stroke(); }
+  const gs = dpr * clamp(0.75 + zoom * 0.18, 0.8, 1.5);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (!cave) {
+    // the woods by name, where you've been
+    g.font = `italic ${Math.round(13 * dpr)}px Georgia, serif`; g.fillStyle = 'rgba(62,48,34,0.62)';
+    [[RING_NAMES[0], 0, -1150], [RING_NAMES[1], 0, -3000], [RING_NAMES[2], 0, -5000], [RING_NAMES[1], 0, 3000]].forEach(([t, x, y]) => { if (mapSeenAt(A, G, x, y)) g.fillText(t, X(x), Y(y)); });
+    for (const [kind, x, y, label] of mapMarks()) {
+      if (!mapSeenAt(A, G, x, y)) continue;
+      mapGlyph(g, kind, X(x), Y(y), gs);
+      if (label && kind !== 'home' && (zoom > 1 || kind === 'cave' || kind === 'camp')) { g.font = `${Math.round(10 * dpr)}px Georgia, serif`; g.fillStyle = 'rgba(62,48,34,0.85)'; const hw = g.measureText(label).width / 2 + 6 * dpr; g.fillText(label, clamp(X(x), hw, Wd - hw), Y(y) + 12 * gs); }
+    }
+    // the islet, if you've been out to it
+    if (BEACH && mapSeenAt(A, G, ISLET.x, ISLET.y)) { g.font = `italic ${Math.round(11 * dpr)}px Georgia, serif`; g.fillStyle = 'rgba(62,48,34,0.7)'; g.fillText('the islet', X(ISLET.x), Y(ISLET.y)); }
+  } else {
+    g.font = `italic ${Math.round(15 * dpr)}px Georgia, serif`; g.fillStyle = 'rgba(232,214,176,0.8)'; g.fillText(Sy.sp.n, Wd / 2, 26 * dpr);
+    for (const e of Sy.exits || []) if (mapSeenAt(A, G, e.x, e.y)) { g.fillStyle = '#e8d6b0'; g.font = `${Math.round(11 * dpr)}px Georgia, serif`; g.fillText('▲ the way out', X(e.x), Y(e.y) - 14 * gs); }
+  }
+  // you
+  { const s = 1.25 * gs; cam.getWorldDirection(_cd);
+    const h = Math.atan2(_cd.z, _cd.x);
+    g.save(); g.translate(X(lx), Y(ly)); g.rotate(h); g.fillStyle = '#b8301e'; g.strokeStyle = '#fff4dc'; g.lineWidth = 1.5 * dpr;
+    g.beginPath(); g.moveTo(9 * s, 0); g.lineTo(-6 * s, -6 * s); g.lineTo(-3 * s, 0); g.lineTo(-6 * s, 6 * s); g.closePath(); g.fill(); g.stroke(); g.restore(); }
+  // the rose, the scale and the title
+  { const rx = Wd - 46 * dpr, ry = 104 * dpr, r = 24 * dpr; g.save(); g.translate(rx, ry); g.strokeStyle = cave ? 'rgba(232,214,176,0.7)' : 'rgba(62,48,34,0.75)'; g.fillStyle = g.strokeStyle; g.lineWidth = 1.2 * dpr;
+    g.beginPath(); g.arc(0, 0, r * 0.62, 0, Math.PI * 2); g.stroke();
+    for (let q = 0; q < 4; q++) { g.save(); g.rotate(q * Math.PI / 2); g.beginPath(); g.moveTo(0, -r); g.lineTo(4 * dpr, 0); g.lineTo(-4 * dpr, 0); g.closePath(); if (q === 0) { g.fillStyle = '#a8301e'; } g.fill(); g.restore(); }
+    g.font = `bold ${Math.round(11 * dpr)}px Georgia, serif`; g.fillStyle = cave ? '#e8d6b0' : '#3e3022'; g.fillText('N', 0, -r - 9 * dpr); g.restore(); }
+  { const m = zoom === 1 ? 1000 : zoom < 3 ? 500 : 200, L = m * k, x0 = 18 * dpr, y0 = Wd - 62 * dpr; g.strokeStyle = cave ? '#e8d6b0' : '#3e3022'; g.lineWidth = 2 * dpr;
+    g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 + L, y0); g.moveTo(x0, y0 - 4 * dpr); g.lineTo(x0, y0 + 4 * dpr); g.moveTo(x0 + L, y0 - 4 * dpr); g.lineTo(x0 + L, y0 + 4 * dpr); g.stroke();
+    g.font = `${Math.round(11 * dpr)}px Georgia, serif`; g.fillStyle = g.strokeStyle; g.textAlign = 'left'; g.fillText(`${m / 20} m`, x0 + L + 8 * dpr, y0); }
+  g.textAlign = 'left'; g.font = `italic ${Math.round(14 * dpr)}px Georgia, serif`; g.fillStyle = cave ? 'rgba(232,214,176,0.85)' : 'rgba(62,48,34,0.85)';
+  if (!cave) g.fillText(`the island · day ${D.n}`, 18 * dpr, 26 * dpr);
+}
+
+// ---------------- the compass across the top ----------------
+function compassDraw() {
+  const D = S.day, dpr = Math.min(2, devicePixelRatio || 1), Wc = Math.min(420, innerWidth - 220), Hc = 38;
+  if (compassCv.width !== Math.round(Wc * dpr)) { compassCv.width = Math.round(Wc * dpr); compassCv.height = Hc * dpr; compassCv.style.width = Wc + 'px'; compassCv.style.height = Hc + 'px'; }
+  const g = compassCv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, Wc, Hc);
+  const h = camHeading(), span = 110, px = deg => Wc / 2 + angDiffDeg(deg, h) / span * Wc;
+  const bg = g.createLinearGradient(0, 0, Wc, 0); bg.addColorStop(0, 'rgba(8,6,4,0)'); bg.addColorStop(0.15, 'rgba(8,6,4,0.55)'); bg.addColorStop(0.85, 'rgba(8,6,4,0.55)'); bg.addColorStop(1, 'rgba(8,6,4,0)');
+  g.fillStyle = bg; g.fillRect(0, 4, Wc, 20);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let d = 0; d < 360; d += 5) {
+    const x = px(d); if (x < 6 || x > Wc - 6) continue;
+    const fade = 1 - Math.abs(x - Wc / 2) / (Wc / 2);
+    if (d % 45 === 0) { g.font = `700 ${d % 90 ? 9 : 11}px ui-monospace, monospace`; g.fillStyle = d === 0 ? `rgba(232,96,64,${0.4 + 0.6 * fade})` : `rgba(240,228,204,${0.35 + 0.65 * fade})`; g.fillText(['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][d / 45], x, 14); }
+    else { g.strokeStyle = `rgba(240,228,204,${0.2 + 0.4 * fade})`; g.lineWidth = 1; g.beginPath(); g.moveTo(x, d % 15 ? 11 : 9); g.lineTo(x, d % 15 ? 17 : 19); g.stroke(); }
+  }
+  // what's marked on it
+  const p = S.p, inCave = caveSysAt(p.x) >= 0, marks = [];
+  if (!inCave) {
+    const hm = homeAt(); if (hm && Math.hypot(hm.x - p.x, hm.y - p.y) > 60) marks.push(['home', hm.x, hm.y]);
+    try { for (const m of caveEnts()) if (D.cave.found[m.key]) marks.push(['cave', m.x, m.y]); } catch (e) {}
+    for (const C of dayCampList()) if (dayCampState(C.i).seen && !dayCampState(C.i).took) marks.push(['camp', C.x, C.y]);
+  }
+  for (const [kind, x, y] of marks) {
+    const x0 = px(bearingTo(x, y)); if (x0 < 10 || x0 > Wc - 10) continue;
+    if (kind === 'home') { g.fillStyle = '#ffd68c'; g.beginPath(); g.moveTo(x0, 22); g.lineTo(x0 + 5, 27); g.lineTo(x0 + 3.4, 27); g.lineTo(x0 + 3.4, 32); g.lineTo(x0 - 3.4, 32); g.lineTo(x0 - 3.4, 27); g.lineTo(x0 - 5, 27); g.closePath(); g.fill(); }
+    else if (kind === 'cave') { g.fillStyle = '#b8b0a2'; g.beginPath(); g.arc(x0, 30, 4.4, Math.PI, 0); g.fill(); g.fillStyle = '#16120e'; g.beginPath(); g.arc(x0, 31, 2, Math.PI, 0); g.fill(); }
+    else { g.strokeStyle = '#e0503a'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x0 - 3, 24); g.lineTo(x0 + 3, 30); g.moveTo(x0 + 3, 24); g.lineTo(x0 - 3, 30); g.stroke(); }
+  }
+  g.fillStyle = '#ffd68c'; g.beginPath(); g.moveTo(Wc / 2, 4); g.lineTo(Wc / 2 + 4, 0); g.lineTo(Wc / 2 - 4, 0); g.closePath(); g.fill();
+  g.font = '600 9px ui-monospace, monospace'; g.fillStyle = 'rgba(240,228,204,0.75)'; g.fillText(String(Math.round(h) % 360).padStart(3, '0'), Wc / 2, 31);
+}
+const angDiffDeg = (a, b) => ((a - b + 540) % 360) - 180;
+
+// ---------------- each frame ----------------
+{ const tf = thingsFrame; thingsFrame = function (now) {
+    const r = tf(now);
+    try {
+      const D = S && S.day, live = !!(D && state === 'play' && S.running && S.rg && S.rg.phase !== 'dead');
+      mapBtn.classList.toggle('have', live && mapHave('map'));
+      if (MAP.open && (!live || !mapHave('map') || menusOpen())) mapToggle(false);
+      if (MAP.open && now - MAP.drawT > 0.08) { MAP.drawT = now; mapDraw(now); }
+      const showC = live && mapHave('compass') && !menusOpen() && !MAP.open;
+      if (compassCv.hidden === showC) compassCv.hidden = !showC;
+      if (showC) compassDraw();
+    } catch (e) { console.error(e); }
+    return r;
+  }; }
+
+;
 // ================= the sun and the dark, the lights, the camera, the frame =================
 
 // ---------------- the sky through the day ----------------

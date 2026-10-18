@@ -6676,7 +6676,7 @@ vec3 lightAt(vec3 p, vec3 n, float useN) {
   float fall = clamp(1.0 - 0.5 * d / tRange, 0.0, 1.0) * smoothstep(tRange, tRange * 0.62, d);
   float lam = mix(1.0, clamp(dot(n, -l) * 0.55 + 0.6, 0.0, 1.0), useN);
   c += tCol * (cone * fall * lam);
-  if (plN > 0.5) for (int i = 0; i < ${NL}; i++) { vec4 q = pl[i]; float k = clamp(1.0 - distance(p, q.xyz) / q.w, 0.0, 1.0); c += plc[i] * (k * k); }
+  if (plN > 0.5) for (int i = 0; i < ${NL}; i++) { vec4 q = pl[i]; float k = clamp(1.0 - distance(p, q.xyz) / q.w, 0.0, 1.0); c += plc[i] * (k * k) * mix(1.0, 0.3 + 0.9 * max(dot(n, normalize(q.xyz - p)), 0.0), useN); }   // a firelit side and a dark side
   return c;
 }
 float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
@@ -6688,6 +6688,7 @@ vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, d
 // every tree, the camp, the raiders and you all stand on the same slopes. A few broad swells with smaller rises over them;
 // the camp, the raiders' camps and the ponds sit on level ground let into the hillside.
 const TERR_N = 8;
+LU.rainW = { value: 0 };   // how wet the woods are from the rain: darker ground, darker grass (85-weather)
 LU.wph = { value: 0 }; LU.wsz = { value: 0.5 }; LU.wash = { value: 0 }; LU.wet = { value: 0 };   // the waves on the shore, timed to the surf's sound (15-sea)
 LU.occ = { value: new V4(0, 0, 0, 0) };   // from above: the line from the camera to you, which trees keep clear of (77-iso.js)
 LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) };   // level places: x, y, radius, height
@@ -6872,7 +6873,7 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms, time, wet; varying vec3 vW, vTN;
+    fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms, time, wet, rainW; varying vec3 vW, vTN;
       void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb;
         vec4 s = soilW(vW.xz);
         t *= 0.86 + 0.28 * sNoise(vW.xz * 0.006 + 40.0);                              // broad light and dark, so the texture never reads as tiles
@@ -6903,6 +6904,9 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
           t = mix(t, t * vec3(0.55, 0.75, 0.72), under);                               // under the water, the sand goes green-blue
         }
         #endif
+        t = mix(t, t * vec3(0.66, 0.68, 0.7), rainW);                                  // soaked: the earth goes dark
+        { float pd = smoothstep(0.62, 0.72, sNoise(vW.xz * 0.018 + 17.0)) * (1.0 - smoothstep(0.03, 0.06, 1.0 - normalize(vTN).y)) * rainW;   // puddles in the flat dips
+          vec3 V = normalize(camPos - vW); t = mix(t, mix(t * 0.45, fogCol * 0.8, pow(1.0 - max(V.y, 0.0), 2.0)), pd * 0.85); }
         gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0); }`,
   });
   var groundMesh = new THREE.Mesh(g, m); groundMesh.frustumCulled = false; scene.add(groundMesh);
@@ -6939,7 +6943,7 @@ function spark(x, y, z, vx, vy, vz, life, size, r, g, b, a, kind = 0, grav = 0, 
 function flame(x, y, z, k) {   // a lick of fire: white-yellow, then orange, then a dull red as it rises and dies
   if (PS.length >= MAXP - 400) return;
   PS.push({ x: x + (Math.random() - 0.5) * 6 * k, y, z: z + (Math.random() - 0.5) * 6 * k, vx: (Math.random() - 0.5) * 8, vy: 26 + Math.random() * 30, vz: (Math.random() - 0.5) * 8,
-    t: 0, life: 0.35 + Math.random() * 0.4, size: (6 + Math.random() * 6) * k, r: 1, g: 0.8, b: 0.4, a: 0.7, kind: 0, grav: -10, drag: 2, fire: 1 });
+    t: 0, life: 0.35 + Math.random() * 0.4, size: (4 + Math.random() * 4.5) * k, r: 1, g: 0.8, b: 0.4, a: 0.55, kind: 0, grav: -10, drag: 2, fire: 1 });
 }
 const STATIC_PTS = [];   // drawn this frame only: eyes, glints, glows, and the main game's own embers and ash
 function stat(x, y, z, size, r, g, b, a, kind = 0) { STATIC_PTS.push(x, y, z, size, r, g, b, a, kind); }
@@ -6977,6 +6981,78 @@ const cssRgb = c => {   // '#rrggbb', 'rgb(r,g,b)', 'r,g,b' or [r,g,b] -> [0..1]
 const BLAST_COL = { white: [1, 0.95, 0.85], red: [1, 0.35, 0.2], gold: [1, 0.8, 0.35], blue: [0.5, 0.75, 1], green: [0.55, 1, 0.55], purple: [0.8, 0.55, 1] };
 
 ;
+// ================= flames you can see by day =================
+// A fire was only glowing sparks, which wash out to nothing in daylight. Now every fire (the pit on the hill, your
+// campfires, the signal fire, braziers, the clan's fires, a torch in someone's hand) has tongues of flame standing up
+// off it: each a ragged teardrop, white-hot at the root, through yellow and orange to a dull red tip, licking and
+// leaning on its own beat. They're drawn as solid shapes, not glow, so they read in full sun as well as at night.
+const FT = { N: 400, n: 0, seen: 0 };
+{
+  const g = new THREE.InstancedBufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, 0, 0, 0.5, 0, 0, 0.5, 1, 0, -0.5, 1, 0], 3)); g.setIndex([0, 1, 2, 0, 2, 3]);
+  FT.pos = new Float32Array(FT.N * 4); FT.dat = new Float32Array(FT.N * 4);
+  for (const [k, a] of [['fp', FT.pos], ['fd', FT.dat]]) { const b = new THREE.InstancedBufferAttribute(a, 4); b.setUsage(THREE.DynamicDrawUsage); g.setAttribute(k, b); }
+  g.instanceCount = 0; FT.geo = g;
+  FT.mat = new THREE.ShaderMaterial({
+    uniforms: Object.assign({}, LU), transparent: true, depthWrite: false,
+    vertexShader: TERR_GLSL + `attribute vec4 fp, fd; uniform float time; varying vec2 vQ; varying vec4 vD; varying vec3 vW;
+      void main() {
+        // fp: x, height off the ground (or, below -9000, an absolute height + 10000), z, size; fd: seed, heat, lean x, lean z
+        float s = fp.w, t = time * (1.6 + fract(fd.x * 7.3)) + fd.x * 17.0;
+        float h = s * (1.25 + 0.28 * sin(t * 5.1) * sin(t * 3.3 + 1.0) + 0.12 * sin(t * 11.0));
+        vec3 base = vec3(fp.x, fp.y < -9000.0 ? fp.y + 10000.0 : fp.y + terrH(fp.xz), fp.z);
+        vec3 R = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+        float v = position.y, sway = (0.18 * sin(t * 4.2) + 0.1 * sin(t * 7.7 + 2.0)) * v * v;
+        vec3 w = base + R * (position.x * s * 0.62 + sway * s) + vec3(fd.z * v * v * h, v * h, fd.w * v * v * h);
+        vQ = vec2(position.x * 2.0, v); vD = fd; vW = w;
+        gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
+      }`,
+    fragmentShader: LIGHT_GLSL + `uniform float time; varying vec2 vQ; varying vec4 vD; varying vec3 vW;
+      float h1(float x) { return fract(sin(x * 127.1) * 43758.5); }
+      float n1(float x) { float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(h1(i), h1(i + 1.0), f); }
+      void main() {
+        float v = vQ.y, t = time * 3.0 + vD.x * 31.0;
+        float u = vQ.x + (n1(v * 4.0 - t * 1.7) - 0.5) * 0.35 * v;                     // ragged, the edges flickering upward
+        float hw = pow(sin(min(1.0, v * 1.35) * 1.5708), 0.55) * (1.0 - pow(v, 1.8)) * (0.85 + 0.3 * n1(t * 0.9 + 3.0));
+        float d = abs(u) / max(hw, 0.001);
+        if (d > 1.0 || v > 0.98) discard;
+        float core = (1.0 - d) * (1.0 - v);
+        vec3 c = mix(vec3(0.74, 0.12, 0.03), vec3(1.0, 0.4, 0.05), smoothstep(0.0, 0.28, core));
+        c = mix(c, vec3(1.0, 0.74, 0.22), smoothstep(0.34, 0.6, core)); c = mix(c, vec3(1.0, 0.95, 0.78), smoothstep(0.66, 0.9, core));
+        float a = smoothstep(1.0, 0.84, d) * smoothstep(0.0, 0.05, v) * (1.0 - smoothstep(0.7, 0.98, v) * 0.5) * vD.y;
+        gl_FragColor = vec4(fogged(grey(c * (1.0 + 0.15 * vD.y)), vW), a);
+      }`,
+  });
+  FT.mesh = new THREE.Mesh(g, FT.mat); FT.mesh.frustumCulled = false; FT.mesh.renderOrder = 3; scene.add(FT.mesh);
+}
+// a fire's tongues this frame: k is its size (1 a campfire), h how high off the ground it burns
+function tongues(x, y, k, h = 0, abs = false) {
+  if (!S || !S.p || Math.hypot(x - S.p.x, y - S.p.y) > 700) return;
+  const n = abs ? 3 : Math.max(1, Math.round(2 + 3.2 * Math.min(k, 2.2))), seed = abs ? 4.2 : hash(x * 0.13, y * 0.29) * 9;
+  for (let i = 0; i < n && FT.n < FT.N; i++) {
+    const a = seed + i * 2.4, r = i ? (1.5 + 2.6 * hash(i, seed)) * Math.min(k, 2.5) * (abs ? 0.25 : 1) : 0, j = FT.n++ * 4;
+    FT.pos[j] = x + Math.cos(a) * r; FT.pos[j + 1] = abs ? h - 10000 : h + 0.5; FT.pos[j + 2] = y + Math.sin(a) * r;
+    FT.pos[j + 3] = (i ? 6.5 + 4 * hash(seed, i) : 11) * k * (abs ? 0.55 : 1);
+    FT.dat[j] = seed + i * 1.37; FT.dat[j + 1] = i ? 0.9 : 1; FT.dat[j + 2] = Math.cos(a) * 0.12 + (FT.wx || 0); FT.dat[j + 3] = Math.sin(a) * 0.12 + (FT.wz || 0);
+  }
+}
+function tonguesEnd() {
+  FT.geo.instanceCount = FT.n;
+  for (const k of ['fp', 'fd']) { const b = FT.geo.attributes[k]; b.needsUpdate = true; if (b.clearUpdateRanges) { b.clearUpdateRanges(); b.addUpdateRange(0, FT.n * 4); } }
+  FT.n = 0;
+}
+// the torch in your hand, seen from outside (third person, from above): its flame stands up off the head
+const _ftv = new THREE.Vector3();
+function tpTorchTongue() {
+  if (typeof TP === 'undefined' || !TP.holdId || !TP.hold.visible) return;
+  const G = TP.items.get(TP.holdId), fl = G && G.visible && G.getObjectByName('flame'); if (!fl) return;
+  fl.visible = false;   // the hand's sprites are for the first-person view
+  if (!(S.day && dayTorch())) return;
+  TP.hold.updateMatrixWorld(true); fl.getWorldPosition(_ftv);
+  tongues(_ftv.x, _ftv.z, 0.95, _ftv.y - 1, true);
+}
+
+;
 // ---------------- ink: the bold dark lines round everything ----------------
 // Joe: the original Behind You draws black lines round everything, which is what makes it look like a cartoon. The world
 // is drawn into a picture first, then laid on the screen with a line wherever one thing stands in front of another: the
@@ -6985,10 +7061,10 @@ const BLAST_COL = { white: [1, 0.95, 0.85], red: [1, 0.35, 0.2], gold: [1, 0.8, 
 // Pause > Options > Outlines turns it off (the thin outlines the models always had stay).
 const INK = { rt: null, scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 INK.mat = new THREE.ShaderMaterial({
-  uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 } },
+  uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `#include <packing>
-    uniform sampler2D tCol, tDep; uniform vec2 px; uniform float rad, near, far, fz; varying vec2 vUv;
+    uniform sampler2D tCol, tDep; uniform vec2 px; uniform float rad, near, far, fz; uniform vec2 fr; varying vec2 vUv;
     float W(vec2 o) { float d = texture2D(tDep, vUv + o * px * rad).x; return 1.0 / max(1e-3, -perspectiveDepthToViewZ(d, near, far)); }
     void main() {
       vec3 c = texture2D(tCol, vUv).rgb;
@@ -7002,7 +7078,7 @@ INK.mat = new THREE.ShaderMaterial({
         k = max(k, max(2.0 * w - W(vec2(-0.7, 0.7) * s) - W(vec2(0.7, -0.7) * s), 2.0 * w - W(vec2(0.7, 0.7) * s) - W(vec2(-0.7, -0.7) * s)));
       }
       k /= w;
-      float z = 1.0 / w, ink = smoothstep(0.025, 0.07, k) * (1.0 - smoothstep(fz, fz + 450.0, z));
+      float z = 1.0 / w, ink = smoothstep(0.025, 0.07, k) * (1.0 - smoothstep(fz, fz + 450.0, z)) * (1.0 - 0.85 * smoothstep(fr.x * 0.7, fr.y * 0.75, z));   // and thin out as the haze swallows things
       gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink), 1.0);
     }`,
   depthTest: false, depthWrite: false,
@@ -7021,6 +7097,7 @@ function inkRender() {   // the world, with its lines if they're on
   if (!SET.ink || !INK.rt) { renderer.clear(); renderer.render(scene, cam); return; }
   INK.mat.uniforms.near.value = cam.near; INK.mat.uniforms.far.value = cam.far;
   INK.mat.uniforms.fz.value = S && S.p ? Math.max(220, Math.hypot(cam.position.x - S.p.x, cam.position.z - S.p.y) + 200) : 220;   // from high up (isometric) the lines reach further
+  INK.mat.uniforms.fr.value.copy(LU.fogR.value); if (isoP()) INK.mat.uniforms.fr.value.addScalar(INK.mat.uniforms.fz.value);
   renderer.setRenderTarget(INK.rt); renderer.clear(); renderer.render(scene, cam);
   renderer.setRenderTarget(null); renderer.clear(); renderer.render(INK.scene, INK.cam);
 }
@@ -7208,6 +7285,7 @@ float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.54
 float vn(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
              mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z); }
+float paintH = 99.0;   // the shader sets this: how far above the ground the point is
 vec3 paint(vec3 c, float mt, vec3 g, vec3 W, vec3 N) {
   if (mt > 0.5 && mt < 1.5) {        // wood: long streaks of grain, the odd dark knot
     float w = vn(vec3(g.x * 0.05, g.y * 0.8, g.z * 0.8));
@@ -7232,14 +7310,14 @@ vec3 paint(vec3 c, float mt, vec3 g, vec3 W, vec3 N) {
   } else if (mt > 6.5) {             // bark: deep furrows up the trunk
     c *= 0.72 + 0.4 * smoothstep(0.2, 0.8, vn(vec3(g.x * 0.08, g.y * 1.4, g.z * 1.4)));
   }
-  return c * mix(0.58, 1.0, smoothstep(0.0, 9.0, W.y));   // seated: darker where it meets the ground
+  return c * mix(0.58, 1.0, smoothstep(0.0, 9.0, paintH));   // seated: darker where it meets the ground (how high off it, not how high up the hill)
 }`;
 const kitMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ glow: { value: 0 } }, LU),
-  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; varying vec3 vC, vW, vN, vG; varying float vE, vM;
-    void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; vG = gu; vM = mt; gl_Position = projectionMatrix * viewMatrix * w; }`,
-  fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG; varying float vE, vM;
-    void main() { vec3 N = normalize(vN); vec3 base = paint(vC, vM, vG, vW, N); vec3 c = base * lightAt(vW, N, 1.0) * 1.05 + vC * vE; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
+  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; varying vec3 vC, vW, vN, vG; varying float vE, vM, vH;
+    void main() { vec4 w = modelMatrix * vec4(position, 1.0); vH = w.y; w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; vG = gu; vM = mt; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG; varying float vE, vM, vH;
+    void main() { vec3 N = normalize(vN); paintH = vH; vec3 base = paint(vC, vM, vG, vW, N); vec3 c = base * lightAt(vW, N, 1.0) * 1.05 + vC * vE; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
 });
 const kitEdge = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU), side: THREE.BackSide,
@@ -7660,7 +7738,7 @@ const treeMat = new THREE.ShaderMaterial({
           float s = vn(vec3(vG.x * 1.6, vG.y * 0.35, vG.z * 1.6)), t = vn(vG * 0.4);
           c = vC * (0.6 + 0.5 * up) * (0.75 + 0.35 * s) * (0.9 + 0.2 * t) + vec3(0.06, 0.12, 0.08) * smoothstep(0.7, 0.85, s) * up;
         }
-      } else c = paint(vC, vM, vG, vW, N);
+      } else { paintH = vL.y; c = paint(vC, vM, vG, vW, N); }
       vec3 o = c * lightAt(vW, N, 1.0) * 1.05;
       gl_FragColor = vec4(fogged(grey(o), vW), 1.0);
     }`,
@@ -7704,7 +7782,7 @@ function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine
   let s = 977 + vi * 131 + kind.length * 17; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
   const tone = (list, j) => hex(list[j % list.length]);
   if (kind === 'pine') {
-    K.mt = 'bark'; K.add(P_CYL(9), 0, 0, 0, 7.5, 34, 7.5, hex('#3e2c20'), 0, 0, 0, 0, 0.35); K.mt = null;
+    K.mt = 'bark'; K.add(P_CYL(9), 0, 0, 0, 7.5, 34, 7.5, hex('#4a3526'), 0, 0, 0, 0, 0.35); K.mt = null;
     const tiers = 6 + (vi % 2), G = ['#1a4232', '#21503c', '#1d4a37', '#275a43'];
     for (let i = 0; i < tiers; i++) {
       const f = i / (tiers - 1), y = 14 + f * 74, r = 64 * (1 - f * 0.8) * (0.92 + 0.16 * R()), h = 30 - f * 8;
@@ -7715,13 +7793,13 @@ function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine
   } else if (kind === 'oak' || kind === 'cherry') {
     const ch = kind === 'cherry', trunkH = ch ? 46 : 50, crownY = ch ? 66 : 64;
     K.mt = 'bark';
-    K.add(P_CYL(10), 0, 0, 0, 13, 6, 13, hex('#2a211b'), 0, 0, 0, 0, 0.35);   // the flare at its foot
-    K.rod(P_CYL(10), 0, 0, 0, (R() - 0.5) * 4, trunkH, (R() - 0.5) * 4, ch ? 4.4 : 5.2, hex(ch ? '#2c2420' : '#2e2620'));
+    K.add(P_CYL(10), 0, 0, 0, 13, 6, 13, hex('#3e3127'), 0, 0, 0, 0, 0.35);   // the flare at its foot
+    K.rod(P_CYL(10), 0, 0, 0, (R() - 0.5) * 4, trunkH, (R() - 0.5) * 4, ch ? 4.4 : 5.2, hex(ch ? '#40332a' : '#443629'));
     const limbs = ch ? 5 : 4, tips = [];
     for (let i = 0; i < limbs; i++) {   // limbs out from the top of the trunk into the crown
       const a = i / limbs * 6.28 + R() * 0.8, L = (ch ? 30 : 22) + R() * 10, y0 = trunkH * (0.6 + 0.3 * R());
       const tx = Math.cos(a) * L, tz = Math.sin(a) * L, ty = crownY - 4 + R() * 10;
-      K.rod(P_CYL(7), 0, y0, 0, tx, ty, tz, ch ? 1.9 : 2.3, hex('#2c2420')); tips.push([tx, ty, tz]);
+      K.rod(P_CYL(7), 0, y0, 0, tx, ty, tz, ch ? 1.9 : 2.3, hex('#40332a')); tips.push([tx, ty, tz]);
     }
     K.mt = null;
     // the crown: soft lumps of leaf (or blossom), bigger and darker at the heart, smaller and lighter round the top and edges
@@ -7737,12 +7815,12 @@ function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine
     K.mt = null;
   } else {   // dead: a bare trunk, snapped at the top, its limbs forking into twigs
     K.mt = 'bark';
-    K.add(P_CYL(9), 0, 0, 0, 10, 5, 10, hex('#2c2622'), 0, 0, 0, 0, 0.35);
-    K.rod(P_CYL(9), 0, 0, 0, 1, 52, 0, 4.4, hex('#3a322c'));
-    K.add(P_CONE(7), 1, 51, 0, 7, 8, 7, hex('#3a322c'), 0, 0, 0.3, 0, 0.3);
+    K.add(P_CYL(9), 0, 0, 0, 10, 5, 10, hex('#3f3630'), 0, 0, 0, 0, 0.35);
+    K.rod(P_CYL(9), 0, 0, 0, 1, 52, 0, 4.4, hex('#4d433b'));
+    K.add(P_CONE(7), 1, 51, 0, 7, 8, 7, hex('#4d433b'), 0, 0, 0.3, 0, 0.3);
     const fork = (x, y, z, a, el, L, r, depth) => {
       const ex = x + Math.cos(a) * Math.cos(el) * L, ey = y + Math.sin(el) * L, ez = z + Math.sin(a) * Math.cos(el) * L;
-      K.rod(P_CYL(5), x, y, z, ex, ey, ez, r, hex('#3a322c'));
+      K.rod(P_CYL(5), x, y, z, ex, ey, ez, r, hex('#4d433b'));
       if (depth > 0) for (let j = 0; j < 2; j++) fork(ex, ey, ez, a + (j ? 0.6 : -0.6) + (R() - 0.5) * 0.5, el + 0.15 + R() * 0.3, L * 0.6, r * 0.6, depth - 1);
     };
     for (let i = 0; i < 4; i++) fork(0, 26 + i * 7, 0, i * 1.7 + R(), 0.35 + R() * 0.4, 20 + R() * 8, 1.25, 2);
@@ -7850,7 +7928,7 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
     vW = w; vUp = position.y / 3.3; vTone = fract(bd.w * 7.13); vRoot = position.y;
     gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
   }`;
-const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
+const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; uniform float rainW; varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
   void main() {
     vec3 g = texture2D(gmap, vW.xz / 384.0).rgb;
     vec3 lo = vec3(0.36, 0.46, 0.2), hi = vec3(0.56, 0.62, 0.3);                // a short, slightly dry green...
@@ -7860,6 +7938,7 @@ const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; vary
     vec3 turf = mix(lo, hi, vTone) * (0.85 + 0.3 * g.r);
     vec3 c = mix(turf * 0.62, turf * 1.15, smoothstep(0.0, 0.8, vUp));
     c *= mix(0.75, 1.0, smoothstep(0.0, 1.2, vRoot));                          // shaded down among the roots
+    c *= mix(1.0, 0.72, rainW); c = mix(c, c * vec3(0.9, 1.0, 1.04), rainW);      // wet: darker and a little cooler
     gl_FragColor = vec4(fogged(grey(c * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0);
   }`;
 {
@@ -8369,6 +8448,172 @@ if (BEACH) {
 }
 
 ;
+// ================= the beach, washed up on (Joe) =================
+// The sand ran bare from the dunes to the water. Now the sea has left things on it: bleached driftwood lying along the top
+// of the beach, some of it whole trunks with their roots still on and branches broken short, sticks and the odd board; a
+// dark line of wrack where the last high tide turned; shells and pebbles strewn down to the wet sand and out under the
+// shallows; low rocks; and tufts of marram grass where the woods give way to the dunes, leaning away from the wind off the sea.
+// Laid out in cells along the coast, the same every time you come back; the small things only near you.
+if (BEACH) {
+  const SH = { cell: 90, near: 560, step: 120 };
+  // driftwood and rocks: inked like the logs in the woods, but only a little darker where they lie on the sand (all of a log
+  // that low is "where it meets the ground", and it went dark grey instead of sea-bleached)
+  const shoreK = new KitMesh(); castsShadow(shoreK.mesh);
+  shoreK.mesh.material = new THREE.ShaderMaterial({ uniforms: kitMat.uniforms, vertexShader: kitMat.vertexShader, fragmentShader: kitMat.fragmentShader.replace('paintH = vH;', 'paintH = 5.0 + vH;') });
+  // shells, weed, pebbles, grass: too small for lines (the ink would fill them in black), so they leave no depth for the ink
+  // to find and are drawn after the rest; and not darkened at the foot at all
+  const shoreF = new KitMesh(false); shoreF.mesh.renderOrder = 1;
+  shoreF.mesh.material = new THREE.ShaderMaterial({ uniforms: kitMat.uniforms, vertexShader: kitMat.vertexShader, fragmentShader: kitMat.fragmentShader.replace('paintH = vH;', 'paintH = 99.0;'), depthWrite: false });
+  const cells = new Map();
+  const P_BLADE = () => prim('blade3', () => { const g = new THREE.ConeGeometry(0.5, 1, 3, 1, true); g.translate(0, 0.5, 0); return g; });   // a grass blade: no base
+  const P_STRIP = () => prim('strip', () => { const g = new THREE.PlaneGeometry(1, 1); g.rotateX(-Math.PI / 2); return g; });   // a strand of weed, flat on the sand
+  let shoreKey = '';
+  const C = a => a.map(h => hex(h));
+  const WOOD = C(['#d2c7b4', '#c4baa8', '#dcd2c0', '#b8ae9e', '#cbbca2']), BOARD = C(['#8c7b63', '#7a6c58']);
+  const WEED = C(['#7a6a3c', '#6c683c', '#626c42', '#8a7448', '#5c5834']), DRY = C(['#b09a68', '#a08c5c']);
+  const SHELL = C(['#efe6d6', '#e6d2bf', '#d8b9a6', '#f3ede4', '#c9a88e', '#e9c9b8']);
+  const PEB = C(['#a49e96', '#8c8780', '#b2aba0', '#9a9086']), PEBW = C(['#77726c', '#6a6560', '#7c746a']);
+  const ROCK = C(['#7d776e', '#6c675f', '#857d72']), GRASS = C(['#b8b26e', '#a3a862', '#c8bd84', '#8e9a58', '#d1c690']);
+  // which way the shore runs here: n out to sea, t along the beach
+  function shoreDir(x, y) {
+    const gx = coastS(x + 2, y) - coastS(x - 2, y), gy = coastS(x, y + 2) - coastS(x, y - 2), l = Math.hypot(gx, gy) || 1;
+    return { nx: gx / l, ny: gy / l, tx: -gy / l, ty: gx / l };
+  }
+  const wrackS = (x, y) => -34 + 6 * Math.sin(x * 0.013 + y * 0.017) + 3 * Math.sin(x * 0.041 - y * 0.029);   // the high-tide line
+  function driftwood(K, x, y, R, d) {
+    const a = Math.atan2(d.ty, d.tx) + (R(1) - 0.5) * 1.3, ux = Math.cos(a), uy = Math.sin(a);
+    const L = 26 + R(2) * 36, r = 1.5 + R(3) * 1.4, col = WOOD[R(4) * WOOD.length | 0], yc = r * 0.7;
+    const ax = x - ux * L / 2, ay = y - uy * L / 2, bx = x + ux * L / 2, by = y + uy * L / 2;
+    K.mt = 'wood';
+    K.rod(P_CYL(7), ax, yc, ay, bx, yc, by, r, col);
+    K.rod(P_CONE(7), bx, yc, by, bx + ux * L * 0.22, yc * 0.8, by + uy * L * 0.22, r * 0.92, col);   // worn to a point
+    if (R(5) < 0.55) for (let k = 0; k < 5; k++) {   // the root plate, splayed and sand-scoured
+      const b = a + Math.PI + (k - 2) * 0.55 + (R(10 + k) - 0.5) * 0.4, l = 7 + R(20 + k) * 8;
+      K.rod(P_CONE(5), ax, yc, ay, ax + Math.cos(b) * l, Math.max(0.3, yc + (R(30 + k) - 0.35) * r * 3), ay + Math.sin(b) * l, r * 0.5, col);
+    }
+    const nb = R(6) * 3 | 0;
+    for (let k = 0; k < nb; k++) {   // branches broken off short
+      const t = 0.25 + R(40 + k) * 0.55, px = ax + ux * L * t, py = ay + uy * L * t, sd = R(50 + k) < 0.5 ? -1 : 1, l = 4 + R(60 + k) * 7;
+      K.rod(P_CONE(5), px, yc, py, px - uy * sd * l + ux * l * 0.5, yc + l * 0.35, py + ux * sd * l + uy * l * 0.5, r * 0.42, col);
+    }
+    K.mt = null;
+  }
+  function stick(K, x, y, R) {
+    const a = R(1) * 6.2832, l = 5 + R(2) * 8, col = WOOD[R(3) * WOOD.length | 0], ux = Math.cos(a) * l / 2, uy = Math.sin(a) * l / 2;
+    K.mt = 'wood'; K.rod(P_CYL(5), x - ux, 0.5, y - uy, x + ux, 0.6, y + uy, 0.45 + R(4) * 0.35, col); K.mt = null;
+  }
+  function board(K, x, y, R, d) {
+    const a = Math.atan2(d.ty, d.tx) + (R(1) - 0.5) * 2;
+    K.mt = 'wood'; K.add(P_BOX(), x, 0.35, y, 16 + R(2) * 8, 0.8, 3.4, BOARD[R(3) * 2 | 0], -a, 0, (R(4) - 0.5) * 0.12); K.mt = null;
+  }
+  function rocks(K, x, y, R) {
+    const n = 2 + (R(1) * 3 | 0);
+    K.mt = 'stone';
+    for (let k = 0; k < n; k++) {
+      const b = R(10 + k) * 6.2832, rr = k ? 4 + R(20 + k) * 6 : 0, s = (k ? 3 : 6) + R(30 + k) * 4;
+      K.add(P_ROCK(k % 3), x + Math.cos(b) * rr, s * 0.18, y + Math.sin(b) * rr, s * 1.2, s * 0.75, s, ROCK[(k + (R(2) * 3 | 0)) % 3], R(40 + k) * 6.2832);
+    }
+    K.mt = null;
+  }
+  function marram(F, x, y, R, d) {
+    const n = 9 + (R(1) * 7 | 0), wx = -d.nx * 0.35, wy = -d.ny * 0.35, i0 = F.nor.length;   // leaning inland, away from the sea wind
+    F.mt = 'plant';
+    for (let k = 0; k < n; k++) {
+      const b = R(10 + k) * 6.2832, rr = Math.sqrt(R(20 + k)) * 2.6, bx = x + Math.cos(b) * rr, by = y + Math.sin(b) * rr;
+      const h = 7 + R(30 + k) * 7, sp = 0.18 + rr * 0.07, lx = (Math.cos(b) * sp + wx) * h, ly = (Math.sin(b) * sp + wy) * h;
+      F.rod(P_BLADE(), bx, -0.3, by, bx + lx, h, by + ly, 0.34, GRASS[(k + (R(2) * 5 | 0)) % 5], 0.12);
+    }
+    // lit as a tuft, from above, not as so many thin three-sided spikes (their shaded sides went black)
+    for (let i = i0; i < F.nor.length; i += 3) { const nx = F.nor[i] * 0.35, ny = F.nor[i + 1] * 0.35 + 1, nz = F.nor[i + 2] * 0.35, l = Math.hypot(nx, ny, nz); F.nor[i] = nx / l; F.nor[i + 1] = ny / l; F.nor[i + 2] = nz / l; }
+    F.mt = null;
+  }
+  function wrack(F, x, y, R, d) {   // a clump of weed on the tide line
+    const n = 3 + (R(1) * 4 | 0);
+    F.mt = 'plant';
+    for (let k = 0; k < n; k++) {
+      const b = R(10 + k) * 6.2832, rr = R(20 + k) * 3.5, px = x + d.tx * Math.cos(b) * rr * 1.6 + d.nx * Math.sin(b) * rr * 0.5, py = y + d.ty * Math.cos(b) * rr * 1.6 + d.ny * Math.sin(b) * rr * 0.5;
+      const dry = R(30 + k) < 0.25, col = dry ? DRY[k & 1] : WEED[(k + (R(2) * 5 | 0)) % 5], ang = Math.atan2(d.ty, d.tx) + (R(60 + k) - 0.5) * 1.1;
+      F.add(P_STRIP(), px, 0.12, py, 2.4 + R(40 + k) * 4, 1, 0.45 + R(50 + k) * 0.6, col, -ang, 0, 0, 0.06);   // a strand lying along the line the water left it on
+    }
+    F.mt = null;
+  }
+  function shell(F, x, y, R) {
+    const col = SHELL[R(1) * SHELL.length | 0];
+    F.mt = 'plain';
+    if (R(2) < 0.7) F.add(P_CONE(6), x, -0.05, y, 1.4 + R(3) * 0.9, 0.5 + R(4) * 0.3, 1.2 + R(5) * 0.7, col, R(6) * 6.2832, (R(7) - 0.5) * 0.3, 0, 0.12);   // a cockle
+    else { const a = R(6) * 6.2832, l = 1.6 + R(3) * 1.2; F.rod(P_CONE(5), x, 0.55, y, x + Math.cos(a) * l, 0.4, y + Math.sin(a) * l, 0.6 + R(4) * 0.25, col, 0.12); }   // a whelk on its side
+    F.mt = null;
+  }
+  function pebble(F, x, y, R, wet) {
+    const s = 1 + R(1) * 1.8, P = wet ? PEBW : PEB;
+    F.mt = 'plain'; F.add(P_CONE(6), x, -0.1, y, s * 1.3, s * 0.42, s, P[R(3) * P.length | 0], R(4) * 6.2832, (R(5) - 0.5) * 0.2, 0, 0.06); F.mt = null;   // a low sea-worn dome
+  }
+  let budget = 0;
+  function shoreCell(ci, cj) {
+    const k = ci + ',' + cj; let c = cells.get(k); if (c) return c;
+    if (budget-- <= 0) return null;   // a few new cells a frame: coming down to the coast doesn't stall on the whole beach at once
+    const K = new Kit(), F = new Kit(), x0 = ci * SH.cell, y0 = cj * SH.cell;
+    c = { K: null, F: null }; cells.set(k, c);
+    const s0 = coastS(x0 + SH.cell / 2, y0 + SH.cell / 2);
+    if (s0 < -330 || s0 > 150) { c.K = pack(K); c.F = pack(F); return c; }
+    const H = (a, b) => hash(ci * 13.17 + a * 7.71, cj * 17.31 + b * 3.37);
+    const at = (j, tries, fn) => { for (let i = 0; i < tries; i++) {
+      const x = x0 + H(j, i) * SH.cell, y = y0 + H(j + 0.5, i + 0.5) * SH.cell, s = coastS(x, y), R = q => H(j * 31 + i + q * 0.137, q + i * 0.71);
+      fn(x, y, s, R);
+    } };
+    at(1, 1, (x, y, s, R) => { if (s > -150 && s < -55 && R(9) < 0.5) driftwood(K, x, y, R, shoreDir(x, y)); });
+    at(2, 3, (x, y, s, R) => { if (s > -135 && s < -38 && R(9) < 0.6) stick(K, x, y, R); });
+    at(3, 1, (x, y, s, R) => { if (s > -140 && s < -50 && R(9) < 0.1) board(K, x, y, R, shoreDir(x, y)); });
+    at(4, 1, (x, y, s, R) => { if (s > -170 && s < -70 && R(9) < 0.14) rocks(K, x, y, R); });
+    at(5, 10, (x, y, s, R) => { if (s > -205 && s < -112 && R(9) < 0.25 + 0.6 * _sst(-112, -190, s)) marram(F, x, y, R, shoreDir(x, y)); });
+    if (Math.abs(s0 + 34) < 90) at(6, 11, (x, y, s, R) => {   // drawn onto the tide line
+      const d = shoreDir(x, y), m = wrackS(x, y) - s + (R(8) - 0.5) * 6;
+      if (Math.abs(m) > 60 || R(9) < 0.25) return;
+      wrack(F, x + d.nx * m, y + d.ny * m, R, d);
+    });
+    at(7, 16, (x, y, s, R) => { if (s > -115 && s < -6) shell(F, x, y, R); });
+    at(8, 12, (x, y, s, R) => { if (s > -75 && s < 28) pebble(F, x, y, R, s > -28); });
+    c.K = pack(K); c.F = pack(F);
+    if (cells.size > 900) { const it = cells.keys(); for (let i = 0; i < 300; i++) cells.delete(it.next().value); }
+    return c;
+  }
+  // each cell kept as finished arrays, so walking along the beach only copies them together (a rebuild from the shapes each
+  // time cost a dropped frame)
+  const ATT = [['position', 'pos', 3], ['normal', 'nor', 3], ['color', 'col', 3], ['em', 'em', 1], ['ew', 'ew', 1], ['gu', 'gu', 3], ['mt', 'mts', 1]];
+  const pack = K => ({ n: K.em.length, a: ATT.map(([, f]) => new Float32Array(K[f])) });
+  function merge(list) {
+    const n = list.reduce((t, c) => t + c.n, 0);
+    return { geometry() {
+      const g = new THREE.BufferGeometry();
+      ATT.forEach(([name, , w], j) => { const a = new Float32Array(n * w); let o = 0; for (const c of list) { a.set(c.a[j], o); o += c.a[j].length; } g.setAttribute(name, new THREE.BufferAttribute(a, w)); });
+      return g;
+    } };
+  }
+  function shoreSync() {
+    const p = S.p, vr = drawR(), key = Math.round(p.x / SH.step) + ',' + Math.round(p.y / SH.step) + ',' + vr;
+    if (key === shoreKey) return; shoreKey = key;
+    const BK = [], BF = []; budget = 4; let more = false;
+    if (coastS(p.x, p.y) > -vr - 400) {
+      const c0 = Math.floor((p.x - vr) / SH.cell), c1 = Math.floor((p.x + vr) / SH.cell), r0 = Math.floor((p.y - vr) / SH.cell), r1 = Math.floor((p.y + vr) / SH.cell);
+      const L = [];
+      for (let cj = r0; cj <= r1; cj++) for (let ci = c0; ci <= c1; ci++) {
+        const d = Math.hypot((ci + 0.5) * SH.cell - p.x, (cj + 0.5) * SH.cell - p.y); if (d > vr + 60) continue;
+        const s = coastS((ci + 0.5) * SH.cell, (cj + 0.5) * SH.cell); if (s < -330 || s > 150) continue;
+        L.push([d, ci, cj]);
+      }
+      L.sort((a, b) => a[0] - b[0]);   // nearest first
+      for (const [d, ci, cj] of L) {
+        const c = shoreCell(ci, cj); if (!c) { more = true; continue; }
+        BK.push(c.K); if (d < SH.near) BF.push(c.F);
+      }
+    }
+    shoreK.set(merge(BK)); shoreF.set(merge(BF));
+    if (more) shoreKey = '';   // the rest next frame
+  }
+  { const ws = worldSync; worldSync = function (f) { const r = ws(f); if (S && S.p) { if (f) shoreKey = ''; shoreSync(); } return r; }; }
+}
+
+;
 // ================= figures: the raiders and the animals, built of rounded limbs with the game's dark outline =================
 // Each is posed fresh every frame from what the main game says it is doing (walking, winding up a blow, striking, writhing
 // in your light, grazing, fleeing, charging), and drawn as a handful of instanced shapes.
@@ -8768,7 +9013,7 @@ function drawFigures(now, dt) {
   for (const g of rg.dying) if (g.type !== 'centi' && g.type !== 'cannibal') poseFoe(g, now, dt, true);
   clanDraw(now, dt);   // the clan, in bodies like yours (72-clan)
   bossFigs(now);
-  if (outsideP() && state === 'play') posePlayer(now);
+  if (outsideP() && state === 'play') posePlayer(now); else bodyHide();   // back in first person: you don't stand there watching yourself
   for (const o of D.beasts) if (Math.abs(o.x - p.x) < drawR() && Math.abs(o.y - p.y) < drawR()) poseBeast(o, now, dt);
 }
 function figuresEnd() { for (const k in PT) PT[k].done(); }
@@ -11686,6 +11931,14 @@ const torchHand = makeHand(true); torchG.add(torchHand); poseHand(torchHand, 0.9
 torchHand.position.set(0, 0, 1.2); torchHand.rotation.set(1.2, 0, -0.35, 'XYZ'); torchHand.scale.setScalar(1.08);
 const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, 'rgba(255,240,215,1)'); gr.addColorStop(0.25, 'rgba(255,215,160,0.5)'); gr.addColorStop(1, 'rgba(255,190,120,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+// a tongue of flame: a teardrop, soft at the edges and hot in the middle, its tip ragged
+const flameTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 128; const g = c.getContext('2d'), im = g.createImageData(64, 128);
+  for (let y = 0; y < 128; y++) for (let x = 0; x < 64; x++) {
+    const v = 1 - y / 127, u = (x - 31.5) / 31.5, half = Math.pow(Math.sin(Math.min(1, v * 1.25) * Math.PI * 0.5), 0.6) * (1 - Math.pow(v, 2.2)) * (0.95 + 0.05 * Math.sin(v * 30));   // narrows to the tip
+    const d = half > 0 ? Math.abs(u) / half : 9, a = Math.max(0, 1 - d * d) * Math.min(1, v * 6) * (1 - Math.pow(Math.max(0, v - 0.55) / 0.45, 1.5) * 0.7);
+    const i = (y * 64 + x) * 4; im.data[i] = im.data[i + 1] = im.data[i + 2] = 255; im.data[i + 3] = Math.round(255 * Math.min(1, a * 1.15));
+  }
+  g.putImageData(im, 0, 0); return new THREE.CanvasTexture(c); })();
 const lensGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.85 }));
 lensGlow.scale.set(7, 7, 1); lensGlow.position.set(0, 0, -7.2); torchG.add(lensGlow);
 
@@ -11771,7 +12024,11 @@ function itemModel(id) {
   } else if (T.k === 'light') {
     shaft(11, 0.7, '#6b4a2e', -3);
     vmPart(G, cyl(1.3, 0.9, 2.6, 8), mat('#3a2a1a'), 0, 8.6, 0);
-    const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); fl.scale.set(9, 12, 1); fl.position.set(0, 12, 0); fl.name = 'flame'; G.add(fl);
+    for (let k = 0; k < 3; k++) vmPart(G, cyl(1.38, 1.2, 0.5, 8), mat(k % 2 ? '#5a4028' : '#4a3420'), 0, 7.7 + k * 0.85, 0, 0, k * 0.7, 0, false);   // rag bound round the head
+    vmPart(G, cyl(1.1, 1.25, 0.6, 8), mat('#ff8a30', 1), 0, 9.8, 0, 0, 0, 0, false);   // the top, burning: an ember glow
+    const fl = new THREE.Group(); fl.name = 'flame'; fl.position.set(0, 10.1, 0); G.add(fl);
+    for (const [c, o] of [[0xff5a18, 0.75], [0xffa040, 0.85], [0xfff0c0, 0.95]]) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, color: c, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: o })); sp.center.set(0.5, 0.08); fl.add(sp); }
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff8a40, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 })); gl.scale.set(26, 26, 1); gl.position.y = 3; fl.add(gl);
   } else if (thr === 'bomb' || thr === 'flash') {
     vmPart(G, new THREE.SphereGeometry(2.4, 10, 8), mat(T.c), 0, 2.6, 0);
     if (thr === 'bomb') vmPart(G, cyl(0.25, 0.25, 2.4, 5), mat('#c8b07a'), 0, 5.2, 0, 0, 0, 0, false);
@@ -11845,7 +12102,12 @@ function placeHands(dt, now, bob, lag) {
     ar.visible = !!D.draw || dayAmmoN('bow') > 0; ar.position.z = 9 * c;
   }
   if (G && T.tool === 'sling') { const pu = G.getObjectByName('pouch'); if (D.draw) { const a = now * (8 + 10 * clamp(D.draw.t / 0.8, 0, 1)); pu.position.set(Math.cos(a) * 6, -4 + Math.sin(a) * 2, Math.sin(a) * 6); } else pu.position.set(0, -7, 0); }
-  if (G && T.k === 'light') { const fl = G.getObjectByName('flame'); fl.material.opacity = 0.75 + 0.25 * Math.sin(now * 17) * Math.sin(now * 7); fl.scale.set(8 + Math.sin(now * 11), 11 + 2 * Math.sin(now * 13), 1); }
+  if (G && T.k === 'light') {   // the flame licks up off the head: three tongues, outer red to a pale core, each flickering on its own beat
+    const fl = G.getObjectByName('flame'), lit = S.day && dayTorch() ? 1 : 0.15, v = Math.hypot(S.p.vx, S.p.vy) / RUN;
+    fl.children.forEach((sp, i) => { if (i > 2) { sp.material.opacity = 0.3 * lit * (0.85 + 0.15 * Math.sin(now * 23)); return; }
+      const w = [4.2, 3.2, 2.0][i], h = [6.8, 5.4, 3.4][i] * (1 + 0.16 * Math.sin(now * (13 + i * 4) + i) * Math.sin(now * (7 + i * 3))) * (1 - 0.25 * v) * lit;
+      sp.scale.set(w * (1 + 0.08 * Math.sin(now * 19 + i * 2)), Math.max(0.01, h), 1); sp.position.x = 0.5 * Math.sin(now * (9 + i) + i) * (1 + v); sp.material.rotation = -0.12 * v + 0.06 * Math.sin(now * 5 + i); });
+  }
   // eating and drinking: the left hand lifts the flask to your mouth
   const drink = S.rg.drink ? Math.sin(Math.PI * clamp(1 - S.rg.drink / FLASK_T, 0, 1)) : 0;
   // the blow lands: the hand jars back and shudders
@@ -13446,7 +13708,7 @@ const clanCampAt = (x, y, pad = 0) => clanCamps().find(k => Math.hypot(k.x - x, 
 function clanLights(add, fire) {
   if (!CLAN_ON || !S.day) return;
   const p = S.p;
-  for (const k of clanCamps()) if (Math.hypot(k.x - p.x, k.y - p.y) < 900) { const f = 0.85 + 0.12 * Math.sin(S.t * 7 + k.seed * 9); add(k.x, 20, k.y, 200, f, 0.55 * f, 0.25 * f, 1); fire(k.x, k.y, 0.8); }
+  for (const k of clanCamps()) if (Math.hypot(k.x - p.x, k.y - p.y) < 900) { const f = 0.85 + 0.12 * Math.sin(S.t * 7 + k.seed * 9); add(k.x, 20, k.y, 200, f, 0.55 * f, 0.25 * f, 1); fire(k.x, k.y, 0.8); tongues(k.x, k.y, 0.85); }
 }
 function clanCampDraw() {
   if (!CLAN_ON || !S.day) return;
@@ -14420,7 +14682,7 @@ const TOUGH = { fury: 0.35, furyAgg: 0.45, furyRage: 0.35, furyMin: 0.12, dodgeC
 // ================= the weather: rain, fog and thunderstorms, as the main game's woods have them =================
 // The main game's weatherStep decides what the sky does (and the rain chills you and fills your waterskin); here it is seen:
 // streaks of rain falling round you, the fog closing in on what you can see, the whole wood lit white for a blink by lightning.
-const RAIN_N = 900, RAIN_BOX = 260;
+const RAIN_N = 1500, RAIN_BOX = 260;
 const rainPos = new Float32Array(RAIN_N * 2 * 3), rainSeed = new Float32Array(RAIN_N * 3);
 for (let i = 0; i < RAIN_N; i++) { rainSeed[i * 3] = Math.random(); rainSeed[i * 3 + 1] = Math.random(); rainSeed[i * 3 + 2] = Math.random(); }
 const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3).setUsage(THREE.DynamicDrawUsage));
@@ -14430,12 +14692,13 @@ const WXV = { rain: 0, fog: 0, flash: 0 };
 function weatherFrame(now) {
   const w = S && S.wx, rain = S ? wxK('rain') : 0, fog = S ? wxK('fog') : 0, storm = w && w.kind === 'storm' ? w.k : 0;
   WXV.rain = rain; WXV.fog = fog; WXV.flash = w ? w.flash || 0 : 0;
+  LU.rainW.value += ((rain > 0.3 ? 1 : rain / 0.3) - LU.rainW.value) * Math.min(1, (rain > LU.rainW.value ? 0.25 : 0.04) * (frameDtTP || 0.016) * 6);   // it soaks in quickly and dries slowly
   SKY.cover.value = 0.42 + 0.12 * Math.sin((S && S.day ? S.day.n : 1) * 2.1) + 0.5 * rain + 0.25 * fog;   // some days clearer than others; rain fills it in
   rainMesh.visible = rain > 0.02;
   if (!rainMesh.visible) return;
   // drops wrap round a box that follows you, so the rain never runs out; a storm slants them on the wind
   const cx = cam.position.x, cz = cam.position.z, n = Math.floor(RAIN_N * Math.min(1, rain * (1 + storm * 0.6)));
-  const fall = 520, len = 16 + storm * 8, sx = 60 * storm, sz = 25 * storm;
+  const fall = 560, len = 22 + storm * 10, sx = 60 * storm, sz = 25 * storm;
   for (let i = 0; i < RAIN_N; i++) {
     const o = i * 6;
     if (i >= n) { rainPos.fill(0, o, o + 6); continue; }
@@ -14447,7 +14710,7 @@ function weatherFrame(now) {
     rainPos[o + 3] = x - sx * 0.03; rainPos[o + 4] = y - len; rainPos[o + 5] = z - sz * 0.03;
   }
   rainGeo.attributes.position.needsUpdate = true;
-  rainMat.opacity = 0.35 * rain * (0.45 + 0.55 * ENV.lt) + 0.5 * WXV.flash;
+  rainMat.opacity = 0.5 * rain * (0.45 + 0.55 * ENV.lt) + 0.5 * WXV.flash;
 }
 // what the weather does to the light: greyer and dimmer in the rain, the haze much nearer in fog, white in a lightning flash
 function weatherLight() {
@@ -14462,6 +14725,9 @@ function weatherLight() {
   shMat.uniforms.k.value *= 1 - 0.85 * Math.max(r, f);
   const fr = LU.fogR.value; fr.set(fr.x * (1 - 0.6 * f - 0.25 * r), fr.y * (1 - 0.55 * f - 0.25 * r));
   if (fl > 0.01) { const k = fl * 0.9; LU.amb.value.set(lerp(LU.amb.value.x, 0.95, k), lerp(LU.amb.value.y, 0.97, k), lerp(LU.amb.value.z, 1.05, k)); SKY.top.set(lerp(SKY.top.x, 0.8, k), lerp(SKY.top.y, 0.84, k), lerp(SKY.top.z, 0.95, k)); SKY.hor.set(lerp(SKY.hor.x, 0.85, k), lerp(SKY.hor.y, 0.88, k), lerp(SKY.hor.z, 0.95, k)); }
+  // rain and fog draw the haze in grey, not white: the far trees go to dim shapes in it, not paper cutouts
+  { const k = Math.max(r * 0.9, f), lt = 0.35 + 0.65 * ENV.lt, g = [0.6 * lt, 0.64 * lt, 0.67 * lt];
+    SKY.hor.set(lerp(SKY.hor.x, g[0], k), lerp(SKY.hor.y, g[1], k), lerp(SKY.hor.z, g[2], k)); }
   LU.fogCol.value.copy(SKY.hor);
 }
 // the main game's own rain recording, packed into the page; the hiss stands in only until it's decoded (its thunder isn't shipped, so its boom stands in)
@@ -14661,13 +14927,16 @@ const mix3 = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], 
 function envFrame() {
   const lt = S && S.day ? dayLight() : 1, f = S && S.day ? dayT() : 0.2, set = lt < 1 && lt > 0 ? Math.sin(Math.PI * lt) : 0;
   ENV.lt = lt;
-  const dayAmb = [1.06, 1.0, 0.88], duskAmb = [1.0, 0.68, 0.5], nightAmb = [0.075, 0.085, 0.125];
+  // the hours have their own light: a cool clear morning, white noon, the afternoon warming toward gold before the dusk
+  const gold = lt >= 1 ? 0.85 * _sst(0.4, NIGHT_IN, f) : 0, morn = lt >= 1 ? 1 - _sst(0.0, 0.14, f) : 0;
+  const dayAmb = mix3(mix3([1.06, 1.0, 0.88], [1.12, 0.9, 0.66], gold), [0.96, 0.98, 1.0], morn * 0.8), duskAmb = [1.0, 0.68, 0.5], nightAmb = [0.075, 0.085, 0.125];
   LU.amb.value.set(...mix3(nightAmb, mix3(dayAmb, duskAmb, set * 0.85), Math.pow(lt, 0.8)));
   LU.sunK.value = lt;
   const sa = clamp(f / (NIGHT_IN + DUSK), 0, 1) * Math.PI, el = Math.max(0.12, Math.sin(sa)) * 0.95;
   LU.sunDir.value.set(Math.cos(sa) * 0.9, el, -0.45).normalize();
-  const top = mix3([0.02, 0.025, 0.05], mix3([0.42, 0.6, 0.84], [0.35, 0.3, 0.5], set), lt);
-  const hor = mix3([0.035, 0.04, 0.06], mix3([0.8, 0.83, 0.82], [0.95, 0.56, 0.32], set), lt);
+  const dTop = mix3(mix3([0.42, 0.6, 0.84], [0.4, 0.52, 0.76], gold), [0.46, 0.64, 0.86], morn), dHor = mix3(mix3([0.8, 0.83, 0.82], [0.94, 0.8, 0.6], gold), [0.82, 0.86, 0.9], morn);
+  const top = mix3([0.02, 0.025, 0.05], mix3(dTop, [0.35, 0.3, 0.5], set), lt);
+  const hor = mix3([0.035, 0.04, 0.06], mix3(dHor, [0.95, 0.56, 0.32], set), lt);
   SKY.top.set(...top); SKY.hor.set(...hor); SKY.set.value = set;
   LU.fogCol.value.set(...hor);
   LU.fogR.value.set(lerp(150, 430, lt), lerp(560, 950, lt));
@@ -14689,18 +14958,18 @@ function lightsFrame(now, dt) {
   const fk = s => 0.85 + 0.1 * Math.sin(now * 7.3 + s) + 0.06 * Math.sin(now * 13.1 + s * 2) + 0.05 * Math.random();
   const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 520 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
   // the camp's own fire, and your campfires
-  { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); }
-  for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); }
-  else if (B.t === 'signal' && (B.lit || D.siege)) { const f = fk(B.y); add(B.x, 50, B.y, 520, 1.2 * f, 0.6 * f, 0.25 * f, 3); for (let i = 0; i < 3; i++) fire(B.x + (Math.random() - 0.5) * 30, B.y + (Math.random() - 0.5) * 30, 2.4, 10 + Math.random() * 30); }
-  else if (B.t === 'tpost' && B.fuel > 0) { const f = fk(B.x); add(B.x, 48, B.y, 200, 0.9 * f * night, 0.55 * f * night, 0.25 * f * night, 1); fire(B.x, B.y, 0.6, 48); }
+  { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); tongues(EX_FIRE.x, EX_FIRE.y, 1.05); }
+  for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); tongues(B.x, B.y, 0.9); }
+  else if (B.t === 'signal' && (B.lit || D.siege)) { const f = fk(B.y); add(B.x, 50, B.y, 520, 1.2 * f, 0.6 * f, 0.25 * f, 3); for (let i = 0; i < 3; i++) fire(B.x + (Math.random() - 0.5) * 30, B.y + (Math.random() - 0.5) * 30, 2.4, 10 + Math.random() * 30); tongues(B.x, B.y, 2.2, 12); tongues(B.x + 8, B.y - 6, 1.4, 20); }
+  else if (B.t === 'tpost' && B.fuel > 0) { const f = fk(B.x); add(B.x, 48, B.y, 200, 0.9 * f * night, 0.55 * f * night, 0.25 * f * night, 1); fire(B.x, B.y, 0.6, 48); tongues(B.x, B.y, 0.6, 46); }
   else if (B.t === 'furnace' && (B.fuel > 0 || B.lit || B.smelt)) { add(B.x, 10, B.y, 120, 0.8 * night, 0.4 * night, 0.15 * night, 0.5); }
   clanLights(add, fire);   // the clan's camp fires (74-clan2)
   // the woods' lamps and fires
-  for (const o of lightsNear(p.x, p.y, 700)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); }
+  for (const o of lightsNear(p.x, p.y, 700)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); tongues(o.x, o.y, 0.9); }
   // your lamps, sconces, braziers and candles, lit at dusk
   if (ENV.lt < 0.85) for (const o of stNear(p.x, p.y, 700)) { const P = PC(o.id); if (!P.light || !o.done) continue; const f = fk(o.x) * (1 - ENV.lt);
     const h = P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8, [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
-    add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
+    add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') { fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); tongues(lx, ly, P.k === 'brazier' ? 0.7 : 0.3, h - 2); } else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
   // a hand torch, held up
   if (dayTorch()) { const f = fk(1.3); add(p.x + Math.cos(S.aimW) * 8, 40, p.y + Math.sin(S.aimW) * 8, 210, 1.0 * f, 0.62 * f, 0.3 * f, 4); }
   // a small glow round you at night, so your feet aren't lost
@@ -14920,7 +15189,7 @@ function frame(t) {
   grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);
   flagStep(now);
   const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? 0 : rdt) : 0;
-  lightsFrame(now, fdt);
+  lightsFrame(now, fdt); tpTorchTongue(); tonguesEnd();
   placeCamera(fdt, rdt, now);
   thingsFrame(now); treesFrame(); propsFrame(); hintsFrame(now);
   drawFigures(now, fdt);

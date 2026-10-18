@@ -39,7 +39,7 @@ const treeMat = new THREE.ShaderMaterial({
           float s = vn(vec3(vG.x * 1.6, vG.y * 0.35, vG.z * 1.6)), t = vn(vG * 0.4);
           c = vC * (0.6 + 0.5 * up) * (0.75 + 0.35 * s) * (0.9 + 0.2 * t) + vec3(0.06, 0.12, 0.08) * smoothstep(0.7, 0.85, s) * up;
         }
-      } else c = paint(vC, vM, vG, vW, N);
+      } else { paintH = vL.y; c = paint(vC, vM, vG, vW, N); }
       vec3 o = c * lightAt(vW, N, 1.0) * 1.05;
       gl_FragColor = vec4(fogged(grey(o), vW), 1.0);
     }`,
@@ -83,7 +83,7 @@ function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine
   let s = 977 + vi * 131 + kind.length * 17; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
   const tone = (list, j) => hex(list[j % list.length]);
   if (kind === 'pine') {
-    K.mt = 'bark'; K.add(P_CYL(9), 0, 0, 0, 7.5, 34, 7.5, hex('#3e2c20'), 0, 0, 0, 0, 0.35); K.mt = null;
+    K.mt = 'bark'; K.add(P_CYL(9), 0, 0, 0, 7.5, 34, 7.5, hex('#4a3526'), 0, 0, 0, 0, 0.35); K.mt = null;
     const tiers = 6 + (vi % 2), G = ['#1a4232', '#21503c', '#1d4a37', '#275a43'];
     for (let i = 0; i < tiers; i++) {
       const f = i / (tiers - 1), y = 14 + f * 74, r = 64 * (1 - f * 0.8) * (0.92 + 0.16 * R()), h = 30 - f * 8;
@@ -94,13 +94,13 @@ function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine
   } else if (kind === 'oak' || kind === 'cherry') {
     const ch = kind === 'cherry', trunkH = ch ? 46 : 50, crownY = ch ? 66 : 64;
     K.mt = 'bark';
-    K.add(P_CYL(10), 0, 0, 0, 13, 6, 13, hex('#2a211b'), 0, 0, 0, 0, 0.35);   // the flare at its foot
-    K.rod(P_CYL(10), 0, 0, 0, (R() - 0.5) * 4, trunkH, (R() - 0.5) * 4, ch ? 4.4 : 5.2, hex(ch ? '#2c2420' : '#2e2620'));
+    K.add(P_CYL(10), 0, 0, 0, 13, 6, 13, hex('#3e3127'), 0, 0, 0, 0, 0.35);   // the flare at its foot
+    K.rod(P_CYL(10), 0, 0, 0, (R() - 0.5) * 4, trunkH, (R() - 0.5) * 4, ch ? 4.4 : 5.2, hex(ch ? '#40332a' : '#443629'));
     const limbs = ch ? 5 : 4, tips = [];
     for (let i = 0; i < limbs; i++) {   // limbs out from the top of the trunk into the crown
       const a = i / limbs * 6.28 + R() * 0.8, L = (ch ? 30 : 22) + R() * 10, y0 = trunkH * (0.6 + 0.3 * R());
       const tx = Math.cos(a) * L, tz = Math.sin(a) * L, ty = crownY - 4 + R() * 10;
-      K.rod(P_CYL(7), 0, y0, 0, tx, ty, tz, ch ? 1.9 : 2.3, hex('#2c2420')); tips.push([tx, ty, tz]);
+      K.rod(P_CYL(7), 0, y0, 0, tx, ty, tz, ch ? 1.9 : 2.3, hex('#40332a')); tips.push([tx, ty, tz]);
     }
     K.mt = null;
     // the crown: soft lumps of leaf (or blossom), bigger and darker at the heart, smaller and lighter round the top and edges
@@ -116,12 +116,12 @@ function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine
     K.mt = null;
   } else {   // dead: a bare trunk, snapped at the top, its limbs forking into twigs
     K.mt = 'bark';
-    K.add(P_CYL(9), 0, 0, 0, 10, 5, 10, hex('#2c2622'), 0, 0, 0, 0, 0.35);
-    K.rod(P_CYL(9), 0, 0, 0, 1, 52, 0, 4.4, hex('#3a322c'));
-    K.add(P_CONE(7), 1, 51, 0, 7, 8, 7, hex('#3a322c'), 0, 0, 0.3, 0, 0.3);
+    K.add(P_CYL(9), 0, 0, 0, 10, 5, 10, hex('#3f3630'), 0, 0, 0, 0, 0.35);
+    K.rod(P_CYL(9), 0, 0, 0, 1, 52, 0, 4.4, hex('#4d433b'));
+    K.add(P_CONE(7), 1, 51, 0, 7, 8, 7, hex('#4d433b'), 0, 0, 0.3, 0, 0.3);
     const fork = (x, y, z, a, el, L, r, depth) => {
       const ex = x + Math.cos(a) * Math.cos(el) * L, ey = y + Math.sin(el) * L, ez = z + Math.sin(a) * Math.cos(el) * L;
-      K.rod(P_CYL(5), x, y, z, ex, ey, ez, r, hex('#3a322c'));
+      K.rod(P_CYL(5), x, y, z, ex, ey, ez, r, hex('#4d433b'));
       if (depth > 0) for (let j = 0; j < 2; j++) fork(ex, ey, ez, a + (j ? 0.6 : -0.6) + (R() - 0.5) * 0.5, el + 0.15 + R() * 0.3, L * 0.6, r * 0.6, depth - 1);
     };
     for (let i = 0; i < 4; i++) fork(0, 26 + i * 7, 0, i * 1.7 + R(), 0.35 + R() * 0.4, 20 + R() * 8, 1.25, 2);

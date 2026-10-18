@@ -6,10 +6,10 @@
 // Pause > Options > Outlines turns it off (the thin outlines the models always had stay).
 const INK = { rt: null, scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 INK.mat = new THREE.ShaderMaterial({
-  uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 } },
+  uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `#include <packing>
-    uniform sampler2D tCol, tDep; uniform vec2 px; uniform float rad, near, far, fz; varying vec2 vUv;
+    uniform sampler2D tCol, tDep; uniform vec2 px; uniform float rad, near, far, fz; uniform vec2 fr; varying vec2 vUv;
     float W(vec2 o) { float d = texture2D(tDep, vUv + o * px * rad).x; return 1.0 / max(1e-3, -perspectiveDepthToViewZ(d, near, far)); }
     void main() {
       vec3 c = texture2D(tCol, vUv).rgb;
@@ -23,7 +23,7 @@ INK.mat = new THREE.ShaderMaterial({
         k = max(k, max(2.0 * w - W(vec2(-0.7, 0.7) * s) - W(vec2(0.7, -0.7) * s), 2.0 * w - W(vec2(0.7, 0.7) * s) - W(vec2(-0.7, -0.7) * s)));
       }
       k /= w;
-      float z = 1.0 / w, ink = smoothstep(0.025, 0.07, k) * (1.0 - smoothstep(fz, fz + 450.0, z));
+      float z = 1.0 / w, ink = smoothstep(0.025, 0.07, k) * (1.0 - smoothstep(fz, fz + 450.0, z)) * (1.0 - 0.85 * smoothstep(fr.x * 0.7, fr.y * 0.75, z));   // and thin out as the haze swallows things
       gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink), 1.0);
     }`,
   depthTest: false, depthWrite: false,
@@ -42,6 +42,7 @@ function inkRender() {   // the world, with its lines if they're on
   if (!SET.ink || !INK.rt) { renderer.clear(); renderer.render(scene, cam); return; }
   INK.mat.uniforms.near.value = cam.near; INK.mat.uniforms.far.value = cam.far;
   INK.mat.uniforms.fz.value = S && S.p ? Math.max(220, Math.hypot(cam.position.x - S.p.x, cam.position.z - S.p.y) + 200) : 220;   // from high up (isometric) the lines reach further
+  INK.mat.uniforms.fr.value.copy(LU.fogR.value); if (isoP()) INK.mat.uniforms.fr.value.addScalar(INK.mat.uniforms.fz.value);
   renderer.setRenderTarget(INK.rt); renderer.clear(); renderer.render(scene, cam);
   renderer.setRenderTarget(null); renderer.clear(); renderer.render(INK.scene, INK.cam);
 }

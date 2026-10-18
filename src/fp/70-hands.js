@@ -168,6 +168,14 @@ const torchHand = makeHand(true); torchG.add(torchHand); poseHand(torchHand, 0.9
 torchHand.position.set(0, 0, 1.2); torchHand.rotation.set(1.2, 0, -0.35, 'XYZ'); torchHand.scale.setScalar(1.08);
 const glowTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, 'rgba(255,240,215,1)'); gr.addColorStop(0.25, 'rgba(255,215,160,0.5)'); gr.addColorStop(1, 'rgba(255,190,120,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
+// a tongue of flame: a teardrop, soft at the edges and hot in the middle, its tip ragged
+const flameTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 128; const g = c.getContext('2d'), im = g.createImageData(64, 128);
+  for (let y = 0; y < 128; y++) for (let x = 0; x < 64; x++) {
+    const v = 1 - y / 127, u = (x - 31.5) / 31.5, half = Math.pow(Math.sin(Math.min(1, v * 1.25) * Math.PI * 0.5), 0.6) * (1 - Math.pow(v, 2.2)) * (0.95 + 0.05 * Math.sin(v * 30));   // narrows to the tip
+    const d = half > 0 ? Math.abs(u) / half : 9, a = Math.max(0, 1 - d * d) * Math.min(1, v * 6) * (1 - Math.pow(Math.max(0, v - 0.55) / 0.45, 1.5) * 0.7);
+    const i = (y * 64 + x) * 4; im.data[i] = im.data[i + 1] = im.data[i + 2] = 255; im.data[i + 3] = Math.round(255 * Math.min(1, a * 1.15));
+  }
+  g.putImageData(im, 0, 0); return new THREE.CanvasTexture(c); })();
 const lensGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.85 }));
 lensGlow.scale.set(7, 7, 1); lensGlow.position.set(0, 0, -7.2); torchG.add(lensGlow);
 
@@ -253,7 +261,11 @@ function itemModel(id) {
   } else if (T.k === 'light') {
     shaft(11, 0.7, '#6b4a2e', -3);
     vmPart(G, cyl(1.3, 0.9, 2.6, 8), mat('#3a2a1a'), 0, 8.6, 0);
-    const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); fl.scale.set(9, 12, 1); fl.position.set(0, 12, 0); fl.name = 'flame'; G.add(fl);
+    for (let k = 0; k < 3; k++) vmPart(G, cyl(1.38, 1.2, 0.5, 8), mat(k % 2 ? '#5a4028' : '#4a3420'), 0, 7.7 + k * 0.85, 0, 0, k * 0.7, 0, false);   // rag bound round the head
+    vmPart(G, cyl(1.1, 1.25, 0.6, 8), mat('#ff8a30', 1), 0, 9.8, 0, 0, 0, 0, false);   // the top, burning: an ember glow
+    const fl = new THREE.Group(); fl.name = 'flame'; fl.position.set(0, 10.1, 0); G.add(fl);
+    for (const [c, o] of [[0xff5a18, 0.75], [0xffa040, 0.85], [0xfff0c0, 0.95]]) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, color: c, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: o })); sp.center.set(0.5, 0.08); fl.add(sp); }
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff8a40, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 })); gl.scale.set(26, 26, 1); gl.position.y = 3; fl.add(gl);
   } else if (thr === 'bomb' || thr === 'flash') {
     vmPart(G, new THREE.SphereGeometry(2.4, 10, 8), mat(T.c), 0, 2.6, 0);
     if (thr === 'bomb') vmPart(G, cyl(0.25, 0.25, 2.4, 5), mat('#c8b07a'), 0, 5.2, 0, 0, 0, 0, false);
@@ -327,7 +339,12 @@ function placeHands(dt, now, bob, lag) {
     ar.visible = !!D.draw || dayAmmoN('bow') > 0; ar.position.z = 9 * c;
   }
   if (G && T.tool === 'sling') { const pu = G.getObjectByName('pouch'); if (D.draw) { const a = now * (8 + 10 * clamp(D.draw.t / 0.8, 0, 1)); pu.position.set(Math.cos(a) * 6, -4 + Math.sin(a) * 2, Math.sin(a) * 6); } else pu.position.set(0, -7, 0); }
-  if (G && T.k === 'light') { const fl = G.getObjectByName('flame'); fl.material.opacity = 0.75 + 0.25 * Math.sin(now * 17) * Math.sin(now * 7); fl.scale.set(8 + Math.sin(now * 11), 11 + 2 * Math.sin(now * 13), 1); }
+  if (G && T.k === 'light') {   // the flame licks up off the head: three tongues, outer red to a pale core, each flickering on its own beat
+    const fl = G.getObjectByName('flame'), lit = S.day && dayTorch() ? 1 : 0.15, v = Math.hypot(S.p.vx, S.p.vy) / RUN;
+    fl.children.forEach((sp, i) => { if (i > 2) { sp.material.opacity = 0.3 * lit * (0.85 + 0.15 * Math.sin(now * 23)); return; }
+      const w = [4.2, 3.2, 2.0][i], h = [6.8, 5.4, 3.4][i] * (1 + 0.16 * Math.sin(now * (13 + i * 4) + i) * Math.sin(now * (7 + i * 3))) * (1 - 0.25 * v) * lit;
+      sp.scale.set(w * (1 + 0.08 * Math.sin(now * 19 + i * 2)), Math.max(0.01, h), 1); sp.position.x = 0.5 * Math.sin(now * (9 + i) + i) * (1 + v); sp.material.rotation = -0.12 * v + 0.06 * Math.sin(now * 5 + i); });
+  }
   // eating and drinking: the left hand lifts the flask to your mouth
   const drink = S.rg.drink ? Math.sin(Math.PI * clamp(1 - S.rg.drink / FLASK_T, 0, 1)) : 0;
   // the blow lands: the hand jars back and shudders

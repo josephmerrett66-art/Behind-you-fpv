@@ -1,7 +1,7 @@
 // ================= the weather: rain, fog and thunderstorms, as the main game's woods have them =================
 // The main game's weatherStep decides what the sky does (and the rain chills you and fills your waterskin); here it is seen:
 // streaks of rain falling round you, the fog closing in on what you can see, the whole wood lit white for a blink by lightning.
-const RAIN_N = 900, RAIN_BOX = 260;
+const RAIN_N = 1500, RAIN_BOX = 260;
 const rainPos = new Float32Array(RAIN_N * 2 * 3), rainSeed = new Float32Array(RAIN_N * 3);
 for (let i = 0; i < RAIN_N; i++) { rainSeed[i * 3] = Math.random(); rainSeed[i * 3 + 1] = Math.random(); rainSeed[i * 3 + 2] = Math.random(); }
 const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3).setUsage(THREE.DynamicDrawUsage));
@@ -11,12 +11,13 @@ const WXV = { rain: 0, fog: 0, flash: 0 };
 function weatherFrame(now) {
   const w = S && S.wx, rain = S ? wxK('rain') : 0, fog = S ? wxK('fog') : 0, storm = w && w.kind === 'storm' ? w.k : 0;
   WXV.rain = rain; WXV.fog = fog; WXV.flash = w ? w.flash || 0 : 0;
+  LU.rainW.value += ((rain > 0.3 ? 1 : rain / 0.3) - LU.rainW.value) * Math.min(1, (rain > LU.rainW.value ? 0.25 : 0.04) * (frameDtTP || 0.016) * 6);   // it soaks in quickly and dries slowly
   SKY.cover.value = 0.42 + 0.12 * Math.sin((S && S.day ? S.day.n : 1) * 2.1) + 0.5 * rain + 0.25 * fog;   // some days clearer than others; rain fills it in
   rainMesh.visible = rain > 0.02;
   if (!rainMesh.visible) return;
   // drops wrap round a box that follows you, so the rain never runs out; a storm slants them on the wind
   const cx = cam.position.x, cz = cam.position.z, n = Math.floor(RAIN_N * Math.min(1, rain * (1 + storm * 0.6)));
-  const fall = 520, len = 16 + storm * 8, sx = 60 * storm, sz = 25 * storm;
+  const fall = 560, len = 22 + storm * 10, sx = 60 * storm, sz = 25 * storm;
   for (let i = 0; i < RAIN_N; i++) {
     const o = i * 6;
     if (i >= n) { rainPos.fill(0, o, o + 6); continue; }
@@ -28,7 +29,7 @@ function weatherFrame(now) {
     rainPos[o + 3] = x - sx * 0.03; rainPos[o + 4] = y - len; rainPos[o + 5] = z - sz * 0.03;
   }
   rainGeo.attributes.position.needsUpdate = true;
-  rainMat.opacity = 0.35 * rain * (0.45 + 0.55 * ENV.lt) + 0.5 * WXV.flash;
+  rainMat.opacity = 0.5 * rain * (0.45 + 0.55 * ENV.lt) + 0.5 * WXV.flash;
 }
 // what the weather does to the light: greyer and dimmer in the rain, the haze much nearer in fog, white in a lightning flash
 function weatherLight() {
@@ -43,6 +44,9 @@ function weatherLight() {
   shMat.uniforms.k.value *= 1 - 0.85 * Math.max(r, f);
   const fr = LU.fogR.value; fr.set(fr.x * (1 - 0.6 * f - 0.25 * r), fr.y * (1 - 0.55 * f - 0.25 * r));
   if (fl > 0.01) { const k = fl * 0.9; LU.amb.value.set(lerp(LU.amb.value.x, 0.95, k), lerp(LU.amb.value.y, 0.97, k), lerp(LU.amb.value.z, 1.05, k)); SKY.top.set(lerp(SKY.top.x, 0.8, k), lerp(SKY.top.y, 0.84, k), lerp(SKY.top.z, 0.95, k)); SKY.hor.set(lerp(SKY.hor.x, 0.85, k), lerp(SKY.hor.y, 0.88, k), lerp(SKY.hor.z, 0.95, k)); }
+  // rain and fog draw the haze in grey, not white: the far trees go to dim shapes in it, not paper cutouts
+  { const k = Math.max(r * 0.9, f), lt = 0.35 + 0.65 * ENV.lt, g = [0.6 * lt, 0.64 * lt, 0.67 * lt];
+    SKY.hor.set(lerp(SKY.hor.x, g[0], k), lerp(SKY.hor.y, g[1], k), lerp(SKY.hor.z, g[2], k)); }
   LU.fogCol.value.copy(SKY.hor);
 }
 // the main game's own rain recording, packed into the page; the hiss stands in only until it's decoded (its thunder isn't shipped, so its boom stands in)

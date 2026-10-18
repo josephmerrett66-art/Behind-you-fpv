@@ -93,6 +93,7 @@ float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.54
 float vn(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
              mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z); }
+float paintH = 99.0;   // the shader sets this: how far above the ground the point is
 vec3 paint(vec3 c, float mt, vec3 g, vec3 W, vec3 N) {
   if (mt > 0.5 && mt < 1.5) {        // wood: long streaks of grain, the odd dark knot
     float w = vn(vec3(g.x * 0.05, g.y * 0.8, g.z * 0.8));
@@ -117,14 +118,14 @@ vec3 paint(vec3 c, float mt, vec3 g, vec3 W, vec3 N) {
   } else if (mt > 6.5) {             // bark: deep furrows up the trunk
     c *= 0.72 + 0.4 * smoothstep(0.2, 0.8, vn(vec3(g.x * 0.08, g.y * 1.4, g.z * 1.4)));
   }
-  return c * mix(0.58, 1.0, smoothstep(0.0, 9.0, W.y));   // seated: darker where it meets the ground
+  return c * mix(0.58, 1.0, smoothstep(0.0, 9.0, paintH));   // seated: darker where it meets the ground (how high off it, not how high up the hill)
 }`;
 const kitMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ glow: { value: 0 } }, LU),
-  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; varying vec3 vC, vW, vN, vG; varying float vE, vM;
-    void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; vG = gu; vM = mt; gl_Position = projectionMatrix * viewMatrix * w; }`,
-  fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG; varying float vE, vM;
-    void main() { vec3 N = normalize(vN); vec3 base = paint(vC, vM, vG, vW, N); vec3 c = base * lightAt(vW, N, 1.0) * 1.05 + vC * vE; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
+  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; varying vec3 vC, vW, vN, vG; varying float vE, vM, vH;
+    void main() { vec4 w = modelMatrix * vec4(position, 1.0); vH = w.y; w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); vC = color; vE = em; vG = gu; vM = mt; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG; varying float vE, vM, vH;
+    void main() { vec3 N = normalize(vN); paintH = vH; vec3 base = paint(vC, vM, vG, vW, N); vec3 c = base * lightAt(vW, N, 1.0) * 1.05 + vC * vE; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
 });
 const kitEdge = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU), side: THREE.BackSide,

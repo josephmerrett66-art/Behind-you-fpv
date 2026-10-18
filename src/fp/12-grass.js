@@ -38,7 +38,7 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
     vW = w; vUp = position.y / 3.3; vTone = fract(bd.w * 7.13); vRoot = position.y;
     gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
   }`;
-const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
+const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; uniform float rainW; varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
   void main() {
     vec3 g = texture2D(gmap, vW.xz / 384.0).rgb;
     vec3 lo = vec3(0.36, 0.46, 0.2), hi = vec3(0.56, 0.62, 0.3);                // a short, slightly dry green...
@@ -48,6 +48,7 @@ const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; varying vec3 vW, vTN; vary
     vec3 turf = mix(lo, hi, vTone) * (0.85 + 0.3 * g.r);
     vec3 c = mix(turf * 0.62, turf * 1.15, smoothstep(0.0, 0.8, vUp));
     c *= mix(0.75, 1.0, smoothstep(0.0, 1.2, vRoot));                          // shaded down among the roots
+    c *= mix(1.0, 0.72, rainW); c = mix(c, c * vec3(0.9, 1.0, 1.04), rainW);      // wet: darker and a little cooler
     gl_FragColor = vec4(fogged(grey(c * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0);
   }`;
 {

@@ -397,7 +397,7 @@ function drawFigures(now, dt) {
   for (const g of rg.dying) if (g.type !== 'centi' && g.type !== 'cannibal') poseFoe(g, now, dt, true);
   clanDraw(now, dt);   // the clan, in bodies like yours (72-clan)
   bossFigs(now);
-  if (outsideP() && state === 'play') posePlayer(now);
+  if (outsideP() && state === 'play') posePlayer(now); else bodyHide();   // back in first person: you don't stand there watching yourself
   for (const o of D.beasts) if (Math.abs(o.x - p.x) < drawR() && Math.abs(o.y - p.y) < drawR()) poseBeast(o, now, dt);
 }
 function figuresEnd() { for (const k in PT) PT[k].done(); }

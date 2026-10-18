@@ -8,13 +8,16 @@ const mix3 = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], 
 function envFrame() {
   const lt = S && S.day ? dayLight() : 1, f = S && S.day ? dayT() : 0.2, set = lt < 1 && lt > 0 ? Math.sin(Math.PI * lt) : 0;
   ENV.lt = lt;
-  const dayAmb = [1.06, 1.0, 0.88], duskAmb = [1.0, 0.68, 0.5], nightAmb = [0.075, 0.085, 0.125];
+  // the hours have their own light: a cool clear morning, white noon, the afternoon warming toward gold before the dusk
+  const gold = lt >= 1 ? 0.85 * _sst(0.4, NIGHT_IN, f) : 0, morn = lt >= 1 ? 1 - _sst(0.0, 0.14, f) : 0;
+  const dayAmb = mix3(mix3([1.06, 1.0, 0.88], [1.12, 0.9, 0.66], gold), [0.96, 0.98, 1.0], morn * 0.8), duskAmb = [1.0, 0.68, 0.5], nightAmb = [0.075, 0.085, 0.125];
   LU.amb.value.set(...mix3(nightAmb, mix3(dayAmb, duskAmb, set * 0.85), Math.pow(lt, 0.8)));
   LU.sunK.value = lt;
   const sa = clamp(f / (NIGHT_IN + DUSK), 0, 1) * Math.PI, el = Math.max(0.12, Math.sin(sa)) * 0.95;
   LU.sunDir.value.set(Math.cos(sa) * 0.9, el, -0.45).normalize();
-  const top = mix3([0.02, 0.025, 0.05], mix3([0.42, 0.6, 0.84], [0.35, 0.3, 0.5], set), lt);
-  const hor = mix3([0.035, 0.04, 0.06], mix3([0.8, 0.83, 0.82], [0.95, 0.56, 0.32], set), lt);
+  const dTop = mix3(mix3([0.42, 0.6, 0.84], [0.4, 0.52, 0.76], gold), [0.46, 0.64, 0.86], morn), dHor = mix3(mix3([0.8, 0.83, 0.82], [0.94, 0.8, 0.6], gold), [0.82, 0.86, 0.9], morn);
+  const top = mix3([0.02, 0.025, 0.05], mix3(dTop, [0.35, 0.3, 0.5], set), lt);
+  const hor = mix3([0.035, 0.04, 0.06], mix3(dHor, [0.95, 0.56, 0.32], set), lt);
   SKY.top.set(...top); SKY.hor.set(...hor); SKY.set.value = set;
   LU.fogCol.value.set(...hor);
   LU.fogR.value.set(lerp(150, 430, lt), lerp(560, 950, lt));
@@ -36,18 +39,18 @@ function lightsFrame(now, dt) {
   const fk = s => 0.85 + 0.1 * Math.sin(now * 7.3 + s) + 0.06 * Math.sin(now * 13.1 + s * 2) + 0.05 * Math.random();
   const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 520 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
   // the camp's own fire, and your campfires
-  { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); }
-  for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); }
-  else if (B.t === 'signal' && (B.lit || D.siege)) { const f = fk(B.y); add(B.x, 50, B.y, 520, 1.2 * f, 0.6 * f, 0.25 * f, 3); for (let i = 0; i < 3; i++) fire(B.x + (Math.random() - 0.5) * 30, B.y + (Math.random() - 0.5) * 30, 2.4, 10 + Math.random() * 30); }
-  else if (B.t === 'tpost' && B.fuel > 0) { const f = fk(B.x); add(B.x, 48, B.y, 200, 0.9 * f * night, 0.55 * f * night, 0.25 * f * night, 1); fire(B.x, B.y, 0.6, 48); }
+  { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); tongues(EX_FIRE.x, EX_FIRE.y, 1.05); }
+  for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); tongues(B.x, B.y, 0.9); }
+  else if (B.t === 'signal' && (B.lit || D.siege)) { const f = fk(B.y); add(B.x, 50, B.y, 520, 1.2 * f, 0.6 * f, 0.25 * f, 3); for (let i = 0; i < 3; i++) fire(B.x + (Math.random() - 0.5) * 30, B.y + (Math.random() - 0.5) * 30, 2.4, 10 + Math.random() * 30); tongues(B.x, B.y, 2.2, 12); tongues(B.x + 8, B.y - 6, 1.4, 20); }
+  else if (B.t === 'tpost' && B.fuel > 0) { const f = fk(B.x); add(B.x, 48, B.y, 200, 0.9 * f * night, 0.55 * f * night, 0.25 * f * night, 1); fire(B.x, B.y, 0.6, 48); tongues(B.x, B.y, 0.6, 46); }
   else if (B.t === 'furnace' && (B.fuel > 0 || B.lit || B.smelt)) { add(B.x, 10, B.y, 120, 0.8 * night, 0.4 * night, 0.15 * night, 0.5); }
   clanLights(add, fire);   // the clan's camp fires (74-clan2)
   // the woods' lamps and fires
-  for (const o of lightsNear(p.x, p.y, 700)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); }
+  for (const o of lightsNear(p.x, p.y, 700)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); tongues(o.x, o.y, 0.9); }
   // your lamps, sconces, braziers and candles, lit at dusk
   if (ENV.lt < 0.85) for (const o of stNear(p.x, p.y, 700)) { const P = PC(o.id); if (!P.light || !o.done) continue; const f = fk(o.x) * (1 - ENV.lt);
     const h = P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8, [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
-    add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
+    add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') { fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); tongues(lx, ly, P.k === 'brazier' ? 0.7 : 0.3, h - 2); } else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
   // a hand torch, held up
   if (dayTorch()) { const f = fk(1.3); add(p.x + Math.cos(S.aimW) * 8, 40, p.y + Math.sin(S.aimW) * 8, 210, 1.0 * f, 0.62 * f, 0.3 * f, 4); }
   // a small glow round you at night, so your feet aren't lost
@@ -267,7 +270,7 @@ function frame(t) {
   grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);
   flagStep(now);
   const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? 0 : rdt) : 0;
-  lightsFrame(now, fdt);
+  lightsFrame(now, fdt); tpTorchTongue(); tonguesEnd();
   placeCamera(fdt, rdt, now);
   thingsFrame(now); treesFrame(); propsFrame(); hintsFrame(now);
   drawFigures(now, fdt);

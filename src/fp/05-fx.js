@@ -28,7 +28,7 @@ function spark(x, y, z, vx, vy, vz, life, size, r, g, b, a, kind = 0, grav = 0, 
 function flame(x, y, z, k) {   // a lick of fire: white-yellow, then orange, then a dull red as it rises and dies
   if (PS.length >= MAXP - 400) return;
   PS.push({ x: x + (Math.random() - 0.5) * 6 * k, y, z: z + (Math.random() - 0.5) * 6 * k, vx: (Math.random() - 0.5) * 8, vy: 26 + Math.random() * 30, vz: (Math.random() - 0.5) * 8,
-    t: 0, life: 0.35 + Math.random() * 0.4, size: (6 + Math.random() * 6) * k, r: 1, g: 0.8, b: 0.4, a: 0.7, kind: 0, grav: -10, drag: 2, fire: 1 });
+    t: 0, life: 0.35 + Math.random() * 0.4, size: (4 + Math.random() * 4.5) * k, r: 1, g: 0.8, b: 0.4, a: 0.55, kind: 0, grav: -10, drag: 2, fire: 1 });
 }
 const STATIC_PTS = [];   // drawn this frame only: eyes, glints, glows, and the main game's own embers and ash
 function stat(x, y, z, size, r, g, b, a, kind = 0) { STATIC_PTS.push(x, y, z, size, r, g, b, a, kind); }

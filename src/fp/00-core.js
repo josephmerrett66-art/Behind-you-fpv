@@ -93,7 +93,7 @@ vec3 lightAt(vec3 p, vec3 n, float useN) {
   float fall = clamp(1.0 - 0.5 * d / tRange, 0.0, 1.0) * smoothstep(tRange, tRange * 0.62, d);
   float lam = mix(1.0, clamp(dot(n, -l) * 0.55 + 0.6, 0.0, 1.0), useN);
   c += tCol * (cone * fall * lam);
-  if (plN > 0.5) for (int i = 0; i < ${NL}; i++) { vec4 q = pl[i]; float k = clamp(1.0 - distance(p, q.xyz) / q.w, 0.0, 1.0); c += plc[i] * (k * k); }
+  if (plN > 0.5) for (int i = 0; i < ${NL}; i++) { vec4 q = pl[i]; float k = clamp(1.0 - distance(p, q.xyz) / q.w, 0.0, 1.0); c += plc[i] * (k * k) * mix(1.0, 0.3 + 0.9 * max(dot(n, normalize(q.xyz - p)), 0.0), useN); }   // a firelit side and a dark side
   return c;
 }
 float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
@@ -105,6 +105,7 @@ vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, d
 // every tree, the camp, the raiders and you all stand on the same slopes. A few broad swells with smaller rises over them;
 // the camp, the raiders' camps and the ponds sit on level ground let into the hillside.
 const TERR_N = 8;
+LU.rainW = { value: 0 };   // how wet the woods are from the rain: darker ground, darker grass (85-weather)
 LU.wph = { value: 0 }; LU.wsz = { value: 0.5 }; LU.wash = { value: 0 }; LU.wet = { value: 0 };   // the waves on the shore, timed to the surf's sound (15-sea)
 LU.occ = { value: new V4(0, 0, 0, 0) };   // from above: the line from the camera to you, which trees keep clear of (77-iso.js)
 LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) };   // level places: x, y, radius, height
@@ -289,7 +290,7 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
-    fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms, time, wet; varying vec3 vW, vTN;
+    fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms, time, wet, rainW; varying vec3 vW, vTN;
       void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb;
         vec4 s = soilW(vW.xz);
         t *= 0.86 + 0.28 * sNoise(vW.xz * 0.006 + 40.0);                              // broad light and dark, so the texture never reads as tiles
@@ -320,6 +321,9 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
           t = mix(t, t * vec3(0.55, 0.75, 0.72), under);                               // under the water, the sand goes green-blue
         }
         #endif
+        t = mix(t, t * vec3(0.66, 0.68, 0.7), rainW);                                  // soaked: the earth goes dark
+        { float pd = smoothstep(0.62, 0.72, sNoise(vW.xz * 0.018 + 17.0)) * (1.0 - smoothstep(0.03, 0.06, 1.0 - normalize(vTN).y)) * rainW;   // puddles in the flat dips
+          vec3 V = normalize(camPos - vW); t = mix(t, mix(t * 0.45, fogCol * 0.8, pow(1.0 - max(V.y, 0.0), 2.0)), pd * 0.85); }
         gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0); }`,
   });
   var groundMesh = new THREE.Mesh(g, m); groundMesh.frustumCulled = false; scene.add(groundMesh);

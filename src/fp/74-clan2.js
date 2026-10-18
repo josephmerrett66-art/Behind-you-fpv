@@ -168,7 +168,7 @@ const clanCampAt = (x, y, pad = 0) => clanCamps().find(k => Math.hypot(k.x - x, 
 function clanLights(add, fire) {
   if (!CLAN_ON || !S.day) return;
   const p = S.p;
-  for (const k of clanCamps()) if (Math.hypot(k.x - p.x, k.y - p.y) < 900) { const f = 0.85 + 0.12 * Math.sin(S.t * 7 + k.seed * 9); add(k.x, 20, k.y, 200, f, 0.55 * f, 0.25 * f, 1); fire(k.x, k.y, 0.8); }
+  for (const k of clanCamps()) if (Math.hypot(k.x - p.x, k.y - p.y) < 900) { const f = 0.85 + 0.12 * Math.sin(S.t * 7 + k.seed * 9); add(k.x, 20, k.y, 200, f, 0.55 * f, 0.25 * f, 1); fire(k.x, k.y, 0.8); tongues(k.x, k.y, 0.85); }
 }
 function clanCampDraw() {
   if (!CLAN_ON || !S.day) return;

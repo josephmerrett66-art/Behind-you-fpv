@@ -32,8 +32,8 @@ function seaSurfY(x, y) {
   return SEA_Y + k * ((0.3 + 0.55 * LU.wsz.value) * Math.sin(s * 0.12 + LU.wph.value) * _sst(-20, 140, s) + 0.18 * Math.sin(x * 0.07 + y * 0.05 + t * 1.7) + 0.12 * Math.sin(x * -0.05 + y * 0.09 + t * 2.3));
 }
 function fishWater(x, y) {
-  if (BEACH) { const d = SEA_Y - terrH(x, y); if (d > 0.5) return { sea: true, y: seaSurfY(x, y), depth: d }; }
-  const P = lakeAt(x, y, -6); if (P) return { sea: false, y: terrH(P.x, P.y) + 0.35, depth: 4, P };
+  if (BEACH) { const d = SEA_Y - terrH(x, y); if (d > 0.5 && coastS(x, y) > -120) return { sea: true, y: seaSurfY(x, y), depth: d }; }
+  const P = pondAt(x, y, -4); if (P) return { sea: false, y: P.lvl, depth: Math.max(0.5, P.lvl - terrH(x, y)), P };
   return null;
 }
 const FHOLD = { down: false };   // is Attack held

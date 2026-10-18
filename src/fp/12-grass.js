@@ -96,7 +96,11 @@ function grassMask(px, py, lakes, gen) {
       if (Math.abs(f) < hl && Math.abs(s) < hw && (!keep || keep(ox + (i + 0.5) * c, oy + (j + 0.5) * c))) M[j * GM_N + i] = 0;
     }
   };
-  for (const P of lakes) disc(P.x, P.y, P.rad * 1.12);
+  for (const P of lakes) {   // the water and a muddy margin round it, following the shore (08-ponds)
+    const r = P.rmax + 12, i0 = Math.max(0, Math.floor((P.x - r - ox) / c)), i1 = Math.min(GM_N - 1, Math.ceil((P.x + r - ox) / c));
+    const j0 = Math.max(0, Math.floor((P.y - r - oy) / c)), j1 = Math.min(GM_N - 1, Math.ceil((P.y + r - oy) / c));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (pondIn(P, ox + (i + 0.5) * c, oy + (j + 0.5) * c, 6)) M[j * GM_N + i] = 0;
+  }
   disc(EX_FIRE.x, EX_FIRE.y, 20);
   for (const o of CAMP) if (o.camp === 'tent') disc(o.x, o.y, 22);
   const D = S.day;

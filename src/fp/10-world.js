@@ -335,33 +335,107 @@ function raiderKit(K) {
   }
 }
 
-// ---------------- ponds: still water with a muddy bank and reeds; ripples cross it ----------------
+// ---------------- ponds: still water filling the hollows (08-ponds), with reeds round the shallows and lily pads ----------------
+// The water is a flat sheet at the pond's level; the ground decides the shore (where it rises above the water). Clear and
+// brown-green in the shallows, so you see the muddy bottom, dark peaty green-black in the deep; little ripples, the sky in it
+// at a low angle, the sun glinting, and now and then rings spreading where something rose.
 const pondMat = new THREE.ShaderMaterial({
-  uniforms: Object.assign({ lt: { value: 1 }, now: { value: 0 }, sky: { value: SKY.hor } }, LU), transparent: false,
-  vertexShader: TERR_GLSL + `attribute vec4 pdat; varying vec3 vW; varying vec4 vP; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(pdat.xy); vW = w.xyz; vP = pdat; gl_Position = projectionMatrix * viewMatrix * w; }`,
-  fragmentShader: LIGHT_GLSL + `uniform float lt, now; uniform vec3 sky; varying vec3 vW; varying vec4 vP;
+  uniforms: Object.assign({ lt: { value: 1 }, sky: { value: SKY.hor }, skyTop: { value: SKY.top } }, LU), transparent: true, depthWrite: true,
+  vertexShader: `attribute vec3 pdat; varying vec3 vW; varying vec3 vP; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vP = pdat; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  fragmentShader: TERR_GLSL + LIGHT_GLSL + `uniform float lt, time; uniform vec3 sky, skyTop; varying vec3 vW; varying vec3 vP;
+    float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float n2(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0)), f.x), f.y); }
     void main() {
-      vec2 d = vW.xz - vP.xy; float a = atan(d.y, d.x), r = length(d) / (vP.z * (1.0 + sin(a * 3.0 + vP.w) * 0.08 + sin(a * 5.0 - vP.w) * 0.04));
-      if (r > 1.06) discard;
-      vec3 bank = vec3(0.29, 0.267, 0.212), deep = mix(vec3(0.106, 0.165, 0.2), vec3(0.184, 0.29, 0.322), lt);
-      vec3 c = r > 1.0 ? bank : deep + vec3(0.59, 0.78, 0.84) * (0.1 + 0.12 * lt) * smoothstep(0.78, 0.7, r);
-      if (r <= 1.0) {
-        vec3 V = normalize(camPos - vW); float fres = pow(1.0 - max(V.y, 0.0), 3.0);
-        c = mix(c, sky * 0.9, fres * 0.55 * lt);
-        for (int k = 0; k < 3; k++) { float t = fract(now * 0.25 + float(k) / 3.0 + vP.w); float rr = 0.25 + t * 0.7; c += vec3(0.75, 0.88, 0.92) * (0.25 + 0.3 * lt) * (1.0 - t) * 0.5 * smoothstep(0.025, 0.0, abs(r - rr)); }
+      if (vP.z < 0.5) discard;                                                   // past the rim of the hollow
+      float depth = vW.y - terrH(vW.xz); if (depth < 0.0) discard;
+      vec3 shal = vec3(0.3, 0.34, 0.2), mid = vec3(0.1, 0.2, 0.16), deep = vec3(0.03, 0.08, 0.08);
+      vec3 c = mix(shal, mid, smoothstep(0.1, 1.6, depth)); c = mix(c, deep, smoothstep(1.2, 4.0, depth));
+      float t = time;
+      vec2 q = vW.xz * 0.16; float e = 0.5;   // fine ripples, drifting with the breeze
+      float r0 = n2(q + t * vec2(0.12, 0.07)) + 0.5 * n2(q * 2.7 - t * vec2(0.09, 0.15));
+      float rx = n2(q + vec2(e, 0.0) + t * vec2(0.12, 0.07)) + 0.5 * n2((q + vec2(e, 0.0)) * 2.7 - t * vec2(0.09, 0.15));
+      float rz = n2(q + vec2(0.0, e) + t * vec2(0.12, 0.07)) + 0.5 * n2((q + vec2(0.0, e)) * 2.7 - t * vec2(0.09, 0.15));
+      vec3 N = normalize(vec3((r0 - rx) * 0.35, 1.0, (r0 - rz) * 0.35));
+      // rings where a fish rose or a drop fell: a few at a time, each spreading and fading
+      for (int k = 0; k < 4; k++) {
+        float cyc = t * 0.22 + float(k) * 0.25 + vP.y * 0.1, id = floor(cyc), f = fract(cyc);
+        vec2 o = vP.xy + (vec2(h2(vec2(id, float(k) + vP.y)), h2(vec2(float(k) - vP.y, id))) - 0.5) * 70.0;
+        float d = distance(vW.xz, o), rr = f * 22.0, ring = exp(-pow((d - rr) * 0.9, 2.0)) * (1.0 - f) * step(0.0, rr);
+        N.xz += normalize(vW.xz - o + 0.001) * ring * 0.35;
       }
-      gl_FragColor = vec4(fogged(grey(c * (r > 1.0 ? lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) : mix(vec3(1.0), lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0), 0.6))), vW), 1.0);
+      N = normalize(N);
+      vec3 V = normalize(camPos - vW);
+      float fres = pow(1.0 - max(dot(V, N), 0.0), 3.0);
+      c = mix(c, mix(sky, skyTop, 0.5) * 0.8, clamp(0.04 + fres * 0.8, 0.0, 0.7) * (0.35 + 0.65 * lt));   // the sky in it
+      float sp = pow(max(dot(reflect(-V, N), sunDir), 0.0), 180.0);
+      c += vec3(1.0, 0.95, 0.82) * sp * 1.8 * sunK;                             // sun glints
+      float edge = 1.0 - smoothstep(0.0, 0.35, depth);                          // a pale line where it laps the mud
+      c = mix(c, vec3(0.5, 0.52, 0.44), edge * 0.25 * smoothstep(0.3, 0.7, n2(vW.xz * 0.3 + t * 0.2)));
+      float a = mix(0.7, 1.0, smoothstep(0.0, 2.0, depth)) * smoothstep(0.0, 0.1, depth);
+      vec3 lit = c * mix(vec3(1.0), lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0), 0.7);
+      gl_FragColor = vec4(fogged(grey(lit), vW), a);
     }`,
 });
 const pondMesh = new THREE.Mesh(new THREE.BufferGeometry(), pondMat); pondMesh.frustumCulled = false; pondMesh.renderOrder = 1; scene.add(pondMesh);
+const pondK = new KitMesh(false);   // no ink outline: it would swallow a reed
+const P_PAD = () => prim('pad', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0.45, 6.2832 - 0.45); g.translate(0, 0.5, 0); return g; });   // a lily pad: a disc with its notch
 let pondKey = '';
+function pondKit(K, P) {
+  const R = (a, b) => hash(P.x * 0.31 + a * 7.7, P.y * 0.27 + b * 3.3);
+  // reeds: clumps standing in the shallows round the shore, thicker on some sides than others; slim tapering stems that
+  // splay out from the root, a few bulrush heads, and flat blades bent over
+  const reedC = [hex('#a8c868'), hex('#b8d070'), hex('#98b85a'), hex('#c4d47e')], head = hex('#8a5a34'), blade = hex('#b0c868');
+  const n = Math.round(P.rad * 0.6);
+  for (let k = 0; k < n; k++) {
+    const a = (k + R(k, 1) * 0.8) / n * 6.2832, side = 0.5 + 0.5 * Math.sin(a * 2 + P.seed);
+    if (R(k, 2) > 0.2 + 0.65 * side) continue;
+    const reach = pondReach(P, P.x + Math.cos(a), P.y + Math.sin(a)), d = reach * (0.8 + R(k, 3) * 0.22);
+    const cx = P.x + Math.cos(a) * d, cy = P.y + Math.sin(a) * d, m = 7 + (R(k, 4) * 7 | 0);
+    for (let j = 0; j < m; j++) {
+      const b = R(k, j + 10) * 6.2832, rr = Math.sqrt(R(j, k + 20)) * 4, x = cx + Math.cos(b) * rr, y = cy + Math.sin(b) * rr;
+      const h = 9 + R(k + j, 30) * 10, sp = 0.12 + rr * 0.05, lx = Math.cos(b) * h * sp + (R(j, k + 40) - 0.5) * 1.5, ly = Math.sin(b) * h * sp + (R(j + 5, k + 41) - 0.5) * 1.5;
+      const yb = Math.min(0, P.lvl - terrH(x, y)) - 0.5;   // from the bottom, up through the water
+      K.mt = 'plant';
+      if (R(j, k + 45) < 0.3) {   // a blade: two pieces, bent over at the knee
+        const kx = x + lx * 0.5, ky = y + ly * 0.5, kh = h * 0.62;
+        K.rod(P_BOX(), x, yb, y, kx, kh, ky, 0.28, blade, 0.22); K.rod(P_CONE(4), kx, kh, ky, kx + lx * 0.9, kh + h * 0.12, ky + ly * 0.9, 0.28, blade, 0.22);
+      } else {
+        K.rod(P_CONE(5), x, yb, y, x + lx, h, y + ly, 0.3, reedC[(k + j) % 4], 0.22);   // lifted a little: so thin, the shade would turn them black
+        if (R(j, k + 50) < 0.22) K.rod(P_CYL(6), x + lx * 0.7, h * 0.7, y + ly * 0.7, x + lx * 0.82, h * 0.82, y + ly * 0.82, 0.55, head);   // a bulrush head
+      }
+      K.mt = null;
+    }
+  }
+  // lily pads: drifts of them out on the water, some in flower
+  const padC = [hex('#4f7a34'), hex('#5e8a3c'), hex('#466c2e')], flC = [hex('#f2eee6'), hex('#f0b8c8')];
+  const groups = 2 + (R(0, 60) * 3 | 0);
+  for (let g = 0; g < groups; g++) {
+    const a = R(g, 61) * 6.2832, d = pondReach(P, P.x + Math.cos(a), P.y + Math.sin(a)) * (0.25 + R(g, 62) * 0.45);
+    const gx = P.x + Math.cos(a) * d, gy = P.y + Math.sin(a) * d;
+    for (let j = 0; j < 9; j++) {
+      const b = R(g, j + 70) * 6.2832, rr = R(j, g + 80) * 16, x = gx + Math.cos(b) * rr, y = gy + Math.sin(b) * rr;
+      if (!pondIn(P, x, y, -6) || P.lvl - terrH(x, y) < 0.3) continue;
+      const s = 3.2 + R(j, g + 90) * 2.6, yy = P.lvl - terrH(x, y) + 0.06;
+      K.mt = 'plant'; K.add(P_PAD(), x, yy, y, s, 0.12, s, padC[j % 3], R(j, g + 95) * 6.2832); K.mt = null;
+      if (R(j, g + 99) < 0.22) {   // a flower: a ring of petals round a yellow heart
+        const f = flC[R(g, j + 101) < 0.6 ? 0 : 1];
+        for (let p = 0; p < 6; p++) { const t = p / 6 * 6.2832; K.add(P_BALL(), x + Math.cos(t) * 0.7, yy + 0.35, y + Math.sin(t) * 0.7, 1.0, 0.45, 0.6, f, -t); }
+        K.add(P_BALL(), x, yy + 0.55, y, 0.6, 0.45, 0.6, hex('#e8c040'));
+      }
+    }
+  }
+}
 function pondsSync(px, py) {
   const L = lakesNear(px, py, drawR() + 100), key = L.map(P => P.x | 0).join();
   if (key === pondKey) return L; pondKey = key;
-  const pos = [], dat = [];
-  for (const P of L) { const R = P.rad * 1.2, y = 0.35; for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]]) { pos.push(P.x + a * R, y, P.y + b * R); dat.push(P.x, P.y, P.rad, P.seed); } }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('pdat', new THREE.Float32BufferAttribute(dat, 4));
-  pondMesh.geometry.dispose(); pondMesh.geometry = g;
+  const pos = [], dat = [], N = 26, K = new Kit();
+  for (const P of L) {   // a sheet at the water's level over the hollow, marked where the pond reaches
+    const R = P.rmax * 1.12 + 8, st = 2 * R / N, v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, pondIn(P, x, y, 10) ? 1 : 0); };
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
+    pondKit(K, P);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('pdat', new THREE.Float32BufferAttribute(dat, 3));
+  pondMesh.geometry.dispose(); pondMesh.geometry = g; pondK.set(K);
   return L;
 }
 

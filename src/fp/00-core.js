@@ -203,12 +203,11 @@ vec4 soilW(vec2 p) {   // how much of each soil is here: dry, loam, clay, stony
   s.x = max(s.x, L.b * 0.95); s.y = max(s.y * (1.0 - L.b), L.r * 0.75); s.w = max(s.w, L.g * 0.9); s.z *= 1.0 - 0.6 * L.a;
   return s;
 }`;
-// which places are level: the camp, the nearest raiders' camps and ponds (re-chosen as you move about)
+// which places are level: the camp and the nearest raiders' camps (re-chosen as you move about); ponds lie in the land's own hollows (08-ponds)
 function terrLevelSync(px, py, lakes) {
   const L = [];
   L.push([0, 0, CAMP_R + 55, terrBase(0, 0)]);
   for (const C of dayCampList()) { const o = C.parts && C.parts[0] ? C.parts[0] : C; L.push([o.x, o.y, 120, terrBase(o.x, o.y)]); }
-  for (const P of lakes || []) L.push([P.x, P.y, P.rad * 1.25 + 8, terrBase(P.x, P.y) - 3]);
   L.sort((a, b) => Math.hypot(a[0] - px, a[1] - py) - a[2] - (Math.hypot(b[0] - px, b[1] - py) - b[2]));
   LU.terrF.value.forEach((v, i) => { const q = L[i]; if (q && Math.hypot(q[0] - px, q[1] - py) - q[2] * 1.9 < drawR() + 300) v.set(q[0], q[1], q[2], q[3]); else v.set(0, 0, 0, 0); });
 }
@@ -317,7 +316,7 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
           float wl = SEA_Y + wet + 0.12 * sin(vW.z * 0.004 + vW.x * 0.003);              // how high the last waves washed
           float wet = 1.0 - smoothstep(wl - 0.2, wl + 1.2, vW.y);
           t = mix(t, t * vec3(0.7, 0.68, 0.64), wet * sandK);                          // dark wet sand where the waves reach
-          float under = smoothstep(SEA_Y + 0.3, SEA_Y - 3.0, vW.y);
+          float under = smoothstep(SEA_Y + 0.3, SEA_Y - 3.0, vW.y) * smoothstep(-200.0, -120.0, cs);   // only by the sea: low ground inland is dry
           t = mix(t, t * vec3(0.55, 0.75, 0.72), under);                               // under the water, the sand goes green-blue
         }
         #endif

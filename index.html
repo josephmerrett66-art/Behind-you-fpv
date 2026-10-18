@@ -6786,12 +6786,11 @@ vec4 soilW(vec2 p) {   // how much of each soil is here: dry, loam, clay, stony
   s.x = max(s.x, L.b * 0.95); s.y = max(s.y * (1.0 - L.b), L.r * 0.75); s.w = max(s.w, L.g * 0.9); s.z *= 1.0 - 0.6 * L.a;
   return s;
 }`;
-// which places are level: the camp, the nearest raiders' camps and ponds (re-chosen as you move about)
+// which places are level: the camp and the nearest raiders' camps (re-chosen as you move about); ponds lie in the land's own hollows (08-ponds)
 function terrLevelSync(px, py, lakes) {
   const L = [];
   L.push([0, 0, CAMP_R + 55, terrBase(0, 0)]);
   for (const C of dayCampList()) { const o = C.parts && C.parts[0] ? C.parts[0] : C; L.push([o.x, o.y, 120, terrBase(o.x, o.y)]); }
-  for (const P of lakes || []) L.push([P.x, P.y, P.rad * 1.25 + 8, terrBase(P.x, P.y) - 3]);
   L.sort((a, b) => Math.hypot(a[0] - px, a[1] - py) - a[2] - (Math.hypot(b[0] - px, b[1] - py) - b[2]));
   LU.terrF.value.forEach((v, i) => { const q = L[i]; if (q && Math.hypot(q[0] - px, q[1] - py) - q[2] * 1.9 < drawR() + 300) v.set(q[0], q[1], q[2], q[3]); else v.set(0, 0, 0, 0); });
 }
@@ -6900,7 +6899,7 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
           float wl = SEA_Y + wet + 0.12 * sin(vW.z * 0.004 + vW.x * 0.003);              // how high the last waves washed
           float wet = 1.0 - smoothstep(wl - 0.2, wl + 1.2, vW.y);
           t = mix(t, t * vec3(0.7, 0.68, 0.64), wet * sandK);                          // dark wet sand where the waves reach
-          float under = smoothstep(SEA_Y + 0.3, SEA_Y - 3.0, vW.y);
+          float under = smoothstep(SEA_Y + 0.3, SEA_Y - 3.0, vW.y) * smoothstep(-200.0, -120.0, cs);   // only by the sea: low ground inland is dry
           t = mix(t, t * vec3(0.55, 0.75, 0.72), under);                               // under the water, the sand goes green-blue
         }
         #endif
@@ -7025,6 +7024,93 @@ function inkRender() {   // the world, with its lines if they're on
   renderer.setRenderTarget(INK.rt); renderer.clear(); renderer.render(scene, cam);
   renderer.setRenderTarget(null); renderer.clear(); renderer.render(INK.scene, INK.cam);
 }
+
+;
+// ================= ponds lie in the hollows (Joe) =================
+// A pond is where the land dips: the lowest point of a natural hollow, filled up to a level so the water finds its own
+// shoreline round the slopes. Only the deep, low hollows hold one, and only the lowest hollow in its part of the woods, so
+// they're scattered, not everywhere. Nothing grows in the water (trees, bushes, things to gather); reeds stand round the
+// shallows and lily pads float out on it (10-world draws them). The water is too deep to walk in past your knees.
+const POND = { cell: 500, near: 850, low: -14, dMin: 1.5, rMax: 160, NR: 24, wade: 2.2 };
+const pondCells = new Map(), pondKept = new Map();
+// roll downhill from a point to the bottom of its hollow
+function pondDescend(x, y) {
+  let s = 24;
+  for (let it = 0; it < 400 && s >= 1.5; it++) {
+    let bx = x, by = y, bh = terrBase0(x, y);
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, nx = x + Math.cos(a) * s, ny = y + Math.sin(a) * s, h = terrBase0(nx, ny); if (h < bh) { bh = h; bx = nx; by = ny; } }
+    if (bx === x && by === y) s /= 2; else { x = bx; y = by; }
+  }
+  return [x, y];
+}
+// how far the water reaches along each of NR directions when it stands at lvl (300 = it spills away)
+function pondRays(x, y, lvl) {
+  const r = new Float32Array(POND.NR);
+  for (let k = 0; k < POND.NR; k++) { const a = k / POND.NR * 6.2832, c = Math.cos(a), s = Math.sin(a); let d = 0; while (d < 300 && terrBase0(x + c * d, y + s * d) < lvl) d += 3; r[k] = d; }
+  return r;
+}
+const pondMean = r => r.reduce((a, b) => a + b, 0) / r.length;
+// the hollows in one cell that could hold a pond: low enough, a real bowl, and clear of the camps
+function pondCands(ci, cj) {
+  const key = ci + ',' + cj; let out = pondCells.get(key); if (out) return out; out = [];
+  for (const [u, v] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) {
+    const [x, y] = pondDescend((ci + u) * POND.cell, (cj + v) * POND.cell);
+    if (Math.floor(x / POND.cell) !== ci || Math.floor(y / POND.cell) !== cj || out.some(P => Math.hypot(P.x - x, P.y - y) < 40)) continue;
+    const h0 = terrBase0(x, y); if (h0 > POND.low) continue;
+    if (Math.hypot(x, y) < CAMP_R + 300 || inPlaza(x, y) || (BEACH && coastS(x, y) > -600)) continue;
+    if (dayCampList().some(C => { const o = C.parts && C.parts[0] ? C.parts[0] : C; return Math.hypot(o.x - x, o.y - y) < 420; })) continue;
+    const seed = hash(x * 0.013 + 3.1, y * 0.017 - 1.7), T = 42 + seed * 40;   // how big a pond this hollow makes
+    let lo = 0.6, hi = 7;
+    for (let i = 0; i < 14; i++) { const d = (lo + hi) / 2, r = pondRays(x, y, h0 + d); if (Math.max(...r) >= 300 || pondMean(r) > T) hi = d; else lo = d; }
+    const rays = pondRays(x, y, h0 + lo), rmax = Math.max(...rays);
+    if (lo < POND.dMin || rmax > POND.rMax) continue;   // too shallow a dip, or it would run off down a valley
+    out.push({ kind: 'dlake', x, y, r: 0, s: 1, rad: pondMean(rays), rmax, lvl: h0 + lo, h0, rays, seed: seed * 9 });
+  }
+  pondCells.set(key, out); return out;
+}
+// the ponds of a cell: only the lowest hollow for a way round holds water
+function pondsIn(ci, cj) {
+  const key = ci + ',' + cj; let out = pondKept.get(key); if (out) return out;
+  const n = Math.ceil(POND.near / POND.cell);
+  out = pondCands(ci, cj).filter(P => {
+    for (let a = ci - n; a <= ci + n; a++) for (let b = cj - n; b <= cj + n; b++)
+      for (const Q of pondCands(a, b)) if (Q !== P && Q.h0 < P.h0 && Math.hypot(Q.x - P.x, Q.y - P.y) < POND.near) return false;
+    return true;
+  });
+  pondKept.set(key, out); return out;
+}
+lakesNear = function (x, y, R) {
+  const out = [], c = POND.cell;
+  for (let ci = Math.floor((x - R - 200) / c); ci <= Math.floor((x + R + 200) / c); ci++)
+    for (let cj = Math.floor((y - R - 200) / c); cj <= Math.floor((y + R + 200) / c); cj++)
+      for (const P of pondsIn(ci, cj)) if (Math.abs(P.x - x) < R + P.rmax && Math.abs(P.y - y) < R + P.rmax) out.push(P);
+  return out;
+};
+// how far the water reaches from the middle towards (x, y)
+function pondReach(P, x, y) {
+  const a = (Math.atan2(y - P.y, x - P.x) / 6.2832 + 1) % 1 * POND.NR, i = Math.floor(a) % POND.NR, f = a - Math.floor(a);
+  return P.rays[i] * (1 - f) + P.rays[(i + 1) % POND.NR] * f;
+}
+const pondIn = (P, x, y, pad = 0) => Math.hypot(x - P.x, y - P.y) < pondReach(P, x, y) + pad;
+const pondAt = (x, y, pad = 0) => lakesNear(x, y, 1).find(P => pondIn(P, x, y, pad));
+const pondDepth = (x, y) => { const P = pondAt(x, y, 0); return P ? P.lvl - terrH(x, y) : 0; };
+
+// nothing grows in the water
+{ const pn = propsNear; propsNear = function (x, y, R) { const r = pn(x, y, R), L = lakesNear(x, y, R); return L.length ? r.filter(o => !L.some(P => pondIn(P, o.x, o.y, o.kind === 'tree' ? 16 : 8))) : r; }; }
+{ const dn = decorNear; decorNear = function (x, y, R) { const r = dn(x, y, R), L = lakesNear(x, y, R); return L.length ? r.filter(o => !L.some(P => pondIn(P, o.x, o.y, o.dk === 'log' ? 14 : 5))) : r; }; }
+{ const nn = dayNodesNear; dayNodesNear = function (x, y, R) { const r = nn(x, y, R), L = lakesNear(x, y, R); return L.length ? r.filter(o => !L.some(P => pondIn(P, o.x, o.y, 4))) : r; }; }
+
+// wading: in to your knees and no further; the animals and the clan keep out
+{ const ss = simStep; simStep = function (dt) {
+    const p = S && S.p, x0 = p ? p.x : 0, y0 = p ? p.y : 0; ss(dt);
+    if (!S || !S.day) return;
+    if (p && pondDepth(p.x, p.y) > POND.wade && pondDepth(p.x, p.y) > pondDepth(x0, y0)) { p.x = x0; p.y = y0; p.vx = p.vy = 0; dayNote('pdeep', 'the pond gets too deep', 6); }
+    for (const L of [S.rg.enemies, S.day.beasts]) if (L) for (const o of L) {
+      if (o.dead) continue;
+      if (o._px !== undefined && pondDepth(o.x, o.y) > 1 && pondDepth(o.x, o.y) > pondDepth(o._px, o._py)) { o.x = o._px; o.y = o._py; }
+      o._px = o.x; o._py = o.y;
+    }
+  }; }
 
 ;
 // ================= the woods: the main game's own trees, rocks, ground cover and ponds, stood up around you =================
@@ -7364,33 +7450,107 @@ function raiderKit(K) {
   }
 }
 
-// ---------------- ponds: still water with a muddy bank and reeds; ripples cross it ----------------
+// ---------------- ponds: still water filling the hollows (08-ponds), with reeds round the shallows and lily pads ----------------
+// The water is a flat sheet at the pond's level; the ground decides the shore (where it rises above the water). Clear and
+// brown-green in the shallows, so you see the muddy bottom, dark peaty green-black in the deep; little ripples, the sky in it
+// at a low angle, the sun glinting, and now and then rings spreading where something rose.
 const pondMat = new THREE.ShaderMaterial({
-  uniforms: Object.assign({ lt: { value: 1 }, now: { value: 0 }, sky: { value: SKY.hor } }, LU), transparent: false,
-  vertexShader: TERR_GLSL + `attribute vec4 pdat; varying vec3 vW; varying vec4 vP; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(pdat.xy); vW = w.xyz; vP = pdat; gl_Position = projectionMatrix * viewMatrix * w; }`,
-  fragmentShader: LIGHT_GLSL + `uniform float lt, now; uniform vec3 sky; varying vec3 vW; varying vec4 vP;
+  uniforms: Object.assign({ lt: { value: 1 }, sky: { value: SKY.hor }, skyTop: { value: SKY.top } }, LU), transparent: true, depthWrite: true,
+  vertexShader: `attribute vec3 pdat; varying vec3 vW; varying vec3 vP; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vP = pdat; gl_Position = projectionMatrix * viewMatrix * w; }`,
+  fragmentShader: TERR_GLSL + LIGHT_GLSL + `uniform float lt, time; uniform vec3 sky, skyTop; varying vec3 vW; varying vec3 vP;
+    float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float n2(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h2(i), h2(i + vec2(1.0, 0.0)), f.x), mix(h2(i + vec2(0.0, 1.0)), h2(i + vec2(1.0)), f.x), f.y); }
     void main() {
-      vec2 d = vW.xz - vP.xy; float a = atan(d.y, d.x), r = length(d) / (vP.z * (1.0 + sin(a * 3.0 + vP.w) * 0.08 + sin(a * 5.0 - vP.w) * 0.04));
-      if (r > 1.06) discard;
-      vec3 bank = vec3(0.29, 0.267, 0.212), deep = mix(vec3(0.106, 0.165, 0.2), vec3(0.184, 0.29, 0.322), lt);
-      vec3 c = r > 1.0 ? bank : deep + vec3(0.59, 0.78, 0.84) * (0.1 + 0.12 * lt) * smoothstep(0.78, 0.7, r);
-      if (r <= 1.0) {
-        vec3 V = normalize(camPos - vW); float fres = pow(1.0 - max(V.y, 0.0), 3.0);
-        c = mix(c, sky * 0.9, fres * 0.55 * lt);
-        for (int k = 0; k < 3; k++) { float t = fract(now * 0.25 + float(k) / 3.0 + vP.w); float rr = 0.25 + t * 0.7; c += vec3(0.75, 0.88, 0.92) * (0.25 + 0.3 * lt) * (1.0 - t) * 0.5 * smoothstep(0.025, 0.0, abs(r - rr)); }
+      if (vP.z < 0.5) discard;                                                   // past the rim of the hollow
+      float depth = vW.y - terrH(vW.xz); if (depth < 0.0) discard;
+      vec3 shal = vec3(0.3, 0.34, 0.2), mid = vec3(0.1, 0.2, 0.16), deep = vec3(0.03, 0.08, 0.08);
+      vec3 c = mix(shal, mid, smoothstep(0.1, 1.6, depth)); c = mix(c, deep, smoothstep(1.2, 4.0, depth));
+      float t = time;
+      vec2 q = vW.xz * 0.16; float e = 0.5;   // fine ripples, drifting with the breeze
+      float r0 = n2(q + t * vec2(0.12, 0.07)) + 0.5 * n2(q * 2.7 - t * vec2(0.09, 0.15));
+      float rx = n2(q + vec2(e, 0.0) + t * vec2(0.12, 0.07)) + 0.5 * n2((q + vec2(e, 0.0)) * 2.7 - t * vec2(0.09, 0.15));
+      float rz = n2(q + vec2(0.0, e) + t * vec2(0.12, 0.07)) + 0.5 * n2((q + vec2(0.0, e)) * 2.7 - t * vec2(0.09, 0.15));
+      vec3 N = normalize(vec3((r0 - rx) * 0.35, 1.0, (r0 - rz) * 0.35));
+      // rings where a fish rose or a drop fell: a few at a time, each spreading and fading
+      for (int k = 0; k < 4; k++) {
+        float cyc = t * 0.22 + float(k) * 0.25 + vP.y * 0.1, id = floor(cyc), f = fract(cyc);
+        vec2 o = vP.xy + (vec2(h2(vec2(id, float(k) + vP.y)), h2(vec2(float(k) - vP.y, id))) - 0.5) * 70.0;
+        float d = distance(vW.xz, o), rr = f * 22.0, ring = exp(-pow((d - rr) * 0.9, 2.0)) * (1.0 - f) * step(0.0, rr);
+        N.xz += normalize(vW.xz - o + 0.001) * ring * 0.35;
       }
-      gl_FragColor = vec4(fogged(grey(c * (r > 1.0 ? lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) : mix(vec3(1.0), lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0), 0.6))), vW), 1.0);
+      N = normalize(N);
+      vec3 V = normalize(camPos - vW);
+      float fres = pow(1.0 - max(dot(V, N), 0.0), 3.0);
+      c = mix(c, mix(sky, skyTop, 0.5) * 0.8, clamp(0.04 + fres * 0.8, 0.0, 0.7) * (0.35 + 0.65 * lt));   // the sky in it
+      float sp = pow(max(dot(reflect(-V, N), sunDir), 0.0), 180.0);
+      c += vec3(1.0, 0.95, 0.82) * sp * 1.8 * sunK;                             // sun glints
+      float edge = 1.0 - smoothstep(0.0, 0.35, depth);                          // a pale line where it laps the mud
+      c = mix(c, vec3(0.5, 0.52, 0.44), edge * 0.25 * smoothstep(0.3, 0.7, n2(vW.xz * 0.3 + t * 0.2)));
+      float a = mix(0.7, 1.0, smoothstep(0.0, 2.0, depth)) * smoothstep(0.0, 0.1, depth);
+      vec3 lit = c * mix(vec3(1.0), lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0), 0.7);
+      gl_FragColor = vec4(fogged(grey(lit), vW), a);
     }`,
 });
 const pondMesh = new THREE.Mesh(new THREE.BufferGeometry(), pondMat); pondMesh.frustumCulled = false; pondMesh.renderOrder = 1; scene.add(pondMesh);
+const pondK = new KitMesh(false);   // no ink outline: it would swallow a reed
+const P_PAD = () => prim('pad', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0.45, 6.2832 - 0.45); g.translate(0, 0.5, 0); return g; });   // a lily pad: a disc with its notch
 let pondKey = '';
+function pondKit(K, P) {
+  const R = (a, b) => hash(P.x * 0.31 + a * 7.7, P.y * 0.27 + b * 3.3);
+  // reeds: clumps standing in the shallows round the shore, thicker on some sides than others; slim tapering stems that
+  // splay out from the root, a few bulrush heads, and flat blades bent over
+  const reedC = [hex('#a8c868'), hex('#b8d070'), hex('#98b85a'), hex('#c4d47e')], head = hex('#8a5a34'), blade = hex('#b0c868');
+  const n = Math.round(P.rad * 0.6);
+  for (let k = 0; k < n; k++) {
+    const a = (k + R(k, 1) * 0.8) / n * 6.2832, side = 0.5 + 0.5 * Math.sin(a * 2 + P.seed);
+    if (R(k, 2) > 0.2 + 0.65 * side) continue;
+    const reach = pondReach(P, P.x + Math.cos(a), P.y + Math.sin(a)), d = reach * (0.8 + R(k, 3) * 0.22);
+    const cx = P.x + Math.cos(a) * d, cy = P.y + Math.sin(a) * d, m = 7 + (R(k, 4) * 7 | 0);
+    for (let j = 0; j < m; j++) {
+      const b = R(k, j + 10) * 6.2832, rr = Math.sqrt(R(j, k + 20)) * 4, x = cx + Math.cos(b) * rr, y = cy + Math.sin(b) * rr;
+      const h = 9 + R(k + j, 30) * 10, sp = 0.12 + rr * 0.05, lx = Math.cos(b) * h * sp + (R(j, k + 40) - 0.5) * 1.5, ly = Math.sin(b) * h * sp + (R(j + 5, k + 41) - 0.5) * 1.5;
+      const yb = Math.min(0, P.lvl - terrH(x, y)) - 0.5;   // from the bottom, up through the water
+      K.mt = 'plant';
+      if (R(j, k + 45) < 0.3) {   // a blade: two pieces, bent over at the knee
+        const kx = x + lx * 0.5, ky = y + ly * 0.5, kh = h * 0.62;
+        K.rod(P_BOX(), x, yb, y, kx, kh, ky, 0.28, blade, 0.22); K.rod(P_CONE(4), kx, kh, ky, kx + lx * 0.9, kh + h * 0.12, ky + ly * 0.9, 0.28, blade, 0.22);
+      } else {
+        K.rod(P_CONE(5), x, yb, y, x + lx, h, y + ly, 0.3, reedC[(k + j) % 4], 0.22);   // lifted a little: so thin, the shade would turn them black
+        if (R(j, k + 50) < 0.22) K.rod(P_CYL(6), x + lx * 0.7, h * 0.7, y + ly * 0.7, x + lx * 0.82, h * 0.82, y + ly * 0.82, 0.55, head);   // a bulrush head
+      }
+      K.mt = null;
+    }
+  }
+  // lily pads: drifts of them out on the water, some in flower
+  const padC = [hex('#4f7a34'), hex('#5e8a3c'), hex('#466c2e')], flC = [hex('#f2eee6'), hex('#f0b8c8')];
+  const groups = 2 + (R(0, 60) * 3 | 0);
+  for (let g = 0; g < groups; g++) {
+    const a = R(g, 61) * 6.2832, d = pondReach(P, P.x + Math.cos(a), P.y + Math.sin(a)) * (0.25 + R(g, 62) * 0.45);
+    const gx = P.x + Math.cos(a) * d, gy = P.y + Math.sin(a) * d;
+    for (let j = 0; j < 9; j++) {
+      const b = R(g, j + 70) * 6.2832, rr = R(j, g + 80) * 16, x = gx + Math.cos(b) * rr, y = gy + Math.sin(b) * rr;
+      if (!pondIn(P, x, y, -6) || P.lvl - terrH(x, y) < 0.3) continue;
+      const s = 3.2 + R(j, g + 90) * 2.6, yy = P.lvl - terrH(x, y) + 0.06;
+      K.mt = 'plant'; K.add(P_PAD(), x, yy, y, s, 0.12, s, padC[j % 3], R(j, g + 95) * 6.2832); K.mt = null;
+      if (R(j, g + 99) < 0.22) {   // a flower: a ring of petals round a yellow heart
+        const f = flC[R(g, j + 101) < 0.6 ? 0 : 1];
+        for (let p = 0; p < 6; p++) { const t = p / 6 * 6.2832; K.add(P_BALL(), x + Math.cos(t) * 0.7, yy + 0.35, y + Math.sin(t) * 0.7, 1.0, 0.45, 0.6, f, -t); }
+        K.add(P_BALL(), x, yy + 0.55, y, 0.6, 0.45, 0.6, hex('#e8c040'));
+      }
+    }
+  }
+}
 function pondsSync(px, py) {
   const L = lakesNear(px, py, drawR() + 100), key = L.map(P => P.x | 0).join();
   if (key === pondKey) return L; pondKey = key;
-  const pos = [], dat = [];
-  for (const P of L) { const R = P.rad * 1.2, y = 0.35; for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, -1], [1, 1], [-1, 1]]) { pos.push(P.x + a * R, y, P.y + b * R); dat.push(P.x, P.y, P.rad, P.seed); } }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('pdat', new THREE.Float32BufferAttribute(dat, 4));
-  pondMesh.geometry.dispose(); pondMesh.geometry = g;
+  const pos = [], dat = [], N = 26, K = new Kit();
+  for (const P of L) {   // a sheet at the water's level over the hollow, marked where the pond reaches
+    const R = P.rmax * 1.12 + 8, st = 2 * R / N, v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, pondIn(P, x, y, 10) ? 1 : 0); };
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
+    pondKit(K, P);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('pdat', new THREE.Float32BufferAttribute(dat, 3));
+  pondMesh.geometry.dispose(); pondMesh.geometry = g; pondK.set(K);
   return L;
 }
 
@@ -7748,7 +7908,11 @@ function grassMask(px, py, lakes, gen) {
       if (Math.abs(f) < hl && Math.abs(s) < hw && (!keep || keep(ox + (i + 0.5) * c, oy + (j + 0.5) * c))) M[j * GM_N + i] = 0;
     }
   };
-  for (const P of lakes) disc(P.x, P.y, P.rad * 1.12);
+  for (const P of lakes) {   // the water and a muddy margin round it, following the shore (08-ponds)
+    const r = P.rmax + 12, i0 = Math.max(0, Math.floor((P.x - r - ox) / c)), i1 = Math.min(GM_N - 1, Math.ceil((P.x + r - ox) / c));
+    const j0 = Math.max(0, Math.floor((P.y - r - oy) / c)), j1 = Math.min(GM_N - 1, Math.ceil((P.y + r - oy) / c));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (pondIn(P, ox + (i + 0.5) * c, oy + (j + 0.5) * c, 6)) M[j * GM_N + i] = 0;
+  }
   disc(EX_FIRE.x, EX_FIRE.y, 20);
   for (const o of CAMP) if (o.camp === 'tent') disc(o.x, o.y, 22);
   const D = S.day;
@@ -8140,7 +8304,7 @@ if (BEACH) {
   { const nn = dayNodesNear; dayNodesNear = function (x, y, R) { return nn(x, y, R).filter(o => onLand(o, o.it === 'stones' || o.k === 'stones' ? -10 : -170)); }; }
 
   // wading: out to your knees and no further
-  const WADE = 3.2, seaDepth = (x, y) => SEA_Y - terrH(x, y);
+  const WADE = 3.2, seaDepth = (x, y) => coastS(x, y) > -120 ? SEA_Y - terrH(x, y) : -1;   // only the sea itself: low ground inland is dry land
   { const ss = simStep; simStep = function (dt) {
       const p = S && S.p, x0 = p ? p.x : 0, y0 = p ? p.y : 0; ss(dt);
       if (p && seaDepth(p.x, p.y) > WADE && seaDepth(p.x, p.y) > seaDepth(x0, y0)) { p.x = x0; p.y = y0; p.vx = p.vy = 0; if (S.day) dayNote('deep', 'the water gets too deep', 6); }
@@ -11632,8 +11796,8 @@ function seaSurfY(x, y) {
   return SEA_Y + k * ((0.3 + 0.55 * LU.wsz.value) * Math.sin(s * 0.12 + LU.wph.value) * _sst(-20, 140, s) + 0.18 * Math.sin(x * 0.07 + y * 0.05 + t * 1.7) + 0.12 * Math.sin(x * -0.05 + y * 0.09 + t * 2.3));
 }
 function fishWater(x, y) {
-  if (BEACH) { const d = SEA_Y - terrH(x, y); if (d > 0.5) return { sea: true, y: seaSurfY(x, y), depth: d }; }
-  const P = lakeAt(x, y, -6); if (P) return { sea: false, y: terrH(P.x, P.y) + 0.35, depth: 4, P };
+  if (BEACH) { const d = SEA_Y - terrH(x, y); if (d > 0.5 && coastS(x, y) > -120) return { sea: true, y: seaSurfY(x, y), depth: d }; }
+  const P = pondAt(x, y, -4); if (P) return { sea: false, y: P.lvl, depth: Math.max(0.5, P.lvl - terrH(x, y)), P };
   return null;
 }
 const FHOLD = { down: false };   // is Attack held

@@ -68,7 +68,7 @@ if (BEACH) {
   { const nn = dayNodesNear; dayNodesNear = function (x, y, R) { return nn(x, y, R).filter(o => onLand(o, o.it === 'stones' || o.k === 'stones' ? -10 : -170)); }; }
 
   // wading: out to your knees and no further
-  const WADE = 3.2, seaDepth = (x, y) => SEA_Y - terrH(x, y);
+  const WADE = 3.2, seaDepth = (x, y) => coastS(x, y) > -120 ? SEA_Y - terrH(x, y) : -1;   // only the sea itself: low ground inland is dry land
   { const ss = simStep; simStep = function (dt) {
       const p = S && S.p, x0 = p ? p.x : 0, y0 = p ? p.y : 0; ss(dt);
       if (p && seaDepth(p.x, p.y) > WADE && seaDepth(p.x, p.y) > seaDepth(x0, y0)) { p.x = x0; p.y = y0; p.vx = p.vy = 0; if (S.day) dayNote('deep', 'the water gets too deep', 6); }

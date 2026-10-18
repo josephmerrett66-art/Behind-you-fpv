@@ -6692,6 +6692,7 @@ LU.rainW = { value: 0 };   // how wet the woods are from the rain: darker ground
 LU.wph = { value: 0 }; LU.wsz = { value: 0.5 }; LU.wash = { value: 0 }; LU.wet = { value: 0 };   // the waves on the shore, timed to the surf's sound (15-sea)
 LU.occ = { value: new V4(0, 0, 0, 0) };   // from above: the line from the camera to you, which trees keep clear of (77-iso.js)
 LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) };   // level places: x, y, radius, height
+LU.cavePl = { value: Array.from({ length: 6 }, () => new V4(0, 0, 0, 0)) };   // the cave you're in: the hollows its pools lie in, x, y, radius, depth (17-caves)
 function terrBase(x, z) { return coastH(terrBase0(x, z), x, z); }
 function terrBase0(x, z) {
   return 24 * Math.sin(x * 0.0061 + 1.3) * Math.sin(z * 0.0053 + 0.4) + 11 * Math.sin(x * 0.013 + z * 0.0081) * Math.cos(z * 0.0117 - x * 0.004) + 3 * Math.sin(x * 0.031 + 2.0) * Math.sin(z * 0.027 + 1.0);
@@ -6710,7 +6711,18 @@ const ISLET = (() => { const a = 1.95, r = isleR(a) + 360; return { x: Math.cos(
 function coastS(x, z) { const s0 = Math.hypot(x, z) - isleR(Math.atan2(z, x)), s1 = Math.hypot(x - ISLET.x, z - ISLET.y) - ISLET.r * (1 + 0.12 * Math.sin(Math.atan2(z - ISLET.y, x - ISLET.x) * 3 + 1)); return Math.min(s0, s1); }
 function coastProf(s, x, z) { return SEA_Y + 7 + 2.2 * Math.sin(x * 0.021 + z * 0.013) * (1 - _sst(-160, -50, s)) - 6.5 * _sst(-110, 10, s) - 4 * _sst(0, 170, s) - 40 * _sst(130, 800, s); }
 function coastH(h, x, z) { if (!BEACH) return h; const s = coastS(x, z); return s < -360 ? h : lerp(h, coastProf(s, x, z), _sst(-360, -140, s)); }
+// ---------------- under the island: the caves (17-caves) ----------------
+// The caves' insides lie far out past the sea, east of everything, where nothing else is. Their floors roll gently, here and
+// worked out the same way as on the graphics card, so you, the pale ones and everything lying about stand on the same rock.
+const CAVES = BEACH, CAVE_X0 = 20000, CAVE_Y = 40;
+function caveBase(x, z) {
+  const lx = x - CAVE_X0;
+  let h = CAVE_Y + 22 * Math.sin(lx * 0.0021 + 0.7) * Math.cos(z * 0.0017 - 0.4) + 8 * Math.sin(lx * 0.0063 - z * 0.0049 + 1.9) + 2.5 * Math.sin(lx * 0.019 + 0.5) * Math.sin(z * 0.023 + 2.1);
+  for (const q of LU.cavePl.value) if (q.z > 0) { const d = Math.hypot(x - q.x, z - q.y); if (d < q.z) h -= q.w * _sst(q.z, q.z * 0.35, d); }
+  return h;
+}
 function terrH(x, z) {
+  if (CAVES && x > CAVE_X0) return caveBase(x, z);
   let h = terrBase(x, z);
   for (const f of LU.terrF.value) if (f.z > 0) h = lerp(h, f.w, _sst(f.z * 1.9, f.z, Math.hypot(x - f.x, z - f.y)));
   return h;
@@ -6747,7 +6759,12 @@ float coastGrass(vec2 p) {
 }
 #endif
 `;
-const TERR_GLSL = COAST_GLSL + `uniform vec4 terrF[${TERR_N}];
+const TERR_GLSL = COAST_GLSL + `uniform vec4 terrF[${TERR_N}]; uniform vec4 cavePl[6];
+${CAVES ? '#define CAVES 1' : ''}
+float caveBase(vec2 p) { float lx = p.x - ${CAVE_X0.toFixed(1)};
+  float h = ${CAVE_Y.toFixed(1)} + 22.0 * sin(lx * 0.0021 + 0.7) * cos(p.y * 0.0017 - 0.4) + 8.0 * sin(lx * 0.0063 - p.y * 0.0049 + 1.9) + 2.5 * sin(lx * 0.019 + 0.5) * sin(p.y * 0.023 + 2.1);
+  for (int i = 0; i < 6; i++) { vec4 q = cavePl[i]; if (q.z <= 0.0) continue; h -= q.w * cSst(q.z, q.z * 0.35, distance(p, q.xy)); }
+  return h; }
 float terrBase0(vec2 p);
 float terrBase(vec2 p) { return coastH(terrBase0(p), p); }
 float terrBase0(vec2 p) { return 24.0 * sin(p.x * 0.0061 + 1.3) * sin(p.y * 0.0053 + 0.4) + 11.0 * sin(p.x * 0.013 + p.y * 0.0081) * cos(p.y * 0.0117 - p.x * 0.004) + 3.0 * sin(p.x * 0.031 + 2.0) * sin(p.y * 0.027 + 1.0); }
@@ -6756,7 +6773,11 @@ float terrLevel(vec2 p, inout float h) {   // pulls h onto any level place here;
   for (int i = 0; i < ${TERR_N}; i++) { vec4 f = terrF[i]; if (f.z <= 0.0) continue; float k = smoothstep(f.z * 1.9, f.z, distance(p, f.xy)); h = mix(h, f.w, k); lv = max(lv, k); }
   return lv;
 }
-float terrH(vec2 p) { float h = terrBase(p); terrLevel(p, h); return h; }
+float terrH(vec2 p) {
+#ifdef CAVES
+  if (p.x > ${CAVE_X0.toFixed(1)}) return caveBase(p);
+#endif
+  float h = terrBase(p); terrLevel(p, h); return h; }
 // the ground's slope as a normal (from the swells themselves; flat where the land's been levelled)
 #ifdef BEACH
 vec3 terrN(vec2 p) { float hx = terrH(p + vec2(3.0, 0.0)) - terrH(p - vec2(3.0, 0.0)), hz = terrH(p + vec2(0.0, 3.0)) - terrH(p - vec2(0.0, 3.0)); return normalize(vec3(-hx / 6.0, 1.0, -hz / 6.0)); }
@@ -6923,7 +6944,7 @@ pGeo.setAttribute('pcol', new THREE.BufferAttribute(pCol, 4).setUsage(THREE.Dyna
 pGeo.setAttribute('pdat', new THREE.BufferAttribute(pDat, 2).setUsage(THREE.DynamicDrawUsage));
 const PU = { uScale: { value: 400 }, colourK: null };
 const pMat = new THREE.ShaderMaterial({
-  uniforms: { uScale: PU.uScale, fogR: LU.fogR, camPos: LU.fogC, terrF: LU.terrF }, transparent: true, depthWrite: false, depthTest: true,
+  uniforms: { uScale: PU.uScale, fogR: LU.fogR, camPos: LU.fogC, terrF: LU.terrF, cavePl: LU.cavePl }, transparent: true, depthWrite: false, depthTest: true,
   blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
   vertexShader: TERR_GLSL + `attribute vec4 pcol; attribute vec2 pdat; uniform float uScale; uniform vec2 fogR; uniform vec3 camPos; varying vec4 vC; varying float vK;
     void main() { vec4 mv = viewMatrix * vec4(position + vec3(0.0, terrH(position.xz), 0.0), 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(pdat.x * uScale / max(-mv.z, 1.0), 1.5, 512.0);
@@ -8611,6 +8632,459 @@ if (BEACH) {
     if (more) shoreKey = '';   // the rest next frame
   }
   { const ws = worldSync; worldSync = function (f) { const r = ws(f); if (S && S.p) { if (f) shoreKey = ''; shoreSync(); } return r; }; }
+}
+
+;
+// ================= caves: under the island (Joe) =================
+// Six cave mouths open in the hills of the island, each a dark arch in a heap of boulders. Walk in and the daylight goes: the
+// cave beyond is pitch dark but for your torch, glowworms, a cold glow of fungus and the grey light back at the way out.
+// Four caves lie under the island. Two run right through, so you come up somewhere else entirely; two only go down, deeper
+// and nastier, with the best of what's down there at the far end. Each is a string of chambers, some huge, joined by winding
+// passages, with side passages off to dead ends. In them: stalagmites and hanging stalactites, rock with iron in it, still
+// black pools (you can drink, and fish), bats in the high places, bones, an old explorer's camp, crates left behind, and the
+// pale ones who live down there (80-pale).
+//
+// How it's made: the insides lie far off past the sea (x > CAVE_X0), where nothing else is (the sea's filters already keep
+// the woods off it). Each cave's chambers and passages are circles and capsules on a plan, run together into one smooth
+// "how far from the rock" field. The floor is the ground there (00-core's terrH: gently rolling), curving up into the walls;
+// the ceiling arches over from the walls, high and domed in the chambers, lower in the passages. Floor and ceiling are two
+// sheets that meet where the field crosses into rock, so it's sealed all round. Seen from above (isometric) the ceiling isn't
+// drawn, and you look down into the passages cut out of dark rock, like a map.
+
+const CV = { G: 5, Wf: 13, Hs: 24, RW: 14, k: 24, cell: 128 };   // grid step; how far the floor curves up the wall; where floor meets ceiling; how close to a wall you can stand; how softly passages run into chambers
+const CAVE_SP = 4400;
+const CAVE_SPEC = [
+  { n: 'the long cave', ents: 2, main: 6, side: 2, pale: 3, pool: 1, glow: 0, bats: 1, camp: 1, seed: 101, ore: 4 },
+  { n: 'the echoing cave', ents: 2, main: 5, side: 2, pale: 2, pool: 0, glow: 1, bats: 1, seed: 207, ore: 3 },
+  { n: 'the deep', ents: 1, main: 7, side: 3, pale: 6, pool: 1, glow: 1, bats: 1, deep: 1, seed: 313, ore: 7 },
+  { n: 'the glow grotto', ents: 1, main: 3, side: 1, pale: 1, pool: 1, glow: 2, bats: 0, seed: 419, ore: 2 },
+];
+const caveC = i => ({ x: CAVE_X0 + 2400 + i * CAVE_SP, y: 0 });
+const caveSysAt = x => CAVES && x > CAVE_X0 ? clamp(Math.floor((x - CAVE_X0 - 200) / CAVE_SP), 0, CAVE_SPEC.length - 1) : -1;
+const caveIn = () => CAVES && !!S && !!S.p && S.p.x > CAVE_X0;
+const CAVE_SYS = [];
+function caveSys(i) { return CAVE_SYS[i] || (CAVE_SYS[i] = caveGen(i)); }
+
+// ---- noise for the rock (in a cave's own coordinates, so it stays exact) ----
+const cvH = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return s - Math.floor(s); };
+function cvN(x, y) {
+  const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+  return lerp(lerp(cvH(i, j), cvH(i + 1, j), u), lerp(cvH(i, j + 1), cvH(i + 1, j + 1), u), v);
+}
+const segT = (px, py, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1; return clamp(((px - ax) * dx + (py - ay) * dy) / L2, 0, 1); };
+
+// ---------------- the plan of a cave: chambers on a winding path, side passages, the ways out ----------------
+function caveGen(si) {
+  const sp = CAVE_SPEC[si], R = rng(sp.seed * 7919 + 17), C = caveC(si), rooms = [], tubes = [], pillars = [], exits = [];
+  const ri = (a, b) => a + R() * (b - a);
+  const mkRoom = (x, y, r, H, tag) => { const o = { x, y, r, H, tag: tag || '', k: rooms.length, ph: R() * 6.28, ph2: R() * 6.28, wob: ri(0.06, 0.15), nb: [] }; rooms.push(o); return o; };
+  const clearOf = (x, y, r, skip) => {
+    if (Math.abs(x) > 1550 - r || Math.abs(y) > 1550 - r) return false;
+    for (const o of rooms) if (o !== skip && Math.hypot(o.x - x, o.y - y) < o.r + r + 80) return false;
+    for (const t of tubes) if (t.A !== skip && t.B !== skip && segD(x, y, t.ax, t.ay, t.bx, t.by) < r + t.w + 45) return false;
+    return true;
+  };
+  const link = (A, B, w = ri(25, 35), H = ri(58, 80)) => {   // a passage that wanders a little on its way
+    const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L, n = 1 + Math.floor(R() * 3), pts = [[A.x, A.y]];
+    for (let k = 1; k <= n; k++) { const t = k / (n + 1), off = (R() - 0.5) * Math.min(L * 0.3, 160); pts.push([A.x + dx * t + nx * off, A.y + dy * t + ny * off]); }
+    pts.push([B.x, B.y]);
+    for (let k = 0; k < pts.length - 1; k++) tubes.push({ ax: pts[k][0], ay: pts[k][1], bx: pts[k + 1][0], by: pts[k + 1][1], w: w * ri(0.9, 1.12), H: H * ri(0.92, 1.08), A, B });
+    A.nb.push(B); B.nb.push(A);
+  };
+  const grow = (P, a, r, H, tag) => {
+    for (let k = 0; k < 50; k++) {
+      const b = a + (R() - 0.5) * (0.5 + k * 0.09), d = P.r + r + ri(140, 320), x = P.x + Math.cos(b) * d, y = P.y + Math.sin(b) * d;
+      if (!clearOf(x, y, r, P)) continue;
+      if (rooms.some(o => o !== P && segD(o.x, o.y, P.x, P.y, x, y) < o.r + 50)) continue;   // the way to it mustn't cut through another chamber
+      const o = mkRoom(x, y, r, H, tag); link(P, o); return o;
+    }
+    return null;
+  };
+  const e0 = mkRoom(-1150, ri(-250, 250), ri(55, 70), ri(85, 105), 'ent'), main = [e0];
+  const goal = sp.ents === 2 ? { x: 1150, y: ri(-380, 380) } : null;
+  let cur = e0, head = (R() - 0.5) * 0.6;
+  for (let k = 0; k < sp.main; k++) {
+    const a = goal ? Math.atan2(goal.y - cur.y, goal.x - cur.x) + (R() - 0.5) * 1.0 : head + (R() - 0.5) * 1.2;
+    const big = (k === sp.main - 1 && sp.deep) || R() < 0.35, o = grow(cur, a, big ? ri(135, 185) : ri(72, 120), big ? ri(160, 220) : ri(100, 140), '');
+    if (!o) break;
+    head = lerp(head, Math.atan2(o.y - cur.y, o.x - cur.x), 0.5) * 0.85; main.push(o); cur = o;
+  }
+  if (goal) { const o = grow(cur, Math.atan2(goal.y - cur.y, goal.x - cur.x), ri(55, 70), ri(85, 105), 'ent'); if (o) main.push(o); else cur.tag = 'ent'; }
+  for (let k = 0; k < sp.side; k++) {   // side passages to dead ends
+    const cand = main.filter(o => o.tag !== 'ent' && o !== main[1]); if (!cand.length) break;
+    let P = cand[Math.floor(R() * cand.length)];
+    const n = 1 + (R() < 0.5 ? 1 : 0);
+    for (let j = 0; j < n; j++) { const o = grow(P, R() * 6.283, ri(55, 95), ri(85, 125), j === n - 1 ? 'end' : ''); if (!o) break; P = o; }
+  }
+  // the ways out: a passage from each entrance chamber up toward the light
+  for (const e of rooms.filter(o => o.tag === 'ent')) {
+    const nb = e.nb[0], away = nb ? Math.atan2(e.y - nb.y, e.x - nb.x) : Math.PI;
+    for (let k = 0; k < 30; k++) {
+      const a = away + (R() - 0.5) * (0.6 + k * 0.15), L = e.r + ri(150, 210), x = e.x + Math.cos(a) * L, y = e.y + Math.sin(a) * L;
+      if (Math.abs(x) > 1560 || Math.abs(y) > 1560) continue;
+      if (rooms.some(o => o !== e && (Math.hypot(o.x - x, o.y - y) < o.r + 90 || segD(o.x, o.y, e.x, e.y, x, y) < o.r + 50))) continue;
+      if (tubes.some(t => t.A !== e && t.B !== e && segD(x, y, t.ax, t.ay, t.bx, t.by) < t.w + 80)) continue;
+      const w = 27; tubes.push({ ax: e.x, ay: e.y, bx: x, by: y, w, H: 64, A: e, B: null, exit: 1 });
+      exits.push({ x, y, a, w, room: e, n: exits.length });
+      break;
+    }
+  }
+  // stone pillars in the big chambers, clear of the passages
+  for (const o of rooms) if (o.r > 115) {
+    const n = 1 + (R() < 0.5 ? 1 : 0);
+    for (let k = 0; k < n; k++) for (let t = 0; t < 12; t++) {
+      const a = R() * 6.283, d = o.r * ri(0.25, 0.55), x = o.x + Math.cos(a) * d, y = o.y + Math.sin(a) * d, r = ri(9, 20);
+      if (tubes.some(q => (q.A === o || q.B === o) && segD(x, y, q.ax, q.ay, q.bx, q.by) < r + q.w + 18)) continue;
+      if (pillars.some(q => Math.hypot(q.x - x, q.y - y) < q.r + r + 40)) continue;
+      pillars.push({ x, y, r }); break;
+    }
+  }
+  // what each chamber is for: how far it is from the way in (by passages)
+  const far = new Map([[e0, 0]]), q = [e0];
+  while (q.length) { const o = q.shift(); for (const n of o.nb) if (!far.has(n)) { far.set(n, far.get(o) + 1); q.push(n); } }
+  for (const o of rooms) o.far = far.get(o) ?? 0;
+  const pickRoom = (f, tag) => { const c = rooms.filter(o => !o.tag && f(o)); if (!c.length) return null; const o = c.sort((a, b) => b.r - a.r)[0]; o.tag = tag; return o; };
+  const inner = rooms.filter(o => o.tag !== 'ent').sort((a, b) => b.far - a.far);
+  const S0 = { i: si, sp, C, rooms, tubes, pillars, exits, pools: [], lairs: [] };
+  // the lair: far in, in a big chamber; the deep has a second
+  { const L = inner.filter(o => !o.tag && o.r > 80)[0] || inner[0]; if (L) { L.tag = L.tag || 'lair'; S0.lairs.push(L); } }
+  if (sp.deep) { const L = inner.filter(o => !o.tag && o.far >= 2)[0]; if (L) { L.tag = 'lair'; S0.lairs.push(L); } }
+  if (sp.pool) { const o = pickRoom(o => o.r > 85 && o.far >= 1, 'pool'); if (o) S0.pools.push(o); }
+  for (let k = 0; k < sp.glow; k++) { const c = rooms.filter(o => (!o.tag || o.tag === 'end' || o.tag === 'pool') && !o.glow); if (c.length) c[Math.floor(R() * c.length)].glow = 1; }
+  if (sp.bats) { const c = rooms.filter(o => o.tag !== 'ent' && o.H > 130).sort((a, b) => b.H - a.H)[0]; if (c) c.bats = 1; }
+  if (sp.camp) { const c = rooms.filter(o => (o.tag === 'end' || !o.tag) && o.far >= 1 && o.far <= 3).sort((a, b) => a.far - b.far)[0]; if (c) c.camp = 1; }
+  // bounds, and where each piece lies, for looking things up quickly
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  const grid = new Map(), cs = CV.cell, put = (el, bx0, by0, bx1, by1) => {
+    for (let i = Math.floor(bx0 / cs); i <= Math.floor(bx1 / cs); i++) for (let j = Math.floor(by0 / cs); j <= Math.floor(by1 / cs); j++) { const k = i * 4096 + j; let L = grid.get(k); if (!L) grid.set(k, L = { el: [], pl: [] }); (el.pil ? L.pl : L.el).push(el); }
+    x0 = Math.min(x0, bx0); y0 = Math.min(y0, by0); x1 = Math.max(x1, bx1); y1 = Math.max(y1, by1);
+  };
+  for (const o of rooms) { const m = o.r * (1 + o.wob + 0.05) + 70; put(o, o.x - m, o.y - m, o.x + m, o.y + m); }
+  for (const t of tubes) { const m = t.w + 70; put(t, Math.min(t.ax, t.bx) - m, Math.min(t.ay, t.by) - m, Math.max(t.ax, t.bx) + m, Math.max(t.ay, t.by) + m); }
+  for (const p of pillars) { p.pil = 1; const m = p.r + 4; put(p, p.x - m, p.y - m, p.x + m, p.y + m); }
+  S0.grid = grid; S0.bb = { x0, y0, x1, y1 };
+  // the pools: a hollow in the floor of the chamber, with black water standing in it
+  S0.pools = S0.pools.map(o => ({ room: o, x: o.x + (R() - 0.5) * o.r * 0.3, y: o.y + (R() - 0.5) * o.r * 0.3, r: o.r * ri(0.5, 0.62), dep: ri(9, 13) }));
+  return S0;
+}
+
+// ---------------- how far a point is from the rock (negative: out in the open), and how high the roof is there ----------------
+const _cvO = { d: 0, H: 0, W: 0 };
+function cvRaw(Sy, lx, ly, out = _cvO) {
+  const L = Sy.grid.get(Math.floor(lx / CV.cell) * 4096 + Math.floor(ly / CV.cell));
+  out.d = 999; out.H = 80; out.W = 30;
+  if (!L) return out;
+  let s = 0, sH = 0, sW = 0;
+  for (const el of L.el) {
+    let d, W;
+    if (el.r) { const dx = lx - el.x, dy = ly - el.y, th = Math.atan2(dy, dx); d = Math.hypot(dx, dy) - el.r * (1 + el.wob * Math.sin(3 * th + el.ph) + 0.05 * Math.sin(7 * th + el.ph2)); W = Math.min(el.r * 0.8, 95); }
+    else { d = segD(lx, ly, el.ax, el.ay, el.bx, el.by) - el.w; W = el.w * 1.1; }
+    if (d > 140) continue;
+    const e = Math.exp(-d / CV.k); s += e; sH += e * el.H; sW += e * W;
+  }
+  if (s <= 0) return out;
+  let d = -CV.k * Math.log(s);
+  for (const p of L.pl) d = Math.max(d, p.r - Math.hypot(lx - p.x, ly - p.y));
+  d += 12 * (cvN(lx * 0.035, ly * 0.035) - 0.5) + 4.8 * (cvN(lx * 0.11 + 5.3, ly * 0.11 - 2.1) - 0.5);   // the walls aren't smooth
+  out.d = d; out.H = sH / s; out.W = sW / s;
+  return out;
+}
+// in world coordinates
+function caveSdf(x, y) { const si = caveSysAt(x); if (si < 0) return 999; const Sy = caveSys(si); return cvRaw(Sy, x - Sy.C.x, y - Sy.C.y).d; }
+function caveGrad(x, y) { const e = 2, a = caveSdf(x + e, y) - caveSdf(x - e, y), b = caveSdf(x, y + e) - caveSdf(x, y - e), L = Math.hypot(a, b) || 1; return { x: a / L, y: b / L }; }
+// the floor: level out in the open, curving up into the wall; the roof: arching over from the wall, domed in a chamber
+const cvFloorRise = (d, lx, ly) => { const q = -d; if (q <= 0) return CV.Hs; if (q >= CV.Wf) return 0; const u = 1 - q / CV.Wf; return CV.Hs * (1 - Math.sqrt(Math.max(0, 1 - u * u))) + 10 * cvN(lx * 0.2, ly * 0.2) * u * (1 - u); };   // a little rubble where it starts to rise
+const cvCeilRise = (o, lx, ly) => {
+  const q = -o.d; if (q <= 0) return CV.Hs;
+  const W = Math.max(8, o.W), u = 1 - Math.min(q, W) / W, k = Math.sqrt(Math.max(0, 1 - u * u)), H = Math.max(CV.Hs + 20, o.H);
+  const bump = (cvN(lx * 0.05 + 3.1, ly * 0.05) - 0.5) * (8 + (H - 60) * 0.12) + (cvN(lx * 0.17, ly * 0.17 + 7) - 0.5) * 4;
+  return CV.Hs + (H - CV.Hs) * k + bump * k;
+};
+function caveCeilAt(x, y) { const si = caveSysAt(x); if (si < 0) return 999; const Sy = caveSys(si), lx = x - Sy.C.x, ly = y - Sy.C.y, o = cvRaw(Sy, lx, ly, {}); return cvCeilRise(o, lx, ly); }   // above the floor's base
+// can one point see another down here (a wall between, or the far side of a bend)
+function caveLos(ax, ay, bx, by, pad = 4) {
+  const L = Math.hypot(bx - ax, by - ay), n = Math.max(2, Math.ceil(L / 9));
+  for (let i = 1; i < n; i++) { const t = i / n; if (caveSdf(ax + (bx - ax) * t, ay + (by - ay) * t) > -pad) return false; }
+  return true;
+}
+// keep something off the walls: back out along the slope of the field, to where it has room
+function cavePush(o, R = CV.RW) {
+  for (let k = 0; k < 3; k++) {
+    const d = caveSdf(o.x, o.y); if (d <= -R) return;
+    if (d > 60) {   // deep in the rock: put it back in the nearest chamber
+      const si = caveSysAt(o.x), Sy = caveSys(si); let b = null, bd = 1e9;
+      for (const r of Sy.rooms) { const q = Math.hypot(Sy.C.x + r.x - o.x, Sy.C.y + r.y - o.y); if (q < bd) { bd = q; b = r; } }
+      if (b) { o.x = Sy.C.x + b.x; o.y = Sy.C.y + b.y; } return;
+    }
+    const g = caveGrad(o.x, o.y); o.x -= g.x * (d + R + 0.2); o.y -= g.y * (d + R + 0.2);
+  }
+}
+
+// ---------------- the rock itself: one mesh for floor, walls and roof ----------------
+const caveMat = new THREE.ShaderMaterial({
+  uniforms: Object.assign({ caveC: { value: new V3() } }, LU),
+  vertexShader: `attribute vec4 cd; varying vec3 vW, vN; varying vec4 vD;
+    void main() { vW = position; vN = normal; vD = cd; gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: LIGHT_GLSL + `uniform vec3 caveC; uniform float time; varying vec3 vW, vN; varying vec4 vD;
+    float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+    float vn(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
+                 mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z); }
+    uniform vec4 occ;
+    void main() {
+      vec3 N = normalize(vN), lp = vW - caveC;
+      float d = vD.x, roof = vD.y, glow = vD.z, moss = vD.w;
+      // from above: the rock between the camera and you isn't drawn, so you look down into the passage you're in
+      if (occ.w > 0.5 && roof > 0.5 && dot(vW.xz - occ.xz, normalize(camPos.xz - occ.xz)) > 16.0) discard;
+      float n1 = vn(lp * 0.045), n2 = vn(lp * 0.17 + 3.0), n3 = vn(lp * 0.55 + 11.0);
+      float wall = 1.0 - abs(N.y);
+      // the rock: grey-brown limestone, banded where the layers show in the walls, mottled and gritty
+      vec3 c = mix(vec3(0.30, 0.27, 0.24), vec3(0.44, 0.40, 0.35), n1);
+      float strata = 0.5 + 0.5 * sin(lp.y * 0.36 + n1 * 6.0 + n2 * 2.0);
+      c *= mix(1.0, 0.82 + 0.3 * strata, wall);
+      c *= 0.86 + 0.26 * n2;
+      // the floor: damp grit and gravel, darker, a pebble here and there
+      float flr = smoothstep(0.6, 0.9, N.y) * (1.0 - roof);
+      c = mix(c, vec3(0.25, 0.22, 0.19) * (0.78 + 0.44 * n3), flr * 0.85);
+      c *= mix(1.0, 0.8 + 0.42 * step(0.74, vn(lp * 0.8 + 2.0)), flr);
+      // streaks down the walls: white where water has left lime behind, rust where there's iron in the rock
+      float st = smoothstep(0.76, 0.86, vn(vec3(lp.x * 0.07, lp.y * 0.011, lp.z * 0.07)));
+      c = mix(c, vec3(0.66, 0.64, 0.58), st * wall * 0.6);
+      float rs = smoothstep(0.8, 0.9, vn(vec3(lp.x * 0.05 + 7.0, lp.y * 0.012, lp.z * 0.05 - 3.0)));
+      c = mix(c, vec3(0.48, 0.25, 0.13), rs * wall * 0.55);
+      // moss and green slime near the way out, where a little daylight reaches
+      c = mix(c, vec3(0.19, 0.29, 0.11) * (0.7 + 0.6 * n2), moss * smoothstep(0.35, 0.75, n1 + N.y * 0.25) * 0.85);
+      // seen from above: the cut face of the rock between the passages
+      float top = smoothstep(1.5, 7.0, d) * (1.0 - roof);
+      c = mix(c, vec3(0.085, 0.08, 0.075) * (0.75 + 0.5 * n2), top);
+      vec3 col = c * lightAt(vW, N, 1.0);
+      // wet rock: it glints in your torch
+      vec3 V = normalize(camPos - vW), Lt = normalize(tPos - vW);
+      float wet = 0.3 + 0.7 * smoothstep(0.45, 0.75, vn(lp * 0.025 + 9.0)) + 0.4 * flr;
+      float tl = smoothstep(tCone.x, tCone.y, dot(-Lt, tDir)) * clamp(1.0 - distance(vW, tPos) / tRange, 0.0, 1.0);
+      col += tCol * pow(max(dot(reflect(-Lt, N), V), 0.0), 26.0) * wet * tl * 0.9 * (1.0 - top);
+      // a faint green-blue cast under the glowworms
+      col += vec3(0.02, 0.07, 0.07) * glow * (0.6 + 0.4 * roof);
+      gl_FragColor = vec4(fogged(grey(col), vW), 1.0);
+    }`,
+});
+const caveMesh = new THREE.Mesh(new THREE.BufferGeometry(), caveMat); caveMesh.frustumCulled = false; caveMesh.visible = false; scene.add(caveMesh);
+let caveBuilt = -1;
+function caveBuild(si) {
+  if (caveBuilt === si) return;
+  const Sy = caveSys(si), G = CV.G, bb = Sy.bb, x0 = Math.floor(bb.x0 / G) * G, y0 = Math.floor(bb.y0 / G) * G;
+  const nx = Math.ceil((bb.x1 - x0) / G) + 1, ny = Math.ceil((bb.y1 - y0) / G) + 1, N = nx * ny;
+  caveSetPools(Sy);
+  const Dd = new Float32Array(N).fill(999), FY = new Float32Array(N), CY = new Float32Array(N), o = {};
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const lx = x0 + i * G, ly = y0 + j * G, k = j * nx + i;
+    cvRaw(Sy, lx, ly, o); Dd[k] = o.d;
+    if (o.d > 60) continue;
+    const base = caveBase(Sy.C.x + lx, Sy.C.y + ly);
+    FY[k] = base + cvFloorRise(o.d, lx, ly); CY[k] = base + cvCeilRise(o, lx, ly);
+  }
+  const fi = new Int32Array(N).fill(-1), ci = new Int32Array(N).fill(-1), pos = [], cd = [], idx = [];
+  const glowAt = (lx, ly) => { let g = 0; for (const r of Sy.rooms) if (r.glow) g = Math.max(g, _sst(r.r + 40, r.r * 0.4, Math.hypot(lx - r.x, ly - r.y))); return g; };
+  const mossAt = (lx, ly) => { let m = 0; for (const e of Sy.exits) m = Math.max(m, clamp(1 - Math.hypot(lx - e.x, ly - e.y) / 190, 0, 1)); return m; };
+  const vert = (k, roof) => {
+    const M = roof ? ci : fi; if (M[k] >= 0) return M[k];
+    const i = k % nx, j = (k - i) / nx, lx = x0 + i * G, ly = y0 + j * G;
+    M[k] = pos.length / 3; pos.push(Sy.C.x + lx, roof ? CY[k] : FY[k], Sy.C.y + ly); cd.push(Dd[k], roof, glowAt(lx, ly), mossAt(lx, ly));
+    return M[k];
+  };
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1, m = Math.min(Dd[a], Dd[b], Dd[c], Dd[d]), M = Math.max(Dd[a], Dd[b], Dd[c], Dd[d]);
+    if (M > 60) continue;
+    if (m < 42) { const A = vert(a, 0), B = vert(b, 0), Cc = vert(c, 0), D2 = vert(d, 0); idx.push(A, Cc, B, B, Cc, D2); }   // the floor (and the cut top of the rock round it)
+    if (m < 3) { const A = vert(a, 1), B = vert(b, 1), Cc = vert(c, 1), D2 = vert(d, 1); idx.push(A, B, Cc, B, D2, Cc); }   // the roof, facing down
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('cd', new THREE.Float32BufferAttribute(cd, 4));
+  g.setIndex(pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
+  g.computeVertexNormals(); g.computeBoundingSphere();
+  caveMesh.geometry.dispose(); caveMesh.geometry = g; caveMat.uniforms.caveC.value.set(Sy.C.x, 0, Sy.C.y);
+  caveBuilt = si; caveDecoBuild(Sy);
+}
+// the hollows the pools lie in: the floor (terrH) dips under them, here and on the graphics card
+function caveSetPools(Sy) {
+  const L = LU.cavePl.value; L.forEach(v => v.set(0, 0, 0, 0));
+  Sy.pools.forEach((P, i) => { if (i < L.length) L[i].set(Sy.C.x + P.x, Sy.C.y + P.y, P.r, P.dep); });
+  if (!Sy.lakes) Sy.lakes = Sy.pools.map((P, i) => {   // and the water, as a pond (08-ponds: you can drink from it, fish it, wade the edge)
+    const x = Sy.C.x + P.x, y = Sy.C.y + P.y, b0 = caveBase(x, y) + P.dep, lvl = b0 - P.dep * 0.62, rays = new Float32Array(POND.NR);
+    for (let k = 0; k < POND.NR; k++) { const a = k / POND.NR * 6.2832; let d = 0; while (d < P.r && caveBase(x + Math.cos(a) * d, y + Math.sin(a) * d) < lvl) d += 1.5; rays[k] = d; }
+    return { kind: 'dlake', x, y, r: 0, s: 1, rad: pondMean(rays), rmax: Math.max(...rays), lvl, h0: lvl - P.dep * 0.4, rays, seed: 3 + i * 2.3, cave: 1 };
+  });
+}
+
+// ---------------- what's down there: stalagmites, stalactites, rock with iron, bones, fungus, crates, the old camp ----------------
+const caveK = new KitMesh(), caveRoofK = new KitMesh(), caveLootK = new KitMesh();   // the roof's own (hidden from above)
+caveK.visible = caveRoofK.visible = caveLootK.visible = false;
+const CVD = { props: [], lights: [], worms: [], crates: [], bats: [], si: -1, lootKey: '' };
+function caveDecoBuild(Sy) {
+  const R = rng(Sy.sp.seed * 31 + 5), K = new Kit(), RK = new Kit(), C = Sy.C, props = [], lights = [], worms = [], crates = [];
+  const ri = (a, b) => a + R() * (b - a), o = {};
+  const at = (lx, ly) => cvRaw(Sy, lx, ly, o);
+  const base = (lx, ly) => caveBase(C.x + lx, C.y + ly);
+  const inPool = (lx, ly, pad) => Sy.pools.some(P => Math.hypot(P.x - lx, P.y - ly) < P.r + pad);
+  const nearExit = (lx, ly, r) => Sy.exits.some(e => Math.hypot(e.x - lx, e.y - ly) < r);
+  const rock = [hex('#6e665a'), hex('#625a50'), hex('#7a7062'), hex('#585248')], lime = [hex('#a89c86'), hex('#9a8e7a'), hex('#b4a890')];
+  const spot = (r, lo, hi, tries = 30) => {   // somewhere in a chamber, between lo and hi in from the wall
+    for (let t = 0; t < tries; t++) {
+      const a = R() * 6.283, d = Math.sqrt(R()) * r.r * 1.05, lx = r.x + Math.cos(a) * d, ly = r.y + Math.sin(a) * d, q = -at(lx, ly).d;
+      if (q < lo || q > hi || inPool(lx, ly, 14) || nearExit(lx, ly, 70)) continue;
+      if (props.some(p => Math.hypot(p.lx - lx, p.ly - ly) < p.r + 12)) continue;
+      return [lx, ly];
+    }
+    return null;
+  };
+  const stalag = (lx, ly, h, rr, solid) => {   // a stalagmite: stacked cones of wet lime, a broad foot
+    const c = lime[(R() * 3) | 0], x = C.x + lx, y = C.y + ly, yaw = R() * 6.28;
+    K.mt = 'stone';
+    K.add(P_ROCK((R() * 4) | 0), x, -rr * 0.3, y, rr * 2.6, rr * 1.1, rr * 2.4, rock[(R() * 4) | 0], yaw);
+    K.add(P_CONE(7), x, 0, y, rr * 2, h, rr * 2, c, yaw);
+    K.add(P_CONE(6), x + (R() - 0.5) * rr * 0.5, h * 0.35, y + (R() - 0.5) * rr * 0.5, rr * 1.3, h * 0.85, rr * 1.3, lime[(R() * 3) | 0], yaw + 1);
+    if (R() < 0.5) { const a = R() * 6.28, d = rr * 1.4; K.add(P_CONE(6), x + Math.cos(a) * d, 0, y + Math.sin(a) * d, rr * 0.9, h * 0.35, rr * 0.9, c, yaw); }
+    K.mt = null;
+    if (solid) props.push({ kind: 'stal', x, y, r: rr * 1.15, s: 1, lx, ly, key: 'cs' + Sy.i + '_' + props.length });
+  };
+  const stalac = (lx, ly, k) => {   // hanging from the roof: a cluster of thin cones, dripping
+    const rr = cvCeilRise(at(lx, ly), lx, ly), b = base(lx, ly), x = C.x + lx, y = C.y + ly;
+    if (rr < 50) return;
+    RK.mt = 'stone';
+    const n = 1 + ((R() * 3) | 0);
+    for (let i = 0; i < n; i++) {
+      const ox = (R() - 0.5) * 9, oy = (R() - 0.5) * 9, L = ri(10, 26) * k, w = ri(2.4, 4.6) * Math.sqrt(k);
+      RK.add(P_CONE(6), x + ox, rr + 3, y + oy, w * 2, L + 3, w * 2, lime[(R() * 3) | 0], R() * 6.28, Math.PI);
+    }
+    RK.mt = null;
+    void b;
+  };
+  for (const r of Sy.rooms) {
+    const big = r.r > 110;
+    // stalagmites, mostly out toward the walls, leaving the middle clear
+    const n = Math.round(r.r / 14 + R() * 4);
+    for (let k = 0; k < n; k++) { const s = spot(r, CV.RW + 4, big ? 60 : 34); if (!s) continue; const h = ri(10, big ? 46 : 28); stalag(s[0], s[1], h, ri(3.2, 6.5) * (0.7 + h / 50), h > 14); }
+    // a few great columns of them in the big chambers
+    if (big) for (let k = 0; k < 2; k++) { const s = spot(r, 40, 200); if (s) stalag(s[0], s[1], ri(55, 90), ri(9, 13), true); }
+    // stalactites over all of it
+    const m = Math.round(r.r * r.r / 900);
+    for (let k = 0; k < m; k++) { const a = R() * 6.283, d = Math.sqrt(R()) * r.r, lx = r.x + Math.cos(a) * d, ly = r.y + Math.sin(a) * d; if (-at(lx, ly).d > 10) stalac(lx, ly, r.H > 140 ? 1.6 : 1); }
+    // loose rubble along the walls
+    for (let k = 0; k < n * 2; k++) { const s = spot(r, CV.RW - 2, CV.RW + 10); if (!s) continue; K.mt = 'stone'; const z = ri(2, 5); K.add(P_ROCK((R() * 4) | 0), C.x + s[0], z * 0.2, C.y + s[1], z * 2.2, z * 1.5, z * 2, rock[(R() * 4) | 0], R() * 6); K.mt = null; }
+    // glowing fungus: pale stems with cold blue-green caps, in clumps; the chamber with glowworms has the most
+    const fz = r.glow ? 7 : R() < 0.35 ? 1 : 0;
+    for (let k = 0; k < fz; k++) {
+      const s = spot(r, CV.RW, 70); if (!s) continue;
+      const x = C.x + s[0], y = C.y + s[1], nm = 4 + ((R() * 6) | 0);
+      for (let i = 0; i < nm; i++) {
+        const a = R() * 6.28, d = R() * 9, mx = x + Math.cos(a) * d, my = y + Math.sin(a) * d, h = ri(2.5, 7);
+        K.mt = 'plant'; K.add(P_CYL(5), mx, 0, my, 0.9, h, 0.9, hex('#d8dccc'), 0, 0, 0, 0.35); K.add(P_BALL(), mx, h, my, ri(2.4, 4.2), ri(1.0, 1.6), ri(2.4, 4.2), hex('#5ae0c8'), R() * 6, 0, 0, 1.4); K.mt = null;
+      }
+      lights.push({ x, y, h: 8, r: 95, c: [0.08, 0.32, 0.3], f: R() * 9 });
+    }
+    // glowworms on the roof: thousands of tiny blue-green lights
+    if (r.glow) for (let k = 0; k < 420; k++) {
+      const a = R() * 6.283, d = Math.sqrt(R()) * r.r * 1.1, lx = r.x + Math.cos(a) * d, ly = r.y + Math.sin(a) * d, q = at(lx, ly);
+      if (q.d > -6) continue;
+      worms.push({ x: C.x + lx, y: C.y + ly, h: cvCeilRise(q, lx, ly) - 1.5, ph: R() * 40, s: ri(1.6, 3.2) });
+    }
+  }
+  // stalactites along the passages too, and rubble
+  for (const t of Sy.tubes) {
+    const L = Math.hypot(t.bx - t.ax, t.by - t.ay), n = Math.round(L / 45);
+    for (let k = 0; k < n; k++) { const u = R(), off = (R() - 0.5) * t.w * 1.2, nx = -(t.by - t.ay) / L, ny = (t.bx - t.ax) / L; const lx = t.ax + (t.bx - t.ax) * u + nx * off, ly = t.ay + (t.by - t.ay) * u + ny * off; if (-at(lx, ly).d > 8) stalac(lx, ly, 0.8); }
+  }
+  // rock with iron in it, for your pick (it shows its ore: 10-world draws it, 40-sim's mining gives it)
+  for (let k = 0, tries = 0; k < Sy.sp.ore && tries < 60; tries++) {
+    const r = Sy.rooms[1 + Math.floor(R() * (Sy.rooms.length - 1))] || Sy.rooms[0]; if (r.tag === 'ent' && R() < 0.7) continue;
+    const s = spot(r, CV.RW + 10, 45); if (!s) continue;
+    props.push({ kind: 'rock', x: C.x + s[0], y: C.y + s[1], r: 9, s: ri(0.9, 1.25), lx: s[0], ly: s[1], key: 'cv' + Sy.i + '_' + k, cave: 1 }); k++;
+  }
+  // bones about the lairs: a litter of them, gnawed, and skulls
+  for (const L of Sy.lairs) for (let k = 0; k < 26; k++) {
+    const s = spot(L, CV.RW, 90, 8); if (!s) continue;
+    const x = C.x + s[0], y = C.y + s[1], a = R() * 6.28, len = ri(5, 12), bc = hex(R() < 0.5 ? '#d8d0bc' : '#c8bea6');
+    K.mt = 'plain';
+    if (R() < 0.18) { K.add(P_BALL(), x, 2.6, y, 5.2, 4.8, 6, bc, a); K.add(P_BALL(), x + Math.cos(a) * 1.2, 2.4, y + Math.sin(a) * 1.2, 1.5, 1.5, 1.5, hex('#1a1612'), a); }   // a skull, one dark eye showing
+    else { K.rod(P_CYL(5), x, 0.6, y, x + Math.cos(a) * len, 0.6 + R() * 0.8, y + Math.sin(a) * len, ri(0.5, 0.9), bc); K.add(P_BALL(), x, 0.6, y, 1.8, 1.4, 1.8, bc); }
+    K.mt = null;
+  }
+  // the old explorer's camp: a bedroll, a pack, a dead fire, a lantern long out, and the explorer, sat against the wall
+  for (const r of Sy.rooms) if (r.camp) {
+    const s = spot(r, CV.RW + 6, CV.RW + 24, 60) || [r.x, r.y], x = C.x + s[0], y = C.y + s[1], g = caveGrad(x, y), a = Math.atan2(-g.y, -g.x);   // facing out from the wall
+    const fx = x + Math.cos(a) * 34, fy = y + Math.sin(a) * 34, side = a + Math.PI / 2;
+    K.mt = 'stone'; for (let i = 0; i < 8; i++) { const b = i / 8 * 6.283; K.add(P_ROCK(i % 4), fx + Math.cos(b) * 8, 0.8, fy + Math.sin(b) * 8, 4.2, 3, 3.6, rock[i % 4], b); } K.mt = null;
+    K.mt = 'wood'; for (let i = 0; i < 4; i++) { const b = i * 1.6 + 0.3; K.rod(P_CYL(5), fx - Math.cos(b) * 5, 0.8, fy - Math.sin(b) * 5, fx + Math.cos(b) * 5, 1.6, fy + Math.sin(b) * 5, 0.9, hex('#241c16')); } K.mt = null;
+    const bx = x + Math.cos(side) * 26 + Math.cos(a) * 12, by = y + Math.sin(side) * 26 + Math.sin(a) * 12;
+    K.mt = 'cloth'; K.add(P_BOX(), bx, 1.2, by, 30, 2.4, 11, hex('#4e5a46'), -side); K.add(P_CYL(10), bx - Math.cos(side) * 13, 2.6, by - Math.sin(side) * 13, 3.4, 11, 3.4, hex('#5c6a52'), -side, Math.PI / 2); K.mt = null;
+    const px = x - Math.cos(side) * 20 + Math.cos(a) * 8, py = y - Math.sin(side) * 20 + Math.sin(a) * 8;
+    K.mt = 'cloth'; K.add(P_BOX(), px, 7, py, 12, 14, 8, hex('#6a5a3a'), -a); K.add(P_BOX(), px + Math.cos(a) * 4.5, 5, py + Math.sin(a) * 4.5, 9, 7, 2, hex('#5a4a30'), -a); K.mt = null;
+    K.mt = 'metal'; K.add(P_CYL(8), fx + 14, 0, fy - 6, 4, 7, 4, hex('#3a3a36')); K.add(P_BALL(), fx + 14, 7.5, fy - 6, 4.4, 3, 4.4, hex('#2e2e2a')); K.mt = null;
+    // the explorer: a skeleton slumped against the rock, in the rags of a coat
+    const sx = x + Math.cos(a) * 4, sy = y + Math.sin(a) * 4, bone = hex('#d6ceb8'), coat = hex('#3e3a30');
+    K.mt = 'cloth'; K.add(P_BOX(), sx, 10, sy, 11, 15, 7, coat, -a, -0.35); K.mt = 'plain';
+    K.add(P_BALL(), sx + Math.cos(a) * 3, 21, sy + Math.sin(a) * 3, 6, 6.6, 6.4, bone, -a, 0.4);
+    K.add(P_BALL(), sx + Math.cos(a) * 5.4 + Math.cos(side) * 1.4, 21.4, sy + Math.sin(a) * 5.4 + Math.sin(side) * 1.4, 1.6, 1.6, 1.6, hex('#14110e'));
+    K.add(P_BALL(), sx + Math.cos(a) * 5.4 - Math.cos(side) * 1.4, 21.4, sy + Math.sin(a) * 5.4 - Math.sin(side) * 1.4, 1.6, 1.6, 1.6, hex('#14110e'));
+    for (const sd of [-1, 1]) {
+      const hx = sx + Math.cos(side) * sd * 4, hy = sy + Math.sin(side) * sd * 4;
+      K.rod(P_CYL(5), hx, 3, hy, hx + Math.cos(a) * 16, 2.5, hy + Math.sin(a) * 16, 1.1, bone); K.rod(P_CYL(5), hx + Math.cos(a) * 16, 2.5, hy + Math.sin(a) * 16, hx + Math.cos(a) * 24, 1, hy + Math.sin(a) * 24, 0.9, bone);
+      K.rod(P_CYL(5), hx, 15, hy, hx + Math.cos(a) * 6 + Math.cos(side) * sd * 3, 6, hy + Math.sin(a) * 6 + Math.sin(side) * sd * 3, 0.8, bone);
+    }
+    K.mt = null;
+    crates.push({ kind: 'chest', key: 'cvn' + Sy.i, x: px + Math.cos(a) * 10, y: py + Math.sin(a) * 10, s: 1, cave: Sy.i, note: 1, noModel: 1 });
+    lights.push({ x: fx, y: fy, h: 6, r: 60, c: [0.0, 0.0, 0.0], f: 0, ember: 1 });
+  }
+  // crates left behind, in the dead ends (and one or two along the way)
+  const ends = Sy.rooms.filter(r => r.tag === 'end' || r.tag === 'pool').concat(Sy.lairs);
+  ends.forEach((r, k) => {
+    const s = spot(r, CV.RW + 8, CV.RW + 30, 40); if (!s) return;
+    const x = C.x + s[0], y = C.y + s[1], g = caveGrad(x, y);
+    crates.push({ kind: 'chest', key: 'cvc' + Sy.i + '_' + k, x, y, s: 1, a: Math.atan2(-g.y, -g.x), cave: Sy.i, tier: r.tag === 'lair' ? 3 : Sy.sp.deep ? 2 : 1 });
+  });
+  // puddles on the floor, catching your torch
+  for (let k = 0; k < Sy.rooms.length * 2; k++) {
+    const r = Sy.rooms[(R() * Sy.rooms.length) | 0], s = spot(r, CV.RW + 6, 80); if (!s) continue;
+    K.mt = 'water'; K.add(P_CYL(12), C.x + s[0], 0.05, C.y + s[1], ri(9, 22), 0.25, ri(7, 16), hex('#1c2224'), R() * 6); K.mt = null;
+  }
+  // the bats, hung up in the roof of the highest chamber
+  const bats = [];
+  for (const r of Sy.rooms) if (r.bats) for (let k = 0; k < 16; k++) {
+    const a = R() * 6.283, d = Math.sqrt(R()) * r.r * 0.75, lx = r.x + Math.cos(a) * d, ly = r.y + Math.sin(a) * d, q = at(lx, ly);
+    if (q.d > -20) continue;
+    bats.push({ hx: C.x + lx, hy: C.y + ly, hh: cvCeilRise(q, lx, ly) - 3, x: C.x + lx, y: C.y + ly, h: cvCeilRise(q, lx, ly) - 3, room: r, ph: R() * 9, st: 'hang', t: 0, vx: 0, vy: 0, vh: 0, sd: R() });
+  }
+  // the light at the end of each way out
+  for (const e of Sy.exits) lights.push({ x: C.x + e.x - Math.cos(e.a) * 40, y: C.y + e.y - Math.sin(e.a) * 40, h: 30, r: 300, c: [0.5, 0.56, 0.66], day: 1, f: 0 });
+  caveK.set(K); caveRoofK.set(RK);
+  CVD.props = props; CVD.lights = lights; CVD.worms = worms; CVD.crates = crates; CVD.bats = bats; CVD.si = Sy.i; CVD.lootKey = '';
+  caveGlowBuild(Sy);
+}
+// the crates: drawn shut, or open once you've had what was in them
+function caveLootSync() {
+  const key = CVD.crates.map(c => S.rg.looted.has(c.key) ? 1 : 0).join('');
+  if (key === CVD.lootKey) return; CVD.lootKey = key;
+  const K = new Kit();
+  for (const c of CVD.crates) if (!c.noModel) chestKit(K, c.x, c.y, c.a || 0, 0.85, S.rg.looted.has(c.key) ? 1 : 0);
+  caveLootK.set(K);
+}
+// the way out: daylight at the end of the passage, grey-white by day, a deep blue at night
+const caveGlowMat = new THREE.ShaderMaterial({
+  uniforms: { k: { value: 1 }, col: { value: new V3(0.85, 0.9, 1.0) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  vertexShader: `varying vec2 vU; void main() { vU = uv * 2.0 - 1.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform float k; uniform vec3 col; varying vec2 vU; void main() { float r = length(vU); float a = (1.0 - smoothstep(0.35, 1.0, r)) * k; gl_FragColor = vec4(col * a, 1.0); }`,
+});
+const caveGlows = [];
+function caveGlowBuild(Sy) {
+  for (const m of caveGlows) scene.remove(m); caveGlows.length = 0;
+  for (const e of Sy.exits) {
+    const x = Sy.C.x + e.x - Math.cos(e.a) * (e.w * 0.55), y = Sy.C.y + e.y - Math.sin(e.a) * (e.w * 0.55);
+    for (const [sz, back] of [[e.w * 2.3, 0], [e.w * 4.2, 6]]) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz * 0.95), caveGlowMat); m.frustumCulled = false;
+      m.position.set(x + Math.cos(e.a) * back, caveBase(x, y) + 30, y + Math.sin(e.a) * back); m.rotation.set(0, -e.a + Math.PI / 2, 0); m.renderOrder = 3;
+      scene.add(m); caveGlows.push(m); m.visible = false;
+    }
+  }
 }
 
 ;
@@ -14822,6 +15296,1062 @@ const TOUGH = { fury: 0.35, furyAgg: 0.45, furyRage: 0.35, furyMin: 0.12, dodgeC
     if ((c.dgCd || 0) === cd) return;   // it didn't read this swing at all
     if (c.hop === hop && !(c.block > S.t) && c.club && Math.random() < TOUGH.block) { c.block = S.t + 0.55; c.o.facing = 1; }   // caught it on the club after all
     c.dgCd -= TOUGH.dodgeCd;   // and ready for the next one sooner
+  }; }
+
+;
+// ================= the pale ones: what lives down in the caves (Joe: "do caves ... do an amazing job") =================
+// People once, or nearly: bald, grey-white, thin as rakes, the eyes gone milky. They sleep curled up together in the lairs at
+// the bottom of the caves and hunt by sound, clicking to find their way, so how you move is everything down here. Creep
+// (crouch) and you can get right past them, or close enough to kill one in its sleep; run, fight or swing a pick at the ore
+// and every one in earshot wakes. Rock between you muffles you, a straight passage carries you a long way.
+// They can't stand the light. Your torch burns their skin: caught in the beam one flinches, covers its face and darts out of
+// it, so they keep to the dark and come at you from behind and from the side, clicking as they close in. You hear them before
+// you see them. One at a time they rush you, shrieking, rake at you and are gone again into the dark; hold the light on one
+// too long and it goes mad and comes anyway. Daylight at the mouths and a fire of your own keep them off.
+// The deep has the most of them, two awake and prowling, and the old one: twice the size, and the light hardly checks it.
+// Killed ones stay dead for a few days, then others come up from below.
+
+// ---------------- how they look: CLAN_LOOK 5 (the pale ones) and 6 (the old one) ----------------
+const PALE_SKIN = [198, 200, 196], PALE_RIB = [158, 162, 160], PALE_SOCK = [64, 60, 66], PALE_VEIN = [150, 162, 180];
+const PALE_LOOK = o => ({
+  C: { tunic: PALE_SKIN, trou: [96, 92, 84], trouL: [88, 84, 78], skin: PALE_SKIN, hair: o.hair || [186, 188, 184], eye: [224, 228, 222], nose: [186, 184, 182],
+    feet: [184, 184, 178], sole2: [128, 126, 120], mud: [118, 116, 110], belt: [70, 64, 56], nail: [64, 60, 54] },
+  bare: 1, pale: 1, old: o.old,
+  // the ribs showing through, and blue veins down the arms
+  body: (x, y, z) => z > 0.8 && y > 21.2 && y < 28.8 && Math.abs(x) > 0.9 && ((y + Math.abs(x) * 0.3) % 1.75) < 0.42 ? PALE_RIB
+    : Math.abs(x) > 6.2 && Math.abs(Math.sin(y * 0.9 + z * 2.6 + x)) < 0.08 ? PALE_VEIN : null,
+  // the eyes sunk in dark hollows
+  paintC: PALE_SOCK, paint: (x, y, z) => z > 2.5 && Math.abs(y - 36.5) < 1.45 && Math.abs(Math.abs(x) - 1.45) < 1.3,
+});
+CLAN_LOOK.push(PALE_LOOK({}), PALE_LOOK({ old: 1, hair: [222, 220, 212] }));
+const PALE_VI = 5, PALE_OLD_VI = 6;
+{ const ct = clanTint; clanTint = function (V) {
+    const f = ct(V); if (!V.pale) return f; const C = V.C;
+    return (c, x, y, z) => f((c === C.trou || c === C.trouL) && y < 14.4 + 0.9 * Math.sin(x * 2.3 + z * 1.7) ? C.skin : c, x, y, z);   // a rag round the loins, and nothing else
+  }; }
+{ const cx = clanExtra; clanExtra = function (V) {
+    if (!V.pale) return cx(V);
+    return K => {
+      const { lump, one, col } = K;
+      lump([0, 16.6, 2.9], [3.3, 2.7, 0.9], one('hips'), col('trou'), 10, 8);   // the loin rag, hanging in front
+      lump([0, 18.3, 0], [4.8, 0.6, 3.8], one('hips'), col('belt'), 12, 4);   // a cord to hold it
+      for (let i = 0; i < 7; i++) lump([0, 19.5 + i * 1.75, -3.9 - Math.sin(i * 0.5) * 0.4], [0.75, 0.6, 0.65], one(i < 3 ? 'spine' : 'chest'), col('skin'), 6, 5);   // the knobs of its spine
+      for (const s of [1, -1]) for (let k = 0; k < 3; k++) lump([s * (6.0 + (k - 1) * 0.55), 11.4, 0.6 + k * 0.25], [0.24, 1.25, 0.24], one(s > 0 ? 'handR' : 'handL'), col('nail'), 5, 5);   // long black nails
+      if (V.old) for (let i = 0; i < 9; i++) { const a = -1.5 + i * 0.37; lump([Math.sin(a) * 3.6, 33.6 - (i % 3) * 1.2, -1.4 - Math.cos(a) * 1.6], [0.5, 4.2 + (i % 2) * 1.5, 0.45], one('head'), col('hair'), 5, 6); }   // long white strings of hair
+    };
+  }; }
+// past twelve figures, an idle one (not a body lying there) is made over into whatever's needed
+{ const cr = clanRig; clanRig = function (vi) {
+    const R = cr(vi); if (R || !CLAN_GEO) return R;
+    const Q = CLAN_RIGS.find(q => !q.owner && !q.keep); if (!Q) return null;
+    Q.mesh.geometry = CLAN_GEO[vi]; Q.edge.geometry = CLAN_GEO[vi]; Q.vi = vi; return Q;
+  }; }
+
+// ---------------- the numbers ----------------
+const PALE_MELEE = { wind: 0.24, trig: 40, hit: 32, lunge: 46, rec: 0.45 };
+const PALE_OLD_MELEE = { wind: 0.34, trig: 50, hit: 42, lunge: 52, rec: 0.55 };
+const PL = {
+  crawl: 84, prowl: 56, search: 76, rush: 214, back: 150, dart: 175, flee: 190,
+  hp: 0.45, oldHp: 1.8,      // of a cannibal's
+  sleepEar: 0.45,            // how much less a sleeper hears
+  rock: 0.5,                 // rock in the way halves how far a sound carries
+  gap: [3, 6],               // seconds between one rushing you and the next
+  back: 4,                   // days the dead stay dead (the old one twice that)
+};
+// how far you're heard: creeping, walking, running flat out; and what else makes a noise
+const PALE_EAR = { still: 0, sneak: [30, 0.6], walk: [60, 1.35], sprint: 320, swing: 150, ore: 380, hurt: 260, bow: 150, bats: 520, blast: 680, shriek: 430 };
+const PALE = { si: -1, nav: null, tok: null, gap: 4, ev: [], pn: 0, atk: null, hp: 0, bats: false, amb: 14, pLit: null };
+const paleList = () => S.rg.enemies.filter(e => !e.dead && e.cl && e.cl.cave);
+function paleNoise(x, y, r) { PALE.ev.push({ x, y, r, t: S.t }); }
+
+// ---------------- finding the way: along the passages, then straight once it can ----------------
+function paleGraph(Sy) {
+  const N = [], key = new Map(), at = (x, y) => { const k = Math.round(x) + ',' + Math.round(y); let i = key.get(k); if (i === undefined) { i = N.length; key.set(k, i); N.push({ x: Sy.C.x + x, y: Sy.C.y + y, e: [] }); } return i; };
+  for (const t of Sy.tubes) { if (t.exit) continue; const a = at(t.ax, t.ay), b = at(t.bx, t.by), w = Math.hypot(t.bx - t.ax, t.by - t.ay); N[a].e.push([b, w]); N[b].e.push([a, w]); }
+  return N;
+}
+function paleNear(N, x, y) {
+  const o = N.map((n, i) => [Math.hypot(n.x - x, n.y - y), i]).sort((a, b) => a[0] - b[0]);
+  for (let k = 0; k < Math.min(6, o.length); k++) if (caveLos(x, y, N[o[k][1]].x, N[o[k][1]].y, 5)) return o[k][1];
+  return o[0][1];
+}
+function palePath(N, a, b) {
+  const n = N.length, dist = new Float64Array(n).fill(1e18), prev = new Int32Array(n).fill(-1), done = new Uint8Array(n); dist[a] = 0;
+  for (;;) {
+    let u = -1, bd = 1e18; for (let i = 0; i < n; i++) if (!done[i] && dist[i] < bd) { bd = dist[i]; u = i; }
+    if (u < 0 || u === b) break; done[u] = 1;
+    for (const [v, w] of N[u].e) if (dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; }
+  }
+  const out = []; for (let u = b; u >= 0; u = prev[u]) { out.push(u); if (u === a) break; }
+  return out.reverse();
+}
+function paleNav(e, tx, ty) {
+  const c = e.cl, N = PALE.nav; if (!N || !N.length) return { x: tx, y: ty };
+  let P = c.path;
+  if (!P || (S.t - P.t > 0.4 && (Math.hypot(P.tx - tx, P.ty - ty) > 45 || S.t - P.t > 1.6))) {
+    P = c.path = { tx, ty, t: S.t, pts: [], pullT: S.t };
+    if (!caveLos(e.x, e.y, tx, ty, 6)) P.pts = palePath(N, paleNear(N, e.x, e.y), paleNear(N, tx, ty)).map(i => N[i]);
+    P.pts.push({ x: tx, y: ty, end: 1 });
+  }
+  const last = P.pts[P.pts.length - 1]; if (last.end) { last.x = tx; last.y = ty; }
+  while (P.pts.length > 1 && Math.hypot(P.pts[0].x - e.x, P.pts[0].y - e.y) < 22) P.pts.shift();
+  if (P.pts.length > 1 && S.t - P.pullT > 0.3) { P.pullT = S.t; if (caveLos(e.x, e.y, P.pts[1].x, P.pts[1].y, 6)) P.pts.shift(); }
+  return P.pts[0];
+}
+// a spot it can stand on: pulled back toward (fx, fy) until it's clear of the rock
+function paleOpen(tx, ty, fx, fy, pad = 16) {
+  for (let k = 0; k < 6; k++) { if (caveSdf(tx, ty) < -pad) return { x: tx, y: ty }; tx = lerp(tx, fx, 0.35); ty = lerp(ty, fy, 0.35); }
+  return { x: fx, y: fy };
+}
+function paleAway(e, dist) {   // off into the dark, away from you
+  const p = S.p, a0 = Math.atan2(e.y - p.y, e.x - p.x);
+  for (let k = 0; k < 12; k++) {
+    const a = a0 + (k ? (Math.random() - 0.5) * (1 + k * 0.3) : 0), x = e.x + Math.cos(a) * dist, y = e.y + Math.sin(a) * dist;
+    if (caveSdf(x, y) < -18 && caveLos(e.x, e.y, x, y, 6) && !paleLitAt(x, y, 20)) return { x, y };
+  }
+  const N = PALE.nav || []; let b = null, bd = -1;
+  for (const n of N) { const de = Math.hypot(n.x - e.x, n.y - e.y), dp = Math.hypot(n.x - p.x, n.y - p.y); if (de < 360 && dp > bd && !paleLitAt(n.x, n.y, 20)) { bd = dp; b = n; } }
+  return b ? { x: b.x, y: b.y } : { x: e.x, y: e.y };
+}
+
+// ---------------- the light ----------------
+// your torch's beam, as it falls on the body (the same cone the light is drawn with, a little wider at the edges)
+function paleBeamK(e) {
+  if (!S.torchOn) return 0;
+  const tl = LU.tCol.value.x; if (tl < 0.05) return 0;
+  const P = LU.tPos.value, Dv = LU.tDir.value, hx = e.x - P.x, hz = e.y - P.z, hy = terrH(e.x, e.y) + 22 - P.y, d = Math.hypot(hx, hy, hz);
+  if (d < 16) return tl;
+  const rng0 = LU.tRange.value; if (d > rng0) return 0;
+  const cs = (hx * Dv.x + hy * Dv.y + hz * Dv.z) / d, c0 = Math.cos(Math.acos(LU.tCone.value.x) * 1.3), c1 = LU.tCone.value.y;
+  return clamp((cs - c0) / (c1 - c0), 0, 1) * clamp(1.15 - 0.75 * d / rng0, 0, 1) * Math.min(1, tl);
+}
+// where they won't go: daylight in the mouths, a fire of yours, a lit torch post
+function paleLitAt(x, y, pad = 0) {
+  const si = caveSysAt(x); if (si < 0) return null;
+  const Sy = caveSys(si), lt = dayLight();
+  if (lt > 0.25) for (const q of Sy.exits) { const ex = Sy.C.x + q.x, ey = Sy.C.y + q.y, r = 120 + 140 * lt; if (Math.hypot(ex - x, ey - y) < r + pad) return { x: ex, y: ey, r }; }
+  for (const B of S.day.builds) {
+    if (B.x < CAVE_X0) continue;
+    if (B.t === 'fire' && Math.hypot(B.x - x, B.y - y) < 115 + pad) return { x: B.x, y: B.y, r: 115 };
+    if (B.t === 'tpost' && B.fuel > 0 && Math.hypot(B.x - x, B.y - y) < 140 + pad) return { x: B.x, y: B.y, r: 140 };
+  }
+  return null;
+}
+
+// ---------------- their voices: clicking, hissing, the shriek ----------------
+const PALE_SND = { click: [0.95, 760], clickF: [1, 650], hiss: [0.8, 520], rattle: [0.75, 820], snore: [0.5, 300], shriek: [1.2, 1500], hurt: [1, 900], die: [1.1, 1300], chitter: [0.95, 1100], breath: [0.7, 300] };
+function paleSnd(k, x, y, v = 1, vp = 210) {
+  if (!actx || !noiseBuf || !sfxGain || !PALE_SND[k]) return;
+  const o = placeOut(x, y, PALE_SND[k][0] * v, PALE_SND[k][1]); if (!o) return;
+  const t = actx.currentTime, R = Math.random;
+  if (k === 'click' || k === 'clickF') {   // the clicks it finds its way by: a tongue against the teeth, quick as a rattle
+    const n = k === 'clickF' ? 9 + Math.floor(R() * 6) : 4 + Math.floor(R() * 5), gap = k === 'clickF' ? 0.024 : 0.045 + R() * 0.03, f = 2900 + R() * 1400;
+    for (let i = 0; i < n; i++) { const ti = t + i * gap * (0.85 + R() * 0.3); clanNz(ti, 'bandpass', f * (0.94 + R() * 0.12), 0.011, 0.95, o, 7); clanNz(ti, 'highpass', 5200, 0.006, 0.4, o); }
+  } else if (k === 'hiss') {   // caught in the light
+    clanNz(t, 'highpass', 3400, 0.75 + R() * 0.3, 0.55, o, 0.7); clanNz(t + 0.05, 'bandpass', 5600, 0.6, 0.4, o, 2);
+    clanVoice(t, o, { len: 0.5, f: [[0, vp * 1.6], [1, vp * 1.2]], v: [[0, 'i'], [1, 'e']], env: [[0.1, 0.35], [0.6, 0.25]], g: 0.25, breath: 0.9, rasp: 0.6, fk: 1.25 });
+  } else if (k === 'rattle' || k === 'snore') {   // a wet rattle in the throat; asleep, slow and low
+    const L = k === 'snore' ? 1.2 : 0.8, s = actx.createOscillator(), am = actx.createOscillator(), ag = actx.createGain(), g = actx.createGain(), lp = actx.createBiquadFilter();
+    s.type = 'sawtooth'; s.frequency.setValueAtTime(k === 'snore' ? 48 : 70 + R() * 15, t); s.frequency.linearRampToValueAtTime(k === 'snore' ? 40 : 58, t + L);
+    am.type = 'square'; am.frequency.value = k === 'snore' ? 14 + R() * 4 : 22 + R() * 8; ag.gain.value = 0.5; am.connect(ag); ag.connect(g.gain);
+    lp.type = 'lowpass'; lp.frequency.value = k === 'snore' ? 380 : 650;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(k === 'snore' ? 0.3 : 0.5, t + L * 0.3); g.gain.linearRampToValueAtTime(0.0001, t + L);
+    s.connect(lp); lp.connect(g); g.connect(o); s.start(t); am.start(t); s.stop(t + L + 0.05); am.stop(t + L + 0.05);
+    clanNz(t, 'bandpass', k === 'snore' ? 600 : 900, L, 0.25, o, 1.2);
+  } else if (k === 'shriek') {   // thin and piercing, nothing like a voice any more
+    const L = 0.6 + R() * 0.3, hi = vp * (4 + R() * 0.8);
+    clanVoice(t, o, { len: L, f: [[0, hi * 0.7], [0.1, hi * 1.08], [0.55, hi], [1, hi * 0.6]], v: [[0, 'ae'], [0.4, 'i'], [1, 'e']], env: [[0.05, 1], [0.75, 0.8]], g: 1, breath: 0.7, rasp: 1, jit: 0.07, vib: 11, fk: 1.3 });
+    clanNz(t, 'highpass', 2600, L, 0.5, o, 0.9);
+  } else if (k === 'chitter') {   // to the others: a burst of clicks and a squeal
+    for (let i = 0; i < 12; i++) clanNz(t + i * 0.03, 'bandpass', 3400 + R() * 900, 0.01, 0.9, o, 7);
+    clanVoice(t + 0.38, o, { len: 0.32, f: [[0, vp * 3.2], [1, vp * 3.8]], v: [[0, 'i'], [1, 'i']], env: [[0.1, 0.8], [0.7, 0.6]], g: 0.6, breath: 0.6, rasp: 0.7, jit: 0.06, vib: 13, fk: 1.3 });
+  } else if (k === 'hurt') {
+    clanVoice(t, o, { len: 0.28, f: [[0, vp * 3.4], [1, vp * 2.2]], v: [[0, 'ae'], [1, 'a']], env: [[0.06, 1], [0.6, 0.6]], g: 0.9, breath: 0.6, rasp: 0.9, jit: 0.06, fk: 1.25 });
+  } else if (k === 'die') {
+    clanVoice(t, o, { len: 1.5, f: [[0, vp * 3.6], [0.2, vp * 3], [0.7, vp * 1.6], [1, vp * 0.9]], v: [[0, 'i'], [0.4, 'ae'], [1, 'u']], env: [[0.05, 1], [0.4, 0.75], [0.85, 0.3]], g: 1, breath: 0.6, rasp: 1, jit: 0.08, vib: 9, fk: 1.25 });
+    boomAt(t + 0.9, 90, 40, 0.3, 0.3, o);
+  } else if (k === 'breath') { clanNz(t, 'bandpass', 1500, 0.35, 0.4, o, 1.6); clanNz(t + 0.45, 'bandpass', 1100, 0.4, 0.35, o, 1.6); }
+}
+function paleSay(e, k, v = 1) {
+  const c = e.cl; paleSnd(k, e.x, e.y, v, c.vp);
+  if (k === 'click' || k === 'clickF' || k === 'chitter') c.clickT = S.t;
+  if (k === 'shriek') { c.shriekT = S.t; paleNoise(e.x, e.y, PALE_EAR.shriek); }
+  if (k === 'chitter') paleNoise(e.x, e.y, PALE_EAR.shriek * 0.8);
+}
+
+// ---------------- down they come: as many as are left of them ----------------
+function paleEnter(si) {
+  caveEnts(); const D = S.day, rg = S.rg, Sy = caveSys(si), sp = Sy.sp, R = Math.random;
+  for (const e of rg.enemies) if (e.cl && e.cl.cave && !e.dead) e.dead = e.gone = true;
+  PALE.si = si; PALE.tok = null; PALE.gap = 6; PALE.nav = paleGraph(Sy); PALE.ev.length = 0; PALE.amb = 10 + R() * 10;
+  D.cave.dead = D.cave.dead || {};
+  const fresh = (D.cave.dead[si] || []).filter(n => D.n - n < PL.back); D.cave.dead[si] = fresh;
+  const oldIn = !!sp.deep && !(D.cave.oldN !== undefined && D.n - D.cave.oldN < PL.back * 2);
+  let n = Math.max(0, sp.pale - fresh.length);
+  const lairs = Sy.lairs.length ? Sy.lairs : [Sy.rooms[Sy.rooms.length - 1]], prowl = sp.deep ? 2 : si === 0 ? 1 : 0;
+  const spot = (L, f = 0.5) => { for (let k = 0; k < 20; k++) { const a = R() * 6.283, d = L.r * f * Math.sqrt(R()), q = { x: Sy.C.x + L.x + Math.cos(a) * d, y: Sy.C.y + L.y + Math.sin(a) * d }; if (caveSdf(q.x, q.y) < -20) return q; } return { x: Sy.C.x + L.x, y: Sy.C.y + L.y }; };
+  if (oldIn) { const q = spot(lairs[0], 0.25); paleSpawn(q.x, q.y, { old: 1, lair: lairs[0] }); }
+  for (let k = 0; k < n; k++) {
+    const pr = k >= n - prowl, L = pr ? pick(Sy.rooms.filter(r => r.tag !== 'ent' && r.far >= 1)) || lairs[0] : lairs[k % lairs.length], q = spot(L, pr ? 0.4 : 0.55);
+    if (Math.hypot(q.x - S.p.x, q.y - S.p.y) < 420) continue;   // not right on top of you
+    paleSpawn(q.x, q.y, { prowl: pr, lair: lairs[k % lairs.length] });
+  }
+}
+function paleSpawn(x, y, o) {
+  const rg = S.rg; spawnFoe('cannibal', { x, y, d: 600 });
+  const e = rg.enemies[rg.enemies.length - 1]; clanInit(e, null);
+  const c = e.cl, R = Math.random;
+  e.maxHp = e.hp = e.maxHp * (o.old ? PL.oldHp : PL.hp);
+  Object.assign(c, { cave: 1, old: o.old ? 1 : 0, vi: o.old ? PALE_OLD_VI : PALE_VI, club: false, kind: o.old ? 'leader' : 'reg', hp0: e.hp,
+    vp: o.old ? 150 + R() * 20 : 195 + R() * 50, home: { x, y }, lair: o.lair, prowler: !!o.prowl, side: R() < 0.5 ? -1 : 1, sideS: R() < 0.5 ? -1 : 1,
+    lx: x, ly: y, heardT: -99, ht: R() * 0.2, lt: R() * 0.15, los: false, beam: 0, burn: 0, shyCd: 0, sN: 0, clickT: -9, shriekT: -9, nextC: 1 + R() * 3,
+    crawl: 1, crawlK: 1, sleepK: o.prowl ? 0 : 1, cockK: 0, shyK: 0, rr: 200, spd: o.old ? 0.9 : 0.94 + R() * 0.14 });
+  paleGo(e, o.prowl ? 'prowl' : 'sleep');
+  return e;
+}
+
+// ---------------- each of them ----------------
+function paleGo(e, st, o = {}) {
+  const c = e.cl, prev = c.st; c.st = st; c.t = 0; c.o = o; c.dest = null; c.swung = 0; c.closeT = 0;
+  if (prev === 'rush' && st !== 'rush' && PALE.tok === e) { PALE.tok = null; PALE.gap = PL.gap[0] + Math.random() * (PL.gap[1] - PL.gap[0]); }
+  if (st === 'rush') { if (!PALE.tok || PALE.tok.dead) PALE.tok = e; e.swCd = 0; paleSay(e, 'shriek'); }
+  if (st === 'stalk') c.rr = Math.max(c.rr, clamp(c.d || 200, 150, 240));
+  if (st === 'shy') { paleSay(e, 'hiss', 0.9); c.burnHop = 1; }
+  if (st === 'flee') paleSay(e, 'shriek', 0.8);
+  if (st === 'listen') c.o.T = o.T || 0.7 + Math.random() * 0.8;
+}
+function paleWake(e, x, y) {
+  const c = e.cl; if (c.st !== 'sleep') return;
+  c.lx = x; c.ly = y; c.heardT = S.t; paleGo(e, 'rouse'); paleSay(e, 'rattle');
+  for (const o of paleList()) if (o !== e && o.cl.st === 'sleep' && Math.hypot(o.x - e.x, o.y - e.y) < 280 && !(o.cl.wakeIn > 0)) { o.cl.wakeIn = 0.5 + Math.random() * 1.2; o.cl.wx = x; o.cl.wy = y; }
+}
+// what it heard: you moving, your blows and the clang of the pick, the bats going up, the others calling
+function paleHear(e, c) {
+  const p = S.p, sl = c.st === 'sleep' || c.st === 'rouse' ? PL.sleepEar : 1;
+  let best = null, bk = 0;
+  const one = (x, y, r0, me) => {
+    const d = Math.hypot(x - e.x, y - e.y); let r = r0 * sl; if (d > r) return;
+    if (d > 60 && !(me ? c.los : caveLos(e.x, e.y, x, y, 3))) { r *= PL.rock; if (d > r) return; }
+    const k = 1 - d / r; if (k > bk) { bk = k; best = { x, y, k, me }; }
+  };
+  if (PALE.pn > 0) one(p.x, p.y, PALE.pn, 1);
+  for (const n of PALE.ev) if (n.t > (c.evT || -9)) one(n.x, n.y, n.r, Math.hypot(n.x - p.x, n.y - p.y) < 30);
+  c.evT = S.t;
+  if (!best) return null;
+  if (sl < 1 && Math.random() > Math.min(1, bk * 2.2)) return null;   // asleep, it might sleep through a soft one
+  return best;
+}
+function paleHeard(e, c, n) {
+  const d = Math.hypot(n.x - e.x, n.y - e.y), err = Math.min(70, d * 0.14) * (1 - n.k);
+  c.lx = n.x + (Math.random() - 0.5) * 2 * err; c.ly = n.y + (Math.random() - 0.5) * 2 * err; c.heardT = S.t; c.sN = 0;
+  if (c.st === 'sleep') return paleWake(e, c.lx, c.ly);
+  if (['prowl', 'search', 'home'].includes(c.st)) { paleGo(e, 'listen', { T: 0.45 + Math.random() * 0.6 }); paleSay(e, Math.random() < 0.5 ? 'chitter' : 'click'); }
+}
+function paleHurt(e, c) {
+  const asleep = c.st === 'sleep' || c.st === 'rouse';
+  if (asleep) { e.hp -= (c.hp0 - e.hp) * 1.6; exNote('it never heard you coming', true); }   // a blow it never heard coming
+  c.hp0 = e.hp; c.flinch = 1; paleSay(e, 'hurt');
+  c.lx = S.p.x; c.ly = S.p.y; c.heardT = S.t; paleNoise(e.x, e.y, 360);
+  if (e.hp <= 0) return;
+  if (e.hp < e.maxHp * (c.old ? 0.18 : 0.3) && Math.random() < 0.75) return paleGo(e, 'flee');
+  if (asleep) return paleGo(e, 'rush', { mad: 1 });   // woken by it: straight at you
+  if (c.st === 'rush' && !c.swung) return;
+  const k = Math.atan2(e.y - S.p.y, e.x - S.p.x); c.hop = { vx: Math.cos(k) * 150, vy: Math.sin(k) * 150, t: 0.2, T: 0.2 };   // knocked back a step
+  paleGo(e, Math.random() < (c.old ? 0.65 : 0.4) ? 'rush' : 'back', { mad: 1 });
+}
+function paleHopStep(e, dt) {
+  const c = e.cl; if (!c.hop) return;
+  const k = Math.min(dt, c.hop.t), nx = e.x + c.hop.vx * k, ny = e.y + c.hop.vy * k;
+  if (caveSdf(nx, ny) < -12) { e.x = nx; e.y = ny; }
+  c.hop.t -= dt; if (c.hop.t <= 0) c.hop = null;
+}
+const paleKnow = c => S.t - c.heardT;
+function paleFaceTo(c, e, x, y) { c.faceW = Math.atan2(y - e.y, x - e.x); }
+function paleClicks(e, c, dt, close) {
+  if ((c.nextC -= dt) > 0) return;
+  c.nextC = close ? 1 + Math.random() * 1.3 : 2.2 + Math.random() * 3;
+  paleSay(e, close && c.d < 140 ? 'clickF' : 'click', close ? 1 : 0.85);
+  if (close && c.d < 90 && Math.random() < 0.5) setTimeout(() => { if (!e.dead) paleSay(e, 'breath', 0.8); }, 500);
+}
+
+const PALE_ST = {
+  sleep(e, c, d, dt) {
+    c.crawl = 1; c.faceW = c.face; c.v = 0;
+    if (d < 170 && (c.snT = (c.snT ?? 1) - dt) <= 0) { c.snT = 2.4 + Math.random() * 2.6; paleSay(e, 'snore', 0.7); }   // asleep, close by: you hear it breathing
+    if (c.wakeIn > 0 && (c.wakeIn -= dt) <= 0) paleWake(e, c.wx, c.wy);
+    if (d < 20) paleWake(e, S.p.x, S.p.y);
+    // your light on its skin: it stirs, and then it wakes
+    c.lightT = c.beam > 0.6 && d < 75 ? (c.lightT || 0) + dt : Math.max(0, (c.lightT || 0) - dt * 0.5);
+    if (c.lightT > 1.1 && !c.stir) { c.stir = 1; paleSay(e, 'rattle', 0.6); } else if (c.lightT < 0.3) c.stir = 0;
+    if (c.lightT > 2.4) paleWake(e, S.p.x, S.p.y);
+  },
+  rouse(e, c, d, dt) {   // up off the floor, head jerking round toward the noise
+    c.crawl = 0.5; paleFaceTo(c, e, c.lx, c.ly);
+    if (c.t > 0.3 && !c.o.cl) { c.o.cl = 1; paleSay(e, 'chitter'); }
+    if (c.t > 1.1) paleGo(e, 'listen', { T: 0.4 });
+  },
+  listen(e, c, d, dt) {   // frozen, the head cocked
+    c.crawl = 0.35; c.cock = 1; paleFaceTo(c, e, c.lx, c.ly);
+    if (c.t < dt * 1.5 && Math.random() < 0.6) paleSay(e, 'click');
+    if (c.t < c.o.T) return;
+    if (paleKnow(c) < 2.5) return paleGo(e, 'stalk');
+    if (c.prowler && paleKnow(c) > 6) return paleGo(e, 'prowl');
+    paleGo(e, ++c.sN > 3 ? 'home' : 'search');
+  },
+  prowl(e, c, d, dt) {   // the ones awake wander from chamber to chamber, clicking
+    c.crawl = 1;
+    if (!c.dest) {
+      const Sy = caveSys(PALE.si), L = c.lair || Sy.rooms[0], hop = [L, ...L.nb, ...L.nb.flatMap(r => r.nb)].filter(r => r.tag !== 'ent'), r = pick(hop) || L;
+      const a = Math.random() * 6.283, q = paleOpen(Sy.C.x + r.x + Math.cos(a) * r.r * 0.45, Sy.C.y + r.y + Math.sin(a) * r.r * 0.45, Sy.C.x + r.x, Sy.C.y + r.y);
+      c.dest = paleLitAt(q.x, q.y, 30) ? { x: Sy.C.x + L.x, y: Sy.C.y + L.y } : q;
+    }
+    const w = paleNav(e, c.dest.x, c.dest.y); clanMove(e, w.x, w.y, PL.prowl, dt); paleClicks(e, c, dt, false);
+    if (Math.hypot(c.dest.x - e.x, c.dest.y - e.y) < 24 || c.t > 30) paleGo(e, 'listen', { T: 1.5 + Math.random() * 2.5 });
+  },
+  search(e, c, d, dt) {   // to where it last heard you, slowly, clicking
+    c.crawl = 1;
+    const q = c.dest || (c.dest = paleOpen(c.lx, c.ly, e.x, e.y)), w = paleNav(e, q.x, q.y);
+    clanMove(e, w.x, w.y, PL.search, dt); paleClicks(e, c, dt, false);
+    if (Math.hypot(q.x - e.x, q.y - e.y) < 26 || c.t > 14) paleGo(e, 'listen', { T: 1.2 + Math.random() * 1.6 });
+  },
+  home(e, c, d, dt) {   // back to the lair, and to sleep
+    c.crawl = 1;
+    const w = paleNav(e, c.home.x, c.home.y); clanMove(e, w.x, w.y, PL.prowl, dt);
+    if (Math.hypot(c.home.x - e.x, c.home.y - e.y) < 22 || c.t > 40) { c.sN = 0; if (c.prowler) paleGo(e, 'prowl'); else { paleGo(e, 'sleep'); c.face = Math.random() * 6.283; } }
+  },
+  stalk(e, c, d, dt) {   // it knows about where you are: round behind you, in the dark, closer and closer
+    c.crawl = 1; const p = S.p, lost = paleKnow(c);
+    if (lost > 7) return paleGo(e, 'search');
+    if (c.burn > (c.old ? 1.2 : 2.3) && d < 140 && !PALE.pLit && !PALE.tok) { c.burn = 0; return paleGo(e, 'rush', { mad: 1 }); }   // held in the light too long: it goes mad
+    c.rr = Math.max(c.old ? 52 : 68, c.rr - dt * (c.old ? 30 : 21));
+    const lit = PALE.pLit, minR = lit ? Math.max(c.rr, lit.r - Math.hypot(p.x - lit.x, p.y - lit.y) + 50) : c.rr;
+    const ba = S.aimW + Math.PI + c.side * 0.65, tx = c.lx + Math.cos(ba) * minR, ty = c.ly + Math.sin(ba) * minR;
+    const q = paleOpen(tx, ty, c.lx + (e.x - c.lx) * minR / Math.max(1, Math.hypot(e.x - c.lx, e.y - c.ly)), c.ly + (e.y - c.ly) * minR / Math.max(1, Math.hypot(e.x - c.lx, e.y - c.ly)));
+    const w = paleNav(e, q.x, q.y), far = Math.hypot(q.x - e.x, q.y - e.y);
+    clanMove(e, w.x, w.y, far < 30 ? PL.crawl * 0.4 : PL.crawl * (c.old ? 0.85 : 1) * (d > 320 ? 1.35 : 1), dt);
+    if (far < 30 || d < 130) paleFaceTo(c, e, c.lx, c.ly);
+    paleClicks(e, c, dt, true);
+    // close, in the dark, and nobody else coming at you: now
+    if (d < (c.old ? 120 : 105) && c.beam < 0.08 && lost < 1.6 && !lit) c.closeT += dt; else c.closeT = Math.max(0, c.closeT - dt);
+    if (c.closeT > (c.old ? 0.4 : 0.7) && !PALE.tok && PALE.gap <= 0) paleGo(e, 'rush');
+  },
+  rush(e, c, d, dt) {   // at you, shrieking, and rake at you
+    c.crawl = 0; const p = S.p;
+    if (c.t > 3.2 || (PALE.pLit && !c.o.mad)) return paleGo(e, 'back');
+    const sw = foeMelee(e, d, dt, c.old ? PALE_OLD_MELEE : PALE_MELEE);
+    if (sw || e.sw) { c.swung = 1; paleFaceTo(c, e, p.x, p.y); return; }
+    if (c.swung) return paleGo(e, 'back');   // hit or missed: off into the dark
+    if (c.beam > (c.old ? 0.85 : 0.5) && d > 46 && !c.o.mad && Math.random() < dt * (c.old ? 0.6 : 3.2)) return paleGo(e, 'shy');
+    const w = paleNav(e, p.x, p.y); clanMove(e, w.x, w.y, PL.rush * (c.old ? 1.08 : 1), dt);
+  },
+  back(e, c, d, dt) {   // away into the dark again
+    c.crawl = 0.7;
+    const q = c.dest || (c.dest = paleAway(e, 180 + Math.random() * 70)), w = paleNav(e, q.x, q.y);
+    clanMove(e, w.x, w.y, PL.back, dt);
+    if (Math.hypot(q.x - e.x, q.y - e.y) < 22 || c.t > 2.6) { c.side = -c.side; c.rr = 190 + Math.random() * 40; paleGo(e, 'stalk'); }
+  },
+  shy(e, c, d, dt) {   // the light: an arm over its face, a hiss, and out of the beam sideways
+    c.crawl = 0.55; const p = S.p, rx = e.x - p.x, ry = e.y - p.y, L = Math.hypot(rx, ry) || 1, ax = Math.cos(S.aimW), ay = Math.sin(S.aimW);
+    const side = c.o.side || (c.o.side = (rx * -ay + ry * ax) >= 0 ? 1 : -1);
+    let q = c.dest;
+    if (!q) {   // sideways, as far as it takes to be out of the beam, and a little back
+      const half = Math.acos(LU.tCone.value.x) * 1.3 + 0.15, along = Math.max(30, rx * ax + ry * ay), lat = Math.abs(rx * -ay + ry * ax), need = Math.max(0, Math.tan(half) * along - lat) + 34;
+      const at = s => ({ x: e.x - ay * s * need + rx / L * 22, y: e.y + ax * s * need + ry / L * 22 }), ok = q => caveSdf(q.x, q.y) < -14 && caveLos(e.x, e.y, q.x, q.y, 6);
+      q = at(side); if (!ok(q)) { const q2 = at(-side); if (ok(q2)) { q = q2; c.o.side = -side; } else q = paleAway(e, 120); }
+      c.dest = q; c.o.T = 0.3 + Math.hypot(q.x - e.x, q.y - e.y) / PL.dart + 0.4;
+    }
+    if (c.t < 0.28) clanMove(e, e.x + rx / L * 12, e.y + ry / L * 12, 40, dt);   // a start back from it
+    else clanMove(e, q.x, q.y, PL.dart, dt);
+    c.faceW = Math.atan2(-ry, -rx) + c.o.side * 1.0;
+    c.shySide = c.o.side;
+    if ((c.beam < 0.08 && c.t > 0.45) || c.t > c.o.T) { c.side = c.o.side; c.shyCd = 0.9 + Math.random() * 0.9; c.rr = Math.max(c.rr, 140); paleGo(e, 'stalk'); }
+  },
+  flee(e, c, d, dt) {   // badly hurt: back to the lair to lick its wounds
+    c.crawl = 0.2;
+    const q = c.dest || (c.dest = Math.hypot(c.home.x - S.p.x, c.home.y - S.p.y) < 260 ? paleAway(e, 340) : c.home), w = paleNav(e, q.x, q.y); clanMove(e, w.x, w.y, PL.flee, dt);
+    if (Math.hypot(q.x - e.x, q.y - e.y) < 30 || c.t > 12) { c.heardT = -99; paleGo(e, 'listen', { T: 8 + Math.random() * 6 }); }
+  },
+};
+function paleAI(e, d, dt) {
+  const c = e.cl, p = S.p;
+  c.t += dt; c.d = d; c.shyCd -= dt;
+  c.flinch = Math.max(0, (c.flinch || 0) - dt * 3); c.cock = 0;
+  if (e.hp < c.hp0 - 0.01) paleHurt(e, c);
+  if ((c.lt -= dt) <= 0) { c.lt = 0.15; c.los = d < 900 && caveLos(e.x, e.y, p.x, p.y, 3); c.beam = c.los ? paleBeamK(e) : 0; }
+  if ((c.ht -= dt) <= 0) { c.ht = 0.2; const n = paleHear(e, c); if (n) paleHeard(e, c, n); }
+  if (c.st !== 'sleep' && c.st !== 'rouse' && d < 50) { c.lx = p.x; c.ly = p.y; c.heardT = S.t; }   // right by you: it can hear you breathe
+  c.burn = c.beam > 0.35 && d < 160 ? c.burn + dt : Math.max(0, c.burn - dt * 0.6);
+  if (c.beam > (c.old ? 0.75 : 0.32) && c.shyCd <= 0 && !['rush', 'shy', 'flee', 'sleep', 'rouse'].includes(c.st) && !(c.st === 'stalk' && c.burn > (c.old ? 1.2 : 2.3) && !PALE.tok && d < 140)) { c.lx = p.x; c.ly = p.y; c.heardT = S.t; paleGo(e, 'shy'); }
+  (PALE_ST[c.st] || PALE_ST.prowl)(e, c, d, dt);
+  if (e.dead) return;
+  paleHopStep(e, dt);
+  // never into the light
+  const L = c.st !== 'rush' || !c.o.mad ? paleLitAt(e.x, e.y, 18) : null;
+  if (L) { const dx = e.x - L.x, dy = e.y - L.y, dd = Math.hypot(dx, dy) || 1, r = L.r + 18; if (dd < r) { e.x = L.x + dx / dd * r; e.y = L.y + dy / dd * r; } }
+  // bodies don't pass through each other
+  if (d < 24 && c.st !== 'sleep') { const dx = p.x - e.x, dy = p.y - e.y, l = Math.hypot(dx, dy) || 1; p.x = e.x + dx / l * 24; p.y = e.y + dy / l * 24; }
+  if (c.st === 'sleep' && d < 20) { const dx = p.x - e.x, dy = p.y - e.y, l = Math.hypot(dx, dy) || 1; p.x = e.x + dx / l * 20; p.y = e.y + dy / l * 20; }
+  if (!c.mvF) c.v = 0; c.mvF = 0;
+  if (c.v > 25 && c.st !== 'shy') c.faceW = c.dir;
+  c.face += angDiff(c.faceW ?? c.face, c.face) * Math.min(1, dt * (c.v > 100 ? 12 : c.v < 5 ? 8 : 6));
+  e.face = Math.cos(c.face) >= 0 ? 1 : -1;
+}
+{ const ai = FOE_AI.cannibal; FOE_AI.cannibal = (e, sp, d, dt) => e.cl && e.cl.cave ? paleAI(e, d, dt) : ai(e, sp, d, dt); }
+
+// ---------------- every step, down here: what made a noise, whose turn it is ----------------
+function paleStep(dt) {
+  const D = S.day, rg = S.rg, p = S.p, si = caveSysAt(p.x);
+  if (si < 0) return;
+  if (PALE.si !== si) paleEnter(si);   // a run saved down here
+  PALE.gap -= dt; if (PALE.tok && (PALE.tok.dead || PALE.tok.cl.st !== 'rush')) PALE.tok = null;
+  PALE.pLit = paleLitAt(p.x, p.y, 0);
+  // you, moving
+  const v = Math.hypot(p.vx, p.vy), cur = v < 8 ? PALE_EAR.still : D.crouch ? PALE_EAR.sneak[0] + PALE_EAR.sneak[1] * v : v > RUN * 1.1 ? PALE_EAR.sprint : PALE_EAR.walk[0] + PALE_EAR.walk[1] * v;
+  PALE.pn = Math.max(cur, PALE.pn - 500 * dt);
+  // your blows; the pick on the ore; your blood
+  const A = p.atk;
+  if (A && A !== PALE.atk) { PALE.atk = A; paleNoise(p.x, p.y, D.crouch ? PALE_EAR.swing * 0.6 : PALE_EAR.swing); }
+  if (A && A.hit && !A._pn && A.hit.has && A.hit.has('world')) { A._pn = 1; paleNoise(p.x, p.y, PALE_EAR.ore); }
+  if (rg.hp < PALE.hp) paleNoise(p.x, p.y, PALE_EAR.hurt); PALE.hp = rg.hp;
+  // the bats going up; anything that goes off
+  const bf = CVD.bats.some(b => b.st === 'fly');
+  if (bf && !PALE.bats && CVD.bats.length) paleNoise(CVD.bats[0].x, CVD.bats[0].y, PALE_EAR.bats); PALE.bats = bf;
+  for (const b of rg.blasts) if (!b._pn) { b._pn = 1; paleNoise(b.x, b.y, PALE_EAR.blast); }
+  PALE.ev = PALE.ev.filter(n => S.t - n.t < 0.5);
+  // they keep a little apart
+  const L = paleList();
+  for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+    const a = L[i], b = L[j], dx = b.x - a.x, dy = b.y - a.y, dd = Math.hypot(dx, dy); if (dd > 22 || dd < 0.01) continue;
+    if (a.cl.st === 'sleep' && b.cl.st === 'sleep') continue;
+    const k = (22 - dd) / dd * 0.5; a.x -= dx * k; a.y -= dy * k; b.x += dx * k; b.y += dy * k;
+  }
+  // far off in the dark, now and then, one of them
+  if ((PALE.amb -= dt) <= 0) {
+    PALE.amb = 12 + Math.random() * 20;
+    const far = L.filter(e => Math.hypot(e.x - p.x, e.y - p.y) > 380);
+    if (far.length) { const e = pick(far); paleSnd(e.cl.st === 'sleep' ? 'rattle' : Math.random() < 0.6 ? 'click' : 'chitter', e.x, e.y, 0.75, e.cl.vp); }
+  }
+}
+{ const cl = caveLeave; caveLeave = function (m) { cl(m); PALE.si = -1; PALE.tok = null; PALE.ev.length = 0; }; }
+// killed down here: you come round on your bed, your things left where you fell in the dark, and they're all back in their holes
+{ const dw = dayWake; dayWake = function (...a) {
+    const si = caveSysAt(S.p.x), r = dw.apply(this, a);
+    S.day.bleed = 0;
+    if (si >= 0) { PALE.si = -1; PALE.tok = null; PALE.ev.length = 0; exNote(`your things are down in ${caveSys(si).sp.n}`, true); }
+    return r;
+  }; }
+// a dead one: no tooth, no tally of the clan; bone and hide, and the others shrieking in the dark
+function paleDied(e) {
+  const C = clan(), D = S.day, c = e.cl, si = caveSysAt(e.x);
+  C.dead.push({ e, t: 0, rig: c.rig, face: c.face || 0, z: 0, x: e.x, y: e.y }); if (c.rig) c.rig.keep = true;
+  paleSnd('die', e.x, e.y, 1, c.vp);
+  if (PALE.tok === e) PALE.tok = null;
+  const got = [], drop = (id, n) => { if (n <= 0) return; dayDrop(e.x + (Math.random() - 0.5) * 16, e.y + (Math.random() - 0.5) * 16, id, n); got.push(n > 1 ? `${DIT[id].n.toLowerCase()} ×${n}` : DIT[id].n.toLowerCase()); };
+  drop('bone', c.old ? 6 : 2 + (Math.random() < 0.5 ? 1 : 0)); drop('hide', c.old ? 3 : 1);
+  if (c.old) { drop('iron', 3); const t = pick(['sword2', 'mace', 'spear3', 'bow3']); dayDrop(e.x, e.y, t, 1, DIT[t].dur ? Math.round(DIT[t].dur * 0.7) : undefined); got.push(DIT[t].n.toLowerCase()); }
+  else if (Math.random() < 0.35) drop('flint', 1);
+  if (D.cave && si >= 0) {
+    D.cave.dead = D.cave.dead || {}; if (c.old) D.cave.oldN = D.n; else (D.cave.dead[si] = D.cave.dead[si] || []).push(D.n);
+    D.cave.kills = (D.cave.kills || 0) + 1;
+  }
+  const left = paleList().filter(o => o !== e).length;
+  exNote(`${c.old ? 'the old one is dead' : 'a pale one dead'} · ${left ? `${left} more down here` : 'nothing else moving down here'} · it dropped ${got.join(', ')}`, true);
+  dayJLog(c.old ? 'killed the old one at the bottom of the deep' : `killed one of the pale ones in the caves (${D.cave ? D.cave.kills : 1})`);
+  // the others: the near ones come for you, shrieking; when the old one goes, they all run
+  for (const o of paleList()) {
+    if (o === e) continue; const q = o.cl, dd = Math.hypot(o.x - e.x, o.y - e.y); if (dd > 650) continue;
+    if (q.st === 'sleep') { q.wakeIn = 0.3 + Math.random() * 0.8; q.wx = e.x; q.wy = e.y; continue; }
+    q.lx = S.p.x; q.ly = S.p.y; q.heardT = S.t;
+    if (c.old) paleGo(o, 'flee'); else if (q.st !== 'rush' && Math.random() < 0.5) setTimeout(() => { if (!o.dead && o.cl.st !== 'rush') paleGo(o, 'rush', { mad: 1 }); }, 300 + Math.random() * 900);
+  }
+  if (actx) { const t = actx.currentTime; boomAt(t + 0.15, 110, 55, 0.4, 0.35, sfxGain); }
+  addShake(0.15); dayChanged();
+}
+{ const died = clanDied; clanDied = function (e) { if (e.cl && e.cl.cave) return paleDied(e); died(e); }; }
+// down here a killing blow is just that: nobody drags you off to their camp
+{ const cap = clanCapture; clanCapture = function () { return caveIn() ? false : cap(); }; }
+// you can't sleep with one of them awake nearby
+{ const ch = clanHostile; clanHostile = function (e) { return e.cl && e.cl.cave ? e.cl.st !== 'sleep' : ch(e); }; }
+// the name on the blow that got you
+{ const rh = rdHitBy; rdHitBy = function (e, kind) { rh(e, kind); if (e && e.cl && e.cl.cave && CFX.hurt) CFX.hurt.name = e.cl.old ? 'THE OLD ONE' : 'A PALE ONE'; }; }
+// the bow's twang carries too
+{ const dl = dayLoose; dayLoose = function (...a) { const r = dl.apply(this, a); if (caveIn()) paleNoise(S.p.x, S.p.y, PALE_EAR.bow); return r; }; }
+
+// ---------------- how they move: on all fours mostly, up on their legs to run at you ----------------
+const _pe = new V3();
+function palePose(R, e, c, now, dt, dead) {
+  const P = {}; for (const [n] of BONES) P[n] = [0, 0, 0];
+  const first = R.pal !== e; if (first) R.pal = e;
+  const mx = e.x - (R.px ?? e.x), my = e.y - (R.py ?? e.y), md = dead || c.hop ? 0 : Math.hypot(mx, my); R.px = e.x; R.py = e.y;
+  const vNow = dt > 0 && md < 40 ? md / dt : 0; R.vs = (R.vs ?? vNow) + (vNow - (R.vs ?? vNow)) * Math.min(1, dt * 7);
+  const cwK = c.crawlK = (c.crawlK ?? 1) + ((dead ? 0 : c.crawl ?? 1) - (c.crawlK ?? 1)) * Math.min(1, dt * 4);
+  const slK = c.sleepK = (c.sleepK ?? 0) + ((c.st === 'sleep' && !dead ? 1 : 0) - (c.sleepK ?? 0)) * Math.min(1, dt * (c.st === 'sleep' ? 1.2 : 2.8));
+  c.cockK += ((c.cock ? 1 : 0) - c.cockK) * Math.min(1, dt * 6);
+  c.shyK += ((c.st === 'shy' && !dead ? 1 : 0) - c.shyK) * Math.min(1, dt * 9);
+  if (md < 40) R.ph = (R.ph ?? c.seed * 6.283) + md * 1.348 / lerp(lerp(11, 15, clamp((R.vs - 45) / 50, 0, 1)), 8.5, cwK);
+  { const st = Math.floor((R.ph ?? 0) / Math.PI); if (R.stepI !== undefined && st !== R.stepI && R.vs > 8 && !dead) clanFoot(e, R.vs * (1 - 0.5 * cwK), 0.3 + 0.6 * cwK); R.stepI = st; }
+  const t = now + c.seed * 37, v = R.vs, ph = R.ph ?? 0, wk = smoothK(clamp((v - 3) / 24, 0, 1)), sw = Math.sin(ph), cw = Math.cos(ph);
+  let rootY = -2.6, stiff = 12, lunge = 0, roll = 0;
+  // up on its legs: stooped, the knees bent, long arms hanging forward, the head thrust out
+  P.spine[0] = 0.5; P.chest[0] = 0.3; P.neck[0] = -0.3; P.head = [-0.35 + 0.04 * Math.sin(t * 0.8), 0.2 * Math.sin(t * 0.29), 0];
+  P.legL[0] = P.legR[0] = -0.45; P.shinL[0] = P.shinR[0] = 0.85; P.footL[0] = P.footR[0] = -0.4;
+  P.armL = [-0.42 + 0.05 * Math.sin(t * 1.1), 0, -0.1]; P.armR = [-0.42 - 0.05 * Math.sin(t * 1.1), 0, 0.1]; P.foreL[0] = P.foreR[0] = -0.45; P.handL[0] = P.handR[0] = -0.3;
+  if (wk > 0) {   // running at you: bent low, the arms reaching
+    const I = {}; for (const [n] of BONES) I[n] = P[n].slice(); const rY = rootY;
+    const gk = Math.min(1, v / RUN) + 0.6 * clamp((v - 130) / 50, 0, 1), k = 0.35 + 0.65 * gk;
+    P.legL = [-sw * 0.95 * k - 0.25, 0, 0]; P.legR = [sw * 0.95 * k - 0.25, 0, 0];
+    P.shinL[0] = 0.35 + 1.45 * k * Math.max(0, cw) ** 1.5 + 0.2 * k; P.shinR[0] = 0.35 + 1.45 * k * Math.max(0, -cw) ** 1.5 + 0.2 * k;
+    P.footL[0] = -P.legL[0] * 0.5 - P.shinL[0] * 0.55 + 0.15; P.footR[0] = -P.legR[0] * 0.5 - P.shinR[0] * 0.55 + 0.15;
+    P.armL = [-0.75 + sw * 0.55 * k, 0.1 * sw * k, -0.2]; P.armR = [-0.75 - sw * 0.55 * k, 0.1 * sw * k, 0.2];
+    P.foreL[0] = -0.35 - 0.3 * k * Math.max(0, -sw); P.foreR[0] = -0.35 - 0.3 * k * Math.max(0, sw);
+    P.hips = [0, sw * 0.25 * k, -cw * 0.1 * k]; P.spine = [0.75 + 0.25 * gk, 0, 0]; P.chest = [0.3, -sw * 0.3 * k, cw * 0.06 * k];
+    P.neck[0] = -0.45; P.head = [-0.4, sw * 0.1 * k, 0];
+    rootY = Math.abs(cw) * 1.8 * k - 3.2 * k - 1.5;
+    if (wk < 1) { for (const [n] of BONES) P[n] = cmix(I[n], P[n], wk); rootY = lerp(rY, rootY, wk); }
+  }
+  if (cwK > 0.01) {   // on all fours: low to the ground, a hand and the other foot together, the head up and turning
+    const Q = {}; for (const [n] of BONES) Q[n] = [0, 0, 0];
+    const k = smoothK(clamp(v / 30, 0, 1)), hs = 0.2 * Math.sin(t * 0.37);
+    Q.hips = [0, -0.12 * sw * k, 0]; Q.spine = [0.8, 0.12 * sw * k, 0]; Q.chest = [0.52, 0.1 * sw * k, -0.06 * cw * k];
+    Q.neck = [-0.65, hs * 0.5, 0]; Q.head = [-0.6 + 0.05 * Math.sin(t * 0.9), hs, 0];
+    Q.legL = [-1.45 + 0.42 * sw * k, 0, -0.24]; Q.legR = [-1.45 - 0.42 * sw * k, 0, 0.24];
+    Q.shinL = [2.15 + 0.35 * Math.max(0, -cw) * k, 0, 0]; Q.shinR = [2.15 + 0.35 * Math.max(0, cw) * k, 0, 0]; Q.footL = [-0.55, 0, 0]; Q.footR = [-0.55, 0, 0];
+    Q.armL = [-1.8 - 0.42 * sw * k, 0, -0.14]; Q.armR = [-1.8 + 0.42 * sw * k, 0, 0.14];
+    Q.foreL = [-0.25 - 0.45 * Math.max(0, cw) * k, 0, 0]; Q.foreR = [-0.25 - 0.45 * Math.max(0, -cw) * k, 0, 0]; Q.handL = [-0.6, 0, 0]; Q.handR = [-0.6, 0, 0];
+    const qY = -10.2 + 0.7 * Math.abs(cw) * k;
+    for (const [n] of BONES) P[n] = cmix(P[n], Q[n], cwK); rootY = lerp(rootY, qY, cwK);
+  }
+  // listening: dead still, the head cocked right over
+  if (c.cockK > 0.01) { const k = c.cockK, s = c.seed > 0.5 ? 1 : -1; P.head[2] += 0.5 * s * k; P.head[1] *= 1 - k; P.neck[0] -= 0.15 * k; }
+  // clicking: the jaw going
+  if (S.t - (c.clickT ?? -9) < 0.45 && !dead) { P.head[0] += 0.05 * Math.sin(t * 85); P.neck[0] -= 0.08; }
+  // the shriek: the head thrust out, the arms flung wide
+  if (S.t - (c.shriekT ?? -9) < 0.8 && !dead) { const u = (S.t - c.shriekT) / 0.8, k = Math.sin(Math.PI * u); P.neck[0] -= 0.4 * k; P.head[0] -= 0.25 * k; P.armL = cmix(P.armL, [-1.0, 0, -1.1], k * 0.7); P.armR = cmix(P.armR, [-1.0, 0, 1.1], k * 0.7); P.chest[0] -= 0.2 * k; }
+  // in the light: cringing back, an arm up over its eyes, the face turned away
+  if (c.shyK > 0.01) {
+    const k = c.shyK, s = c.shySide || 1;
+    P.armL = cmix(P.armL, [-1.95, -0.45, -0.55], k); P.foreL[0] = lerp(P.foreL[0], -1.8, k);
+    P.armR = cmix(P.armR, [-1.1, 0, 0.55], k); P.foreR[0] = lerp(P.foreR[0], -1.3, k);
+    P.head[1] += 0.75 * s * k; P.head[0] += 0.3 * k; P.chest[1] -= 0.35 * s * k; P.spine[0] -= 0.2 * k; lunge -= 3 * k; stiff = 20;
+  }
+  // the rake: both arms up and back, then down across you with its whole weight
+  const sw2 = e.sw;
+  if (sw2 && !dead) {
+    stiff = 30; const u = clamp(sw2.t / sw2.T, 0, 1);
+    if (sw2.ph === 'wind') { P.armL = [-2.7, 0.3, -0.75]; P.armR = [-2.7, -0.3, 0.75]; P.foreL[0] = P.foreR[0] = -1.25; P.handL[0] = P.handR[0] = -0.7; P.spine[0] = 0.05; P.chest[0] = -0.15; P.neck[0] = -0.15; P.head[0] = -0.3; rootY = lerp(rootY, -1, 0.6); lunge = -2 * u; }
+    else if (sw2.ph === 'strike') { P.armL = [-0.45, 0, -0.25]; P.armR = [-0.45, 0, 0.25]; P.foreL[0] = P.foreR[0] = -0.15; P.spine[0] = 1.0; P.chest[0] = 0.4; P.head[0] = -0.7; P.legL[0] = -1.0; P.shinL[0] = 0.5; P.legR[0] = 0.5; P.shinR[0] = 0.4; lunge = 7; rootY = -3.5; }
+    else { const k = 1 - u; P.armL = cmix(P.armL, [-0.45, 0, -0.25], k); P.armR = cmix(P.armR, [-0.45, 0, 0.25], k); P.spine[0] += 0.4 * k; lunge = 4 * k; }
+  }
+  if (c.flinch > 0 && !dead) { P.spine[0] -= 0.5 * c.flinch; P.head[0] -= 0.4 * c.flinch; P.armL[2] -= 0.5 * c.flinch; P.armR[2] += 0.5 * c.flinch; lunge -= 4 * c.flinch; }
+  if (c.hop && !dead) { const u = 1 - c.hop.t / c.hop.T, k = Math.sin(Math.PI * u); rootY += 4 * k; stiff = 26; }
+  // asleep: curled up on its side on the bare rock, knees to its chest, breathing slow
+  if (slK > 0.01) {
+    const Q = {}; for (const [n] of BONES) Q[n] = [0, 0, 0];
+    Q.spine = [0.6 + 0.04 * Math.sin(t * 1.3), 0, 0]; Q.chest = [0.4, 0, 0]; Q.neck = [0.25, 0, 0]; Q.head = [0.35, 0, 0];
+    Q.legL = [-1.75, 0, 0]; Q.legR = [-1.6, 0, 0.05]; Q.shinL = [2.35, 0, 0]; Q.shinR = [2.2, 0, 0]; Q.footL = [-0.3, 0, 0]; Q.footR = [-0.3, 0, 0];
+    Q.armL = [-1.25, 0, 0.35]; Q.armR = [-1.35, 0, -0.3]; Q.foreL = [-1.7, 0, 0]; Q.foreR = [-1.6, 0, 0];
+    for (const [n] of BONES) P[n] = cmix(P[n], Q[n], slK); rootY = lerp(rootY, 4.2, slK); stiff = Math.min(stiff, 6);
+  }
+  // dead: pitched over onto its face
+  if (dead) { const k = ease.back(Math.min(1, dead.t / 0.6)); roll = 1.45 * k; rootY = -9.5 * (1 - k) + 2 * k - Math.max(0, dead.t - 37) * 3; P.armL = [-2.5, 0.2, -0.5]; P.armR = [-2.2, -0.2, 0.6]; P.foreL[0] = -0.4; P.foreR[0] = -0.3; P.legL[0] = 0.2; P.shinL[0] = 1.1; P.head[0] = -0.5; stiff = 10; }
+  const k = first ? 1 : 1 - Math.exp(-stiff * dt);   // (the first time it's drawn: straight into its pose, not unfolding from nothing)
+  for (const [n] of BONES) { const cu = R.cur[n], w = P[n]; for (let i = 0; i < 3; i++) cu[i] += (w[i] - cu[i]) * k; R.B[n].rotation.set(cu[0], cu[1], cu[2], 'YXZ'); }
+  R.root[0] += (lunge - R.root[0]) * (first ? 1 : Math.min(1, dt * 25)); R.root[1] += (rootY - R.root[1]) * (first ? 1 : Math.min(1, dt * 18));
+  const x = dead ? dead.x : e.x, y = dead ? dead.y : e.y, f = dead ? dead.face : c.face, rzW = dead ? 0 : 1.45 * slK * c.sideS;
+  R.rz = first ? rzW : R.rz + (rzW - R.rz) * Math.min(1, dt * 5);
+  const sr = Math.sin(R.rz) * 19, sc = c.old ? 1.32 : 1;   // lying down, its middle (not its feet) is where it is
+  R.mesh.position.set(x + Math.cos(f) * R.root[0] + sr * Math.sin(f), R.root[1] * sc, y + Math.sin(f) * R.root[0] - sr * Math.cos(f));
+  R.mesh.scale.set(sc * 0.9, sc * 1.03, sc * 0.9); R.edge.scale.copy(R.mesh.scale);
+  if (!dead) { R.rollK = (R.rollK || 0) + (roll - (R.rollK || 0)) * Math.min(1, dt * 6); roll = R.rollK; }
+  R.mesh.rotation.set(roll, faceYaw(f), R.rz, 'YXZ'); R.edge.position.copy(R.mesh.position); R.edge.rotation.copy(R.mesh.rotation);
+  R.mesh.visible = R.edge.visible = true;
+  { const ht = Math.max(e.kHitT ?? -9, e.spkHitT ?? -9); R.mat.uniforms.flash.value = S.t - ht < 0.15 ? 0.7 * (1 - (S.t - ht) / 0.15) : 0; }
+  R.mesh.updateMatrixWorld(true);
+  // the milky eyes catch your light
+  if (!dead && slK < 0.5) {
+    const g = Math.max(c.beam || 0, clamp(1 - (c.d || 999) / 90, 0, 1) * 0.5);
+    if (g > 0.04) for (const s of [-1, 1]) { _pe.set(s * 1.45, 3.6, 4.3).applyMatrix4(R.B.head.matrixWorld); stat(_pe.x, _pe.y, _pe.z, 1.5 * sc, 0.86, 0.92, 0.88, 0.85 * g, 0); }
+  }
+}
+{ const cp = clanPose; clanPose = function (R, e, c, now, dt, dead) { if (c && c.cave) return palePose(R, e, c, now, dt, dead); return cp(R, e, c, now, dt, dead); }; }
+
+;
+// ================= caves, part two: the mouths, getting in and out, and what changes down there (Joe) =================
+// The mouths: six of them round the island, set into hillsides well inland, clear of the raiders' camps, the clan's, the
+// ponds and the caches. Each cave's two ways out (when it has two) open far apart, so a cave can take you right across.
+// In the dark: no sky, no sun, no weather but a far-off hiss of rain at the mouth; your torch lights itself; the woods' sounds
+// fall away and every sound rings off the rock. The clan won't follow you down. Your tame animals do.
+
+const CAVE_MOUTHS = [   // which cave, which of its ways out, the bearing round the island, how far out from the middle
+  [0, 0, 0.4, 2300, 3700], [0, 1, 2.55, 2300, 3700],
+  [1, 0, 3.55, 2100, 3500], [1, 1, 5.55, 2100, 3500],
+  [2, 0, 1.45, 3400, 4500],
+  [3, 0, 4.55, 1500, 2300],
+];
+CV.mouths = [];
+function caveEnts() {
+  const D = S && S.day; if (!D || !CAVES) return [];
+  if (!D.cave) D.cave = { v: 1 };
+  if (!D.cave.ents) D.cave.ents = caveEntsMake();
+  if (!D.cave.found) D.cave.found = {};
+  CV.mouths = D.cave.ents;
+  return D.cave.ents;
+}
+function caveEntsMake() {
+  const R = rng(5551), out = [], D = S.day;
+  const bad = (x, y) => coastS(x, y) > -700 || Math.hypot(x, y) < 1300 || dayCampList().some(C => Math.hypot(C.x - x, C.y - y) < 700)
+    || clanCamps().some(k => Math.hypot(k.x - x, k.y - y) < 650) || lakesNear(x, y, 500).some(P => Math.hypot(P.x - x, P.y - y) < P.rmax + 220)
+    || D.builds.some(B => B.t === 'cache' && Math.hypot(B.x - x, B.y - y) < 350) || D.drops.some(f => f.keep && Math.hypot(f.x - x, f.y - y) < 250)
+    || out.some(m => Math.hypot(m.x - x, m.y - y) < 1000);
+  CAVE_MOUTHS.forEach(([si, en, a0, r0, r1], k) => {
+    let best = null, bs = -1, ok = 0;
+    for (let t = 0; t < 220 && ok < 14; t++) {
+      const a = a0 + (R() - 0.5) * 0.9, r = r0 + R() * (r1 - r0), x = Math.cos(a) * r, y = Math.sin(a) * r;
+      if (bad(x, y)) continue; ok++;
+      const gx = terrBase0(x + 20, y) - terrBase0(x - 20, y), gy = terrBase0(x, y + 20) - terrBase0(x, y - 20), sl = Math.hypot(gx, gy);   // a hillside if it can
+      const sc = sl + R() * 0.8;
+      if (sc > bs) { bs = sc; best = { x, y, a: sl > 0.6 ? Math.atan2(-gy, -gx) : Math.atan2(-y, -x) }; }   // facing down the slope
+    }
+    if (!best) { const a = a0, r = (r0 + r1) / 2; best = { x: Math.cos(a) * r, y: Math.sin(a) * r, a: a + Math.PI }; }
+    out.push({ x: Math.round(best.x), y: Math.round(best.y), a: best.a, si, en, key: 'm' + k });
+  });
+  return out;
+}
+const mouthC = m => ({ x: m.x - Math.cos(m.a) * 34, y: m.y - Math.sin(m.a) * 34 });   // the middle of the heap of rock
+const mouthsNear = (x, y, R) => CV.mouths.filter(m => Math.abs(m.x - x) < R + 130 && Math.abs(m.y - y) < R + 130);
+// the rocks of a mouth: a heap of boulders on the hillside, an arch of three great stones, the dark inside
+function mouthSolids(m) {
+  if (m.sol) return m.sol;
+  const ca = Math.cos(m.a), sa = Math.sin(m.a), W = (u, v) => [m.x + ca * u - sa * v, m.y + sa * u + ca * v];
+  m.sol = [[-96, 0, 62], [-70, -62, 34], [-70, 62, 34], [-130, -50, 42], [-130, 50, 42], [-150, 0, 46], [-8, -27, 11], [-8, 27, 11], [-40, -78, 18], [-40, 78, 18], [-30, -40, 14], [-30, 40, 14]]
+    .map(([u, v, r]) => { const [x, y] = W(u, v); return { kind: 'crag', x, y, r, s: 1 }; });
+  return m.sol;
+}
+function mouthKit(K, m, i) {
+  const R = rng(777 + i * 31), ca = Math.cos(m.a), sa = Math.sin(m.a), W = (u, v) => [m.x + ca * u - sa * v, m.y + sa * u + ca * v];
+  const cols = [hex('#78726a'), hex('#6c665e'), hex('#837c72'), hex('#625d56'), hex('#8a8378')], mossy = [hex('#626b4a'), hex('#5a6342'), hex('#6c7352')];
+  const rock = (u, v, h, sx, sy, sz, yaw = 0, col) => { const [x, y] = W(u, v); K.mt = 'stone'; K.add(P_ROCK((R() * 4) | 0), x, h, y, sx, sy, sz, col || cols[(R() * 5) | 0], -m.a + yaw + (R() - 0.5) * 0.3); K.mt = null; };
+  const moss = () => mossy[(R() * 3) | 0];
+  // the hill: a great heap of rock with the face of it just behind the arch, lower boulders either side, moss and lichen on top
+  rock(-96, 0, -16, 150, 96, 150); rock(-150, 0, 22, 104, 76, 116, 0, moss());
+  rock(-70, -62, -10, 80, 64, 70, 0.5); rock(-70, 62, -10, 80, 64, 70, -0.5);
+  rock(-130, -50, 0, 92, 80, 90, 0.9, moss()); rock(-130, 50, 0, 92, 80, 90, -0.9, moss());
+  rock(-40, -78, -4, 40, 34, 38, 0.3); rock(-40, 78, -4, 40, 34, 38, -0.3); rock(-30, -42, -4, 30, 40, 30, 0.2); rock(-30, 42, -4, 30, 40, 30, -0.2);
+  rock(-60, -26, 52, 46, 26, 40, 0.4, moss()); rock(-60, 26, 52, 46, 26, 40, -0.4, moss());
+  // the arch: two standing stones leaning in, and a long stone laid across them
+  rock(-8, -27, -3, 22, 56, 24, 0.12); rock(-8, 27, -3, 22, 56, 24, -0.12); rock(-10, 0, 41, 30, 22, 80, 0);
+  // the dark: the throat of the cave going back into the hill, black past the first few steps
+  { const [x, y] = W(-31, 0); K.mt = 'plain'; K.add(P_BALL(), x, 8, y, 21, 34, 24, [0.006, 0.005, 0.005], -m.a); K.mt = null; }
+  // stones fallen round the front
+  for (let k = 0; k < 7; k++) { const a = (R() - 0.5) * 2.6, d = 26 + R() * 30; rock(Math.cos(a) * d * 0.6 + 6, Math.sin(a) * d * 1.4, -1, 5 + R() * 7, 4 + R() * 4, 5 + R() * 7); }
+  if (m.si === 2) for (const v of [-38, 38]) {   // the deep: someone has set skulls on stakes either side, as a warning
+    const [x, y] = W(8, v); K.mt = 'wood'; K.rod(P_CYL(5), x, 0, y, x, 38, y, 1.2, hex('#4a3a2a')); K.mt = 'plain';
+    K.add(P_BALL(), x, 41, y, 6, 6.6, 7, hex('#d8d0bc'), -m.a + Math.PI / 2); K.add(P_BALL(), x + ca * 3, 41.5, y + sa * 3, 1.6, 1.6, 1.6, hex('#16120e')); K.mt = null;
+  }
+}
+const mouthK = new KitMesh();
+let mouthKey = '';
+function mouthSync() {
+  const key = CV.mouths.map(m => m.key + m.x).join();
+  if (key === mouthKey) return; mouthKey = key;
+  const K = new Kit(); CV.mouths.forEach((m, i) => mouthKit(K, m, i)); mouthK.set(K);
+}
+
+// ---------------- the island round the mouths: nothing grows in them, and the rocks are solid ----------------
+const mouthClear = (o, r) => CV.mouths.some(m => { const c = mouthC(m); return Math.hypot(o.x - c.x, o.y - c.y) < r; });
+{ const pn = propsNear; propsNear = function (x, y, R) {
+    if (CAVES && x > CAVE_X0) {
+      if (caveSysAt(x) !== CVD.si) return [];
+      const D = S && S.day; return CVD.props.filter(o => Math.abs(o.x - x) < R + 20 && Math.abs(o.y - y) < R + 20 && !(D && D.felled.has(o.key)));
+    }
+    const r = pn(x, y, R), M = CV.mouths.length ? mouthsNear(x, y, R) : null;
+    if (!M || !M.length) return r;
+    const out = r.filter(o => !mouthClear(o, o.kind === 'tree' ? 175 : 130));
+    for (const m of M) for (const o of mouthSolids(m)) if (Math.abs(o.x - x) < R + o.r && Math.abs(o.y - y) < R + o.r) out.push(o);
+    return out;
+  }; }
+{ const dn = decorNear; decorNear = function (x, y, R) {
+    if (CAVES && x > CAVE_X0) return [];
+    const r = dn(x, y, R); return CV.mouths.length && mouthsNear(x, y, R).length ? r.filter(o => !mouthClear(o, 90)) : r;
+  }; }
+{ const nn = dayNodesNear; dayNodesNear = function (x, y, R) {
+    if (CAVES && x > CAVE_X0) return [];
+    const r = nn(x, y, R); return CV.mouths.length && mouthsNear(x, y, R).length ? r.filter(o => !mouthClear(o, 80)) : r;
+  }; }
+{ const ln = lakesNear; lakesNear = function (x, y, R) {
+    if (CAVES && x > CAVE_X0) { const si = caveSysAt(x); if (si !== CVD.si) return []; const L = caveSys(si).lakes || []; return L.filter(P => Math.abs(P.x - x) < R + P.rmax && Math.abs(P.y - y) < R + P.rmax); }
+    return ln(x, y, R);
+  }; }
+{ const pk = pondKit; pondKit = function (K, P) { if (!P.cave) return pk(K, P);   // a pool in the dark: no reeds or lilies, a rim of pale stones
+    const R = rng(P.seed * 1000 | 0);
+    for (let k = 0; k < 22; k++) { const a = k / 22 * 6.283 + R() * 0.2, d = pondReach(P, P.x + Math.cos(a), P.y + Math.sin(a)) + 2 + R() * 6, x = P.x + Math.cos(a) * d, y = P.y + Math.sin(a) * d; K.mt = 'stone'; K.add(P_ROCK(k % 4), x, Math.min(0, P.lvl - terrH(x, y)) + 0.6, y, 3 + R() * 5, 2 + R() * 2.5, 3 + R() * 4, hex(R() < 0.5 ? '#8a8476' : '#9a9282'), R() * 6); K.mt = null; }
+  }; }
+{ const ec = exChestsNear; exChestsNear = function (x, y, R) {
+    if (CAVES && x > CAVE_X0) return CVD.crates.filter(c => Math.abs(c.x - x) < R + 10 && Math.abs(c.y - y) < R + 10);
+    return ec(x, y, R);
+  }; }
+// the grass stops at the mouth's worn threshold
+{ const gm = grassMask; grassMask = function (px, py, lakes, gen) {
+    const k0 = grassKey; gm(px, py, lakes, gen); if (grassKey === k0) return;
+    if (CAVES && px > CAVE_X0) { grassMaskData.fill(0); grassMaskTex.needsUpdate = true; return; }   // nothing grows down here
+    if (!CV.mouths.length) return;
+    const M = CV.mouths.filter(m => Math.abs(m.x - px) < GM_S && Math.abs(m.y - py) < GM_S); if (!M.length) return;
+    const ox = grassU.mo.value.x, oy = grassU.mo.value.y, c = GM_S / GM_N;
+    for (const m of M) {
+      const cx = m.x - Math.cos(m.a) * 22, cy = m.y - Math.sin(m.a) * 22, r = 62;
+      const i0 = Math.max(0, Math.floor((cx - r - ox) / c)), i1 = Math.min(GM_N - 1, Math.ceil((cx + r - ox) / c)), j0 = Math.max(0, Math.floor((cy - r - oy) / c)), j1 = Math.min(GM_N - 1, Math.ceil((cy + r - oy) / c));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (Math.hypot(ox + (i + 0.5) * c - cx, oy + (j + 0.5) * c - cy) < r) grassMaskData[j * GM_N + i] = 0;
+    }
+    grassMaskTex.needsUpdate = true;
+  }; }
+
+// ---------------- going in and coming out: the daylight goes, and comes back ----------------
+const CT = { ph: 0, t: 0, go: null, cool: 0, wave: 1, rm: 0 };
+const caveFade = (() => { const d = document.createElement('div'); d.id = 'caveFade'; d.style.cssText = 'position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;'; const h = $('hud'); if (h && h.parentNode) h.parentNode.insertBefore(d, h); else document.body.appendChild(d); return d; })();
+function caveGo(to) { if (CT.ph) return; CT.ph = 1; CT.t = 0; CT.go = to; caveWhoosh(to.inCave); }
+function caveTrStep(rdt) {
+  if (!CT.ph) { if (caveFade.style.opacity !== '0') caveFade.style.opacity = '0'; return; }
+  CT.t += rdt;
+  if (CT.ph === 1) { caveFade.style.opacity = Math.min(1, CT.t / 0.5).toFixed(3); if (CT.t >= 0.5) { caveJump(CT.go); CT.ph = 2; CT.t = 0; } }
+  else { caveFade.style.opacity = Math.max(0, 1 - CT.t / 0.9).toFixed(3); if (CT.t >= 0.9) { CT.ph = 0; caveFade.style.opacity = '0'; } }
+}
+function caveJump(to) {
+  const p = S.p, D = S.day, rg = S.rg, ox = p.x, oy = p.y;
+  for (const b of D.beasts) if (!b.dead && !b.pen && (b.tame || b.lead > 0) && Math.hypot(b.x - ox, b.y - oy) < 450) {   // the animals that follow you come too
+    const a = to.a + Math.PI + (Math.random() - 0.5) * 1.2, d = 24 + Math.random() * 26; b.x = to.x + Math.cos(a) * d; b.y = to.y + Math.sin(a) * d; b._sx = b._px = undefined;
+  }
+  p.x = to.x; p.y = to.y; p.vx = p.vy = 0; S.cam.x = p.x; S.cam.y = p.y;
+  look.yaw = look.tYaw = yawOfAim(to.a); look.pitch = look.tPitch = -0.04; setAim();
+  if (isoP()) ISO.yaw = ISO.yawT = look.yaw;
+  worldDirty = true; grassKey = ''; pondKey = ''; TP.boom = 30;
+  CT.cool = 1.5;
+  if (to.inCave) caveEnter(to.si, to.m); else caveLeave(to.m);
+  try { daySave(); } catch (e) {}
+}
+function caveEnter(si, m) {
+  const D = S.day, rg = S.rg, Sy = caveSys(si);
+  caveBuild(si);
+  for (const e of rg.enemies) if (e.type === 'cannibal' && !e.dead && !(e.cl && e.cl.cave)) e.dead = e.gone = true;   // the clan won't follow you down
+  CT.rm = rg.ringMax; CT.wave = Math.min(13, 1 + Math.hypot(m ? m.x : 3000, m ? m.y : 0) / 800 + dayTough());
+  rg.ringMsg = { text: Sy.sp.n, sub: Sy.sp.ents === 2 ? 'it goes right through, somewhere' : 'it only goes down', t: 0 };
+  D.cave.seen = D.cave.seen || {}; const first = !D.cave.seen[si]; D.cave.seen[si] = (D.cave.seen[si] || 0) + 1;
+  if (m) D.cave.found[m.key] = 1;
+  if (first) { dayJLog(`went down into ${Sy.sp.n}`); caveStock(si); }
+  if (!D.cave.told) { D.cave.told = 1; setTimeout(() => { if (caveIn()) exNote('it is pitch dark down here · your torch is lit · walk into the light to get out', true); }, 2600); }
+  if (typeof paleEnter === 'function') paleEnter(si);
+}
+function caveLeave(m) {
+  const rg = S.rg;
+  for (const e of rg.enemies) if (e.cl && e.cl.cave && !e.dead) e.dead = e.gone = true;
+  rg.ringMax = Math.max(CT.rm || 0, exRing(Math.hypot(S.p.x, S.p.y)));
+  if (m) S.day.cave.found[m.key] = 1;
+}
+// the first time you're down each cave: bones and fungus and flint lying about
+function caveStock(si) {
+  const D = S.day; D.cave.stock = D.cave.stock || {}; if (D.cave.stock[si]) return; D.cave.stock[si] = 1;
+  const Sy = caveSys(si), R = rng(Sy.sp.seed + 99), C = Sy.C;
+  const drop = (x, y, it, n) => { const f = dayDrop(x, y, it, n); return f; };
+  for (const L of CVD.lights) if (L.f && !L.day && !L.ember && R() < 0.75) drop(L.x + (R() - 0.5) * 20, L.y + (R() - 0.5) * 20, 'mushroom', 1 + (R() < 0.4 ? 1 : 0));
+  for (const L of Sy.lairs) for (let k = 0; k < 3; k++) { const a = R() * 6.28, d = L.r * 0.5 * R(); drop(C.x + L.x + Math.cos(a) * d, C.y + L.y + Math.sin(a) * d, 'bone', 1 + (R() < 0.5 ? 1 : 0)); }
+  for (const r of Sy.rooms) if (R() < 0.45) { const a = R() * 6.28, d = r.r * 0.5 * R(); drop(C.x + r.x + Math.cos(a) * d, C.y + r.y + Math.sin(a) * d, R() < 0.5 ? 'flint' : 'stones', 1 + (R() < 0.5 ? 1 : 0)); }
+  for (const f of D.drops.slice(-60)) if (f.x > CAVE_X0) cavePush(f, CV.RW);
+}
+// what's in a crate: better the further down, the explorer's own things and their journal
+const CAVE_LOOT = [
+  [['rope', 2, 3], ['flint', 2, 4], ['bandage', 1, 2], ['torch', 1, 1], ['arrows', 5, 10], ['cooked', 1, 2]],
+  [['iron', 1, 3], ['arrowsI', 4, 8], ['jerky', 1, 3], ['bandage', 1, 2], ['torch', 1, 1], ['rope', 1, 2]],
+  [['iron', 3, 5], ['arrowsI', 6, 12], ['jerky', 2, 3], ['pbomb', 1, 2], ['flash', 1, 2]],
+];
+const CAVE_RARE = ['knife3', 'sword2', 'mace', 'bow3', 'helm', 'mail', 'waxe4', 'spear3'];
+const CAVE_NOTE = ['a journal, swollen with damp · the last pages:', '"day 31 · the draught comes up from below · there must be other ways out under the hills"',
+  '"day 34 · something pale in the dark past the pool · it does not like the lamp"', '"day 36 · the oil is gone · I can hear them clicking"', 'folded in the back: a rough map of the caves'];
+{ const dc = dayChest; dayChest = function (c) {
+    if (c.cave === undefined) return dc(c);
+    const rg = S.rg, D = S.day, R = Math.random; rg.looted.add(c.key);
+    (rg.chestFx = rg.chestFx || []).push({ x: c.x, y: c.y, t: 0, best: c.tier || 1 }); playChestOpen(c.tier || 1); addShake(0.1);
+    const n = ([it, a, b]) => dayDrop(c.x, c.y, it, a + Math.floor(R() * (b - a + 1)), DIT[it] && DIT[it].dur ? DIT[it].dur : undefined);
+    if (c.note) {   // the explorer's pack
+      for (const it of [['torch', 1, 1], ['rope', 2, 2], ['bandage', 2, 2], ['knife1', 1, 1]]) n(it);
+      CAVE_NOTE.forEach((t, i) => setTimeout(() => exNote(t, true), i * 2600));
+      for (const m of CV.mouths) D.cave.found[m.key] = 1;
+      D.cave.note = 1; dayJLog('found an explorer\'s journal in the long cave, with a map of the caves');
+      return;
+    }
+    const T = CAVE_LOOT[(c.tier || 1) - 1], k = 2 + Math.floor(R() * 2);
+    const pool = T.slice(); for (let i = 0; i < k && pool.length; i++) n(pool.splice(Math.floor(R() * pool.length), 1)[0]);
+    if ((c.tier || 1) >= 2 && R() < (c.tier === 3 ? 0.9 : 0.35)) { const t = CAVE_RARE[Math.floor(R() * CAVE_RARE.length)]; dayDrop(c.x, c.y, t, 1, DIT[t].dur ? Math.round(DIT[t].dur * (0.6 + R() * 0.3)) : undefined); }
+    if (rg.flask < FLASK_MAX && R() < 0.4) { rg.flask++; exNote('+1 flask', true); }
+  }; }
+
+// ---------------- every frame: in or out ----------------
+function caveView() {
+  const D = S && S.day; if (!D || !CAVES) return;
+  caveEnts(); mouthSync();
+  const inC = caveIn(), si = inC ? caveSysAt(S.p.x) : -1;
+  if (inC && caveBuilt !== si) caveBuild(si);   // a run saved down here
+  caveMesh.visible = caveK.visible = caveLootK.visible = inC; caveRoofK.visible = inC && !isoP();
+  for (const g of caveGlows) g.visible = inC;
+  groundMesh.visible = skyMesh.visible = !inC;
+  if (inC) rainMesh.visible = false;
+  if (!inC) return;
+  caveLootSync();
+  // the dark: almost nothing but what you bring, a little grey light near the way out by day
+  const lt = dayLight(), Sy = caveSys(si), p = S.p;
+  let spill = 0; for (const e of Sy.exits) spill = Math.max(spill, Math.pow(clamp(1 - Math.hypot(Sy.C.x + e.x - p.x, Sy.C.y + e.y - p.y) / 320, 0, 1), 2));
+  const dk = 0.15 + 0.85 * lt, iso = isoP() ? 0.045 : 0;   // from above, a little more, so you can make out the way the passages go
+  LU.amb.value.set(0.03 + iso + 0.2 * spill * dk, 0.028 + iso + 0.21 * spill * dk, 0.036 + iso * 1.1 + 0.24 * spill * dk);
+  LU.sunK.value = 0; LU.fogCol.value.set(0, 0, 0); LU.fogR.value.set(260, 720);
+  ENV.lt = 0; shMat.uniforms.k.value = 0; pondMat.uniforms.lt.value = 0;
+  vmLight.value.set(0.3 + 0.3 * spill, 0.28 + 0.3 * spill, 0.34 + 0.32 * spill);
+  caveGlowMat.uniforms.k.value = 0.35 + 0.65 * lt; caveGlowMat.uniforms.col.value.set(lerp(0.22, 0.95, lt), lerp(0.3, 0.97, lt), lerp(0.55, 1.0, lt));
+}
+{ const wl = weatherLight; weatherLight = function () { wl(); caveView(); }; }
+{ const lf = lifeFrame; lifeFrame = function (rdt) { lf(rdt); if (caveIn()) flyMesh.visible = beeMesh.visible = birdMesh.visible = leafMesh.visible = false; }; }
+{ const to = dayTorchOn; dayTorchOn = function () { if (caveIn()) { if (!S.torchOn) S.torchOn = true; return; } to(); }; }
+{ const rs = rainSound; rainSound = function (k) { return rs(caveIn() ? k * 0.1 : k); }; }
+{ const cl = clanLights; clanLights = function (add, fire) {
+    cl(add, fire);
+    if (!caveIn()) return;
+    const lt = dayLight(), now = LU.time.value;
+    for (const L of CVD.lights) {
+      if (L.day) { const k = 0.18 + 0.82 * lt; add(L.x, L.h, L.y, L.r, L.c[0] * k, L.c[1] * k, L.c[2] * k, 3); }
+      else if (!L.ember) { const f = 0.85 + 0.15 * Math.sin(now * 0.9 + L.f); add(L.x, L.h, L.y, L.r, L.c[0] * f, L.c[1] * f, L.c[2] * f, 1); }
+    }
+    // the torch in your hand: its flame lights the rock all round you, not just where you point it (more of it from above, so you can see yourself)
+    if (S.torchOn) { const p = S.p, f = 0.9 + 0.06 * Math.sin(now * 13.1) + 0.04 * Math.sin(now * 23.7); add(p.x, 27, p.y, isoP() ? 170 : 88, 0.4 * f, 0.29 * f, 0.17 * f, 1); }
+  }; }
+// the clan stay up top; the pale ones live down here (80-pale)
+{ const cs = clanStep; clanStep = function (dt) {
+    const rg = S.rg;
+    if (caveIn()) {
+      for (const e of rg.enemies) if (e.type === 'cannibal' && !e.dead && !(e.cl && e.cl.cave)) e.dead = e.gone = true;
+      if (typeof paleStep === 'function') paleStep(dt);
+      return;
+    }
+    for (const e of rg.enemies) if (e.cl && e.cl.cave && !e.dead) e.dead = e.gone = true;
+    cs(dt);
+  }; }
+// the woods' animals don't wander into the dark (yours follow you)
+{ const bs = beastStep; beastStep = function (dt) { bs(dt); const D = S.day; if (caveIn()) D.beasts = D.beasts.filter(b => b.x < CAVE_X0 || b.tame || b.lead > 0 || b.pen || b.cave); }; }
+// how deep "the deep woods" are, down here: as deep as the way you came in
+{ const ex = FP.exStep; FP.exStep = function (dt) {
+    const rg = S.rg, cv = caveIn();
+    if (cv) { rg.tallCd = 99; rg.ringMax = 3; }
+    ex(dt);
+    if (cv) rg.wave = CT.wave;
+  }; }
+// the walls: you, them and the animals stay off the rock; the ways in and out
+{ const ss = simStep; simStep = function (dt) {
+    if (CT.ph) { MV.x = MV.y = 0; }
+    ss(dt);
+    if (!S || !S.day || !CAVES) return;
+    CT.cool -= dt;
+    const p = S.p;
+    if (caveIn()) {
+      cavePush(p, CV.RW);
+      for (const e of S.rg.enemies) if (!e.dead && e.x > CAVE_X0) cavePush(e, 12);
+      for (const b of S.day.beasts) if (!b.dead && b.x > CAVE_X0) cavePush(b, 10);
+      if (CT.ph || CT.cool > 0) return;
+      const si = caveSysAt(p.x), Sy = caveSys(si);
+      for (const e of Sy.exits) {
+        const tx = Sy.C.x + e.x, ty = Sy.C.y + e.y;
+        if (Math.hypot(p.x - tx, p.y - ty) < 32) {
+          const m = CV.mouths.find(q => q.si === si && q.en === e.n) || CV.mouths.find(q => q.si === si);
+          if (m) caveGo({ x: m.x + Math.cos(m.a) * 46, y: m.y + Math.sin(m.a) * 46, a: m.a, inCave: false, m });
+          return;
+        }
+      }
+      return;
+    }
+    if (CT.ph || CT.cool > 0) return;
+    for (const m of CV.mouths) {
+      const dx = p.x - m.x, dy = p.y - m.y, d = Math.hypot(dx, dy);
+      if (d < 330 && !S.day.cave.found[m.key]) { S.day.cave.found[m.key] = 1; exNote(`a cave in the rocks · it goes down into the dark`, true); dayJLog('found a cave mouth in the hills'); }
+      if (d > 70) continue;
+      const u = dx * Math.cos(m.a) + dy * Math.sin(m.a), v = -dx * Math.sin(m.a) + dy * Math.cos(m.a);
+      if (u < 3 && u > -16 && Math.abs(v) < 13) {
+        const Sy = caveSys(m.si), e = Sy.exits[Math.min(m.en, Sy.exits.length - 1)];
+        if (!e) continue;
+        caveGo({ x: Sy.C.x + e.x - Math.cos(e.a) * 72, y: Sy.C.y + e.y - Math.sin(e.a) * 72, a: e.a + Math.PI, inCave: true, si: m.si, m });
+        return;
+      }
+    }
+  }; }
+// over your shoulder: the camera comes in short of the rock, and under the roof
+{ const tc = thirdCamera; thirdCamera = function (p, yaw, pitch, headY) {
+    tc(p, yaw, pitch, headY);
+    if (!caveIn()) return;
+    const c = cam.position, rx = Math.cos(yaw), rz = -Math.sin(yaw), sh = cam.aspect >= 1 ? 19 : 7;
+    let px = p.x + rx * sh, pz = p.y + rz * sh; const py = headY + 4;
+    if (caveSdf(px, pz) > -6) { px = p.x; pz = p.y; }
+    const ok = (x, y, z) => caveSdf(x, z) < -7 && y < terrH(x, z) + caveCeilAt(x, z) - 7;
+    if (ok(c.x, c.y, c.z)) return;
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 9; i++) { const t = (lo + hi) / 2; if (ok(lerp(px, c.x, t), lerp(py, c.y, t), lerp(pz, c.z, t))) lo = t; else hi = t; }
+    c.set(lerp(px, c.x, lo), lerp(py, c.y, lo), lerp(pz, c.z, lo)); TP.boom = Math.max(14, TP.boom * lo);
+  }; }
+// saving: the caves, what you've found, what you've taken
+{ const sv = daySave; daySave = function () {
+    const r = sv.apply(this, arguments);
+    try { const D = S && S.day; if (D && D.cave && !ARENA) { const k = dayKey(), raw = localStorage.getItem(k); if (raw) { const o = JSON.parse(raw); if (o && o.d) { o.d.cave = D.cave; localStorage.setItem(k, JSON.stringify(o)); } } } } catch (e) {}
+    return r;
+  }; }
+
+// ---------------- the bats: hung up in the roof until you come in, then all round your head ----------------
+const BATS = { cd: 0, sq: 0 };
+function batsStep(dt, now) {
+  if (!caveIn()) return;
+  const p = S.p, Bs = CVD.bats; if (!Bs.length) return;
+  const r0 = Bs[0].room, Sy = caveSys(CVD.si), rx = Sy.C.x + r0.x, ry = Sy.C.y + r0.y, inRoom = Math.hypot(p.x - rx, p.y - ry) < r0.r + 20;
+  BATS.cd -= dt;
+  const loud = Math.hypot(p.vx, p.vy) > RUN * 1.1 || (p.atk && p.atk.t < 0.1);
+  if (inRoom && BATS.cd <= 0 && (!S.day.crouch || loud) && Bs.every(b => b.st === 'hang')) {   // in they come and up they all go
+    BATS.cd = 50; for (const b of Bs) { b.st = 'fly'; b.t = 7 + Math.random() * 6; b.dive = Math.random() < 0.35 ? 1.2 + Math.random() * 1.5 : 0; b.vh = -40; }
+    batSnd(rx, ry, 1); BATS.sq = 0;
+  }
+  let any = false;
+  for (const b of Bs) {
+    if (b.st === 'hang') { b.x = b.hx; b.y = b.hy; b.h = b.hh; continue; }
+    any = true; b.t -= dt;
+    const fl = terrH(b.x, b.y), roof = caveCeilAt(b.x, b.y);
+    let tx, ty, th;
+    if (b.st === 'fly') {
+      if (b.dive > 0 && b.t > 4) { b.dive -= dt; tx = p.x + Math.cos(S.aimW) * 30; ty = p.y + Math.sin(S.aimW) * 30; th = EYE + 6; }   // straight past your face
+      else { const a = now * (0.9 + b.sd * 0.9) * (b.sd > 0.5 ? 1 : -1) + b.ph, rr = r0.r * (0.35 + 0.4 * b.sd); tx = rx + Math.cos(a) * rr; ty = ry + Math.sin(a) * rr; th = 55 + 50 * Math.sin(now * 0.7 + b.ph); }
+      if (b.t <= 0) b.st = 'home';
+    } else { tx = b.hx; ty = b.hy; th = b.hh; if (Math.hypot(b.x - b.hx, b.y - b.hy) < 6 && Math.abs(b.h - b.hh) < 5) { b.st = 'hang'; continue; } }
+    const dx = tx - b.x, dy = ty - b.y, dh = th - b.h, L = Math.hypot(dx, dy, dh) || 1, sp = b.st === 'home' ? 90 : 170;
+    b.vx += (dx / L * sp - b.vx) * Math.min(1, dt * 3); b.vy += (dy / L * sp - b.vy) * Math.min(1, dt * 3); b.vh += (dh / L * sp - b.vh) * Math.min(1, dt * 3);
+    b.vx += (Math.random() - 0.5) * 300 * dt; b.vy += (Math.random() - 0.5) * 300 * dt;   // the flutter: never a straight line
+    b.x += b.vx * dt; b.y += b.vy * dt; b.h = clamp(b.h + b.vh * dt, 14, Math.max(16, roof - 6)); void fl;
+    cavePush(b, 6);
+  }
+  if (any && (BATS.sq -= dt) <= 0) { BATS.sq = 0.12 + Math.random() * 0.35; const b = Bs[(Math.random() * Bs.length) | 0]; if (b.st !== 'hang') batSnd(b.x, b.y, 0.5); }
+}
+function batsDraw(now) {
+  if (!caveIn()) return;
+  const body = hex('#1e1814'), wing = hex('#2a221c');
+  for (const b of CVD.bats) {
+    if (b.st === 'hang') { blob(PT.ball, b.x, b.h - 3, b.y, 2.6, 6, 2.4, b.ph, body); continue; }
+    const yaw = Math.atan2(b.vx, b.vy), f = Math.sin(now * 26 + b.ph * 7) * 0.9, sx = Math.cos(yaw), sz = -Math.sin(yaw);
+    blob(PT.ball, b.x, b.h, b.y, 2.8, 2.4, 4.2, yaw, body);
+    for (const s of [-1, 1]) { const w = 5.2 * Math.cos(f); blob(PT.ball, b.x + sx * s * w, b.h + 4 * Math.sin(f), b.y + sz * s * w, 8, 0.5, 4.4, yaw, wing, 0, 0, s * f); }
+  }
+}
+// glowworms: tiny cold lights in the roof, each with its own slow pulse
+function wormsDraw(now) {
+  if (!caveIn() || !CVD.worms.length) return;
+  for (const w of CVD.worms) { const k = 0.55 + 0.45 * Math.sin(now * 0.8 + w.ph); stat(w.x, w.h, w.y, w.s, 0.35, 0.95, 0.85, 0.75 * k, 0); }
+}
+{ const df = drawFigures; drawFigures = function (now, dt) { df(now, dt); if (caveIn()) { batsStep(dt, now); batsDraw(now); wormsDraw(now); } caveTrStep(frameDtTP || 1 / 60); }; }
+
+// ---------------- the sound of it: the woods fall away, the rock rings, water drips, the bats ----------------
+const CA = { t: 0, drip: 0, rumble: 40 };
+function caveAudioInit() {
+  if (CA.ok || !actx || !sfxGain || !noiseBuf || !OUT) return; CA.ok = 1;
+  // the echo off the rock: a long rough tail, built once
+  const sr = actx.sampleRate, n = Math.floor(sr * 2.6), ir = actx.createBuffer(2, n, sr);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < n; i++) { const t = i / sr; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2.2) * Math.exp(-t * 1.1) * (t < 0.012 ? t / 0.012 : 1); } }
+  CA.conv = actx.createConvolver(); CA.conv.buffer = ir; CA.wet = actx.createGain(); CA.wet.gain.value = 0;
+  sfxGain.connect(CA.conv); CA.conv.connect(CA.wet); CA.wet.connect(OUT);
+  // a low hollow hum, the weight of the rock overhead
+  const src = actx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+  const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160; lp.Q.value = 2.5;
+  CA.hum = actx.createGain(); CA.hum.gain.value = 0; src.connect(lp); lp.connect(CA.hum); CA.hum.connect(sfxGain); src.start();
+  for (const f of [43, 64.5]) { const o = actx.createOscillator(); o.frequency.value = f; const g = actx.createGain(); g.gain.value = 0.18; o.connect(g); g.connect(CA.hum); o.start(); }
+  // the draught through a mouth: a breathy moan of wind in the rock
+  const s2 = actx.createBufferSource(); s2.buffer = noiseBuf; s2.loop = true; s2.playbackRate.value = 0.7;
+  CA.bp = actx.createBiquadFilter(); CA.bp.type = 'bandpass'; CA.bp.frequency.value = 420; CA.bp.Q.value = 1.6;
+  CA.wind = actx.createGain(); CA.wind.gain.value = 0; CA.pan = actx.createStereoPanner ? actx.createStereoPanner() : null;
+  s2.connect(CA.bp); CA.bp.connect(CA.wind); if (CA.pan) { CA.wind.connect(CA.pan); CA.pan.connect(sfxGain); } else CA.wind.connect(sfxGain); s2.start();
+}
+function caveAudio() {
+  if (!actx || !S || !S.day) return;
+  caveAudioInit(); if (!CA.ok) return;
+  const t = actx.currentTime, dt = clamp(t - (CA.t || t), 0, 0.2); CA.t = t;
+  const inC = caveIn(), on = state === 'play' ? 1 : 0, p = S.p;
+  CA.wet.gain.setTargetAtTime(inC ? 0.34 : 0, t, 0.4);
+  CA.hum.gain.setTargetAtTime(inC ? 0.09 * on : 0, t, 0.8);
+  if (inC && ambG) ambG.gain.setTargetAtTime(0, t, 0.4);
+  // the nearest mouth (or way out) moans when you're close to it
+  let wd = 1e9, wa = 0;
+  if (inC) { const Sy = caveSys(caveSysAt(p.x)); for (const e of Sy.exits) { const x = Sy.C.x + e.x, y = Sy.C.y + e.y, d = Math.hypot(x - p.x, y - p.y); if (d < wd) { wd = d; wa = Math.atan2(y - p.y, x - p.x); } } }
+  else for (const m of CV.mouths) { const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < wd) { wd = d; wa = Math.atan2(m.y - p.y, m.x - p.x); } }
+  const wk = Math.pow(clamp(1 - wd / (inC ? 420 : 300), 0, 1), 1.6);
+  CA.wind.gain.setTargetAtTime(0.16 * wk * on * (0.75 + 0.25 * Math.sin(t * 0.37) * Math.sin(t * 0.23)), t, 0.4);
+  CA.bp.frequency.setTargetAtTime(380 + 90 * Math.sin(t * 0.31), t, 0.5);
+  if (CA.pan) CA.pan.pan.setTargetAtTime(clamp(-Math.sin(S.aimW) * Math.cos(wa) + Math.cos(S.aimW) * Math.sin(wa), -1, 1) * 0.7, t, 0.2);
+  if (!inC || !on) return;
+  // water dripping somewhere in the dark, each drop ringing round the rock
+  if ((CA.drip -= dt) <= 0) {
+    CA.drip = 0.35 + Math.random() * 1.8;
+    const a = Math.random() * 6.283, d = 40 + Math.random() * 260, o = placeOut(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 0.32 + Math.random() * 0.25, 420);
+    if (o) { const f = 900 + Math.random() * 1700, g = actx.createGain(), os = actx.createOscillator(); os.type = 'sine'; os.frequency.setValueAtTime(f * 1.6, t); os.frequency.exponentialRampToValueAtTime(f, t + 0.05);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); os.connect(g); g.connect(o); os.start(t); os.stop(t + 0.14); }
+  }
+  // now and then the rock settles: a far-off grinding thud and a patter of grit
+  if ((CA.rumble -= dt) <= 0) { CA.rumble = 50 + Math.random() * 80; boomAt(t, 70, 38, 1.4, 0.32, sfxGain); for (let i = 0; i < 6; i++) noiseAt(t + 0.4 + i * 0.09 + Math.random() * 0.1, 5000, 2500, 0.05, 0.05, sfxGain); }
+}
+{ const af = audioFrame; audioFrame = function () { af(); caveAudio(); }; }
+function caveWhoosh(inward) {   // stepping through: a rush of air and the light (or the dark) closing round you
+  if (!actx || !noiseBuf) return;
+  const t = actx.currentTime;
+  noiseAt(t, inward ? 900 : 1600, inward ? 200 : 600, 0.9, 0.22, sfxGain); boomAt(t + 0.1, inward ? 90 : 120, 50, 0.7, inward ? 0.25 : 0.12, sfxGain);
+}
+function batSnd(x, y, k) {
+  if (!actx || !noiseBuf) return;
+  const o = placeOut(x, y, 0.5 * k, 500); if (!o) return;
+  const t = actx.currentTime, n = k > 0.8 ? 14 : 2;
+  for (let i = 0; i < n; i++) {   // high squeaks, and the leathery clatter of wings
+    const at = t + i * (0.03 + Math.random() * 0.05), os = actx.createOscillator(), g = actx.createGain(), f = 5200 + Math.random() * 3200;
+    os.type = 'triangle'; os.frequency.setValueAtTime(f, at); os.frequency.exponentialRampToValueAtTime(f * 0.7, at + 0.04);
+    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.18 * k, at + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.05);
+    os.connect(g); g.connect(o); os.start(at); os.stop(at + 0.06);
+  }
+  noiseAt(t, 1800, 700, k > 0.8 ? 1.2 : 0.25, 0.12 * k, o);
+}
+
+// ---------------- the way out: the marker that points home points along the passages to the nearest way out ----------------
+const CAVE_NAV = [];
+function caveWay(x, y) {   // the next place to head for on the shortest way out, and how far it is all told
+  const si = caveSysAt(x); if (si < 0) return null;
+  const Sy = caveSys(si), N = CAVE_NAV[si] || (CAVE_NAV[si] = paleGraph(Sy)); if (!N.length) return null;
+  const n = N.length, dist = new Float64Array(n).fill(1e18), prev = new Int32Array(n).fill(-1), done = new Uint8Array(n), a = paleNear(N, x, y);
+  dist[a] = Math.hypot(N[a].x - x, N[a].y - y);
+  for (;;) { let u = -1, bd = 1e18; for (let i = 0; i < n; i++) if (!done[i] && dist[i] < bd) { bd = dist[i]; u = i; } if (u < 0) break; done[u] = 1; for (const [v, w] of N[u].e) if (dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; } }
+  let best = null;
+  for (const e of Sy.exits) {
+    const tx = Sy.C.x + e.x, ty = Sy.C.y + e.y;
+    if (caveLos(x, y, tx, ty, 4)) { const d = Math.hypot(tx - x, ty - y); if (!best || d < best.d) best = { d, x: tx, y: ty }; continue; }
+    const rx = Sy.C.x + e.room.x, ry = Sy.C.y + e.room.y; let k = -1, kd = 1e9; N.forEach((q, i) => { const d = Math.hypot(q.x - rx, q.y - ry); if (d < kd) { kd = d; k = i; } });
+    if (k < 0 || dist[k] >= 1e17) continue;
+    const d = dist[k] + Math.hypot(tx - rx, ty - ry);
+    if (!best || d < best.d) { const path = []; for (let u = k; u >= 0; u = prev[u]) path.unshift(N[u]); path.push({ x: tx, y: ty }); best = { d, path }; }
+  }
+  if (!best) return null;
+  if (best.path) { let w = best.path[0]; for (let i = Math.min(best.path.length - 1, 5); i >= 0; i--) if (caveLos(x, y, best.path[i].x, best.path[i].y, 4)) { w = best.path[i]; break; } best.x = w.x; best.y = w.y; }
+  return best;
+}
+const CWAY = { t: 0, w: null };
+{ const hf = homeFrame; homeFrame = function () {
+    if (!caveIn()) { if (CWAY.w) { CWAY.w = null; homeM = -1; } return hf(); }
+    if (!(state === 'play' && S && S.rg && S.rg.phase !== 'dead' && !menusOpen())) { homeEl.hidden = true; return; }
+    const now = performance.now(); if (now - CWAY.t > 400 || !CWAY.w) { CWAY.t = now; CWAY.w = caveWay(S.p.x, S.p.y); }
+    const w = CWAY.w; if (!w) { homeEl.hidden = true; return; }
+    const m = Math.round(w.d / 20); if (m !== homeM) { homeM = m; homeTxt.textContent = `WAY OUT · ${m} m`; }
+    _hv.set(w.x, terrH(w.x, w.y) + 30, w.y).applyMatrix4(cam.matrixWorldInverse);
+    const fwd = -_hv.z, right = _hv.x, cx = FW / 2, cy = FH / 2; let x = null, y, th = null;
+    if (fwd > 3) { _hv.applyMatrix4(cam.projectionMatrix); x = (_hv.x + 1) / 2 * FW; y = (1 - _hv.y) / 2 * FH; if (!(x > 40 && x < FW - 40 && y > 50 && y < FH - 90)) x = null; }
+    if (x == null) { th = Math.atan2(-fwd, right); x = cx + Math.cos(th) * FW * 0.36 * 1.12; y = Math.min(FH - 100, cy + Math.sin(th) * FH * 0.29 * 1.12); }
+    homeEl.hidden = false; homeEl.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+    homeArrow.hidden = th === null; if (th !== null) homeArrow.style.transform = `rotate(${th.toFixed(3)}rad) translateX(26px)`;
+  }; }
+// the place name under the clock: the cave you're in
+{ const dh = drawHud; drawHud = function () {
+    dh(); const rg = S && S.rg; if (!rg || !S.day || !hudEl.day) return;
+    const cv = caveIn(), k = hudEl.day.dataset.k + (cv ? '|' + caveSysAt(S.p.x) : '');
+    if (hudEl.day.dataset.c === k) return; hudEl.day.dataset.c = k;
+    if (cv) { const el = hudEl.day.querySelector('.clk'); if (el) el.textContent = `${dayClock(S.day.t)} · ${caveSys(caveSysAt(S.p.x)).sp.n}`; }
   }; }
 
 ;

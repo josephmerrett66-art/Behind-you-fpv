@@ -109,6 +109,7 @@ LU.rainW = { value: 0 };   // how wet the woods are from the rain: darker ground
 LU.wph = { value: 0 }; LU.wsz = { value: 0.5 }; LU.wash = { value: 0 }; LU.wet = { value: 0 };   // the waves on the shore, timed to the surf's sound (15-sea)
 LU.occ = { value: new V4(0, 0, 0, 0) };   // from above: the line from the camera to you, which trees keep clear of (77-iso.js)
 LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) };   // level places: x, y, radius, height
+LU.cavePl = { value: Array.from({ length: 6 }, () => new V4(0, 0, 0, 0)) };   // the cave you're in: the hollows its pools lie in, x, y, radius, depth (17-caves)
 function terrBase(x, z) { return coastH(terrBase0(x, z), x, z); }
 function terrBase0(x, z) {
   return 24 * Math.sin(x * 0.0061 + 1.3) * Math.sin(z * 0.0053 + 0.4) + 11 * Math.sin(x * 0.013 + z * 0.0081) * Math.cos(z * 0.0117 - x * 0.004) + 3 * Math.sin(x * 0.031 + 2.0) * Math.sin(z * 0.027 + 1.0);
@@ -127,7 +128,18 @@ const ISLET = (() => { const a = 1.95, r = isleR(a) + 360; return { x: Math.cos(
 function coastS(x, z) { const s0 = Math.hypot(x, z) - isleR(Math.atan2(z, x)), s1 = Math.hypot(x - ISLET.x, z - ISLET.y) - ISLET.r * (1 + 0.12 * Math.sin(Math.atan2(z - ISLET.y, x - ISLET.x) * 3 + 1)); return Math.min(s0, s1); }
 function coastProf(s, x, z) { return SEA_Y + 7 + 2.2 * Math.sin(x * 0.021 + z * 0.013) * (1 - _sst(-160, -50, s)) - 6.5 * _sst(-110, 10, s) - 4 * _sst(0, 170, s) - 40 * _sst(130, 800, s); }
 function coastH(h, x, z) { if (!BEACH) return h; const s = coastS(x, z); return s < -360 ? h : lerp(h, coastProf(s, x, z), _sst(-360, -140, s)); }
+// ---------------- under the island: the caves (17-caves) ----------------
+// The caves' insides lie far out past the sea, east of everything, where nothing else is. Their floors roll gently, here and
+// worked out the same way as on the graphics card, so you, the pale ones and everything lying about stand on the same rock.
+const CAVES = BEACH, CAVE_X0 = 20000, CAVE_Y = 40;
+function caveBase(x, z) {
+  const lx = x - CAVE_X0;
+  let h = CAVE_Y + 22 * Math.sin(lx * 0.0021 + 0.7) * Math.cos(z * 0.0017 - 0.4) + 8 * Math.sin(lx * 0.0063 - z * 0.0049 + 1.9) + 2.5 * Math.sin(lx * 0.019 + 0.5) * Math.sin(z * 0.023 + 2.1);
+  for (const q of LU.cavePl.value) if (q.z > 0) { const d = Math.hypot(x - q.x, z - q.y); if (d < q.z) h -= q.w * _sst(q.z, q.z * 0.35, d); }
+  return h;
+}
 function terrH(x, z) {
+  if (CAVES && x > CAVE_X0) return caveBase(x, z);
   let h = terrBase(x, z);
   for (const f of LU.terrF.value) if (f.z > 0) h = lerp(h, f.w, _sst(f.z * 1.9, f.z, Math.hypot(x - f.x, z - f.y)));
   return h;
@@ -164,7 +176,12 @@ float coastGrass(vec2 p) {
 }
 #endif
 `;
-const TERR_GLSL = COAST_GLSL + `uniform vec4 terrF[${TERR_N}];
+const TERR_GLSL = COAST_GLSL + `uniform vec4 terrF[${TERR_N}]; uniform vec4 cavePl[6];
+${CAVES ? '#define CAVES 1' : ''}
+float caveBase(vec2 p) { float lx = p.x - ${CAVE_X0.toFixed(1)};
+  float h = ${CAVE_Y.toFixed(1)} + 22.0 * sin(lx * 0.0021 + 0.7) * cos(p.y * 0.0017 - 0.4) + 8.0 * sin(lx * 0.0063 - p.y * 0.0049 + 1.9) + 2.5 * sin(lx * 0.019 + 0.5) * sin(p.y * 0.023 + 2.1);
+  for (int i = 0; i < 6; i++) { vec4 q = cavePl[i]; if (q.z <= 0.0) continue; h -= q.w * cSst(q.z, q.z * 0.35, distance(p, q.xy)); }
+  return h; }
 float terrBase0(vec2 p);
 float terrBase(vec2 p) { return coastH(terrBase0(p), p); }
 float terrBase0(vec2 p) { return 24.0 * sin(p.x * 0.0061 + 1.3) * sin(p.y * 0.0053 + 0.4) + 11.0 * sin(p.x * 0.013 + p.y * 0.0081) * cos(p.y * 0.0117 - p.x * 0.004) + 3.0 * sin(p.x * 0.031 + 2.0) * sin(p.y * 0.027 + 1.0); }
@@ -173,7 +190,11 @@ float terrLevel(vec2 p, inout float h) {   // pulls h onto any level place here;
   for (int i = 0; i < ${TERR_N}; i++) { vec4 f = terrF[i]; if (f.z <= 0.0) continue; float k = smoothstep(f.z * 1.9, f.z, distance(p, f.xy)); h = mix(h, f.w, k); lv = max(lv, k); }
   return lv;
 }
-float terrH(vec2 p) { float h = terrBase(p); terrLevel(p, h); return h; }
+float terrH(vec2 p) {
+#ifdef CAVES
+  if (p.x > ${CAVE_X0.toFixed(1)}) return caveBase(p);
+#endif
+  float h = terrBase(p); terrLevel(p, h); return h; }
 // the ground's slope as a normal (from the swells themselves; flat where the land's been levelled)
 #ifdef BEACH
 vec3 terrN(vec2 p) { float hx = terrH(p + vec2(3.0, 0.0)) - terrH(p - vec2(3.0, 0.0)), hz = terrH(p + vec2(0.0, 3.0)) - terrH(p - vec2(0.0, 3.0)); return normalize(vec3(-hx / 6.0, 1.0, -hz / 6.0)); }

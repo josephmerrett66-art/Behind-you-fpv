@@ -19,6 +19,8 @@ function outlineSync() {
 }
 function outlineSet(on) { SET.ink = !!on; saveSet(); syncSet(); }
 { const f = syncSet; syncSet = function () { f.apply(this, arguments); outlineSync(); }; }
-// things made later (a new raider, the props as you walk) pick the setting up within a moment
-{ const f = inkRender; inkRender = function () { if (performance.now() - OUTLINE.t > 1500) outlineSync(); return f.apply(this, arguments); }; }
+// the props' shells are made the first time the woods are drawn: hide them before they're ever seen
+{ const f = propMat; propMat = function () { const had = !!PROP_MAT.still, r = f.apply(this, arguments); if (!had) outlineSync(); return r; }; }
+// anything else made later (a new hand when you change what you hold) picks the setting up within a moment
+{ const f = inkRender; inkRender = function () { if (performance.now() - OUTLINE.t > 700) outlineSync(); return f.apply(this, arguments); }; }
 outlineSync();

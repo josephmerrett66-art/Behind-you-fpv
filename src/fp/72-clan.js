@@ -694,7 +694,7 @@ const CL_SND = { clack: [1.1, 600], twig: [1.1, 520], rustle: [0.55, 420], click
 // Real recorded voices (assets/voices.json, CC0 clips from Freesound, listed in assets/VOICES.md) take over from the built voice
 // once they're decoded. Each one is pitched a little by its owner's voice (deep leaders, high skinny ones), never the same clip
 // twice running, and dulled with distance so a call from far off sounds far off.
-const CL_VB = {}, CL_VLAST = {}, CL_VG = { grunt: 1.6, hurt: 1.6, scream: 2.4, yell: 1.4, growl: 1.2, chatter: 0.95, die: 2.2, wail: 2.2 };   // about as loud as the built voice was
+const CL_VB = {}, CL_VLAST = {}, CL_VG = { grunt: 1.6, hurt: 1.6, scream: 1.9, yell: 1.4, growl: 1.2, chatter: 0.95, die: 2.2, wail: 1.9 };   // about as loud as the built voice was
 function clanRec(k, x, y, v, vp) {
   const B = (CL_VB[k] || []).filter(Boolean); if (B.length < 2) return false;
   let i = Math.floor(Math.random() * B.length); if (B[i] === CL_VLAST[k]) i = (i + 1) % B.length; CL_VLAST[k] = B[i];

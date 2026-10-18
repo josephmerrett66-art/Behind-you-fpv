@@ -175,7 +175,7 @@ function clanCampDraw() {
   const p = S.p;
   for (const k of clanCamps()) {
     if (Math.hypot(k.x - p.x, k.y - p.y) > 1000) continue;
-    const g = (x, y) => terrH(x, y), at = (r, a) => [k.x + Math.cos(k.a + a) * r, k.y + Math.sin(k.a + a) * r];
+    const g = () => 0, at = (r, a) => [k.x + Math.cos(k.a + a) * r, k.y + Math.sin(k.a + a) * r];
     // the fire pit: a ring of stones, charred logs
     for (let i = 0; i < 9; i++) { const [x, y] = at(17, i / 9 * 6.283); blob(PT.ball, x, g(x, y) + 2, y, 7, 5, 6, i, hex(i % 2 ? '#6f6c66' : '#85827b')); }
     for (let i = 0; i < 4; i++) { const [ax, ay] = at(13, i * 1.6), [bx, by] = at(4, i * 1.6 + 2.6); between(PT.rod, ax, g(ax, ay) + 1.5, ay, bx, g(bx, by) + 6, by, 2, hex('#3a2a1e')); }

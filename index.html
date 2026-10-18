@@ -12774,7 +12774,7 @@ const CL_SND = { clack: [1.1, 600], twig: [1.1, 520], rustle: [0.55, 420], click
 // Real recorded voices (assets/voices.json, CC0 clips from Freesound, listed in assets/VOICES.md) take over from the built voice
 // once they're decoded. Each one is pitched a little by its owner's voice (deep leaders, high skinny ones), never the same clip
 // twice running, and dulled with distance so a call from far off sounds far off.
-const CL_VB = {}, CL_VLAST = {}, CL_VG = { grunt: 1.6, hurt: 1.6, scream: 2.4, yell: 1.4, growl: 1.2, chatter: 0.95, die: 2.2, wail: 2.2 };   // about as loud as the built voice was
+const CL_VB = {}, CL_VLAST = {}, CL_VG = { grunt: 1.6, hurt: 1.6, scream: 1.9, yell: 1.4, growl: 1.2, chatter: 0.95, die: 2.2, wail: 1.9 };   // about as loud as the built voice was
 function clanRec(k, x, y, v, vp) {
   const B = (CL_VB[k] || []).filter(Boolean); if (B.length < 2) return false;
   let i = Math.floor(Math.random() * B.length); if (B[i] === CL_VLAST[k]) i = (i + 1) % B.length; CL_VLAST[k] = B[i];
@@ -13338,7 +13338,7 @@ function clanCampDraw() {
   const p = S.p;
   for (const k of clanCamps()) {
     if (Math.hypot(k.x - p.x, k.y - p.y) > 1000) continue;
-    const g = (x, y) => terrH(x, y), at = (r, a) => [k.x + Math.cos(k.a + a) * r, k.y + Math.sin(k.a + a) * r];
+    const g = () => 0, at = (r, a) => [k.x + Math.cos(k.a + a) * r, k.y + Math.sin(k.a + a) * r];
     // the fire pit: a ring of stones, charred logs
     for (let i = 0; i < 9; i++) { const [x, y] = at(17, i / 9 * 6.283); blob(PT.ball, x, g(x, y) + 2, y, 7, 5, 6, i, hex(i % 2 ? '#6f6c66' : '#85827b')); }
     for (let i = 0; i < 4; i++) { const [ax, ay] = at(13, i * 1.6), [bx, by] = at(4, i * 1.6 + 2.6); between(PT.rod, ax, g(ax, ay) + 1.5, ay, bx, g(bx, by) + 6, by, 2, hex('#3a2a1e')); }
@@ -14165,7 +14165,7 @@ function clanSignStep(dt, C) {
 }
 function clanSignDraw() {
   const D = S.day; if (!D || !D.clanSigns) return;
-  const G = D.clanSigns, p = S.p, R = 700, g = (x, y) => terrH(x, y);
+  const G = D.clanSigns, p = S.p, R = 700, g = () => 0;   // the figure parts already sit on the ground (terrH is added on the card)
   const mud = hex('#5e4a36');
   for (const [x, y, a] of G.prints) {
     if (Math.abs(x - p.x) > R || Math.abs(y - p.y) > R) continue;
@@ -14277,7 +14277,7 @@ const clanNeck = () => !!(S.day && S.day.inv.some(s => s && s.id === 'cneck'));
 // ones, and any of them while the clan is out for blood, turn on you with a scream instead, wounded and furious, and only
 // break when they're nearly dead. They read your swings better too: they're quicker to hop clear or get the club up again,
 // so a fight is a fight, not a few free hits.
-FOES.cannibal.hp = 6;   // was 3.4
+FOES.cannibal.hp = 12;   // was 3.4, then 6 (Joe: twice that again)
 CL_KIND.leader.hp = 1.8;   // was 1.45
 const TOUGH = { fury: 0.35, furyAgg: 0.45, furyRage: 0.35, furyMin: 0.12, dodgeCd: 0.55, block: 0.18 };
 { const hurt0 = clanHurt;

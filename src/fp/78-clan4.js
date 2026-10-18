@@ -124,7 +124,7 @@ function clanSignStep(dt, C) {
 }
 function clanSignDraw() {
   const D = S.day; if (!D || !D.clanSigns) return;
-  const G = D.clanSigns, p = S.p, R = 700, g = (x, y) => terrH(x, y);
+  const G = D.clanSigns, p = S.p, R = 700, g = () => 0;   // the figure parts already sit on the ground (terrH is added on the card)
   const mud = hex('#5e4a36');
   for (const [x, y, a] of G.prints) {
     if (Math.abs(x - p.x) > R || Math.abs(y - p.y) > R) continue;

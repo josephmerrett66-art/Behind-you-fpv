@@ -3,7 +3,7 @@
 // ones, and any of them while the clan is out for blood, turn on you with a scream instead, wounded and furious, and only
 // break when they're nearly dead. They read your swings better too: they're quicker to hop clear or get the club up again,
 // so a fight is a fight, not a few free hits.
-FOES.cannibal.hp = 6;   // was 3.4
+FOES.cannibal.hp = 12;   // was 3.4, then 6 (Joe: twice that again)
 CL_KIND.leader.hp = 1.8;   // was 1.45
 const TOUGH = { fury: 0.35, furyAgg: 0.45, furyRage: 0.35, furyMin: 0.12, dodgeCd: 0.55, block: 0.18 };
 { const hurt0 = clanHurt;

@@ -81,7 +81,7 @@ function clanRaidVisit(C) {
   const D = S.day, p = S.p, home = homeSpot();
   if (D.clanRaidDay === D.n || !home) return false;
   const dh = Math.hypot(p.x - home.x, p.y - home.y); if (dh < 450) return false;
-  const chests = D.builds.filter(B => Array.isArray(B.inv) && !B.pen && B.inv.some(Boolean) && Math.hypot(B.x - home.x, B.y - home.y) < 260); if (!chests.length) return false;
+  const chests = D.builds.filter(B => Array.isArray(B.inv) && !B.pen && B.inv.some(Boolean) && Math.hypot(B.x - home.x, B.y - home.y) < 260 && !stShutIn(B.x, B.y)); if (!chests.length) return false;   // not one you've shut in
   const g = clanBand(2, { a: Math.atan2(home.y - p.y, home.x - p.x) + (Math.random() - 0.5) * 0.5, d: dh + 320, noLead: 1 }); if (!g) return false;
   const B = pick(chests); g.raid = { B, x: B.x, y: B.y }; D.clanRaidDay = D.n;
   C.bandT = Math.max(C.bandT || 0, 60 + Math.random() * 40);
@@ -89,6 +89,7 @@ function clanRaidVisit(C) {
 }
 function clanSteal(g, B) {
   const D = S.day, home = homeSpot() || B; g.raid = null; g.away = 1; g.a = Math.atan2(g.y - home.y, g.x - home.x);
+  if (stShutIn(B.x, B.y)) return;   // you shut it in since: the door holds
   const full = B.inv.map((s, i) => s ? i : -1).filter(i => i >= 0); if (!full.length) return;
   const i = pick(full), s = B.inv[i], take = Math.max(1, Math.ceil((s.n || 1) / 2)), T = DIT[s.id] || {};
   if ((s.n || 1) > take) s.n -= take; else B.inv[i] = null;

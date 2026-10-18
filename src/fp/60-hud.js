@@ -49,11 +49,11 @@ function drawHud() {
   // under the crosshair: what you'd use, or an animal you could take unawares
   let pr = '', sneak = false, hit = false;
   const o = dayUseTarget();
-  if (o) pr = (inputMode === 'kb' ? 'E · ' : inputMode === 'pad' ? 'X · ' : '') + useLabel(o).toUpperCase() + (STN_N[o.t] ? ' ' + STN_N[o.t].toUpperCase() : o.kind === 'dday' ? ' ' + DIT[o.it].n.toUpperCase() + (o.n > 1 ? ' ×' + o.n : '') : o.kind === 'dnode' ? ' ' + DIT[o.t === 'shroom' ? 'mushroom' : o.t].n.toUpperCase() : o === CAMP_BOX ? ' BOX' : o === EX_FIRE ? " AT THE FIRE" : '');
+  if (o) pr = (inputMode === 'kb' ? 'E · ' : inputMode === 'pad' ? 'X · ' : '') + useLab(o).toUpperCase() + (STN_N[o.t] ? ' ' + STN_N[o.t].toUpperCase() : o.kind === 'dday' ? ' ' + DIT[o.it].n.toUpperCase() + (o.n > 1 ? ' ×' + o.n : '') : o.kind === 'dnode' ? ' ' + DIT[o.t === 'shroom' ? 'mushroom' : o.t].n.toUpperCase() : o === CAMP_BOX ? ' BOX' : o === EX_FIRE ? " AT THE FIRE" : '');
   else if (D.crouch) for (const b of D.beasts) if (!b.dead && !b.tame && b.st === 'graze' && Math.hypot(b.x - S.p.x, b.y - S.p.y) < 44 + BEAST[b.k].w) { pr = (inputMode === 'kb' ? 'CLICK · ' : '') + 'SNEAK KILL'; sneak = true; break; }
   if (!pr && !(T && (T.rng || T.thr))) { const h = dayHitTarget(); if (h) { pr = (inputMode === 'kb' ? 'CLICK · ' : '') + 'HIT FOR ' + (h.t === 'grass' ? 'FIBRE' : 'BERRIES'); hit = true; } }   // nothing to take: the grass or bush a swing would gather from
   const pk = pr + sneak;
-  if (pk !== promptKey) { promptKey = pk; hudEl.prompt.textContent = pr; hudEl.prompt.className = sneak ? 'sneak' : hit ? 'hit' : ''; useBtn.textContent = o ? useLabel(o) : 'Use'; }
+  if (pk !== promptKey) { promptKey = pk; hudEl.prompt.textContent = pr; hudEl.prompt.className = sneak ? 'sneak' : hit ? 'hit' : ''; useBtn.textContent = o ? useLab(o) : 'Use'; }
   // the woods' words: the notes that pop up as things happen, the big banner for a new day or a new place
   const nk = rg.notes.map(n => n.text + (n.t > 1.8 ? 'f' : '')).join('|');
   if (nk !== notesKey) { notesKey = nk; hudEl.notes.innerHTML = rg.notes.map(n => `<div class="${n.big ? 'big' : ''}" style="opacity:${n.t > 1.8 ? 0.15 : 1}">${esc(n.text)}</div>`).join(''); }

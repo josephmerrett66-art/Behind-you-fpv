@@ -82,7 +82,7 @@ function clanSee(e, dt) {
   c.vis = clanSeeAt(e.x, e.y, top - 3) || clanSeeAt(e.x, e.y, top * 0.55);
   c.seenT = c.vis ? c.seenT + dt : 0; c.unseenT = c.vis ? 0 : c.unseenT + dt;
 }
-// places they won't follow you into: the firelight, a fire of your own, a lit torch post, a ring of your walls
+// places they won't follow you into: the firelight, a fire of your own, a lit torch post, inside your walls with the doors shut
 function clanRefugeAt(x, y, pad = 0) {
   const s = exSafeAt(x, y, pad); if (s) return s;
   const D = S.day;
@@ -91,7 +91,7 @@ function clanRefugeAt(x, y, pad = 0) {
     if (B.t === 'tpost' && B.fuel > 0 && Math.hypot(B.x - x, B.y - y) < 130 + pad) return { x: B.x, y: B.y, r: 130 };
     if (B.t === 'effigy' && !(S.rg.clan && S.rg.clan.rage > 0) && Math.hypot(B.x - x, B.y - y) < 150 + pad) return { x: B.x, y: B.y, r: 150 };   // your effigy keeps them off (not when they're out for blood)
   }
-  if (!pad && stNear(x, y, 120).filter(o => o.done && PC(o.id).lay === 'edge').length >= 6) return { x, y, r: 120, walls: 1 };
+  if (pad <= 10) { const r = stShutIn(x, y); if (r && !clanList().some(e => Math.hypot(e.x - x, e.y - y) < r + 10 && !stWallBetween(e.x, e.y, x, y))) return { x, y, r: Math.max(60, r), walls: 1 }; }   // shut in: walls all round, every door closed, and none of them in there with you (67-doors)
   return null;
 }
 
@@ -966,7 +966,7 @@ function clanPose(R, e, c, now, dt, dead) {
   if (!dead) { R.rollK = (R.rollK || 0) + (roll - (R.rollK || 0)) * Math.min(1, dt * 6); roll = R.rollK; }
   R.mesh.rotation.set(roll, faceYaw(f), 0, 'YXZ'); R.edge.position.copy(R.mesh.position); R.edge.rotation.copy(R.mesh.rotation);
   R.mesh.visible = R.edge.visible = true;
-  R.mat.uniforms.flash.value = e.kHitT !== undefined && S.t - e.kHitT < 0.15 ? 0.7 * (1 - (S.t - e.kHitT) / 0.15) : 0;
+  { const ht = Math.max(e.kHitT ?? -9, e.spkHitT ?? -9); R.mat.uniforms.flash.value = S.t - ht < 0.15 ? 0.7 * (1 - (S.t - ht) / 0.15) : 0; }   // your blow, or a spike
   R.mesh.updateMatrixWorld(true);
   // the club in its fist: a crooked branch with a knot of root on the end
   if (c.club) {

@@ -234,9 +234,22 @@ function itemModel(id) {
     const g = new THREE.TorusGeometry(2.6, 0.3, 5, 10); vmPart(G, g, mat(T.c), 0, -3, 0, Math.PI / 2, 0, 0, false);
     const pouch = vmPart(G, new THREE.SphereGeometry(1.4, 8, 6).scale(1, 0.7, 1), mat(T.c), 0, -7, 0); pouch.name = 'pouch';
     vmPart(pouch, new THREE.SphereGeometry(0.9, 7, 5), mat('#9a9893'), 0, 0.6, 0, 0, 0, 0, false);
-  } else if (tool === 'rod') {
-    shaft(30, 0.35, '#8a6a44', -4);
-    const ln = new THREE.BufferGeometry(); ln.setAttribute('position', new THREE.Float32BufferAttribute([0, 26, 0, 0, 14, -12], 3)); G.add(new THREE.Line(ln, new THREE.LineBasicMaterial({ color: 0xd8d0bc })));
+  } else if (tool === 'rod') {   // a cork grip and a wooden reel, then the rod in three lengths that bend under a fish (71-fish)
+    vmPart(G, cyl(0.62, 0.7, 7, 8).translate(0, -1, 0), mat('#b89668'), 0, 0, 0);
+    const reel = new THREE.Group(); reel.name = 'reel'; reel.position.set(0, 1.6, 1.1); reel.scale.setScalar(0.62); G.add(reel);
+    vmPart(reel, cyl(1.5, 1.5, 0.9, 12).rotateZ(Math.PI / 2), mat('#6e5235'), 0, 0, 0);
+    vmPart(reel, cyl(1.0, 1.0, 1.0, 10).rotateZ(Math.PI / 2), mat('#d8d0bc', 0.1), 0, 0, 0, 0, 0, 0, false);
+    const crank = new THREE.Group(); crank.name = 'crank'; crank.position.set(0.9, 0, 0); reel.add(crank);
+    vmPart(crank, cyl(0.18, 0.18, 1.6, 5).translate(0, 0.8, 0), mat('#4a3c30'), 0, 0, 0, 0, 0, 0, false);
+    vmPart(crank, cyl(0.32, 0.32, 0.8, 6).rotateZ(Math.PI / 2), mat('#2e2620'), 0.4, 1.6, 0, 0, 0, 0, false);
+    let seg = G, y = 2.5; const L = [11, 10, 9], R = [0.42, 0.3, 0.18];
+    ['rodA', 'rodB', 'rodC'].forEach((n, i) => {
+      const g = new THREE.Group(); g.name = n; g.position.set(0, y, 0); seg.add(g);
+      vmPart(g, cyl(R[i] * 0.8, R[i], L[i], 6).translate(0, L[i] / 2, 0), mat(i === 2 ? '#a0805a' : '#8a6a44'), 0, 0, 0);
+      vmPart(g, new THREE.TorusGeometry(0.42 - i * 0.08, 0.08, 4, 8), mat('#cfc8b4', 0.1), 0, L[i] * 0.85, 0, 0, Math.PI / 2, 0, false);   // a line guide
+      seg = g; y = L[i];
+    });
+    const tip = new THREE.Object3D(); tip.name = 'rodTip'; tip.position.set(0, L[2], 0); seg.add(tip);
   } else if (T.k === 'light') {
     shaft(11, 0.7, '#6b4a2e', -3);
     vmPart(G, cyl(1.3, 0.9, 2.6, 8), mat('#3a2a1a'), 0, 8.6, 0);

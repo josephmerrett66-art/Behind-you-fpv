@@ -1,6 +1,6 @@
-// ================= the test beach: the sea, its waves and foam, and the sound of it (Joe) =================
-// Only in the test build (BEACH). North-east of the camp the woods thin to dunes and a wide sandy beach (00-core shapes the
-// land and colours the sand); here the sea lies over it: turquoise over the shallows going to deep blue further out, clear
+// ================= the sea round the island: its waves and foam, and the sound of it (Joe) =================
+// All round the island (00-core shapes the coast and colours the sand) the woods thin to dunes and a wide sandy beach; here
+// the sea lies over it: turquoise over the shallows going to deep blue further out, clear
 // enough in the shallows to see the sand, swells rolling in parallel to the shore and breaking into lines of foam that run
 // up the beach and draw back, leaving the sand dark and wet. Sun glints on the swell, the sky in it toward the horizon. You
 // can wade out to your knees, no further. The surf gets louder as you come down to it, each wave a rush and a hiss.
@@ -57,7 +57,8 @@ if (BEACH) {
       }`,
   });
   const sea = new THREE.Mesh(g, seaMat); sea.frustumCulled = false; sea.renderOrder = 2; scene.add(sea);
-  sea.onBeforeRender = () => { const p = S ? S.p : { x: 0, y: 0 }; sea.position.set(Math.round(p.x / 13) * 13, 0, Math.round(p.y / 13) * 13); sea.visible = !S || coastS(p.x, p.y) > -1600; seaMat.uniforms.lt.value = pondMat.uniforms.lt.value; };
+  { const ws = worldSync; worldSync = function (f) { const r = ws(f), p = S ? S.p : { x: 0, y: 0 };   // the sea rides along with you
+      sea.position.set(Math.round(p.x / 13) * 13, 0, Math.round(p.y / 13) * 13); sea.updateMatrixWorld(); sea.visible = !S || coastS(p.x, p.y) > -1600; seaMat.uniforms.lt.value = pondMat.uniforms.lt.value; return r; }; }
 
   // nothing grows on the sand or stands in the sea
   const onLand = (o, need) => coastS(o.x, o.y) < need;
@@ -100,5 +101,3 @@ if (BEACH) {
     surf.lo.frequency.setTargetAtTime(300 + 500 * wave, t, 0.3);
   }
 }
-// the test build: you start facing the sea, a short walk from the camp
-if (BEACH) { const sr = startRun; startRun = function (...a) { const r = sr.apply(this, a); try { look.yaw = yawOfAim(Math.atan2(COAST.cy - S.p.y, COAST.cx - S.p.x)); setAim(); exNote('test beach · the sea is straight ahead, a short walk', true); } catch (e) {} return r; }; }

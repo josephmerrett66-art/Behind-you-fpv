@@ -3,7 +3,7 @@
 // Ground coordinates are the game's (x, y); in 3D they are (x, height, y). A person is 38 tall; your eyes are at 35.
 const ATLAS_SRC = '/*ATLAS*/', ATLAS = /*ATLASMETA*/0, FLOOR_SRC = '/*FLOOR*/', SND = /*SND*/0, AMB_SRC = '/*AMB*/', VOX = /*VOX*/0;
 const V3 = THREE.Vector3, V4 = THREE.Vector4, M4 = THREE.Matrix4;
-const BEACH = /*BEACH*/false;   // the test beach (Joe): a stretch of coast north-east of the camp; only in the test build (BEACH=1 node build.js)
+const BEACH = /*BEACH*/true;   // the island's coast and the sea round it (Joe); BEACH=0 node build.js builds the old endless woods
 const NIGHT_FOES = false;   // the night's own monsters (the wanderers, the tall one in the deep, the raid on a pen): off (Joe)
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -113,11 +113,16 @@ function terrBase0(x, z) {
 }
 const _sst = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
-// ---------------- the test coast (BEACH) ----------------
-// The sea is a great round bay north-east of the camp (between the raiders' camps); coastS is how far out to sea a point is
-// (negative inland). The land runs down through dunes to a wide beach and shelves away under the water.
-const SEA_Y = -6, COAST = { cx: -770, cy: 2115, R: 1500 };
-function coastS(x, z) { const dx = x - COAST.cx, dz = z - COAST.cy, a = Math.atan2(dz, dx); return COAST.R - Math.hypot(dx, dz) + 55 * Math.sin(a * 9.0 + 0.7) + 22 * Math.sin(a * 23.0 + 1.9); }
+// ---------------- the island (Joe) ----------------
+// The woods are an island now. The coast runs right round, about 5,700 out from the camp (well past the raiders' camps and the
+// caches), in and out: broad swells of shore, three deep bays and a headland. Off one shore lies a small sandy islet you can
+// wade out to along a sandbar. coastS is how far out to sea a point is (negative inland). The land runs down through dunes to a
+// wide beach and shelves away under the water.
+const SEA_Y = -6;
+const ISLE = { R: 5750, wig: [[260, 3, 0.4], [150, 7, 1.3], [70, 13, 2.1], [30, 29, 0.5]], bays: [[2.6, 0.11, 700], [-0.7, 0.09, 520], [4.2, 0.13, 600], [1.2, 0.08, -380]] };
+const isleR = a => { let R = ISLE.R; for (const [k, n, c] of ISLE.wig) R += k * Math.sin(n * a + c); for (const [b, w, d] of ISLE.bays) { const q = ((a - b + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; R -= d * Math.exp(-(q / w) * (q / w)); } return R; };
+const ISLET = (() => { const a = 1.95, r = isleR(a) + 360; return { x: Math.cos(a) * r, y: Math.sin(a) * r, r: 170 }; })();
+function coastS(x, z) { const s0 = Math.hypot(x, z) - isleR(Math.atan2(z, x)), s1 = Math.hypot(x - ISLET.x, z - ISLET.y) - ISLET.r * (1 + 0.12 * Math.sin(Math.atan2(z - ISLET.y, x - ISLET.x) * 3 + 1)); return Math.min(s0, s1); }
 function coastProf(s, x, z) { return SEA_Y + 7 + 2.2 * Math.sin(x * 0.021 + z * 0.013) * (1 - _sst(-160, -50, s)) - 6.5 * _sst(-110, 10, s) - 4 * _sst(0, 170, s) - 40 * _sst(130, 800, s); }
 function coastH(h, x, z) { if (!BEACH) return h; const s = coastS(x, z); return s < -360 ? h : lerp(h, coastProf(s, x, z), _sst(-360, -140, s)); }
 function terrH(x, z) {
@@ -131,7 +136,14 @@ const COAST_GLSL = `
 ${BEACH ? '#define BEACH 1' : ''}
 const float SEA_Y = ${SEA_Y.toFixed(1)};
 float cSst(float a, float b, float x) { float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
-float coastS(vec2 p) { vec2 d = p - vec2(${COAST.cx.toFixed(1)}, ${COAST.cy.toFixed(1)}); float a = atan(d.y, d.x); return ${COAST.R.toFixed(1)} - length(d) + 55.0 * sin(a * 9.0 + 0.7) + 22.0 * sin(a * 23.0 + 1.9); }
+float coastS(vec2 p) { float a = atan(p.y, p.x), R = ${ISLE.R.toFixed(1)}${ISLE.wig.map(([k, n, c]) => ` + ${k.toFixed(1)} * sin(${n.toFixed(1)} * a + ${c.toFixed(2)})`).join('')};
+  { float q = mod(a - 2.6000 + 3.14159265, 6.2831853) - 3.14159265; R -= 700.0 * exp(-(q / 0.1100) * (q / 0.1100)); }
+  { float q = mod(a - -0.7000 + 3.14159265, 6.2831853) - 3.14159265; R -= 520.0 * exp(-(q / 0.0900) * (q / 0.0900)); }
+  { float q = mod(a - 4.2000 + 3.14159265, 6.2831853) - 3.14159265; R -= 600.0 * exp(-(q / 0.1300) * (q / 0.1300)); }
+  { float q = mod(a - 1.2000 + 3.14159265, 6.2831853) - 3.14159265; R -= -380.0 * exp(-(q / 0.0800) * (q / 0.0800)); }
+  vec2 d = p - vec2(${ISLET.x.toFixed(1)}, ${ISLET.y.toFixed(1)});
+  float s1 = length(d) - ${ISLET.r.toFixed(1)} * (1.0 + 0.12 * sin(atan(d.y, d.x) * 3.0 + 1.0));
+  return min(length(p) - R, s1); }
 float coastH(float h, vec2 p) {
 #ifdef BEACH
   float s = coastS(p); if (s < -360.0) return h;

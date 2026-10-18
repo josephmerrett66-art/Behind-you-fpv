@@ -3,7 +3,7 @@
 // is drawn into a picture first, then laid on the screen with a line wherever one thing stands in front of another: the
 // silhouettes of trees, rocks, animals, you, the hills against the sky. It works from depth alone, so flat ground and
 // gentle slopes stay clean and only real edges get a line, and the lines thin out into the distance like the fog.
-// Pause > Options > Outlines turns it off (the thin outlines the models always had stay).
+// Pause > Options > Outlines turns it off, along with every other line in the game (91-outline).
 const INK = { rt: null, scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 INK.mat = new THREE.ShaderMaterial({
   uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) } },

@@ -1,8 +1,8 @@
-// ================= what you can gather shows itself (the main game's v156 hints), and the signal fire's countdown =================
+// ================= what you can gather shows itself (the main game's v156 hints) =================
 // (Joe) no rings on the ground round what you can gather: once you're close enough, the button that gathers it floats over it. Until you've held your first sticks and stones an arrow by the
-// crosshair points the way to the nearest. While a signal fire burns, a bar across the top says how long you still have to stand.
+// crosshair points the way to the nearest.
 const hintB = new Board(240, 400, 0, true, iconTex, ISHEET);
-const guideEl = $('guide'), guideA = $('guideA'), guideT = $('guideT'), siegeEl = $('siege'), siegeI = $('siegeI'), siegeT = $('siegeT');
+const guideEl = $('guide'), guideA = $('guideA'), guideT = $('guideT');
 const iconUrl = id => ICON[id] ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">${ICON[id]}</svg>`) : '';
 let guideKey = '';
 function hintsFrame(now) {
@@ -24,13 +24,6 @@ function hintsFrame(now) {
     guideEl.style.transform = `translate(${Math.cos(ang) * r}px, ${Math.sin(ang) * r * 0.85}px)`;
     guideA.style.transform = `rotate(${ang}rad)`; guideA.style.opacity = 0.8 + 0.2 * Math.sin(S.t * 4);
     if (guideKey !== best.t) { guideKey = best.t; guideT.innerHTML = `<img src="${iconUrl(best.t)}" alt=""><span>${best.t.toUpperCase()}</span>`; }
-  }
-  // the signal fire's siege
-  const G = D.siege; siegeEl.hidden = !(G && play);
-  if (G && play) {
-    const left = Math.max(0, SIEGE_T - G.t);
-    siegeI.style.transform = `scaleX(${clamp(1 - left / SIEGE_T, 0.01, 1)})`;
-    siegeT.textContent = G.far ? 'BACK TO THE FIRE' : `HOLD OUT · ${Math.ceil(left)}S`; siegeT.classList.toggle('far', !!G.far);
   }
 }
 

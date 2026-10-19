@@ -1,7 +1,6 @@
 // ---------------- the cozy pass ----------------
 // Joe: get the survival right first. The raiders are switched off (the code all stays, DAY_RAIDERS brings them back),
-// the woods feed you instead, food takes its time on the fire and the rack, and the night has its own work: the cold,
-// and wisps drifting out among the trees to be gathered.
+// the woods feed you instead, food takes its time on the fire and the rack, and the night has the cold.
 const DAY_RAIDERS = true;   // Joe: they're back, fought with weapons now: the torch shows them but doesn't burn them, and kills drop no wisps
 const DAY_FOE_TOUGH = { shade: 2.6, stalker: 3, brute: 2, bomber: 1.8, laser: 2, kamikaze: 2, splitter: 1.8, splitling: 2, tall: 1.5 };   // two or three hits with a club, not one
 const DAY_FOE_FEW = 0.45;   // and fewer of them at once
@@ -62,29 +61,5 @@ function cookDraw(g) {
     g.fillStyle = q.ready ? 'rgba(150,220,120,0.9)' : 'rgba(255,190,110,0.85)'; g.fillRect(x, y + h - 2.5 * k, w * u, 2.5 * k);
     g.fillStyle = q.ready ? '#c8f0b0' : '#efe6d6'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, s[0], s[1] - 1);
     g.globalAlpha = 1;
-  }
-}
-
-// ---- the night's work: wisps drift out among the trees ----
-// No raiders to burn, so the wisps come on their own after dark: out in the woods, never in the camp, more of them and
-// richer the deeper you go. They are gone again by morning.
-const WILD_MAX = 14;
-function wildWispStep(dt) {
-  const rg = S.rg, p = S.p; if (!S.day) return;
-  const L = rg.wisps || (rg.wisps = []);
-  for (const w of L) if (w.wild && !w.fly) {   // drifting, bobbing, never quite still
-    w.x += Math.cos(S.t * 0.4 + w.seed) * 6 * dt; w.y += Math.sin(S.t * 0.33 + w.seed * 1.7) * 6 * dt; w.z = 16 + 6 * Math.sin(S.t * 1.3 + w.seed);
-    if (!dayDark()) w.life = Math.min(w.life, 2);   // morning: they fade
-  }
-  if (!dayDark() || rg.phase !== 'fight') return;
-  if ((rg.wildT = (rg.wildT || 0) - dt) > 0) return;
-  rg.wildT = 1.6 + Math.random() * 1.6;
-  if (L.filter(w => w.wild && Math.hypot(w.x - p.x, w.y - p.y) < 700).length >= WILD_MAX) return;
-  for (let k = 0; k < 6; k++) {
-    const a = Math.random() * 6.283, d = 180 + Math.random() * 420, x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d, far = Math.hypot(x, y);
-    if ((!NO_CAMP && far < CAMP_R + 120) || exSafeAt(x, y, 60)) continue;
-    const n = far > 2600 ? 3 : far > 1400 ? 2 : 1;
-    L.push({ x, y, z: 16, t: 1, n, life: 90 + Math.random() * 40, seed: Math.random() * 9, v: 0, wild: 1 });
-    return;
   }
 }

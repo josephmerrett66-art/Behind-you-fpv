@@ -76,11 +76,6 @@ body.playing #prompt { display: block; }
 #guideT { position: absolute; left: -40px; top: 16px; width: 80px; display: grid; justify-items: center; gap: 2px; }
 #guideT img { width: 22px; height: 22px; padding: 3px; border-radius: 50%; background: rgba(0,0,0,0.5); }
 #guideT span { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.12em; color: #fff0c8; background: rgba(0,0,0,0.5); padding: 1px 4px; }
-#siege { position: fixed; left: 50%; transform: translateX(-50%); top: calc(96px + env(safe-area-inset-top, 0px)); width: min(300px, 60vw); pointer-events: none; text-align: center; }
-#siege .track { height: 5px; background: rgba(239,239,234,0.16); outline: 1px solid rgba(0,0,0,0.5); }
-#siege i { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, rgba(255,138,60,0.95), rgba(255,230,160,0.95)); }
-#siegeT { margin-top: 6px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; color: var(--bone); text-shadow: 0 1px 3px #000; }
-#siegeT.far { color: rgb(240,160,110); animation: pulse 0.9s ease-in-out infinite alternate; }
 @keyframes pulse { from { opacity: 0.6; } to { opacity: 1; } }
 #notes { position: fixed; left: 0; right: 0; top: calc(64px + env(safe-area-inset-top, 0px)); display: grid; justify-items: center; gap: 2px; pointer-events: none; }
 #notes div { font-size: 0.72rem; letter-spacing: 0.1em; color: var(--bone); text-shadow: 0 1px 5px rgba(0,0,0,0.95); transition: opacity 0.3s; }
@@ -150,9 +145,6 @@ body:not(.touch) #hotbar .hot { pointer-events: auto; }
 .panel b { display: block; font-family: var(--display); font-weight: 400; font-size: clamp(1.3rem, 4vw, 2rem); letter-spacing: 0.1em; }
 .panel span { display: block; font-weight: 400; font-size: 0.8rem; margin-top: 0.3rem; letter-spacing: 0.06em; }
 .panel.alt .ico { background: transparent; }
-.arenapick { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 0.6rem; max-width: 50rem; width: 100%; margin-bottom: 0.8rem; }
-.arenapick .panel { margin: 0; max-width: none; padding: 0.7rem 1rem; }
-.arenapick .panel b { font-size: clamp(1.05rem, 3vw, 1.35rem); }
 .how { margin-top: 1.2rem; display: grid; gap: 0.35rem; font-size: 0.7rem; letter-spacing: 0.08em; color: var(--ash); max-width: 44rem; line-height: 1.45; }
 .how b { color: var(--bone); font-weight: 600; }
 .row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
@@ -201,7 +193,6 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <div id="useMark" hidden><b></b></div>
 <div id="homeMark" hidden><i></i><svg viewBox="-12 -12 24 24"><path d="M0-11 11-.5H8V9.5H-8V-.5H-11Z" fill="#ffd68c" stroke="rgba(8,6,4,0.75)" stroke-width="2.4" stroke-linejoin="round"/><rect x="-2.4" y="3" width="4.8" height="6.5" fill="#462a14"/></svg><span></span></div>
 <div id="guide" hidden><svg id="guideA" viewBox="-8 -10 20 20"><path d="M11 0-6-9-2 0-6 9Z" fill="rgba(0,0,0,0.45)"/><path d="M9 0-5-7-2 0-5 7Z" fill="#fff0c8"/></svg><div id="guideT"></div></div>
-<div id="siege" hidden><div class="track"><i id="siegeI"></i></div><div id="siegeT"></div></div>
 <div id="hud">
   <div id="hearts"></div>
   <div id="dayLine"></div>
@@ -229,7 +220,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 
 <div id="deathCard" hidden>
   <div class="dc">
-    <p class="eyebrow">Daylight</p>
+    <p class="eyebrow">behind you</p>
     <h2>The woods took you</h2>
     <dl id="dcList"></dl>
     <button id="dcGo">Try again</button>
@@ -237,9 +228,9 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 </div>
 <div id="craft" hidden>
   <div class="pk">
-    <div class="pkhead"><div><p class="eyebrow">Daylight · <span id="pkDay"></span></p><h2>Pack</h2></div><button id="craftGo" class="alt">Close</button></div>
+    <div class="pkhead"><div><p class="eyebrow"><span id="pkDay"></span></p><h2>Pack</h2></div><button id="craftGo" class="alt">Close</button></div>
     <div class="pkneeds" id="pkNeeds"></div>
-    <div class="pktabs"><button class="pktab" data-tab="pack" aria-pressed="true">Pack</button><button class="pktab" data-tab="craft" aria-pressed="false">Craft<span></span></button><button class="pktab" data-tab="book" aria-pressed="false">Book</button><button class="pktab" data-tab="log" aria-pressed="false">Journal</button><button class="pktab" data-tab="wisps" aria-pressed="false">Wisps</button></div>
+    <div class="pktabs"><button class="pktab" data-tab="pack" aria-pressed="true">Pack</button><button class="pktab" data-tab="craft" aria-pressed="false">Craft<span></span></button><button class="pktab" data-tab="book" aria-pressed="false">Book</button><button class="pktab" data-tab="log" aria-pressed="false">Journal</button></div>
     <div id="pkBody" class="pkbody"></div>
   </div>
   <div id="pkCard" hidden></div>
@@ -257,18 +248,13 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 
 <div class="screen show" id="title">
   <h1 class="big"><span class="dim">behind</span> you</h1>
-  <p class="sub">daylight · first person</p>
   <button class="panel" id="begin" disabled>
     <span class="ico"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></span>
-    <span><b id="beginT">daylight</b><span id="beginS">No torch. Find food, last the days.</span></span>
+    <span><b id="beginT">start</b><span id="beginS">Gather, build, hunt, last the nights.</span></span>
   </button>
   <button class="panel alt" id="beginNew" hidden>
     <span class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
     <span><b>new run</b><span>Start again from nothing. Your saved run is lost.</span></span>
-  </button>
-  <button class="panel alt" id="beginArena" disabled>
-    <span class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 19 5M15 5h4v4M9 19H5v-4M5 5l5 5M19 19l-5-5"/></svg></span>
-    <span><b>boss arena</b><span>Pick a weapon and fight the Woodcutter. Your saved run isn't touched.</span></span>
   </button>
   <button class="panel alt" id="beginWoods" disabled>
     <span class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#efefea" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 6 12h3l-4 6h14l-4-6h3z"/><path d="M12 18v3"/></svg></span>
@@ -276,13 +262,6 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
   </button>
   <div class="how" id="how"></div>
   <div id="loading">painting the woods…</div>
-</div>
-
-<div class="screen" id="arena">
-  <h2 id="arenaH">boss arena</h2>
-  <p class="sub" id="arenaS">Pick your weapon. You fight the Woodcutter in the woods with food and bandages. Nothing here is saved.</p>
-  <div id="arenaPick" class="arenapick"></div>
-  <button class="panel alt" id="arenaBack"><span><b>back</b><span>To the title screen</span></span></button>
 </div>
 
 <div class="screen" id="pause">

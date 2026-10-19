@@ -170,7 +170,6 @@ function mapMarks() {
     else if (B.t === 'cache') out.push(['cache', B.x, B.y]);
   }
   { const seenG = new Set(); for (const o of D.bld.values()) { const k = Math.round(o.x / 60) + ',' + Math.round(o.y / 60); if (!seenG.has(k)) { seenG.add(k); out.push(['piece', o.x, o.y]); } } }
-  for (const C of dayCampList()) out.push([dayCampState(C.i).took ? 'campDone' : 'camp', C.x, C.y, 'raider camp']);
   try { for (const k of clanCamps()) out.push(['clan', k.x, k.y, 'clan village']); } catch (e) {}
   try { for (const m of caveEnts()) if (D.cave && D.cave.found && D.cave.found[m.key]) out.push(['cave', m.x, m.y, caveSys(m.si).sp.n]); } catch (e) {}
   for (const M of AREA.marks) for (const ox of [0, -AREA_P]) for (const oy of [0, -AREA_P]) { const x = M.x + ox, y = M.y + oy; if (Math.abs(x) < MAPG.W && Math.abs(y) < MAPG.W && (!BEACH || coastS(x, y) < -200)) out.push(['mark', x, y, MARK_LABEL[M.t]]); }
@@ -275,7 +274,6 @@ function compassDraw() {
   if (!inCave) {
     const hm = homeAt(); if (hm && Math.hypot(hm.x - p.x, hm.y - p.y) > 60) marks.push(['home', hm.x, hm.y]);
     try { for (const m of caveEnts()) if (D.cave.found[m.key]) marks.push(['cave', m.x, m.y]); } catch (e) {}
-    for (const C of dayCampList()) if (dayCampState(C.i).seen && !dayCampState(C.i).took) marks.push(['camp', C.x, C.y]);
   }
   for (const [kind, x, y] of marks) {
     const x0 = px(bearingTo(x, y)); if (x0 < 10 || x0 > Wc - 10) continue;

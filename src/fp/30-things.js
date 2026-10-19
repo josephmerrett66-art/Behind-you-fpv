@@ -90,18 +90,13 @@ const U = (a, f, s) => [Math.cos(a) * f - Math.sin(a) * s, Math.sin(a) * f + Mat
 // (the pieces you build with the hammer and the stations you put down are drawn in 31-make)
 
 // the relic on its cairn, in the middle of each raider camp, until you take it
-function relicKit(K, o, C) {
-  for (let i = 0; i < 7; i++) { const t = i / 7 * 6.283, r = i < 6 ? 8 : 0; K.add(P_BALL(), o.x + Math.cos(t) * r, i < 6 ? 3 : 9, o.y + Math.sin(t) * r, i < 6 ? 9 : 11, i < 6 ? 7 : 9, i < 6 ? 9 : 11, hex(i % 2 ? '#7a7872' : '#8d8b85')); }
-  K.add(P_CYL(6), o.x, 12, o.y, 3, 40, 3, hex('#4a3a2a'));
-  K.add(P_BALL(), o.x, 56, o.y, 9, 11, 9, hex(DIT[C.relic] ? DIT[C.relic].c : '#e2c070'), 0, 0, 0, 0.8);
-}
 
 // ---------------- keeping it all filled in round you ----------------
 let thingsKey = '', thingsT = 0, thingsAt = { x: 1e9, y: 1e9 };
 function thingsSync(force) {
   const D = S.day, p = S.p, R = 560;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
-  let key = D.builds.length + ':' + D.bld.size + ':' + dayRelics();
+  let key = D.builds.length + ':' + D.bld.size;
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.open ? 'O' : '') + (B.pen && B.inv.some(s => s && s.id === 'meat') ? 'm' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + ((o.open || 0) !== (o.ajar || 0) ? 'm' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');   // m: a door on the swing (31-make draws it)
   key += dayLight() < 0.85 ? 'N' : 'D';
@@ -110,7 +105,6 @@ function thingsSync(force) {
   const K = new Kit(), PK = new Kit();
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R + 60 && Math.abs(B.y - p.y) < R + 60) { if (B.t === 'fire') buildKit(K, { kind: 'fire', x: B.x, y: B.y, build: B }); else for (const o of B.parts) buildKit(K, o); }
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) pieceKit(o.done && !o.del ? K : PK, o);
-  for (const C of dayCampList()) if (Math.abs(C.x - p.x) < R + 200 && Math.abs(C.y - p.y) < R + 200) { const st = dayCampState(C.i); for (const o of C.parts) if (o.sub === 'relic' && !st.took) relicKit(K, o, C); }
   thingsK.set(K); setGeo(planMesh, PK);
 }
 

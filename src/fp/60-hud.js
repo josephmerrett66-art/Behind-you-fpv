@@ -43,7 +43,7 @@ function drawHud() {
   if (hudEl.say.textContent !== say) hudEl.say.textContent = say;
   const used = D.inv.filter(Boolean).length, T = heldIt(), s = heldSlot();
   let wear = ''; if (s && s.d !== undefined) { const f = s.d / slotDur(s); if (f < 0.25) wear = ' · worn'; }
-  const info = `${rg.kills || 0} killed · ${rg.wispCarry || 0} wisps · pack ${used}/${invSize()} · ${(T ? T.n : 'bare hands').toLowerCase()}${wear} · flasks ${rg.flask ?? FLASK_MAX}/${FLASK_MAX} · relics ${dayRelics()}/4`;
+  const info = `${rg.kills || 0} killed · pack ${used}/${invSize()} · ${(T ? T.n : 'bare hands').toLowerCase()}${wear} · flasks ${rg.flask ?? FLASK_MAX}/${FLASK_MAX}`;
   if (hudEl.info.textContent !== info) hudEl.info.textContent = info;
   flaskBtn.textContent = `Flask ${rg.flask ?? FLASK_MAX}`; flaskBtn.classList.toggle('empty', (rg.flask ?? FLASK_MAX) <= 0);
   // under the crosshair: what you'd use, or an animal you could take unawares

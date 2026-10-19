@@ -9,7 +9,7 @@ const PM = { el: null, box: null, colX: null, cx: 0, cy: 0, dir: '', rep: 0, arm
 // picking a piece (or B, or Y again) hands the pad back to the game with that piece ready to place.
 function pmBarOk() { return state === 'play' && !menusOpen() && dayTool() === 'build' && !buildbarEl.hidden; }
 function pmBox() {
-  const m = !deathCard.hidden ? deathCard : !statsEl.hidden ? statsEl : !campEl.hidden ? campEl : !craftEl.hidden ? craftEl : state === 'pause' ? $('pause') : $('arena').classList.contains('show') ? $('arena') : state === 'title' ? $('title') : null;
+  const m = !deathCard.hidden ? deathCard : !statsEl.hidden ? statsEl : !campEl.hidden ? campEl : !craftEl.hidden ? craftEl : state === 'pause' ? $('pause') : state === 'title' ? $('title') : null;
   if (m || !pmBarOk()) PM.bar = false;   // another menu, or the hammer put away, shuts the build bar's hold on the pad
   return m || (PM.bar ? buildbarEl : null);
 }
@@ -70,7 +70,6 @@ function pmBack(box) {
   else if (box === craftEl) { if (PK.tab === 'wisps' && statCat) { statCat = null; statOpen = null; renderStats(); } else if (PK.sel) { PK.sel = null; renderPack(); } else $('craftGo').click(); }   // put down what's picked first
   else if (box === campEl) { campEl.hidden = true; }
   else if (box.id === 'pause') unpause();
-  else if (box.id === 'arena') $('arenaBack').click();
   else if (box === buildbarEl) PM.bar = false;
 }
 // called by pollPad every frame a pad is in use; returns true while a menu has the pad

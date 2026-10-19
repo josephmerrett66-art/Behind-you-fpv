@@ -110,17 +110,17 @@ FP.exStep = function (dt) {
   if (rg.ringMsg && !(S.msg && S.msg.t < 2.2)) { rg.ringMsg.t += dt; if (rg.ringMsg.t > 2.8) rg.ringMsg = null; }
   if (inCamp !== rg.inCamp) {
     rg.inCamp = inCamp;
-    if (inCamp) { rg.oil = oilMax(); dayBankWisps(); }   // wisps you carry home are banked
-    else { rg.ringMax = 0; rg.ringMsg = { text: RING_NAMES[0], t: 0 }; rg.tallCd = 10; rg.outT = 0; if (actx) noiseAt(actx.currentTime, 900, 200, 0.5, 0.25, sfxGain); }   // the gate creaks shut behind you
+    if (inCamp) rg.oil = oilMax();
+    else { rg.ringMax = 0; rg.outT = 0; if (actx) noiseAt(actx.currentTime, 900, 200, 0.5, 0.25, sfxGain); }   // the gate creaks shut behind you
   }
-  if (NO_CAMP && atHome()) { rg.oil = oilMax(); dayBankWisps(); }   // back at your bed or fire: the torch topped up, wisps banked
-  campBtn.hidden = !inCamp; if (campBtn.textContent !== 'Wisps') campBtn.textContent = 'Wisps';
+  if (NO_CAMP && atHome()) rg.oil = oilMax();   // back at your bed or fire: the torch topped up
+  campBtn.hidden = true;
   craftBtn.hidden = false; useBtn.hidden = !dayUseTarget(); sneakBtn.hidden = inCamp; dodgeBtn.hidden = inCamp; attackBtn.hidden = false; flaskBtn.hidden = inCamp;
   if (inCamp) {
     for (const e of rg.enemies) if ((e.type === 'bomber' || e.type === 'laser') && !e.dead) { e.dead = e.gone = true; ashBurst(e.x, e.y, 12, 24); }
     return;                                  // nothing new comes while you're home
   }
-  if (ring > rg.ringMax) { rg.ringMax = ring; rg.ringMsg = { text: RING_NAMES[ring], t: 0 }; if (ring > 0) playRingSting(); }
+  if (ring > rg.ringMax) rg.ringMax = ring;
   rg.spawnT -= dt;
   const cap = Math.round((EX_CAP[ring] + Math.floor(packUsed(rg.pack) / packMax() * 3)) * dayCrowd() * dayCapK() * DAY_FOE_FEW);   // fewer by day, far more by night, more with a heavy pack
   if (rg.spawnT <= 0) {
@@ -128,10 +128,6 @@ FP.exStep = function (dt) {
     if (CLAN_ON && rmOn()) {}   // by day the clan (72-clan) keeps its own numbers
     else if (rg.enemies.length < cap && rmOn()) rmSpawn(ring, Math.min(cap - rg.enemies.length, 1 + Math.floor(Math.random() * 3) + (ring > 1 && Math.random() < 0.5 ? 1 : 0)));   // a band out roaming
     else if (NIGHT_FOES && rg.enemies.length < cap) { if (ring > 0 && Math.random() < 0.25 && cap - rg.enemies.length >= 3) exPack(ring, Math.min(cap - rg.enemies.length, 3 + (Math.random() < 0.5 ? 1 : 0))); else exSpawn(exPickFoe(ring)); }
-  }
-  if ((NIGHT_FOES || rmOn()) && ring === 3 && !rg.enemies.some(e => e.type === 'tall') && (rg.tallCd -= dt) <= 0) {
-    exSpawn('tall'); rg.tallCd = 45;
-    if (!rg.tallSeen) { rg.tallSeen = true; rg.ringMsg = { text: 'something tall', sub: 'walks the deep', t: 0 }; }
   }
 };
 

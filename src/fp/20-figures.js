@@ -73,7 +73,7 @@ const KIT_WEAR = { shade: { coat: 1 }, tall: { coat: 2 }, archer: { coat: 1 }, b
 // each kind dressed in its own colour, as in the top-down game: a shirt in its colour, trousers a dark earthy shade of it,
 // a weathered skin tone, and its coat or hood a deep shade of the same
 const FOE_SKIN = { shade: [176, 150, 132], stalker: [168, 140, 128], brute: [184, 140, 108], tall: [150, 122, 108], bomber: [190, 150, 118], laser: [178, 150, 130], kamikaze: [196, 160, 120],
-  splitter: [186, 152, 136], spear: [176, 132, 98], archer: [188, 156, 120], woodcutter: [184, 140, 108], lamplighter: [196, 160, 124], huntsman: [176, 140, 110], warden: [170, 136, 112] };
+  splitter: [186, 152, 136], spear: [176, 132, 98], archer: [188, 156, 120], lamplighter: [196, 160, 124], huntsman: [176, 140, 110], warden: [170, 136, 112] };
 function foeDress(type) {
   const t0 = FOE_TINT[type] || [170, 150, 120], m = (t0[0] + t0[1] + t0[2]) / 3, t = t0.map(v => clamp(m + (v - m) * 1.6, 0, 255));   // a touch richer than the top-down tint
   return { shirt: mixc(t, [150, 140, 125], 0.05), trou: mixc(t.map(v => v * 0.5), [64, 56, 46], 0.55), skin: FOE_SKIN[type] || [182, 148, 120], deep: mixc(t.map(v => v * 0.42), [40, 36, 32], 0.4) };
@@ -102,7 +102,7 @@ function poseFoe(e, now, dt, dying) {
   if (fl > 0) { body = body.map(v => lerp(v, 1.6, fl)); head = head.map(v => lerp(v, 1.6, fl)); }
   const em = b * (0.22 + 0.16 * Math.sin(now * 23 + (e.fgSeed ?? (e.fgSeed = Math.random() * 9)))) + fl * 0.8 + (dying ? 0.6 * (1 - die) : 0);
   const jit = (pain * 1.6 + rock * 3 + (e.sw && e.sw.ph === 'wind' && e.sw.t > e.sw.T * 0.6 ? 0.8 : 0)) * sc, jx = (Math.random() - 0.5) * jit, jz = (Math.random() - 0.5) * jit;
-  const bulk = e.type === 'woodcutter' ? 1.22 : e.type === 'brute' ? 1.18 : e.type === 'stalker' ? 0.9 : 1;
+  const bulk = e.type === 'brute' ? 1.18 : e.type === 'stalker' ? 0.9 : 1;
   // a kill throws it back off its feet, away from you, before it falls
   const ka = dying ? (e.ka ?? Math.atan2(e.y - S.p.y, e.x - S.p.x)) : 0, fly = dying ? 26 * (1 - Math.pow(1 - Math.min(1, e.t / 0.35), 3)) : 0, hop = dying ? Math.sin(Math.PI * Math.min(1, e.t / 0.35)) * 9 : 0;
   _base.compose(_p.set(e.x + jx + Math.cos(ka) * fly, -die * 4 + hop, e.y + jz + Math.sin(ka) * fly), _q.setFromEuler(_e.set(-die * 1.45, faceYaw(face), 0, 'YXZ')), _s.set(sc * bulk * (1 + sq * 0.6), sc * (1 - die * 0.15) * (1 - sq), sc * bulk * (1 + sq * 0.6)));
@@ -177,13 +177,6 @@ function poseFoe(e, now, dt, dying) {
   if (e.type === 'spear') { child(_m, armRm, 0, -15, 0, 1.45, 0, 0); _m.multiply(_t.makeTranslation(0, -14, 0)); scaled(_m, 1.3, 40, 1.3); PT.rod.push(_m, hexK('#6e5235'), 0); child(_m, armRm, 0, -15, 0, 1.45, 0, 0); _m.multiply(_t.makeTranslation(0, 26, 0)); scaled(_m, 2.6, 6, 1); PT.cone.push(_m, hexK('#9a9a92'), 0); }
   else if (e.type === 'archer') { const am = child(new M4(), _torso, -5.4, 12.2, 0, armL, 0, -armZ), h = new V3(0, -15, 0).applyMatrix4(am); between(PT.rod, h.x, h.y - 10 * sc, h.z, h.x, h.y + 10 * sc, h.z, 0.7 * sc, hexK('#6b4a2e')); }
   else if (e.type === 'bomber') { child(_m, _torso, 0, 8, -4, 0.3, 0, 0); scaled(_m, 3, 18, 3); PT.rod.push(_m, hexK('#6a6a64'), 0); }
-  else if (e.type === 'woodcutter') {   // his felling axe: a long haft and a broad iron head, with a hatchet at his belt to throw
-    const sk = s ? (s.ph === 'strike' ? Math.min(1, s.t / s.T) : s.ph === 'rec' ? (s.stuck ? Math.min(1, (1 - s.t / s.T) * 5) : 1 - Math.min(1, s.t / s.T)) : 0) : 0, axR = 1.25 + 1.0 * sk;   // the blade swings through and buries itself
-    child(_m, armRm, 0, -15, 0, axR, 0, 0); _m.multiply(_t.makeTranslation(0, 4, 0)); scaled(_m, 1.6, 30, 1.6); PT.rod.push(_m, hexK('#6e5235'), 0);
-    child(_m, armRm, 0, -15, 0, axR, 0, 0); _m.multiply(_t.makeTranslation(0, 17, 2.4)); scaled(_m, 1.3, 6.5, 7); PT.box.push(_m, hexK('#9fa4a8'), 0.1);
-    child(_m, armRm, 0, -15, 0, axR, 0, 0); _m.multiply(_t.makeTranslation(0, 17, 6)); scaled(_m, 0.7, 8, 1.4); PT.box.push(_m, hexK('#d8dcdf'), 0.2);
-    if (!e.hatch && !(e.bpose > 1)) { child(_m, _torso, 4.6, 2, 3.6, 0, 0, 0.3); scaled(_m, 1, 8, 1); PT.rod.push(_m, hexK('#6e5235'), 0); child(_m, _torso, 4.6, 5.5, 4.8, 0, 0, 0.3); scaled(_m, 1, 3, 3.4); PT.box.push(_m, hexK('#b8bcc0'), 0); }   // the hatchet at his belt
-  }
   else if (e.type === 'brute' || e.type === 'tall') { child(_m, armRm, 0, -15, 0, 1.1, 0, 0); scaled(_m, 2.2, 16, 2.2); PT.rod.push(_m, hexK('#4f3a28'), 0); child(_m, armRm, 0, -15, 0, 1.1, 0, 0); _m.multiply(_t.makeTranslation(0, 15, 0)); scaled(_m, 4.4, 5, 4.4); PT.ball.push(_m, hexK('#5a4430'), 0); }
 }
 const arr3 = v => [v.x, v.y, v.z];
@@ -396,7 +389,6 @@ function drawFigures(now, dt) {
   for (const e of rg.enemies) if (!e.dead && Math.abs(e.x - p.x) < drawR() && Math.abs(e.y - p.y) < drawR() && e.type !== 'centi' && e.type !== 'cannibal') poseFoe(e, now, dt, false);
   for (const g of rg.dying) if (g.type !== 'centi' && g.type !== 'cannibal') poseFoe(g, now, dt, true);
   clanDraw(now, dt);   // the clan, in bodies like yours (72-clan)
-  bossFigs(now);
   if (outsideP() && state === 'play') posePlayer(now); else bodyHide();   // back in first person: you don't stand there watching yourself
   for (const o of D.beasts) if (Math.abs(o.x - p.x) < drawR() && Math.abs(o.y - p.y) < drawR()) poseBeast(o, now, dt);
 }

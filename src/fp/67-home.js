@@ -22,7 +22,6 @@ function daySleep(bed) {
     for (const B of D.builds) if (B.fuel > 0) B.fuel = Math.max(0, B.fuel - gap);
     D.food = Math.max(5, D.food - SLEEP_FOOD); D.water = Math.max(5, D.water - SLEEP_WATER);
     D.st = STA_MAX; D.warm = WARM_MAX; S.rg.hp = Math.max(S.rg.hp, S.rg.maxHp || S.rg.hp);
-    if (S.rg.wisps) S.rg.wisps = S.rg.wisps.filter(w => !w.wild);
     S.p.x = bed.x + Math.cos((bed.a || 0) + Math.PI / 2) * 16; S.p.y = bed.y + Math.sin((bed.a || 0) + Math.PI / 2) * 16;
     daySave(); dayChanged();
     setTimeout(() => { sleepEl.style.opacity = '0'; D.sleeping = false; S.rg.ringMsg = { text: `day ${Math.max(D.n, 1 + Math.floor(D.t / DAY_LEN))}`, sub: 'You slept through the night', t: 0 }; }, 500);

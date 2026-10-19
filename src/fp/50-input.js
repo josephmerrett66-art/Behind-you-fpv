@@ -106,7 +106,6 @@ thumb(sneakBtn, () => { if (playing()) dayCrouch(); }, false);
 thumb(flaskBtn, () => { if (playing()) exDrink(); }, false);
 thumb($('bSpec'), () => wpSpecial());
 craftBtn.addEventListener('click', () => packToggle());
-campBtn.addEventListener('click', () => { if (playing()) { openWisps(); lockOff(); } });
 $('bPack2').addEventListener('click', () => packToggle());
 $('craftGo').addEventListener('click', () => { closeCraft(); lockOn(); });
 $('statsGo').addEventListener('click', () => { closeStats(); lockOn(); });

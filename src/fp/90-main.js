@@ -41,7 +41,7 @@ function lightsFrame(now, dt) {
   // the camp's own fire, and your campfires
   { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); tongues(EX_FIRE.x, EX_FIRE.y, 1.05); }
   for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); tongues(B.x, B.y, 0.9); }
-  else if (B.t === 'signal' && (B.lit || D.siege)) { const f = fk(B.y); add(B.x, 50, B.y, 520, 1.2 * f, 0.6 * f, 0.25 * f, 3); for (let i = 0; i < 3; i++) fire(B.x + (Math.random() - 0.5) * 30, B.y + (Math.random() - 0.5) * 30, 2.4, 10 + Math.random() * 30); tongues(B.x, B.y, 2.2, 12); tongues(B.x + 8, B.y - 6, 1.4, 20); }
+  else if (B.t === 'signal' && B.lit) { const f = fk(B.y); add(B.x, 50, B.y, 520, 1.2 * f, 0.6 * f, 0.25 * f, 3); for (let i = 0; i < 3; i++) fire(B.x + (Math.random() - 0.5) * 30, B.y + (Math.random() - 0.5) * 30, 2.4, 10 + Math.random() * 30); tongues(B.x, B.y, 2.2, 12); tongues(B.x + 8, B.y - 6, 1.4, 20); }
   else if (B.t === 'tpost' && B.fuel > 0) { const f = fk(B.x); add(B.x, 48, B.y, 200, 0.9 * f * night, 0.55 * f * night, 0.25 * f * night, 1); fire(B.x, B.y, 0.6, 48); tongues(B.x, B.y, 0.6, 46); }
   else if (B.t === 'furnace' && (B.fuel > 0 || B.lit || B.smelt)) { add(B.x, 10, B.y, 120, 0.8 * night, 0.4 * night, 0.15 * night, 0.5); }
   clanLights(add, fire);   // the clan's camp fires (74-clan2)
@@ -147,11 +147,11 @@ function ovResize() {}
 function titleText() {
   let sv = null; try { sv = dayReadSave(); } catch (e) {}
   const n = sv && (sv.n || (sv.day && sv.day.n));
-  $('beginT').textContent = sv ? 'carry on' : 'daylight';
-  $('beginS').textContent = sv ? `Your run${n ? ` · day ${n}` : ''} is where you left it.` : 'No torch by day. Gather, build, hunt, last the nights.';
+  $('beginT').textContent = sv ? 'carry on' : 'start';
+  $('beginS').textContent = sv ? `Your run${n ? ` · day ${n}` : ''} is where you left it.` : 'Gather, build, hunt, last the nights.';
   $('beginNew').hidden = !sv;
 }
-function onReady() { $('loading').textContent = ''; $('begin').disabled = false; $('beginArena').disabled = false; $('beginWoods').disabled = false; titleText(); }
+function onReady() { $('loading').textContent = ''; $('begin').disabled = false; $('beginWoods').disabled = false; titleText(); }
 function startRun(fresh) {
   if (!ready) return;
   initAudio();
@@ -168,7 +168,7 @@ function startRun(fresh) {
 let saveT = 0;
 function pause() { if (state !== 'play') return; state = 'pause'; try { daySave(); } catch (e) {} $('pause').classList.add('show'); syncSet(); lockOff(); if (actx) actx.suspend(); rngUp(); }
 function unpause() { state = 'play'; $('pause').classList.remove('show'); if (actx) actx.resume(); last = performance.now(); lockOn(); }
-function quitToTitle() { try { daySave(); } catch (e) {} ARENA = null; woodsUi(false); $('arena').classList.remove('show'); state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
+function quitToTitle() { try { daySave(); } catch (e) {} ARENA = null; woodsUi(false); state = 'title'; document.body.classList.remove('playing'); $('pause').classList.remove('show'); craftEl.hidden = statsEl.hidden = deathCard.hidden = true; $('title').classList.add('show'); titleText(); if (actx) actx.suspend(); }
 $('begin').addEventListener('click', () => startRun(false));
 // a pad can't answer the browser's own question, so on a controller the button asks a second press instead
 $('beginNew').addEventListener('click', () => {

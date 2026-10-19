@@ -226,11 +226,10 @@ vec4 soilW(vec2 p) {   // how much of each soil is here: dry, loam, clay, stony
   s.x = max(s.x, L.b * 0.95); s.y = max(s.y * (1.0 - L.b), L.r * 0.75); s.w = max(s.w, L.g * 0.9); s.z *= 1.0 - 0.6 * L.a;
   return s;
 }`;
-// which places are level: the camp and the nearest raiders' camps (re-chosen as you move about); ponds lie in the land's own hollows (08-ponds)
+// which places are level: the camp; ponds lie in the land's own hollows (08-ponds)
 function terrLevelSync(px, py, lakes) {
   const L = [];
   L.push([0, 0, CAMP_R + 55, terrBase(0, 0)]);
-  for (const C of dayCampList()) { const o = C.parts && C.parts[0] ? C.parts[0] : C; L.push([o.x, o.y, 120, terrBase(o.x, o.y)]); }
   L.sort((a, b) => Math.hypot(a[0] - px, a[1] - py) - a[2] - (Math.hypot(b[0] - px, b[1] - py) - b[2]));
   LU.terrF.value.forEach((v, i) => { const q = L[i]; if (q && Math.hypot(q[0] - px, q[1] - py) - q[2] * 1.9 < drawR() + 300) v.set(q[0], q[1], q[2], q[3]); else v.set(0, 0, 0, 0); });
 }

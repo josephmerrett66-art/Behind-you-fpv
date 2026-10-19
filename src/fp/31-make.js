@@ -800,7 +800,7 @@ function effigyKit(M) {
 
 // a pyre of split logs stacked crosswise in a ring of stones, kindling packed in its middle and dry brush on top; lit, it glows through every gap
 function signalKit(M, B) {
-  const lit = B.lit || (S.day && S.day.siege), r = 2.3;
+  const lit = B.lit, r = 2.3;
   for (let i = 0; i < 12; i++) { const t = i / 12 * TAU; M.rock(Math.cos(t) * 24, Math.sin(t) * 24, 2, 9, 6, 8, MAKE.stone[i % 4], i, t); }
   M.cone(0, 0, 0, 9.5, 27, lit ? MAKE.ember : MAKE.strawD, lit ? 'plain' : 'wood', 7, lit ? 1 : 0);
   for (let i = 0; i < 8; i++) {

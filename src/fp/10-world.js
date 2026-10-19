@@ -333,17 +333,6 @@ function flagStep(t) {
   a.needsUpdate = true;
 }
 
-// ---------------- the raider camps: stakes and skulls round a fire, two tents, a rack, the relic on its stand ----------------
-function raiderKit(K) {
-  for (const C of dayCampList()) for (const o of C.parts) {
-    if (o.sub === 'tent') tentKit(K, o, hex('#7a6a56'));
-    else if (o.sub === 'stake') { K.add(P_CYL(6), o.x, 0, o.y, 3.6, 30, 3.6, logTone3(o.seed * 9 | 0)); K.add(P_CONE(6), o.x, 30, o.y, 3.6, 6, 3.6, logTone3(o.seed * 9 | 0)); if (o.skull) K.add(P_BALL(), o.x, 30, o.y, 5, 5.5, 5.5, hex('#d8d0bc')); }
-    else if (o.sub === 'dirt') K.add(P_CYL(10), o.x, -0.6, o.y, 22 + o.seed * 8, 1, 14 + o.seed * 6, hex('#3e3428'), o.seed * 6);
-    else if (o.sub === 'bones') { for (let k = 0; k < 3; k++) { const a = o.seed * 9 + k * 2.1; K.rod(P_CYL(4), o.x + Math.cos(a) * 3, 0.8, o.y + Math.sin(a) * 3, o.x + Math.cos(a) * 3 + Math.cos(a + 1.3) * 9, 0.8, o.y + Math.sin(a) * 3 + Math.sin(a + 1.3) * 9, 0.8, hex('#e6dfcc')); } }
-    else if (o.sub === 'fire') { for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283; K.add(P_ROCK(k % 4), o.x + Math.cos(a) * 11, 1.4, o.y + Math.sin(a) * 11, 7, 5, 7, hex(k % 2 ? '#7a7872' : '#8d8b85'), a); } K.rod(P_CYL(5), o.x - 6, 2, o.y - 3, o.x + 6, 2, o.y + 3, 1.6, hex('#5a3e28')); K.rod(P_CYL(5), o.x - 5, 2, o.y + 4, o.x + 5, 2, o.y - 4, 1.6, hex('#4a3420')); }
-    else if (o.sub === 'wrack') { K.add(P_CYL(5), o.x - 9, 0, o.y, 2, 22, 2, hex('#4a3a2a')); K.add(P_CYL(5), o.x + 9, 0, o.y, 2, 22, 2, hex('#4a3a2a')); K.rod(P_CYL(5), o.x - 10, 18, o.y, o.x + 10, 18, o.y, 1, hex('#4a3a2a')); }
-  }
-}
 
 // ---------------- ponds: still water filling the hollows (08-ponds), with reeds round the shallows and lily pads ----------------
 // The water is a flat sheet at the pond's level; the ground decides the shore (where it rises above the water). Clear and
@@ -485,7 +474,7 @@ let staticK = null;
 const K_BR = (K, ax, ay, az, bx, by, bz, r) => { K.mt = 'bark'; K.rod(P_CYL(6), ax, ay, az, bx, by, bz, r, hex('#4a3c30')); K.mt = null; };   // the palisade, the yard and the raiders' camps never move: built once
 function worldSync(force) {
   const p = S.p, D = S.day;
-  if (!staticK) { const K = new Kit(); campKit(K); raiderKit(K); staticK = new KitMesh(); staticK.set(K); }
+  if (!staticK) { const K = new Kit(); campKit(K); staticK = new KitMesh(); staticK.set(K); }
   const gen = D.felled.size * 7 + D.nodes.size * 3 + (D.bchunks ? D.bchunks.size : 0);
   if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < 70 && gen === WORLD.gen && drawR() === WORLD.vr) return;
   WORLD.x = p.x; WORLD.y = p.y; WORLD.gen = gen; WORLD.vr = drawR(); worldDirty = false;

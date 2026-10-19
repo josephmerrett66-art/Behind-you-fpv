@@ -858,18 +858,32 @@ function campKit1(K, o) {
   }; }
 
 // a door or gate on the swing is drawn afresh every frame, on its own, so you see it open and shut; once it has come to
-// rest it goes back in with everything else (the rest isn't redrawn while it moves)
-const SWING = { skip: new Set(), next: null, k: null, had: false };
+// rest it goes back in with everything else (the rest isn't redrawn while it moves).
+// And each finished piece is kept as it was drawn, until something about it changes, so putting one more piece down in a
+// big base only draws that one piece, not the whole base again
+const SWING = { skip: new Set(), next: null, k: null, had: false }, PCACHE = new WeakMap();
 { const pk = pieceKit; pieceKit = function (K, o) {
-    if (SWING.next && o.done && stDoorish(PC(o.id)) && (o.open || 0) !== (o.ajar || 0)) { SWING.next.add(o); return; }
-    return pk.apply(this, arguments);
+    if (!SWING.next || !o.done || o.del) return pk.apply(this, arguments);
+    const P = PC(o.id);
+    if (stDoorish(P) && (o.open || 0) !== (o.ajar || 0)) { SWING.next.add(o); return; }
+    const key = o.id + '|' + o.x + '|' + o.y + '|' + (o.a || 0) + '|' + (o.open || 0) + '|' + (o.clip || 0) + '|' + (P.lay === 'flat' && floorBelow(o) ? 'f' : '') + (P.light && dayLight() < 0.85 ? 'n' : '');
+    let e = PCACHE.get(o);
+    if (!e || e.k !== key) { const T = new Kit(); pk(T, o); e = { k: key, c: T.take() }; PCACHE.set(o, e); }
+    K.chunk(e.c);
   }; }
 { const ts = thingsSync; thingsSync = function (force) {
     const k0 = thingsKey; SWING.next = new Set();
     try { return ts.apply(this, arguments); } finally { if (force || thingsKey !== k0) SWING.skip = SWING.next; SWING.next = null; }
   }; }
+// the see-through ghost of what you're about to put down (and of a piece planned but not built): only its nearest surface
+// shows, so a detailed piece reads as one clean shape rather than every block inside it showing through the others
+const GHOST_D = [ghostMesh, planMesh].map(m => {
+  const dm = m.material.clone(); dm.uniforms = m.material.uniforms; dm.colorWrite = false; dm.depthWrite = true; dm.transparent = true;
+  const d = new THREE.Mesh(m.geometry, dm); d.frustumCulled = false; d.renderOrder = m.renderOrder - 1; scene.add(d); return [m, d];
+});
 { const tf = thingsFrame; thingsFrame = function () {
     const r = tf.apply(this, arguments);
+    for (const [m, d] of GHOST_D) { d.geometry = m.geometry; d.visible = m.visible; }
     if (SWING.skip.size || SWING.had) {
       if (!SWING.k) SWING.k = new KitMesh(true);
       const K = new Kit(); for (const o of SWING.skip) if (S.day && S.day.bld.get(o.key) === o) pieceKit(K, o);

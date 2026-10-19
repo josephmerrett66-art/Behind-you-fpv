@@ -150,8 +150,9 @@ function autoMt(col) {
   if (sat < 0.09) return mx > 0.6 && b >= r ? MT.metal : MT.stone;
   return r >= b ? MT.wood : MT.stone;
 }
+const KIT_ATTR = [['position', 'pos', 3], ['normal', 'nor', 3], ['color', 'col', 3], ['em', 'em', 1], ['ew', 'ew', 1], ['gu', 'gu', 3], ['mt', 'mts', 1]];
 class Kit {
-  constructor() { this.pos = []; this.nor = []; this.col = []; this.em = []; this.ew = []; this.gu = []; this.mts = []; this.mt = null; }
+  constructor() { this.pos = []; this.nor = []; this.col = []; this.em = []; this.ew = []; this.gu = []; this.mts = []; this.mt = null; this.ch = null; }
   _mat(col) { return this.mt !== null ? MT[this.mt] ?? this.mt : autoMt(col); }
   // put a shape in: at (x, y, z) in 3D (z is the game's y), turned by yaw (and pitch, roll), sized (sx, sy, sz), coloured
   add(geo, x, y, z, sx, sy, sz, col, yaw = 0, pitch = 0, roll = 0, em = 0, ew = 0.7) {
@@ -180,11 +181,19 @@ class Kit {
       this.col.push(col[0], col[1], col[2]); this.em.push(em); this.ew.push(0.6);
     }
   }
+  // what's been put in so far, packed away to be added again later as it is (a piece you built, while it doesn't change)
+  take() { return { pos: new Float32Array(this.pos), nor: new Float32Array(this.nor), col: new Float32Array(this.col), em: new Float32Array(this.em), ew: new Float32Array(this.ew), gu: new Float32Array(this.gu), mts: new Float32Array(this.mts) }; }
+  chunk(c) { (this.ch || (this.ch = [])).push(c); }
   geometry() {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nor, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3)); g.setAttribute('em', new THREE.Float32BufferAttribute(this.em, 1)); g.setAttribute('ew', new THREE.Float32BufferAttribute(this.ew, 1));
-    g.setAttribute('gu', new THREE.Float32BufferAttribute(this.gu, 3)); g.setAttribute('mt', new THREE.Float32BufferAttribute(this.mts, 1));
+    const g = new THREE.BufferGeometry(), ch = this.ch;
+    for (const [name, f, w] of KIT_ATTR) {
+      const own = this[f];
+      if (!ch) { g.setAttribute(name, new THREE.Float32BufferAttribute(own, w)); continue; }
+      let N = own.length; for (const c of ch) N += c[f].length;
+      const A = new Float32Array(N); A.set(own); let off = own.length;
+      for (const c of ch) { A.set(c[f], off); off += c[f].length; }
+      g.setAttribute(name, new THREE.BufferAttribute(A, w));
+    }
     g.computeBoundingSphere();
     return g;
   }

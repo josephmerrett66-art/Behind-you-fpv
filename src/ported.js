@@ -2595,8 +2595,8 @@ function dayWake() {                             // v152 (Joe's plan): with a be
   D.died = n ? { x: Math.round(p.x), y: Math.round(p.y) } : null;
   D.deaths = (D.deaths || 0) + 1; lifeAdd('deaths');
   const lostW = rg.wispCarry || 0; rg.wispCarry = 0; rg.wisps = [];   // v164: wisps you carried are gone, as on an Expedition
-  rg.enemies.length = 0; rg.hp = Math.max(1, Math.ceil(rg.maxHp / 2)); rg.steel = 0; D.steelSeen = 0; D.armT = 0;
-  D.food = Math.min(D.food, 40); D.water = Math.min(D.water, 40); D.st = STA_MAX; D.sick = 0; D.starve = 0; D.warn = {};
+  rg.enemies.length = 0; rg.hp = Math.max(1, rg.maxHp / 2); rg.steel = 0; D.steelSeen = 0; D.armT = 0;
+  D.food = D.water = FOOD_MAX / 2; D.warm = Math.max(D.warm, WARM_MAX / 2); D.st = STA_MAX; D.sick = 0; D.starve = 0; D.warn = {};   // Joe: you come back half fed and half watered, never empty
   if (D.bed) { p.x = D.bed.x; p.y = D.bed.y + 26; } else { p.x = 0; p.y = 60; }   // no bed yet: you come round by the fire. Your camp is left just as it was
   p.vx = p.vy = 0; p.act = null; p.atk = null; S.cam.x = p.x; S.cam.y = p.y;
   rg.inCamp = !NO_CAMP && Math.hypot(p.x, p.y) < CAMP_R; if (!rg.inCamp) rg.ringMax = exRing(Math.hypot(p.x, p.y));

@@ -234,7 +234,7 @@ function clanReact(e) {   // you're coming at it: it stands its ground, backs of
 }
 function clanThink(e) {   // what next: never the same each time, but always for a reason
   const c = e.cl, P = c.P, C = clan(), p = S.p, d = c.d;
-  if (!rmOn()) return clanGo(e, 'leave');
+  if (!rmOn() && !c.night) return clanGo(e, 'leave');
   if (C.rage > 0 && c.hunter) return clanGo(e, 'hunt');
   if (c.lostT > 4) return clanGo(e, 'search');
   c.allies = clanAllies(e);
@@ -539,7 +539,7 @@ const CLAN_ST = {
     clanMove(e, c.dest.x, c.dest.y, c.o.calm ? CL.walk * 1.4 : CL.run, dt);
     if ((c.unseenT > 0.5 && d > 520) || d > 1000 || c.t > 25) {
       const g = c.band, others = g ? bandOf(g).filter(o => o !== e && o.cl.eng) : [];
-      if (g && !g.dead && rmOn() && !c.done && !others.length) { c.eng = false; c.engT = 0; c.hunter = 0; for (const o of bandOf(g)) if (o !== e && o.cl.st === 'leave') { o.cl.eng = false; o.cl.engT = 0; clanGo(o, 'roam'); } clanGo(e, 'roam'); }   // the band off on its way again, each finding the others in its own time
+      if (g && !g.dead && rmOn() && !c.night && !c.done && !others.length) { c.eng = false; c.engT = 0; c.hunter = 0; for (const o of bandOf(g)) if (o !== e && o.cl.st === 'leave') { o.cl.eng = false; o.cl.engT = 0; clanGo(o, 'roam'); } clanGo(e, 'roam'); }   // the band off on its way again, each finding the others in its own time
       else e.dead = e.gone = true;
     }
   },
@@ -637,7 +637,11 @@ function clanStep(dt) {
   const all = clanList();
   for (const e of all) { if (!e.cl) clanInit(e, null); clanSee(e, dt); }
   if (ARENA && ARENA.woods) woodsStep(dt, C, all);
-  if (!rmOn()) { for (const e of all) if (e.cl.st !== 'leave') { e.cl.done = 1; clanGo(e, 'leave'); } C.rage = 0; C.tok = null; return; }   // dusk: they melt away and the night is as it was
+  const night = !rmOn();
+  if (night) {   // dusk: they melt away, all but any out after you tonight with torches (78-clan6)
+    for (const e of all) if (!e.cl.night && e.cl.st !== 'leave') { e.cl.done = 1; clanGo(e, 'leave'); }
+    if (!all.some(e => e.cl.night)) { C.rage = 0; C.tok = null; return; }
+  }
   // what you're up to: chopping and working with your hands, building
   const H = heldSlot();
   if (p.act || (p.atk && H && DIT[H.id] && DIT[H.id].tool)) C.busy = S.t;
@@ -645,17 +649,17 @@ function clanStep(dt) {
   C.nb = D.builds.length;
   C.w = clanWeak(C); C.gap -= dt; clanRead(dt);
   if (S.t - C.busy < 0.1) clanAngAdd(dt * 0.02);   // felling their trees
-  const K = !ARENA && clanCampAt(p.x, p.y, 200);
+  const K = !ARENA && !night && clanCampAt(p.x, p.y, 200);
   if (K) {
     if (clanCampAt(p.x, p.y)) clanAngAdd(dt * 0.08);   // in their camp
     if (!C.bands.some(g => g.home === K) && clanList().length < 7 && (C.campT = (C.campT ?? 0) - dt) <= 0) { C.campT = 120; const g = clanBand(2 + (Math.random() < 0.5 + clanAngK() ? 1 : 0), { camp: K }); if (g) g.heat = 1; }   // there's always someone at home
   }
-  if (!ARENA) for (const k of clanCamps()) if (!C.bands.some(g => g.home === k) && Math.hypot(k.x - p.x, k.y - p.y) < 1100 && Math.hypot(k.x - p.x, k.y - p.y) > 700 && clanList().length < 6 && (C.campT = (C.campT ?? 0) - dt) <= 0) { C.campT = 120; clanBand(2 + (Math.random() < 0.4 ? 1 : 0), { camp: k }); }
-  if (C.revenge && (C.revenge.t -= dt) <= 0) {   // back for their leader
+  if (!ARENA && !night) for (const k of clanCamps()) if (!C.bands.some(g => g.home === k) && Math.hypot(k.x - p.x, k.y - p.y) < 1100 && Math.hypot(k.x - p.x, k.y - p.y) > 700 && clanList().length < 6 && (C.campT = (C.campT ?? 0) - dt) <= 0) { C.campT = 120; clanBand(2 + (Math.random() < 0.4 ? 1 : 0), { camp: k }); }
+  if (!night && C.revenge && (C.revenge.t -= dt) <= 0) {   // back for their leader
     const R2 = C.revenge; C.revenge = null; const g = clanBand(Math.min(4, R2.n), { d: 520, noLead: 1 });
     if (g) { for (const e of bandOf(g)) { e.cl.hunter = 1; e.cl.fear = 0; clanGo(e, 'hunt'); } C.rage = CL.rage; C.tokT = 6; for (let i = 0; i < 3; i++) clanLater(i * 0.7, 'yell', bandOf(g)[i % bandOf(g).length], 1); }
   }
-  const near = ARENA ? true : clanTide(C, dt, p);
+  const near = ARENA ? true : !night && clanTide(C, dt, p);
   for (const g of C.bands) clanBandStep(g, dt);
   C.bands = C.bands.filter(g => !g.dead);
   if (C.tok && (C.tok.dead || !['attack', 'hwarn', 'hdart'].includes(C.tok.cl.st))) C.tok = null;
@@ -955,6 +959,8 @@ function clanPose(R, e, c, now, dt, dead) {
     else if (sw.ph === 'strike') { P.armR = dn[0]; P.foreR[0] = dn[1][0]; P.spine[0] = 0.85; P.chest[0] = 0.35; P.chest[1] = -0.4; P.legL[0] = -1.0; P.shinL[0] = 0.4; P.legR[0] = 0.5; P.shinR[0] = 0.3; P.head[0] = -0.6; lunge = 6; rootY -= 2.5; }
     else { const k = 1 - u; P.armR = cmix(P.armR, dn[0], k); P.spine[0] += 0.4 * k; lunge = 4 * k; }
   }
+  // a torch held up in the left hand, out in front of it
+  if (c.torch && !dead && !c.climbing && !c.perched && !c.falling && !c.dragK && !c.flyK && c.st !== 'down' && !(S.t < (c.block || 0))) { P.armL = cmix(P.armL, [-1.2 + 0.05 * Math.sin(t * 1.3), 0.2, -0.32], 0.85); P.foreL[0] = lerp(P.foreL[0], -1.0, 0.85); }
   if (c.flinch > 0) { P.spine[0] -= 0.5 * c.flinch; P.head[0] -= 0.4 * c.flinch; P.armL[2] -= 0.5 * c.flinch; P.armR[2] += 0.5 * c.flinch; lunge -= 4 * c.flinch; }
   // dead: pitched over onto its face
   if (dead) { const k = ease.back(Math.min(1, dead.t / 0.6)); roll = 1.45 * k; rootY = -9.5 * c.crK * (1 - k) + 2 * k - Math.max(0, dead.t - 37) * 3; P.armL = [-2.5, 0.2, -0.5]; P.armR = [-2.2, -0.2, 0.6]; P.foreL[0] = -0.4; P.foreR[0] = -0.3; P.legL[0] = 0.2; P.shinL[0] = 1.1; P.head[0] = -0.5; stiff = 10; }
@@ -974,6 +980,14 @@ function clanPose(R, e, c, now, dt, dead) {
     const a = new V3(0, -1.6, -1.5).applyMatrix4(R.B.handR.matrixWorld), b = new V3(0, -3.2, 15).applyMatrix4(R.B.handR.matrixWorld);
     between(PT.rod, a.x, a.y, a.z, b.x, b.y, b.z, 1.15, hex('#5a4330'), 0);
     blob(PT.ball, b.x, b.y, b.z, 3.6, 3.2, 3.6, 0, hex('#4a3626'));
+  }
+  // a torch in the other: a stick standing up out of its fist, the head bound in rag and burning (the flame and light: 78-clan6)
+  c.torchAt = null;
+  if (c.torch && !dead) {
+    const h = new V3(0, 0, 0).applyMatrix4(R.B.handL.matrixWorld), fx = Math.cos(f) * 2.5, fz = Math.sin(f) * 2.5;
+    between(PT.rod, h.x - fx * 0.4, h.y - 5, h.z - fz * 0.4, h.x + fx, h.y + 12, h.z + fz, 1.0, hex('#4a3626'), 0);
+    blob(PT.ball, h.x + fx, h.y + 12.5, h.z + fz, 2.1, 2.8, 2.1, 0, hex('#2c2018'));
+    c.torchAt = { x: h.x + fx, y: h.z + fz, h: h.y + 13.5 };
   }
 }
 // its feet on the forest floor: heavier and lower than yours, bare feet thudding through leaf litter; a run pounds, a creep

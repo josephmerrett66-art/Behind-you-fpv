@@ -1878,7 +1878,8 @@ function exNewRun() {
   return rg;
 }
 const DAY_LEN = 540,   // first person (Joe): the day twice as long, the night the same 3 minutes as before
-  FOOD_MAX = 100, FOOD_RATE = 0.5, WATER_RATE = 0.65, STARVE_T = 5, DAY_KEY = 'behind-you-fp-day-best';
+  FOOD_MAX = 100, FOOD_RATE = 0.2, WATER_RATE = 0.26,   // v126 (Joe: too demanding, and food takes a knife now): a full belly lasts most of a day, a full drink about six minutes
+  STARVE_T = 5, DAY_KEY = 'behind-you-fp-day-best';
 const STA_MAX = 100, STA_SWING = 10, STA_SLAM = 18, STA_ROLL = 20, STA_CHOP = 4, STA_REGEN = 34, STA_WAIT = 0.6;
 const HOTN = 6, BASE_SLOTS = 20,   // v161 (Joe): the pack holds twice what it did
   BOX_SLOTS = 30, CHEST_SLOTS = 18, SKIN_SIPS = 4;
@@ -2215,7 +2216,7 @@ function dayStep(dt, inCamp) {
   D.steelSeen = rg.steel || 0;
   // food and water run down
   const stom = 1 - 0.06 * sr('stomach');   // v164: Iron Stomach
-  D.food = Math.max(0, D.food - dt * FOOD_RATE * (1 + 0.06 * (D.n - 1)) * stom);
+  D.food = Math.max(0, D.food - dt * FOOD_RATE * (1 + Math.min(0.3, 0.03 * (D.n - 1))) * stom);   // a little hungrier as the days go by, never more than a third
   D.water = Math.max(0, D.water - dt * WATER_RATE * stom);
   for (const [k, v, msg] of [['food', D.food, 'hungry'], ['water', D.water, 'thirsty']]) {
     if (v < 30 && !D.warn[k]) { D.warn[k] = 1; exNote(v <= 0 ? (k === 'food' ? 'starving' : 'parched') : msg, true); }

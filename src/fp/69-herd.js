@@ -13,7 +13,7 @@ Object.assign(DIT, {
   sledge: { n: 'Old sledgehammer', c: '#7a7c80', st: 1, k: 'mat', b: 'Opens a sealed cache · it doesn\'t get used up' },
   hbell: { n: 'Herder\'s bell', c: '#c8a050', st: 1, k: 'tool', tool: 'bell', b: 'Ring it and wild deer come and follow you · lead them into a pen' },
   sweetroot: { n: 'Sweetroot', c: '#c8784a', st: 12, k: 'food', b: 'Sweet and filling raw · plant it in a plot and it multiplies', eat: { food: 16, water: 4 } },
-  hearth: { n: 'Hearthstone', c: '#e0904a', st: 1, k: 'place', build: 'hearth', b: 'A relic · set it down and its glow keeps the dark out, like the fire pit\'s' },
+  hearth: { n: 'Hearthstone', c: '#e0904a', st: 1, k: 'place', build: 'hearth', b: 'An old warm stone · set it down and its glow keeps the dark out, like the fire pit\'s' },
   pen: { n: 'Deer pen', c: '#7a5a3a', st: 1, k: 'place', build: 'pen', b: 'Lead deer in with the bell · they breed and leave meat in the trough' },
 });
 DREC.push({ id: 'pen', g: 'stn', out: 'pen', at: 'hand', need: 'hbell', cost: { sticks: 12, rope: 2 } });
@@ -71,7 +71,7 @@ function cacheUse(B) {
   if (actx) { const t = actx.currentTime; noiseAt(t, 700, 200, 0.4, 0.4, sfxGain); [392, 523, 659, 784].forEach((f, i) => toneAt(t + 0.25 + i * 0.09, f, 0.7, 0.04, 'triangle', sfxGain)); }
   const n = B.rw === 'sweetroot' ? 4 : 1; dayGive(B.rw, n, B.x, B.y, true);
   if (B.rw === 'hbell') S.day.herd = 1;
-  S.rg.ringMsg = { text: DIT[B.rw].n.toLowerCase(), sub: DIT[B.rw].b.replace(/^A relic · /, ''), t: 0 }; playRingSting();
+  S.rg.ringMsg = { text: DIT[B.rw].n.toLowerCase(), sub: DIT[B.rw].b.replace(/^An old warm stone · /, ''), t: 0 }; playRingSting();
   wpRing(B.x, B.y, 60, '255,210,120', 0.8); wpEmbers(B.x, B.y, 16, 22, '255,210,120'); dayJLog(`opened a ${B.ck === 'chest' ? 'locked chest' : 'stone cache'} · ${DIT[B.rw].n}`);
   dayChanged();
 }

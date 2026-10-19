@@ -18,7 +18,7 @@ function newGame(fresh) {
   S.mode = 'expedition'; EX_TEST = false;
   dayYard(true);
   const sv = dayReadSave();
-  if (ARENA) dayBegin();   // the boss arena: a run of its own, your save left as it is
+  if (ARENA) dayBegin();   // the test woods: a run of their own, your save left as it is
   else if (fresh || !sv) { dayClearSave(); dayBegin(); } else dayLoad(sv);
   dayPowApply();
   S.torchOn = !S.day;

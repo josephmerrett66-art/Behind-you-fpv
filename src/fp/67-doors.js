@@ -80,7 +80,7 @@ function clanSpikes(D, cl, dt, night) {
         if (P.trap) o.hp -= 1;
       }
       if (P.mire && ed < 6) { e.mire = S.t + 0.25; if (Math.random() < dt * 2) e.hp -= 0.1; }   // the hedge drags at them
-      if (P.k === 'chimes' && night && ed < 220 && !(o.ring > 0)) { o.ring = 6; exNote('the chimes are ringing', true); if (actx) for (let i = 0; i < 4; i++) setTimeout(() => sfx(2.2 + Math.random() * 1.2, 0.5, 'bandpass', 2600 + Math.random() * 1800, 0.18), i * 120); }
+      if (P.k === 'chimes' && ed < 220 && !(o.ring > 0)) { o.ring = 6; exNote('the chimes are ringing', true); if (actx) for (let i = 0; i < 4; i++) setTimeout(() => sfx(2.2 + Math.random() * 1.2, 0.5, 'bandpass', 2600 + Math.random() * 1800, 0.18), i * 120); }
     }
     if (o.hp <= 0 && D.bld.has(o.key)) {
       stGone(o); for (let i = 0; i < 3; i++) ashBurst(o.x + (Math.random() - 0.5) * 40, o.y + (Math.random() - 0.5) * 40, 6, 22);

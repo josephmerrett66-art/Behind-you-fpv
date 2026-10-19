@@ -806,7 +806,6 @@ function killFoe(e) {
   if (lv('feast')) { const n = [20, 20, 14, 10][Math.min(3, lv('feast'))]; if (rg.kills % n === 0 && rg.hp < rg.maxHp) { rg.hp = Math.min(rg.maxHp, Math.floor(rg.hp) + 1); rg.pop = { t: 0, gained: rg.hp - 1 }; } }
   stkKill(e);
   dropWisps(e);
-  if (S.day) { dayRareDrop(e); dayInfKill(e); }   // v190, v191
 }
 const STK_TIERS = [
   { n: 0, m: 1, name: '', win: 2.6, col: [255, 236, 210] },
@@ -907,7 +906,7 @@ function stkCash(now) {                           // the timer ran dry: count it
   const F = stkFx();
   if (k.n >= 2) {
     const tier = STK_TIERS[k.tier], pts = Math.round(k.pts);
-    const wisps = S.mode === 'expedition' && !(S.day && !dayDark()) ? Math.max(k.tier > 0 ? 1 : 0, Math.floor(pts / STK_WISP)) : 0;
+    const wisps = S.mode === 'expedition' && !S.day ? Math.max(k.tier > 0 ? 1 : 0, Math.floor(pts / STK_WISP)) : 0;
     F.cash = { t: 0, pts, n: k.n, tier: k.tier };
     if (wisps) { if (now) { gainWisps(wisps); lifeAdd('stkWisps', wisps); } else rg.stkPay = { t: 0.6, n: (rg.stkPay ? rg.stkPay.n : 0) + wisps }; }
     rg.score = (rg.score || 0) + pts;
@@ -1943,7 +1942,7 @@ const DIT = {
   sword2: { n: 'Iron sword', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'sword', fam: 'sword', hc: IRON_HEAD, dmg: 1.9, dur: 340, b: 'Sword · the all-rounder, in good iron · parry' },
   bow1: { n: 'Short bow', c: '#9a7040', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#9a7040', dmg: 1.0, dur: 90, b: 'Bow · hold to draw, let go to loose · needs arrows' },   // v189: weapons stage 2, ranged
   bow2: { n: 'Bone bow', c: '#d8cfb8', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#cfc6ae', dmg: 1.35, dur: 170, b: 'Bow · horn and bone, a hard pull and a long flight' },
-  bow3: { n: 'War bow', c: '#6e4a2c', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#5e3e24', tip: IRON_HEAD, dmg: 1.8, dur: 300, b: 'Bow · iron-tipped yew, it drops a raider at forty paces' },
+  bow3: { n: 'War bow', c: '#6e4a2c', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#5e3e24', tip: IRON_HEAD, dmg: 1.8, dur: 300, b: 'Bow · iron-tipped yew, it drops a deer at forty paces' },
   sling1: { n: 'Hide sling', c: '#a07850', st: 1, k: 'tool', tool: 'sling', rng: 'sling', dmg: 0.85, dur: 90, b: 'Sling · hold to whirl it, let go to throw · stones or sling shot' },
   sling2: { n: 'Braided sling', c: '#c8b07a', st: 1, k: 'tool', tool: 'sling', rng: 'sling', dmg: 1.2, dur: 200, b: 'Sling · a long braided cord, it hurls hard and stuns' },
   arrows: { n: 'Flint arrows', c: FLINT_HEAD, st: 20, k: 'mat', ammo: 'bow', am: 1, b: 'Arrows · for any bow · the first arrows in your pack are the ones you shoot' },
@@ -1976,11 +1975,6 @@ const DIT = {
   spikes: { n: 'Spike trap', c: '#8a6a44', st: 6, k: 'place', build: 'spikes', b: 'Hurts whatever walks in' },
   tpost: { n: 'Torch post', c: '#ffb45a', st: 3, k: 'place', build: 'tpost', b: 'Burns whatever comes into its light · feed it sticks' },
   effigy: { n: 'Effigy', c: '#cfc8b4', st: 2, k: 'place', build: 'effigy', b: 'Animals keep well away from it' },
-  signal: { n: 'Signal fire', c: '#ff7a2a', st: 1, k: 'place', build: 'signal', b: 'Light it and hold out · it is the way out of here' },
-  rhorn: { n: "Hunter's horn", c: '#d8c088', st: 1, k: 'relic', b: 'Taken from a raider camp · the signal fire needs all four' },
-  rbell: { n: 'Iron bell', c: '#9aa4ae', st: 1, k: 'relic', b: 'Taken from a raider camp · the signal fire needs all four' },
-  rskull: { n: 'Antlered skull', c: '#e6dfcc', st: 1, k: 'relic', b: 'Taken from a raider camp · the signal fire needs all four' },
-  rcrown: { n: 'Ash crown', c: '#b8a07a', st: 1, k: 'relic', b: 'Taken from a raider camp · the signal fire needs all four' },
 };
 const DREC = [
   { id: 'rope', g: 'mat', out: 'rope', at: 'hand', cost: { fibre: 3 } },
@@ -3098,7 +3092,9 @@ function dayLoad(sv) {                          // pick a saved run back up wher
   D.baseHp = D.baseHp || rg.maxHp;
   D.beasts = d.beasts.map(b => ({ kind: 'beast', r: 0, s: 1, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, ...b }));
   for (const sv of d.bld || []) stMake(sv);
-  for (const B of d.builds) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.pen ? 'pen' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.bT) nb.bT = B.bT; if (B.ck) { nb.ck = B.ck; nb.rw = B.rw; nb.open = B.open; } if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
+  for (const B of d.builds.filter(B => B.t !== 'signal')) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.pen ? 'pen' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.bT) nb.bT = B.bT; if (B.ck) { nb.ck = B.ck; nb.rw = B.rw; nb.open = B.open; } if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
+  { const keep = s => { if (!s || !DIT[s.id]) return null; if (s.inf && !INF[s.inf]) delete s.inf; return s; };   // Joe's fresh start: what the old story left behind goes
+    D.inv = D.inv.map(keep); D.box = (D.box || []).map(keep); for (const k in D.gear) D.gear[k] = keep(D.gear[k]); for (const B of D.builds) if (B.inv) B.inv = B.inv.map(keep); }
   if (NO_CAMP && !D.noCamp) campToBuilds();
   if (!D.cacheV) cacheSeed();
   if (NO_CAMP) D.builds = D.builds.filter(B => !(B.t === 'fire' && Math.hypot(B.x - EX_FIRE.x, B.y - EX_FIRE.y) < 2));   // the fire an earlier version built on the pit's spot   // a run from when there was a camp keeps its box, barrel and fire
@@ -3180,15 +3176,13 @@ function craftRow(r, here) {
 const MAT_GET = { sticks: 'pick them up off the ground, or chop down a tree', stones: 'pick them up off the ground, or break a rock', fibre: 'hit tall grass',
   logs: 'chop down a tree with an axe', flint: 'break a rock with a pick', hide: 'hunt deer, boar, wolves or bears', bone: 'hunt boar, wolves or bears',
   ironore: 'break rock in the deep woods with a flint pick or better', meat: 'hunt animals', fish: 'fish at a pond with a rod', berries: 'pick them from bushes' };
-Object.assign(MAT_GET, { mushroom: 'pick them up off the woodland floor', rope: '', planks: '', iron: '', rbell: 'take it from a raider camp, once its guards are dead',
-  rskull: 'take it from a raider camp, once its guards are dead', rcrown: 'take it from a raider camp, once its guards are dead' });
+Object.assign(MAT_GET, { mushroom: 'pick them up off the woodland floor', rope: '', planks: '', iron: '' });
 const BOOK = [
   { id: 'raw', n: 'Gathered', icon: 'sticks', blurb: 'Found lying about, or knocked loose with the right tool.', items: ['sticks', 'stones', 'fibre', 'logs', 'flint', 'ironore'] },
   { id: 'hunt', n: 'Hunted and fished', icon: 'meat', blurb: 'From the animals of the woods. Crouch (Sneak) to get close to deer.', items: ['meat', 'hide', 'bone', 'fish'] },
   { id: 'forage', n: 'Foraged', icon: 'berries', items: ['berries', 'mushroom'] },
   { id: 'made', n: 'Worked materials', icon: 'rope', blurb: 'Made from the others, at a station.', items: ['rope', 'planks', 'iron'] },
   { id: 'cook', n: 'Cooked and kept', icon: 'cooked', items: ['cooked', 'roast', 'stew', 'fishC', 'jerky', 'tea'] },
-  { id: 'relic', n: 'Relics', icon: 'rskull', blurb: 'Each raider camp guards one. Bring all four home for the signal fire.', items: ['rhorn', 'rbell', 'rskull', 'rcrown'] },
 ];
 function bookWhere(id) {                         // every way to come by it, known recipe or not
   const bits = [], r = DREC.filter(x => x.out === id);
@@ -3240,8 +3234,8 @@ const PIECES = [
   { id: 'floorST', cat: 'floor', sh: 'tri', lay: 'floor', k: 'floor', m: 'stone', s: 'Stone ◢', n: 'Stone corner floor', b: 'A triangle of flagstones', cost: { stones: 4 }, hp: 60 },
   // walls
   { id: 'wallT', cat: 'wall', sh: 'edge', L: GRID, lay: 'edge', k: 'wall', m: 'thatch', blk: 1, H: 36, s: 'Thatch', n: 'Thatch wall', b: 'Quick cover · goes down fast', cost: { fibre: 4, sticks: 2 }, hp: 14 },
-  { id: 'wallW', cat: 'wall', sh: 'edge', L: GRID, lay: 'edge', k: 'wall', m: 'wood', blk: 1, H: 36, s: 'Log', n: 'Log wall', b: 'Holds against a raid', cost: { logs: 4 }, hp: 48 },
-  { id: 'wallS', cat: 'wall', sh: 'edge', L: GRID, lay: 'edge', k: 'wall', m: 'stone', blk: 1, H: 36, s: 'Stone', n: 'Stone wall', b: 'They batter it all night and fail', cost: { stones: 5, planks: 2 }, hp: 140 },
+  { id: 'wallW', cat: 'wall', sh: 'edge', L: GRID, lay: 'edge', k: 'wall', m: 'wood', blk: 1, H: 36, s: 'Log', n: 'Log wall', b: 'Holds against the clan', cost: { logs: 4 }, hp: 48 },
+  { id: 'wallS', cat: 'wall', sh: 'edge', L: GRID, lay: 'edge', k: 'wall', m: 'stone', blk: 1, H: 36, s: 'Stone', n: 'Stone wall', b: 'They batter at it and fail', cost: { stones: 5, planks: 2 }, hp: 140 },
   { id: 'wallI', cat: 'wall', sh: 'edge', L: GRID, lay: 'edge', k: 'wall', m: 'iron', blk: 1, H: 38, s: 'Iron', n: 'Iron-bound wall', b: 'Planks behind iron plate · near unbreakable', cost: { iron: 2, planks: 3 }, hp: 260 },
   { id: 'halfW', cat: 'wall', sh: 'edge', L: GRID, lay: 'edge', k: 'half', m: 'wood', blk: 1, H: 18, s: 'Low log', n: 'Low log wall', b: 'Waist high · keeps them out, lets you see', cost: { logs: 2 }, hp: 30 },
   { id: 'halfS', cat: 'wall', sh: 'edge', L: GRID, lay: 'edge', k: 'half', m: 'stone', blk: 1, H: 18, s: 'Low stone', n: 'Low stone wall', b: 'A dry-stone wall, waist high', cost: { stones: 3 }, hp: 80 },
@@ -3267,7 +3261,7 @@ const PIECES = [
   { id: 'stakes', cat: 'def', sh: 'free', lay: 'free', k: 'stakes', m: 'wood', blk: 1, r: 16, H: 22, thorn: 1, s: 'Stakes', n: 'Stake barricade', b: 'Crossed stakes · they hurt to push through', cost: { logs: 2, sticks: 4 }, hp: 40 },
   { id: 'spikeF', cat: 'def', sh: 'free', lay: 'flat', k: 'spikeF', m: 'wood', r: 18, trap: 1, s: 'Spike pit', n: 'Spike strip', b: 'Hidden spikes · cuts whatever walks over', cost: { sticks: 6, flint: 2 }, hp: 30 },
   { id: 'thorns', cat: 'def', sh: 'free', lay: 'free', k: 'thorns', m: 'thatch', r: 18, mire: 1, s: 'Thorns', n: 'Thorn hedge', b: 'Bramble · they wade through it slowly', cost: { fibre: 6, sticks: 3 }, hp: 24 },
-  { id: 'chimes', cat: 'def', sh: 'free', lay: 'free', k: 'chimes', m: 'bone', r: 8, H: 40, s: 'Chimes', n: 'Bone chimes', b: 'Ring when something comes close at night', cost: { bone: 3, rope: 1, sticks: 2 }, hp: 10 },
+  { id: 'chimes', cat: 'def', sh: 'free', lay: 'free', k: 'chimes', m: 'bone', r: 8, H: 40, s: 'Chimes', n: 'Bone chimes', b: 'Ring when something comes close', cost: { bone: 3, rope: 1, sticks: 2 }, hp: 10 },
   // light
   { id: 'sconce', cat: 'light', sh: 'mount', lay: 'mount', k: 'sconce', m: 'iron', light: 90, s: 'Sconce', n: 'Wall sconce', b: 'A torch on the wall · lights at dusk', cost: { sticks: 2, fibre: 2 }, hp: 10 },
   { id: 'lamp', cat: 'light', sh: 'free', lay: 'free', k: 'lamp', m: 'wood', blk: 1, r: 5, H: 50, light: 150, s: 'Lamp post', n: 'Lamp post', b: 'A lantern on a pole · lights at dusk', cost: { logs: 1, rope: 1, fibre: 2 }, hp: 20 },
@@ -3510,7 +3504,7 @@ function stStep(dt) {
         if ((e.thornT = (e.thornT || 0) - dt) <= 0) { e.thornT = 0.8; e.hp -= P.trap ? 1 : 0.6; e.jit = 1; ashBurst(e.x, e.y, 3, 14); if (P.trap) o.hp -= 1; if (actx && monNear(e, 600) > 0) noiseAt(actx.currentTime, 2600, 900, 0.1, 0.25 * monNear(e, 600), sfxGain); }
       }
       if (P.mire && ed < 6) { e.mire = S.t + 0.25; if (Math.random() < dt * 2) e.hp -= 0.1; }   // the hedge drags at them
-      if (P.k === 'chimes' && night && ed < 220 && !(o.ring > 0)) { o.ring = 6; exNote('the chimes are ringing', true); if (actx) { const t = actx.currentTime; for (let i = 0; i < 4; i++) setTimeout(() => sfx(2.2 + Math.random() * 1.2, 0.5, 'bandpass', 2600 + Math.random() * 1800, 0.18), i * 120); } }
+      if (P.k === 'chimes' && ed < 220 && !(o.ring > 0)) { o.ring = 6; exNote('the chimes are ringing', true); if (actx) { const t = actx.currentTime; for (let i = 0; i < 4; i++) setTimeout(() => sfx(2.2 + Math.random() * 1.2, 0.5, 'bandpass', 2600 + Math.random() * 1800, 0.18), i * 120); } }
     }
     if (o.hp <= 0) {
       stGone(o);
@@ -3992,7 +3986,7 @@ const dpowSlots = () => 3 + dpow().slot;
 const dpowUsed = () => dpow().eq.reduce((a, id) => a + slotCost(id), 0);
 function dayPowApply() {                          // what's equipped is what the run has
   const rg = S && S.rg; if (!S || !S.day || !rg) return;
-  const P = dpow(); rg.up = {}; for (const id of P.eq) if (P.own[id]) rg.up[id] = P.own[id];
+  rg.up = {};   // the power-ups bought with wisps are gone (Joe: a fresh start)
 }
 function dpowBuy(id) {
   const P = dpow(), u = UP[id], have = P.own[id] || 0, c = dpowPrice(u, have); if (have >= kitMax(u) || P.w < c) return;
@@ -4444,11 +4438,8 @@ const FG = [
   { k: 'bl', n: 'Balance', cost: [{ bone: 2 }, { bone: 3 }, { bone: 2, iron: 1 }, { bone: 2, iron: 2 }, { bone: 3, iron: 3 }] },
 ];
 const INF = {
-  ember: { n: 'Ember', b: 'every hit sets them alight', cost: { ember: 3, iron: 1 }, col: '255,140,60' },
   fang: { n: 'Wolf fang', b: 'every hit makes them bleed', cost: { fang: 3, bone: 2 }, col: '232,92,80' },
   antler: { n: 'Antler', b: 'hits throw them back and stun them', cost: { antler: 2, rope: 2 }, col: '214,186,140' },
-  ash: { n: 'Ash', b: 'a kill at night bursts into light that burns those near', cost: { ash: 4, bone: 1 }, col: '214,208,240' },
-  wisp: { n: 'Night wisp', b: 'kills at night leave half as many wisps again', cost: { wisps: 60 }, col: '178,136,255' },
 };
 const WISP_IC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3 4 5.5 7 5.5 10.5a5.5 5.5 0 0 1-11 0C6.5 10 9 7 12 3z" fill="#b288ff"/><path d="M12 10c1.4 1.6 2.6 3 2.6 4.6a2.6 2.6 0 0 1-5.2 0c0-1.6 1.2-3 2.6-4.6z" fill="#efe2ff"/></svg>';
 Object.assign(ICON, {
@@ -4462,19 +4453,16 @@ Object.assign(DIT, {
   anvil: { n: 'Forge', c: '#62666c', st: 2, k: 'place', build: 'anvil', b: 'An anvil and a grindstone · sharpen, reinforce, balance and infuse what you carry' },
   axe4: { n: 'Steel axe', c: '#dfe6ee', st: 1, k: 'tool', tool: 'axe', tier: 4, dmg: 1.45, dur: 420, b: 'Fells a tree in one chop' },
   pick4: { n: 'Steel pick', c: '#dfe6ee', st: 1, k: 'tool', tool: 'pick', tier: 4, dmg: 1.3, dur: 420, b: 'Breaks rock in one blow, and more ore from it' },
-  ember: { n: 'Ember shard', c: '#ff8a3c', st: 10, k: 'mat', b: 'A coal that never goes out · rare, from the night\'s burning dead' },
   fang: { n: 'Wolf fang', c: '#efe6d2', st: 10, k: 'mat', b: 'From wolves, and always from a bear' },
   antler: { n: 'Antler', c: '#d6ba8c', st: 10, k: 'mat', b: 'From deer, now and then' },
-  ash: { n: 'Grave ash', c: '#9a96a8', st: 20, k: 'mat', b: 'What the tall ones leave when they burn at night · rarer from the rest' },
 });
 DREC.push(
   { id: 'anvil', g: 'stn', out: 'anvil', at: 'furnace', cost: { iron: 3, stones: 10, logs: 2 } },
   { id: 'axe4', g: 'tool', out: 'axe4', at: 'anvil', cost: { iron: 5, planks: 2, hide: 1 } },
   { id: 'pick4', g: 'tool', out: 'pick4', at: 'anvil', cost: { iron: 5, planks: 2, hide: 1 } },
 );
-Object.assign(MAT_GET, { ember: 'kill things at night: now and then one leaves a shard that still glows (brutes and tall ones more often)',
-  fang: 'hunt wolves (a bear always has them)', antler: 'hunt deer', ash: 'kill the tall ones at night; others leave it more rarely' });
-BOOK.push({ id: 'rare', n: 'Rare finds', icon: 'ember', blurb: 'For infusing a weapon at the forge.', items: ['ember', 'fang', 'antler', 'ash'] });
+Object.assign(MAT_GET, { fang: 'hunt wolves (a bear always has them)', antler: 'hunt deer', ash: 'kill the tall ones at night; others leave it more rarely' });
+BOOK.push({ id: 'rare', n: 'Rare finds', icon: 'fang', blurb: 'For infusing a weapon at the forge.', items: ['fang', 'antler'] });
 const fgOk = s => { const T = s && DIT[s.id]; return !!(T && T.dur && T.k === 'tool' && (T.tool === 'weapon' || T.rng || T.tool === 'axe' || T.tool === 'pick')); };
 const fgN = s => s && s.fg ? (s.fg.sh || 0) + (s.fg.rf || 0) + (s.fg.bl || 0) : 0;
 const fgLv = (s, k) => s && s.fg ? s.fg[k] || 0 : 0;
@@ -4560,24 +4548,6 @@ function dayInfHit(o, inf) {                      // an infused weapon's blow, o
   if (inf === 'ember') { o.wburn = Math.max(o.wburn || 0, 2.5); o.wburnK = 1; wpEmbers(o.x, o.y, 24, 5, '255,150,60'); }
   else if (inf === 'fang') { o.wbleed = Math.min(4, (o.wbleed || 0) + 1); o.wbleedT = 3; o.wbleedK = 1; }
   else if (inf === 'antler' && o.type !== 'tall') { const p = S.p, d = Math.hypot(o.x - p.x, o.y - p.y) || 1; o.x += (o.x - p.x) / d * 16; o.y += (o.y - p.y) / d * 16; o.frozen = Math.max(o.frozen || 0, 0.45); }
-}
-function dayInfKill(e) {                          // ash and wisp: what a night kill with them does
-  if (!e.kInf || S.t - e.kInfT > 4 || !dayDark()) return;
-  const rg = S.rg;
-  if (e.kInf === 'ash') {
-    rg.flares.push({ x: e.x, y: e.y, r: 95, life: 1.1, t: 0 }); wpRing(e.x, e.y, 95, '230,226,255', 0.5); ashBurst(e.x, e.y, 18, 20);
-    for (const o of rg.enemies) if (!o.dead && o !== e && Math.hypot(o.x - e.x, o.y - e.y) < 95) { o.hp -= 0.6; o.wburn = Math.max(o.wburn || 0, 1.5); o.wburnK = 1; o.jit = 1; }
-    addShake(0.12); if (actx) { const t = actx.currentTime; toneAt(t, 1760, 0.4, 0.035, 'sine', sfxGain); noiseAt(t, 6000, 2400, 0.2, 0.3, sfxGain); }
-  } else if (e.kInf === 'wisp' && !S.day) {
-    const n = Math.max(1, Math.round((WISP[e.type] || 1) * 0.5)), L = rg.wisps || (rg.wisps = []);
-    L.push({ x: e.x + (Math.random() - 0.5) * 12, y: e.y + (Math.random() - 0.5) * 12, z: FOES[e.type].h * 0.5, t: 0, n, life: 12 + 4 * sr('linger'), seed: Math.random() * 9, v: 0 });
-  }
-}
-function dayRareDrop(e) {                         // now and then the night's dead leave something worth keeping
-  if (!S.day || !dayDark()) return;
-  const big = e.type === 'tall' ? 2 : e.type === 'brute' ? 1 : 0;
-  if (Math.random() < [0.05, 0.18, 0.4][big]) dayDrop(e.x, e.y, 'ember', 1);
-  if (Math.random() < [0.06, 0.25, 0.6][big]) dayDrop(e.x, e.y, 'ash', big > 1 ? 2 : 1);
 }
 Object.assign(DIT, {
   nbow: { n: 'Hunter\'s Longbow', c: '#7a5230', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#4a2e18', named: 1, dmg: 2.1, dur: 520, b: 'Named · a full draw goes through every one of them in a line' },

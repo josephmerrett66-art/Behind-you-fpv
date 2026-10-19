@@ -499,7 +499,7 @@ function worldSync(force) {
   coverB.begin(); plantB.begin(); bushB.begin();
   for (const d of decorNear(p.x, p.y, 430)) {
     const k = d.dk === 'log' ? 'log' : d.dk;
-    if (!ATLAS.meta[k]) continue;
+    if (!ATLAS.meta[k] && !PROP_KIND[k]) continue;   // (a sapling has only its model, no picture)
     if (k === 'log') {   // a fallen log lies flat on the ground as a solid log, with a broken branch or two
       propsW.add('log', d.seed * 31 | 0, d.x, d.y, d.s, d.seed);   // one of a few logs modelled once, laid down many times (14-props)
       shadow(d.x, d.y, 38 * d.s * 0.45, 0);

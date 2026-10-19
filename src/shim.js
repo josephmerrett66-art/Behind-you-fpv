@@ -30,7 +30,11 @@ function jfSquash(k) { FP.squash(k); }
 function layoutBtns() { FP.layout(); }
 function wpUi(force) { FP.ui(force); }
 function flaskUi() {}
-function exNote(text, big) { S.rg.notes.push({ text, t: 0, big: !!big }); if (S.rg.notes.length > 3) S.rg.notes.shift(); }
+function exNote(text, big, life, sub) {   // sub given: a headline, which outlasts the pickups crowding in after it; two headlines at most
+  const N = S.rg.notes, hd = n => n.sub != null; N.push({ text, t: 0, big: !!big, life, sub });
+  if (hd(N[N.length - 1]) && N.filter(hd).length > 2) N.splice(N.findIndex(hd), 1);
+  if (N.length > 3) { const i = N.findIndex(n => !hd(n)); N.splice(Math.max(0, i), 1); }
+}
 function showDeathCard() { S.rg.cardShown = true; if (S.day) dayCard(); }
 // the woods have no weather yet, and none of the far places
 const inBeyond = () => false, inNext = () => false, inDunes = () => false;

@@ -493,9 +493,11 @@ function decorAt(i, j) {
       const v = hash(i * 3.3, j * 5.1);
       d = { kind: 'decor', dk: fl, x, y, s: 1.1 + hash(j * 1.7, i) * 0.4, v: (v * 97 | 0) % 3, seed: v };
     }
-  } else if (!(Math.abs(i) < 2 && Math.abs(j) < 2) && !propAt(i, j)) {
+  } else if (!(Math.abs(i) < 2 && Math.abs(j) < 2) && (!propAt(i, j) || propAt(i, j).kind === 'tree')) {
     const L = landDecor(i, j, h);   // fp: what grows here by the lie of the land (00-areas)
-    const x = L && L.x !== undefined ? L.x : i * T + 6 + hash(j - 3, i + 5) * (T - 12), y = L && L.y !== undefined ? L.y : j * T + 6 + hash(i + 9, j * 2) * (T - 12);
+    let x = L && L.x !== undefined ? L.x : i * T + 6 + hash(j - 3, i + 5) * (T - 12), y = L && L.y !== undefined ? L.y : j * T + 6 + hash(i + 9, j * 2) * (T - 12);
+    const P = propAt(i, j);   // fp: under a tree, the undergrowth keeps clear of its trunk, and no log lies through it
+    if (P && L) { const dx = x - P.x, dy = y - P.y, d = Math.hypot(dx, dy) || 1; if (d < 26) { x = P.x + dx / d * 26; y = P.y + dy / d * 26; } if (L.dk === 'log' || L.dk === 'sapling') L.dk = 'fern'; }
     if (L && !(S && S.mode === 'expedition' && (Math.hypot(x, y) < CAMP_R + 45 || nearPortal(x, y, 70)))) {
       const kind = L.dk, v = hash(i * 3.3, j * 5.1);
       d = { kind: 'decor', dk: kind, x, y, s: (kind.startsWith('flower') ? 1.1 : 1) + hash(j * 1.7, i) * (kind.startsWith('flower') ? 0.4 : 0.55), v: (v * 97 | 0) % (SPRITE_KINDS[kind] ? SPRITE_KINDS[kind][0] : 3), seed: v };

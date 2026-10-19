@@ -34,10 +34,10 @@ const treeMat = new THREE.ShaderMaterial({
         float up = smoothstep(-0.5, 0.9, N.y) * 0.55 + smoothstep(10.0, 110.0, vL.y) * 0.25;   // lit from above, darker underneath and inside
         if (leaf) {   // dabs of paint: clumps of leaves, lighter ones catching the light
           float a = vn(vG * 0.55), b = vn(vG * 1.7 + 7.0);
-          c = vC * (0.55 + 0.55 * up) * (0.78 + 0.32 * a) + vC * smoothstep(0.62, 0.8, b) * 0.35 * up;
+          c = vC * (0.62 + 0.5 * up) * (0.78 + 0.32 * a) + vC * smoothstep(0.62, 0.8, b) * 0.35 * up;
         } else {      // needles: short strokes raked down and out
           float s = vn(vec3(vG.x * 1.6, vG.y * 0.35, vG.z * 1.6)), t = vn(vG * 0.4);
-          c = vC * (0.6 + 0.5 * up) * (0.75 + 0.35 * s) * (0.9 + 0.2 * t) + vec3(0.06, 0.12, 0.08) * smoothstep(0.7, 0.85, s) * up;
+          c = vC * (0.68 + 0.45 * up) * (0.75 + 0.35 * s) * (0.9 + 0.2 * t) + vec3(0.06, 0.12, 0.08) * smoothstep(0.7, 0.85, s) * up;   // (never quite black underneath: light comes in sideways under the canopy)
         }
       } else { paintH = vL.y; c = paint(vC, vM, vG, vW, N); }
       vec3 o = c * lightAt(vW, N, 1.0) * 1.05;
@@ -63,13 +63,13 @@ const treeEdge = new THREE.ShaderMaterial({
 });
 
 // soft lumps for a crown, and a tier of a pine's skirt with a ragged, drooping hem
-const P_LUMP = (k = 0) => prim('lump' + k, () => {
-  const g = new THREE.SphereGeometry(0.5, 14, 10), p = g.attributes.position, v = new V3();
+const P_LUMP = (k = 0, lo = false) => prim('lump' + k + (lo ? 'lo' : ''), () => {
+  const g = lo ? new THREE.SphereGeometry(0.5, 8, 6) : new THREE.SphereGeometry(0.5, 12, 9), p = g.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 0.9 + 0.14 * Math.sin(v.x * 9 + k) * Math.sin(v.y * 8 + k * 2) * Math.sin(v.z * 10 + k * 3) + 0.07 * Math.sin(v.x * 27 + v.y * 13 + v.z * 21 + k); v.multiplyScalar(n); v.y *= 0.88; p.setXYZ(i, v.x, v.y, v.z); }
   g.computeVertexNormals(); return g;
 });
-const P_TIER = (k = 0) => prim('tier' + k, () => {
-  const n = 18, g = new THREE.ConeGeometry(0.5, 1, n, 3), p = g.attributes.position, v = new V3();
+const P_TIER = (k = 0, lo = false) => prim('tier' + k + (lo ? 'lo' : ''), () => {
+  const n = lo ? 9 : 16, g = new THREE.ConeGeometry(0.5, 1, n, lo ? 1 : 2), p = g.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i); if (v.y > 0.49) continue;
     const r = Math.hypot(v.x, v.z); if (r < 1e-4) continue;
@@ -79,49 +79,76 @@ const P_TIER = (k = 0) => prim('tier' + k, () => {
   g.translate(0, 0.5, 0); g.computeVertexNormals(); return g;
 });
 
-function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine is about 112 high), its foot at the origin
+function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own units (a pine is about 112 high), its foot at the origin
   let s = 977 + vi * 131 + kind.length * 17; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
   const tone = (list, j) => hex(list[j % list.length]);
+  // lo: the same tree for the far woods, in fewer faces and without the twigs you couldn't see from there (TREE_LOD)
+  const roots = (r, n, col) => { for (let i = 0; i < n; i++) { const a = i / n * 6.283 + R() * 0.6; K.rod(P_CYL_(5), Math.cos(a) * r * 0.4, r * 1.6, Math.sin(a) * r * 0.4, Math.cos(a) * r * 2.3, -0.6, Math.sin(a) * r * 2.3, r * 0.34, col); } };   // roots running out into the ground (bark)
+  const P_TIER_ = k => P_TIER(k, lo), P_LUMP_ = k => P_LUMP(k, lo), P_CYL_ = n => P_CYL(lo ? Math.max(4, n >> 1) : n), P_CONE_ = n => P_CONE(lo ? Math.max(4, n >> 1) : n), P_KNOB_ = k => lo ? P_LUMP(k, true) : P_KNOB(k);
   if (kind === 'pine') {
-    K.mt = 'bark'; K.add(P_CYL(9), 0, 0, 0, 7.5, 34, 7.5, hex('#4a3526'), 0, 0, 0, 0, 0.35); K.mt = null;
-    const tiers = 6 + (vi % 2), G = ['#1a4232', '#21503c', '#1d4a37', '#275a43'];
-    for (let i = 0; i < tiers; i++) {
-      const f = i / (tiers - 1), y = 14 + f * 74, r = 64 * (1 - f * 0.8) * (0.92 + 0.16 * R()), h = 30 - f * 8;
-      K.mt = 8; K.add(P_TIER(i % 4), (R() - 0.5) * 3, y, (R() - 0.5) * 3, r, h, r, tone(G, i + vi), R() * 6.28, 0, (R() - 0.5) * 0.12, 0, 0.32);
+    // three of them: a spruce in drooping skirts of boughs, blue-green; a fir, broader and greener, the trunk showing at its
+    // foot; and a tall pine, a long bare trunk going orange up high and a ragged crown of needle clumps on top. Each skirt is
+    // pale at its tips where the new growth is and dark in toward the trunk, so the tiers read one under the next
+    if (vi < 2) {
+      const sp = vi === 0, H = sp ? 110 : 102, y0 = sp ? 19 : 26;
+      K.mt = 'bark';
+      K.add(P_CONE_(9), 0, 0, 0, 8.4, H - 6, 8.4, hex('#6a4c37'), 0, 0, 0, 0, 0.35);        // the trunk, tapering up through the boughs
+      roots(4.2, 5, hex('#5a402e'));
+      K.mt = 8;
+      const tiers = sp ? 9 : 8, G = sp ? [['#173b2e', '#47836a'], ['#1b4234', '#52907a'], ['#15372a', '#3f7a60']] : [['#1d4026', '#58944f'], ['#22482b', '#66a05a'], ['#1b3c24', '#4c8846']];
+      for (let i = 0; i < tiers; i++) {
+        const f = i / (tiers - 1), y = y0 + f * (H - y0 - 18), r = (sp ? 72 : 80) * Math.pow(1 - f * 0.84, 1.08) * (0.9 + 0.2 * R()), h = (sp ? 22 : 24) - f * 9, c = G[(i + vi) % 3];
+        kitGrad(K, () => K.add(P_TIER_((i + vi) % 4), (R() - 0.5) * 3, y, (R() - 0.5) * 3, r, h, r, hex(c[1]), R() * 6.28, 0, (R() - 0.5) * 0.1, 0, 0.32), hex(c[1]), hex(c[0]), 1.4);
+      }
+      kitGrad(K, () => K.add(P_CONE_(7), 0, H - 20, 0, 10, 24, 10, hex(G[1][1]), 0, 0, 0.05, 0, 0.3), hex(G[1][0]), hex(G[1][1]));   // the leader
+    } else {
+      K.mt = 'bark';
+      K.rod(P_CYL_(9), 0, 0, 0, 1.5, 64, 0.6, 3.7, hex('#5e4433'));                           // low down the bark is dark and deep-furrowed...
+      K.add(P_CONE_(9), 1.5, 62, 0.6, 6.8, 60, 6.8, hex('#b4704a'), 0, 0, 0, 0, 0.3);        // ...up high it goes thin and orange
+      roots(3.7, 4, hex('#523a2b'));
+      for (let i = 0; i < 4; i++) { const a = i * 2.3 + 0.7, y = 30 + i * 8, L = 7 + R() * 5, dy = R() * 3; if (!lo) K.rod(P_CYL_(4), 1.2, y, 0.4, 1.2 + Math.cos(a) * L, y - 2 - dy, 0.4 + Math.sin(a) * L, 0.7, hex('#4a3a2e')); }   // old snapped-off branches (the same draws of R near and far, so the two forms match)
+      const tips = [];
+      for (let i = 0; i < 6; i++) {   // boughs out from the top of the trunk, each ending in a clump of needles
+        const a = i * 2.4 + vi + R() * 0.5, y = 74 + i * 6 + R() * 4, L = 16 + R() * 10 - i * 1.2, tx = 1.5 + Math.cos(a) * L, tz = 0.6 + Math.sin(a) * L, ty = y + 6 + R() * 6;
+        K.rod(P_CYL_(5), 1.5, y, 0.6, tx, ty, tz, 1.3, hex('#7a4c32')); tips.push([tx, ty, tz, 1 - i / 7]);
+      }
+      tips.push([1.5, 122, 0.6, 0.5]);
+      K.mt = 8;
+      const G = [['#22462a', '#64a058'], ['#284e2e', '#72aa62'], ['#1f4127', '#58944e']];
+      tips.forEach(([x, y, z, w], i) => { const r = 30 + w * 14 + R() * 6, c = G[i % 3]; kitGrad(K, () => K.add(P_TIER_((i + 1) % 4), x, y - 4, z, r, r * 0.42, r * 0.92, hex(c[1]), R() * 6.28, 0, (R() - 0.5) * 0.25, 0, 0.32), hex(c[1]), hex(c[0]), 1.3); });   // flat ragged tufts of needles, pale at their tips
     }
-    K.add(P_CONE(7), 0, 100, 0, 7, 16, 7, hex('#24533e'), 0, 0, 0.06, 0, 0.3);
-    K.mt = 'bark'; K.add(P_CONE(6), 0, 102, 0, 1.8, 14, 1.8, hex('#5a3e2c'), 0, 0, 0, 0, 0.25); K.mt = null;
+    K.mt = null;
   } else if (kind === 'oak' || kind === 'cherry') {
     const ch = kind === 'cherry', trunkH = ch ? 46 : 50, crownY = ch ? 66 : 64;
     K.mt = 'bark';
-    K.add(P_CYL(10), 0, 0, 0, 13, 6, 13, hex('#3e3127'), 0, 0, 0, 0, 0.35);   // the flare at its foot
-    K.rod(P_CYL(10), 0, 0, 0, (R() - 0.5) * 4, trunkH, (R() - 0.5) * 4, ch ? 4.4 : 5.2, hex(ch ? '#40332a' : '#443629'));
+    K.rod(P_CYL_(10), 0, 0, 0, (R() - 0.5) * 4, trunkH, (R() - 0.5) * 4, ch ? 4.4 : 5.2, hex(ch ? '#54443a' : '#5c4a3a'));
+    roots(ch ? 4.4 : 5.2, 5, hex(ch ? '#4a3c32' : '#4e3f31'));   // roots spreading into the ground at its foot
     const limbs = ch ? 5 : 4, tips = [];
     for (let i = 0; i < limbs; i++) {   // limbs out from the top of the trunk into the crown
       const a = i / limbs * 6.28 + R() * 0.8, L = (ch ? 30 : 22) + R() * 10, y0 = trunkH * (0.6 + 0.3 * R());
       const tx = Math.cos(a) * L, tz = Math.sin(a) * L, ty = crownY - 4 + R() * 10;
-      K.rod(P_CYL(7), 0, y0, 0, tx, ty, tz, ch ? 1.9 : 2.3, hex('#40332a')); tips.push([tx, ty, tz]);
+      K.rod(P_CYL_(7), 0, y0, 0, tx, ty, tz, ch ? 1.9 : 2.3, hex('#54443a')); tips.push([tx, ty, tz]);
     }
     K.mt = null;
     // the crown: soft lumps of leaf (or blossom), bigger and darker at the heart, smaller and lighter round the top and edges
-    const G = ch ? ['#cc649c', '#e080b2', '#ee9ec4', '#d670a8'] : ['#24461a', '#2f5a21', '#3b6a29', '#325f23'];
+    const G = ch ? ['#cc649c', '#e080b2', '#ee9ec4', '#d670a8'] : ['#2b5220', '#386628', '#477834', '#3d6c2b'];
     K.mt = 'plant';
-    const lumps = ch ? 5 + vi % 2 : 7 + vi % 2;
+    const lumps = ch ? 5 + vi % 2 : 8 + vi % 2;
     for (let i = 0; i < lumps; i++) {
       const a = i / lumps * 6.28 + R(), d = (ch ? 22 : 20) + R() * 12, r = (ch ? 32 : 38) + R() * 12, y = crownY + (R() - 0.3) * 18;
-      K.add(P_LUMP(i % 5), Math.cos(a) * d, y, Math.sin(a) * d, r, r * 0.85, r, tone(G, i), R() * 6.28, 0, 0, 0, 0.32);
+      K.add(P_LUMP_(i % 5), Math.cos(a) * d, y, Math.sin(a) * d, r, r * 0.85, r, tone(G, i), R() * 6.28, 0, 0, 0, 0.32);
     }
-    K.add(P_LUMP(5), 0, crownY + 16, 0, ch ? 34 : 40, 30, ch ? 34 : 40, tone(G, 2), 0, 0, 0, 0, 0.32);
-    if (ch) for (const [x, y, z] of tips) K.add(P_LUMP(6), x, y + 4, z, 30, 24, 30, tone(G, 3), R() * 6.28, 0, 0, 0, 0.3);
+    K.add(P_LUMP_(5), 0, crownY + 16, 0, ch ? 34 : 40, 30, ch ? 34 : 40, tone(G, 2), 0, 0, 0, 0, 0.32);
+    if (ch) for (const [x, y, z] of tips) K.add(P_LUMP_(6), x, y + 4, z, 30, 24, 30, tone(G, 3), R() * 6.28, 0, 0, 0, 0.3);
     K.mt = null;
   } else {   // dead: a bare trunk, snapped at the top, its limbs forking into twigs
     K.mt = 'bark';
-    K.add(P_CYL(9), 0, 0, 0, 10, 5, 10, hex('#3f3630'), 0, 0, 0, 0, 0.35);
-    K.rod(P_CYL(9), 0, 0, 0, 1, 52, 0, 4.4, hex('#4d433b'));
-    K.add(P_CONE(7), 1, 51, 0, 7, 8, 7, hex('#4d433b'), 0, 0, 0.3, 0, 0.3);
+    K.add(P_CYL_(9), 0, 0, 0, 10, 5, 10, hex('#3f3630'), 0, 0, 0, 0, 0.35);
+    K.rod(P_CYL_(9), 0, 0, 0, 1, 52, 0, 4.4, hex('#4d433b'));
+    K.add(P_CONE_(7), 1, 51, 0, 7, 8, 7, hex('#4d433b'), 0, 0, 0.3, 0, 0.3);
     const fork = (x, y, z, a, el, L, r, depth) => {
       const ex = x + Math.cos(a) * Math.cos(el) * L, ey = y + Math.sin(el) * L, ez = z + Math.sin(a) * Math.cos(el) * L;
-      K.rod(P_CYL(5), x, y, z, ex, ey, ez, r, hex('#4d433b'));
+      if (!lo || depth > 0) K.rod(P_CYL_(5), x, y, z, ex, ey, ez, r, hex('#4d433b'));   // far off, without the finest twigs
       if (depth > 0) for (let j = 0; j < 2; j++) fork(ex, ey, ez, a + (j ? 0.6 : -0.6) + (R() - 0.5) * 0.5, el + 0.15 + R() * 0.3, L * 0.6, r * 0.6, depth - 1);
     };
     for (let i = 0; i < 4; i++) fork(0, 26 + i * 7, 0, i * 1.7 + R(), 0.35 + R() * 0.4, 20 + R() * 8, 1.25, 2);
@@ -131,14 +158,14 @@ function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine
 }
 
 // one instanced draw (and its outline) per kind and way of building it
-const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 700;
+const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 700, TREE_LOD = 520;   // past TREE_LOD a tree is drawn in its plainer form
 const TREES = {};
 for (const k of TREE_KINDS) TREES[k] = [];
 let treesBuilt = false;
 function treesBuild() {
   treesBuilt = true;
-  for (const k of TREE_KINDS) for (let v = 0; v < TREE_NV; v++) {
-    const g = treeModel(k, v), m = new THREE.InstancedMesh(g, treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
+  for (const k of TREE_KINDS) for (let v = 0; v < TREE_NV * 2; v++) {   // TREES[k]: each way of building it near, then the same far off
+    const g = treeModel(k, v % TREE_NV, v >= TREE_NV), m = new THREE.InstancedMesh(g, treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
     m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
     TREES[k].push({ m, e, list: [] });
   }
@@ -153,7 +180,7 @@ function treeMatrix(o, tilt, ta) {
 function treesBegin() { if (!treesBuilt) treesBuild(); for (const k of TREE_KINDS) for (const B of TREES[k]) B.list.length = 0; }
 function treeAdd(o, kind, d) {   // near enough to stand solid? then it's ours, not a picture
   if (d > TREE_R3D) return false;
-  const B = TREES[kind][(o.seed * 997 | 0) % TREE_NV]; if (B.list.length >= TREE_CAP) return false;
+  const B = TREES[kind][(o.seed * 997 | 0) % TREE_NV + (d > TREE_LOD ? TREE_NV : 0)]; if (B.list.length >= TREE_CAP) return false;
   B.list.push(o); return true;
 }
 function treesEnd() {

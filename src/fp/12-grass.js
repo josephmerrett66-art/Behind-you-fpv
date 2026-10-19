@@ -26,7 +26,8 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
       vec4 sw = soilW(rt); vS = sw;
       k *= step(sw.w * 0.85, fract(bd.w * 13.7));                       // thin on stony ground
       k *= 1.0 - 0.35 * sw.x + 0.4 * sw.y;
-      vec4 L = landW(rt); k *= step(L.r * 0.6, fract(bd.w * 5.3)) * (1.0 + 0.25 * L.a);   // sparse in the thickets' shade, lush in the glades                              // short and dry on sand, long on loam
+      vec4 L = landW(rt); k *= step(L.r * 0.6, fract(bd.w * 5.3)) * (1.0 + 0.25 * L.a);
+      float cv = coverW(rt); k *= step(smoothstep(0.22, 0.6, cv + (sNoise(rt * 0.022 + 5.0) - 0.5) * 0.45) * 0.82, fract(bd.w * 3.71));   // thin on a stand's floor (the ground's own litter, 00-core)   // sparse in the thickets' shade, lush in the glades                              // short and dry on sand, long on loam
     }
     float shrink = 1.0 / (1.0 + d / 260.0), widen = 1.0 + d / 140.0;      // smaller further off, but never thinner than a hair
     float up = position.y * shrink * k;

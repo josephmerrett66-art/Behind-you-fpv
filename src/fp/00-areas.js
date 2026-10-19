@@ -27,7 +27,7 @@ const AREA = (() => {
     marks.push({ t, x, y, r: MARK_R[t], a: rnd(a, b, 95) * 6.283, seed: rnd(a, b, 96), ci: a, cj: b });
   }
   const STAMP = { stones: [3, 0.7], grove: [3, 1], deadwood: [2, 1], fairy: [3, 1], fallen: [0, 0.85], boulders: [1, 1] };
-  const data = new Uint8Array(N * N * 4), w = [0, 0, 0, 0];
+  const data = new Uint8Array(N * N * 4), stand = new Uint8Array(N * N), w = [0, 0, 0, 0];
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
     const th = noise(i, j, 4, 1) * 0.6 + noise(i, j, 16, 2) * 0.4, ro = noise(i, j, 8, 3) * 0.6 + noise(i, j, 32, 4) * 0.4;
     const dr = noise(i, j, 4, 5) * 0.65 + noise(i, j, 16, 6) * 0.35, gl = noise(i, j, 8, 7) * 0.6 + noise(i, j, 16, 8) * 0.4;
@@ -41,9 +41,16 @@ const AREA = (() => {
     const cd = Math.hypot(Math.min(px, AREA_P - px), Math.min(py, AREA_P - py)), calm = ss(500, 1100, cd);   // round the camp the woods stay as they were
     const sum = w[0] + w[1] + w[2] + w[3], k = (sum > 1 ? 1 / sum : 1) * calm, o = (j * N + i) * 4;
     for (let q = 0; q < 4; q++) data[o + q] = Math.round(w[q] * k * 255);
+    // the stands: the trees grow close in clumps a few hundred across, with clearings and thinner woods between them. Thick
+    // woods are close nearly everywhere, glades, dry and rocky ground mostly open; the camp keeps its clearing
+    const st = noise(i, j, 48, 21) * 0.55 + noise(i, j, 96, 22) * 0.3 + noise(i, j, 24, 23) * 0.15, A0 = w[0] * k, A1 = w[1] * k, A2 = w[2] * k, A3 = w[3] * k;
+    let cv = ss(0.38, 0.6, st) * Math.max(0, 0.62 + 0.38 * A0 - 0.5 * A3 - 0.32 * A2 - 0.36 * A1) + 0.32 * A0 * ss(0.25, 0.45, st);
+    for (const M of marks) { const dx = Math.abs(px - M.x), dy = Math.abs(py - M.y), d = Math.hypot(Math.min(dx, AREA_P - dx), Math.min(dy, AREA_P - dy)); if (d < M.r * 1.4) cv *= ss(M.r * 0.8, M.r * 1.4, d); }   // the places with stories keep their own ground
+    stand[j * N + i] = Math.round(Math.min(1, cv) * ss(150, 430, cd) * 255);
   }
   const tex = new THREE.DataTexture(data, N, N, THREE.RGBAFormat); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
-  return { data, marks, tex };
+  const standTex = new THREE.DataTexture(stand, N, N, THREE.RedFormat, THREE.UnsignedByteType); standTex.wrapS = standTex.wrapT = THREE.RepeatWrapping; standTex.magFilter = standTex.minFilter = THREE.LinearFilter; standTex.needsUpdate = true;
+  return { data, marks, tex, stand, standTex };
 })();
 const _land = [0, 0, 0, 0];
 function landAt(x, y) {   // [thicket, rocky, dry, glade] here, 0 to 1: the same as the ground's shader reads
@@ -51,6 +58,11 @@ function landAt(x, y) {   // [thicket, rocky, dry, glade] here, 0 to 1: the same
   const i0 = ((i % N) + N) % N, j0 = ((j % N) + N) % N, i1 = (i0 + 1) % N, j1 = (j0 + 1) % N;
   for (let q = 0; q < 4; q++) _land[q] = ((D[(j0 * N + i0) * 4 + q] * (1 - u) + D[(j0 * N + i1) * 4 + q] * u) * (1 - v) + (D[(j1 * N + i0) * 4 + q] * (1 - u) + D[(j1 * N + i1) * 4 + q] * u) * v) / 255;
   return _land;
+}
+function landCover(x, y) {   // how close the trees stand here, 0 (a clearing) to 1 (a dense stand): the same as the ground's shader reads
+  const N = AREA_N, D = AREA.stand, fx = x / AREA_CELL - 0.5, fy = y / AREA_CELL - 0.5, i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j;
+  const i0 = ((i % N) + N) % N, j0 = ((j % N) + N) % N, i1 = (i0 + 1) % N, j1 = (j0 + 1) % N;
+  return ((D[j0 * N + i0] * (1 - u) + D[j0 * N + i1] * u) * (1 - v) + (D[j1 * N + i0] * (1 - u) + D[j1 * N + i1] * u) * v) / 255;
 }
 function landMark(x, y) {   // the place with a story whose ground this is, if any, where it stands in the world
   const px = ((x % AREA_P) + AREA_P) % AREA_P, py = ((y % AREA_P) + AREA_P) % AREA_P, a = Math.floor(px / MARK_CELL), b = Math.floor(py / MARK_CELL);
@@ -99,14 +111,16 @@ function landProp(i, j, h, tv, x, y) {
       if (M.t === 'boulders') return h > 1 - 0.06 - 0.14 * f ? rock(0.9 + sc * 0.8 + f * 0.3) : h < 0.03 ? tree('dead', 0.7 + sc * 0.4) : null;   // great stones strewn about
     }
   }
-  const A = landAt(x, y), tp = Math.max(0.02, 0.08 + 0.13 * A[0] - 0.06 * A[3] - 0.03 * A[2] - 0.04 * A[1]), rp = Math.max(0.006, 0.025 + 0.055 * A[1] + 0.01 * A[2] - 0.015 * A[3] - 0.01 * A[0]);
-  if (h > 1 - tp) return tree(landTree(A, tv), 0.8 + sc * 0.6 + 0.25 * A[0]);
+  // the trees by the stands (landCover): close together in them, few and far between in the clearings. One to a tile at most,
+  // so a tile in the heart of a stand nearly always has its tree; those in a stand grow taller, reaching for the light
+  const A = landAt(x, y), cv = landCover(x, y), tp = Math.max(0.025, 0.04 + 0.6 * cv - 0.02 * A[3]), rp = Math.max(0.006, 0.025 + 0.055 * A[1] + 0.01 * A[2] - 0.015 * A[3] - 0.01 * A[0]);
+  if (h > 1 - tp) return tree(landTree(A, tv), 0.78 + sc * 0.55 + 0.2 * A[0] + 0.18 * cv);
   if (h > 1 - tp - rp) return rock(0.7 + hash(i, j * 5) * 0.7 + 0.35 * A[1]);
   if (h > 1 - tp - rp - 0.01) return { kind: 'post', x, y, r: 4, s: 1 };
   return null;
 }
 // what decorAt grows on tile (i, j): grass, fern, pebbles, bush, mushrooms or a log, by the lie of the land
-const DECOR_KINDS = ['grass', 'fern', 'pebbles', 'bush', 'shrooms', 'log'];
+const DECOR_KINDS = ['grass', 'fern', 'pebbles', 'bush', 'shrooms', 'log', 'sapling'];
 const DECOR_MIX = [[0.36, 0.16, 0.12, 0.12, 0.09, 0.15], [0.1, 0.36, 0.03, 0.15, 0.2, 0.16], [0.22, 0.1, 0.48, 0.08, 0.04, 0.08], [0.56, 0.02, 0.2, 0.05, 0.02, 0.15], [0.44, 0.12, 0.04, 0.28, 0.08, 0.04]];
 function landDecor(i, j, h) {   // undefined: the ordinary rule; null: nothing here; else the kind to grow
   const T = AREA_CELL, cx = i * T + T / 2, cy = j * T + T / 2, M = landMark(cx, cy);
@@ -120,12 +134,17 @@ function landDecor(i, j, h) {   // undefined: the ordinary rule; null: nothing h
     if (M.t === 'boulders') return h < 0.45 ? at(h < 0.3 ? 'pebbles' : 'grass') : null;
     if (M.t === 'grove') return M.d < 150 ? (h < 0.4 ? at(h < 0.18 ? 'flowerY' : h < 0.26 ? 'flowerW' : 'grass') : null) : undefined;
   }
-  const A = landAt(cx, cy), dens = 0.27 + 0.16 * A[0] + 0.12 * A[1] - 0.06 * A[2] + 0.04 * A[3];
+  // under the stands (landCover) the floor is ferns, bushes, fungus and fallen wood rather than grass, and young trees
+  // come up round their edges where the light gets in
+  const A = landAt(cx, cy), cv = landCover(cx, cy), dens = 0.3 + 0.16 * A[0] + 0.12 * A[1] - 0.06 * A[2] + 0.04 * A[3] + 0.3 * cv;
   if (h >= dens) return null;
-  const r = h / dens, s = A[0] + A[1] + A[2] + A[3];
+  const r = h / dens, s = A[0] + A[1] + A[2] + A[3], edge = cv * (1 - cv) * 4;
   let c = 0, tot = 0; const w = DECOR_MIX[0].map((b, k) => b * Math.max(0, 1 - s) + A[0] * DECOR_MIX[1][k] + A[1] * DECOR_MIX[2][k] + A[2] * DECOR_MIX[3][k] + A[3] * DECOR_MIX[4][k]);
+  const under = [1 - 0.65 * cv, 1 + 1.6 * cv, 1 - 0.3 * cv, 1 + 0.9 * cv, 1 + 0.9 * cv, 1 + 0.5 * cv];
+  for (let k = 0; k < 6; k++) w[k] *= under[k];
+  w.push(0.03 + 0.2 * edge * (1 - A[2]) * (1 - A[1]));   // a sapling
   for (const v of w) tot += v;
-  for (let k = 0; k < 6; k++) { c += w[k] / tot; if (r < c) return { dk: DECOR_KINDS[k] }; }
+  for (let k = 0; k < 7; k++) { c += w[k] / tot; if (r < c) return { dk: DECOR_KINDS[k] }; }
   return { dk: 'log' };
 }
 const flowerLand = (a, b) => { const A = landAt((a * 6 + 3) * AREA_CELL, (b * 6 + 3) * AREA_CELL); return 0.2 + 0.32 * A[3] - 0.12 * A[2] - 0.14 * A[0] - 0.08 * A[1]; };   // how likely a patch of flowers is here

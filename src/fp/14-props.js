@@ -13,9 +13,9 @@ function propMats(sway, cullR) {
   const e = new THREE.ShaderMaterial({ uniforms: uni(), side: THREE.BackSide, vertexShader: treeEdge.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeEdge.fragmentShader.replace('void main() {', cut) });
   return { m, e };
 }
-const PROP_MAT = { still: null, plant: null, grass: null };
+const PROP_MAT = { still: null, plant: null, grass: null, sap: null };
 function propMat(k) {
-  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, 470); PROP_MAT.grass = propMats(0.035, 470); }
+  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, 470); PROP_MAT.grass = propMats(0.035, 470); PROP_MAT.sap = propMats(0.011, 470); }
   return PROP_MAT[k];
 }
 
@@ -105,6 +105,7 @@ Object.assign(PROP_KIND, { nsticks: { n: 3, mat: 'still', edge: true, shadow: fa
   nshroom1: { n: 2, mat: 'still', edge: true, shadow: false }, nshroom2: { n: 2, mat: 'still', edge: true, shadow: false }, nshroom3: { n: 2, mat: 'still', edge: true, shadow: false },
   nberries: { n: 3, mat: 'still', edge: true, shadow: false }, bbush: { n: 3, mat: 'plant', edge: false, shadow: true } });
 PROP_KIND.log = { n: 3, mat: 'still', edge: true, shadow: true };
+PROP_KIND.sapling = { n: 3, mat: 'sap', edge: true, shadow: true };
 function propModel(kind, vi) {
   let s = 4211 + vi * 337 + kind.length * 59; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
   const pick = (list, j) => hex(list[((j % list.length) + list.length) % list.length]);
@@ -175,6 +176,25 @@ function propModel(kind, vi) {
     const L = 38, r = 4.2, ux = L / 2, col = hex(vi % 2 ? '#4e4034' : '#5c4a3a');
     logRod(K, -ux, r * 0.8, 0, ux, r * 0.85, 0, r, col);
     for (let j = 0; j < 2; j++) { const t = j ? 0.3 : -0.2, bx = ux * t, ba = (j ? 1 : -1) * (0.8 + 0.4 * ((vi * 0.37 + j * 0.21) % 1)); K_BR(K, bx, r * 1.2, 0, bx + Math.cos(ba) * r * 2.2, r * 2.4, Math.sin(ba) * r * 2.2, r * 0.3); }
+  } else if (kind === 'sapling') {   // a young tree come up where the light gets in: a little pine, a little spruce, or an oak whip in leaf
+    if (vi < 2) {
+      const H = 44 + vi * 10, tiers = 4 + vi, G = vi ? [['#1f4a36', '#4a8a66'], ['#245040', '#559674']] : [['#2a4f2c', '#62964f'], ['#30582f', '#70a258']];
+      K.mt = 'bark'; K.add(P_CONE(6), 0, 0, 0, 3.4, H, 3.4, hex('#5c4232'), 0, 0, 0, 0, 0.3);
+      K.mt = 8;
+      for (let i = 0; i < tiers; i++) {
+        const f = i / (tiers - 1), y = 7 + f * (H - 18), r = (vi ? 22 : 27) * (1 - f * 0.72) * (0.92 + 0.16 * R()), h = 13 - f * 3, c = G[i % 2];
+        kitGrad(K, () => K.add(P_TIER((i + vi) % 4), 0, y, 0, r, h, r, hex(c[1]), R() * 6.28, 0, (R() - 0.5) * 0.12, 0, 0.3), hex(c[1]), hex(c[0]), 1.2);
+      }
+      K.add(P_CONE(6), 0, H - 9, 0, 4.5, 11, 4.5, hex(G[0][1]), 0, 0, 0, 0, 0.28);
+    } else {
+      K.mt = 'bark'; K.rod(P_CYL(5), 0, 0, 0, 1.5, 40, -1, 1.5, hex('#4c3c2e'));
+      const tips = [[0, 46, 0]];
+      for (let i = 0; i < 3; i++) { const a = i * 2.1 + 0.4, y0 = 18 + i * 7, L = 11 + R() * 4, t = [Math.cos(a) * L, y0 + 9, Math.sin(a) * L]; K.rod(P_CYL(4), 0.5, y0, 0, t[0], t[1], t[2], 0.8, hex('#4c3c2e')); tips.push(t); }
+      K.mt = 'plant';
+      const G = ['#36622a', '#447434', '#528440'];
+      tips.forEach(([x, y, z], i) => kitGrad(K, () => K.add(P_KNOB(i % 5), x, y, z, 15 - i, 12 - i * 0.8, 15 - i, hex(G[i % 3]), R() * 6.28, 0, 0, 0, 0.3), hex('#24451c'), hex(G[i % 3]), 0.8));
+    }
+    K.mt = null;
   } else if (kind === 'nsticks') {   // a few fallen sticks, crossed, each with a twig off it
     const sd = vi * 0.37 + 0.11;
     for (let i = 0; i < 4; i++) {

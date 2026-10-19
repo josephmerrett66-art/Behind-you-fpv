@@ -55,12 +55,18 @@ function drawHud() {
   const pk = pr + sneak;
   if (pk !== promptKey) { promptKey = pk; hudEl.prompt.textContent = pr; hudEl.prompt.className = sneak ? 'sneak' : hit ? 'hit' : ''; useBtn.textContent = o ? useLab(o) : 'Use'; }
   // the woods' words: the notes that pop up as things happen, the big banner for a new day or a new place
-  const nk = rg.notes.map(n => n.text + (n.t > 1.8 ? 'f' : '')).join('|');
-  if (nk !== notesKey) { notesKey = nk; hudEl.notes.innerHTML = rg.notes.map(n => `<div class="${n.big ? 'big' : ''}" style="opacity:${n.t > 1.8 ? 0.15 : 1}">${esc(n.text)}</div>`).join(''); }
-  const m = S.msg && S.msg.t < 3.2 ? S.msg : rg.ringMsg && rg.ringMsg.t < 2.8 ? rg.ringMsg : null;
+  const fade = n => n.t > (n.life || 2.4) - 0.6;
+  const nk = rg.notes.map(n => n.text + (n.sub || '') + (fade(n) ? 'f' : '')).join('|');
+  if (nk !== notesKey) { notesKey = nk; hudEl.notes.innerHTML = rg.notes.map(n => `<div class="${n.sub != null ? 'hd' : n.big ? 'big' : ''}" style="opacity:${fade(n) ? 0.15 : 1}">${n.sub != null ? `<b>${esc(n.text)}</b>${n.sub ? `<span>${esc(n.sub)}</span>` : ''}` : esc(n.text)}</div>`).join(''); }
+  // Joe: nothing in the middle of the screen while you play. What the big banner said (a new day, night falling, a raid,
+  // the weather, a new recipe) goes up top as a headline among the notes; only the end of a run still has its words in the middle
+  const mid = rg.phase === 'dead';
+  if (!mid) for (const q of [S.msg, rg.ringMsg]) if (q && !q.noted) { q.noted = true; exNote(q.text, true, 4.5, q.sub || ''); }
+  const m = mid && S.msg && S.msg.t < 3.2 ? S.msg : null;
   const bk = m ? m.text + '|' + (m.sub || '') : '';
   if (bk !== bannerKey) { bannerKey = bk; if (m) { hudEl.bT.textContent = m.text; hudEl.bS.textContent = m.sub || ''; } }
-  hudEl.banner.style.opacity = !deathCard.hidden ? 0 : m ? clamp(Math.min(m.t * 3, (m === S.msg ? 3.2 : 2.8) - m.t), 0, 1) : 0;
+  hudEl.banner.style.opacity = !deathCard.hidden || !m ? 0 : clamp(Math.min(m.t * 3, 3.2 - m.t), 0, 1);
+  hudEl.notes.style.visibility = mid ? 'hidden' : '';
   // the weapon's special, when what you hold has one
   const rk = dayRngId(), w = rk || (dArmOn() ? curW() : null), SPC = w ? DSP[w] : null;
   hudEl.spec.hidden = !SPC || rg.inCamp;

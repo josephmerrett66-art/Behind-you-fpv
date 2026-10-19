@@ -85,6 +85,10 @@ body.playing #prompt { display: block; }
 #notes { position: fixed; left: 0; right: 0; top: calc(64px + env(safe-area-inset-top, 0px)); display: grid; justify-items: center; gap: 2px; pointer-events: none; }
 #notes div { font-size: 0.72rem; letter-spacing: 0.1em; color: var(--bone); text-shadow: 0 1px 5px rgba(0,0,0,0.95); transition: opacity 0.3s; }
 #notes div.big { font-size: 0.86rem; font-weight: 600; letter-spacing: 0.14em; }
+#notes div { max-width: min(560px, calc(100vw - 32px)); text-align: center; line-height: 1.35; }
+#notes div.hd { margin: 2px 0; padding: 4px 12px 5px; background: rgba(12,10,8,0.45); border-radius: 3px; }   /* a headline: what the old middle-of-the-screen banner said */
+#notes div.hd b { display: block; font: 600 0.84rem var(--mono); letter-spacing: 0.2em; text-transform: uppercase; color: #fff0c8; }
+#notes div.hd span { display: block; margin-top: 1px; font-size: 0.66rem; letter-spacing: 0.08em; color: var(--bone); }
 #banner { position: fixed; left: 0; right: 0; top: 24%; text-align: center; pointer-events: none; opacity: 0; transition: opacity 0.6s; text-shadow: 0 0 18px rgba(0,0,0,0.9); padding: 0 16px; }
 #banner b { display: block; font: 400 clamp(1.6rem, 6vw, 3rem) var(--display); letter-spacing: 0.06em; text-transform: lowercase; }
 #banner span { display: block; margin-top: 0.5rem; font-size: 0.78rem; letter-spacing: 0.12em; color: #cfcfc8; }
@@ -167,7 +171,7 @@ h2 { font-family: var(--display); font-weight: 400; font-size: clamp(1.8rem, 6vw
 #craft *, #stats * { touch-action: manipulation; }
 #hotbar { z-index: 5; }
 body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { display: none !important; }
-@media (max-height: 520px) { #info { display: none; } #notes { top: calc(50px + env(safe-area-inset-top, 0px)); } #banner { top: 31%; } #banner b { font-size: 2.2rem; } #banner span { margin-top: 0.3rem; font-size: 0.7rem; } }
+@media (max-height: 520px) { #info { display: none; } #notes { top: calc(50px + env(safe-area-inset-top, 0px)); } #notes div { max-width: max(300px, calc(100vw - 530px)); } #banner { top: 31%; } #banner b { font-size: 2.2rem; } #banner span { margin-top: 0.3rem; font-size: 0.7rem; } }
 @media (max-width: 560px) and (min-height: 521px) {   /* a phone held upright: the hotbar runs along the bottom, the buttons sit above it */
   #hotbar { left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
   #bAtk { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
@@ -179,7 +183,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
   #campBtn { bottom: calc(256px + env(safe-area-inset-bottom, 0px)); }
   #bSpec { bottom: calc(152px + env(safe-area-inset-bottom, 0px)); }
   #buildbar { bottom: calc(254px + env(safe-area-inset-bottom, 0px)) !important; }
-  #notes { top: 31%; } #banner { top: 38%; }
+  #notes { top: calc(166px + env(safe-area-inset-top, 0px)); } #banner { top: 38%; }   /* below the hearts and bars, clear of the middle */
 }
 </style>
 </head>

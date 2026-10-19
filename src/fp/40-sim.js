@@ -106,7 +106,7 @@ FP.exStep = function (dt) {
   dayTorchOn(); dayStep(dt, inCamp);
   clanStep(dt);                               // the clan watching from the trees (72-clan)
   for (const n of rg.notes) n.t += dt;
-  rg.notes = rg.notes.filter(n => n.t < 2.4);
+  rg.notes = rg.notes.filter(n => n.t < (n.life || 2.4));
   if (rg.ringMsg && !(S.msg && S.msg.t < 2.2)) { rg.ringMsg.t += dt; if (rg.ringMsg.t > 2.8) rg.ringMsg = null; }
   if (inCamp !== rg.inCamp) {
     rg.inCamp = inCamp;

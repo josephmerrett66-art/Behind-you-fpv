@@ -67,7 +67,7 @@ const LU = {
   shMap: { value: null }, shM: { value: new M4() }, shP: { value: new V4(0, 1 / 2048, 0.002, 0) }, shC: { value: new V4(0, 0, 1, 0) },
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(420, 950) },
-  landT: { value: AREA.tex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
+  landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
 uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK;
@@ -211,7 +211,8 @@ vec3 terrN(vec2 p) {
 // The soil changes as you walk: broad patches of dry sandy ground, dark rich loam, a reddish clay and stony bare ground,
 // laid out by slow noise so each patch runs a long way. The bare ground and the turf over it (12-grass) read the same patches,
 // so dry ground grows short straw-coloured grass, loam grows it deep and green, and the stony bits are thin.
-const SOIL_GLSL = COAST_GLSL + `uniform sampler2D landT; vec4 landW(vec2 p) { return texture2D(landT, p / ${AREA_P.toFixed(1)}); }
+const SOIL_GLSL = COAST_GLSL + `uniform sampler2D landT, standT; vec4 landW(vec2 p) { return texture2D(landT, p / ${AREA_P.toFixed(1)}); }
+float coverW(vec2 p) { return texture2D(standT, p / ${AREA_P.toFixed(1)}).r; }   // how close the trees stand (00-areas landCover)
 float sHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float sNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(sHash(i), sHash(i + vec2(1.0, 0.0)), f.x), mix(sHash(i + vec2(0.0, 1.0)), sHash(i + vec2(1.0)), f.x), f.y); }
@@ -324,9 +325,17 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
         t = mix(t, vec3(0.44, 0.41, 0.37) * (0.75 + 0.5 * sp2), smoothstep(0.02, 0.07, st) * 0.45);
         vec4 L = landW(vW.xz);
         t = mix(t, t * vec3(0.66, 0.56, 0.44) + vec3(0.03, 0.015, 0.0) * sNoise(vW.xz * 0.2), L.r * 0.65);   // leaf litter under the thickets
+        // the floor of a stand of trees: fallen needles and leaves, brown and patchy, with moss in the damp hollows. Its edge
+        // wanders, so a stand's floor runs out into the grass in tongues rather than a line
+        float cv = coverW(vW.xz), lf = sNoise(vW.xz * 0.09 + 3.0), lf2 = sNoise(vW.xz * 0.55 + 11.0);
+        float fl = smoothstep(0.22, 0.6, cv + (sNoise(vW.xz * 0.022 + 5.0) - 0.5) * 0.45);
+        vec3 litter = mix(vec3(0.34, 0.25, 0.16), vec3(0.47, 0.35, 0.21), lf) * (0.82 + 0.32 * lf2);
+        litter = mix(litter, vec3(0.25, 0.31, 0.15) * (0.85 + 0.3 * lf2), smoothstep(0.58, 0.78, sNoise(vW.xz * 0.03 + 21.0)) * 0.7);
+        t = mix(t, litter * (0.82 + 0.36 * t.r), fl * 0.85 * (1.0 - 0.6 * s.w));
         float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
         vec3 under = mix(vec3(0.34, 0.42, 0.19), vec3(0.5, 0.47, 0.24), s.x); under = mix(under, vec3(0.22, 0.34, 0.13), s.y);
-        t = mix(t, under * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm) * (1.0 - 0.75 * s.w));
+        t = mix(t, under * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm) * (1.0 - 0.75 * s.w) * (1.0 - 0.8 * fl));
+        t *= 1.0 - 0.08 * cv;                                                           // the shade under the canopy
         #ifdef BEACH
         { float cs = coastS(vW.xz), n1 = sNoise(vW.xz * 0.035), n2 = sNoise(vW.xz * 0.6 + 3.0);
           float sandK = smoothstep(-205.0, -140.0, cs + 30.0 * sin(vW.x * 0.05) * sin(vW.z * 0.043) + (n1 - 0.5) * 40.0);   // 1 on the sand

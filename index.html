@@ -6596,11 +6596,11 @@ function landDecor(i, j, h) {   // undefined: the ordinary rule; null: nothing h
   }
   // under the stands (landCover) the floor is ferns, bushes, fungus and fallen wood rather than grass, and young trees
   // come up round their edges where the light gets in
-  const A = landAt(cx, cy), cv = landCover(cx, cy), dens = 0.3 + 0.16 * A[0] + 0.12 * A[1] - 0.06 * A[2] + 0.04 * A[3] + 0.3 * cv;
+  const A = landAt(cx, cy), cv = landCover(cx, cy), dens = 0.3 + 0.16 * A[0] + 0.12 * A[1] - 0.06 * A[2] + 0.04 * A[3] + 0.2 * cv;
   if (h >= dens) return null;
   const r = h / dens, s = A[0] + A[1] + A[2] + A[3], edge = cv * (1 - cv) * 4;
   let c = 0, tot = 0; const w = DECOR_MIX[0].map((b, k) => b * Math.max(0, 1 - s) + A[0] * DECOR_MIX[1][k] + A[1] * DECOR_MIX[2][k] + A[2] * DECOR_MIX[3][k] + A[3] * DECOR_MIX[4][k]);
-  const under = [1 - 0.65 * cv, 1 + 1.6 * cv, 1 - 0.3 * cv, 1 + 0.9 * cv, 1 + 0.9 * cv, 1 + 0.5 * cv];
+  const under = [1 - 0.65 * cv, 1 + 1.1 * cv, 1 - 0.3 * cv, 1 + 0.6 * cv, 1 + 0.9 * cv, 1 + 0.5 * cv];
   for (let k = 0; k < 6; k++) w[k] *= under[k];
   w.push(0.03 + 0.2 * edge * (1 - A[2]) * (1 - A[1]));   // a sapling
   for (const v of w) tot += v;
@@ -6939,10 +6939,10 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
         t = mix(t, t * vec3(0.66, 0.56, 0.44) + vec3(0.03, 0.015, 0.0) * sNoise(vW.xz * 0.2), L.r * 0.65);   // leaf litter under the thickets
         // the floor of a stand of trees: fallen needles and leaves, brown and patchy, with moss in the damp hollows. Its edge
         // wanders, so a stand's floor runs out into the grass in tongues rather than a line
-        float cv = coverW(vW.xz), lf = sNoise(vW.xz * 0.09 + 3.0), lf2 = sNoise(vW.xz * 0.55 + 11.0);
-        float fl = smoothstep(0.22, 0.6, cv + (sNoise(vW.xz * 0.022 + 5.0) - 0.5) * 0.45);
-        vec3 litter = mix(vec3(0.34, 0.25, 0.16), vec3(0.47, 0.35, 0.21), lf) * (0.82 + 0.32 * lf2);
-        litter = mix(litter, vec3(0.25, 0.31, 0.15) * (0.85 + 0.3 * lf2), smoothstep(0.58, 0.78, sNoise(vW.xz * 0.03 + 21.0)) * 0.7);
+        float cv = coverW(vW.xz), lf = sNoise(vW.xz * 0.11 + 3.0), ed = sNoise(vW.xz * 0.022 + 5.0);   // (two noises: the ground is most of a phone's screen)
+        float fl = smoothstep(0.22, 0.6, cv + (ed - 0.5) * 0.45);
+        vec3 litter = mix(vec3(0.34, 0.25, 0.16), vec3(0.47, 0.35, 0.21), lf) * (0.82 + 0.32 * sp2);
+        litter = mix(litter, vec3(0.25, 0.31, 0.15) * (0.85 + 0.3 * sp2), smoothstep(0.62, 0.82, ed) * 0.7);
         t = mix(t, litter * (0.82 + 0.36 * t.r), fl * 0.85 * (1.0 - 0.6 * s.w));
         float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
         vec3 under = mix(vec3(0.34, 0.42, 0.19), vec3(0.5, 0.47, 0.24), s.x); under = mix(under, vec3(0.22, 0.34, 0.13), s.y);
@@ -7641,6 +7641,7 @@ const pondMesh = new THREE.Mesh(new THREE.BufferGeometry(), pondMat); pondMesh.f
 const pondK = new KitMesh(false);   // no ink outline: it would swallow a reed
 const P_PAD = () => prim('pad', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0.45, 6.2832 - 0.45); g.translate(0, 0.5, 0); return g; });   // a lily pad: a disc with its notch
 let pondKey = '';
+const pondPart = new Map();   // (pondsSync) each pond's pieces, by where it lies
 function pondKit(K, P) {
   const R = (a, b) => hash(P.x * 0.31 + a * 7.7, P.y * 0.27 + b * 3.3);
   // reeds: clumps standing in the shallows round the shore, thicker on some sides than others; slim tapering stems that
@@ -7689,13 +7690,23 @@ function pondKit(K, P) {
 function pondsSync(px, py) {
   const L = lakesNear(px, py, drawR() + 100), key = L.map(P => P.x | 0).join();
   if (key === pondKey) return L; pondKey = key;
-  const pos = [], dat = [], N = 26, K = new Kit();
-  for (const P of L) {   // a sheet at the water's level over the hollow, marked where the pond reaches
-    const R = P.rmax * 1.12 + 8, st = 2 * R / N, v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, pondIn(P, x, y, 10) ? 1 : 0); };
-    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
-    pondKit(K, P);
+  // each pond's water and reeds are built the first time it comes near and kept, so walking on past ponds only puts the
+  // pieces together again (rebuilding every pond in reach each time the set changed was a hitch you could feel)
+  const N = 26, K = new Kit(), parts = [];
+  for (const P of L) {
+    const id = (P.x | 0) + ',' + (P.y | 0); let q = pondPart.get(id);
+    if (!q) {
+      const pos = [], dat = [];   // a sheet at the water's level over the hollow, marked where the pond reaches
+      const R = P.rmax * 1.12 + 8, st = 2 * R / N, v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, pondIn(P, x, y, 10) ? 1 : 0); };
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
+      const T = new Kit(); pondKit(T, P);
+      q = { pos: new Float32Array(pos), dat: new Float32Array(dat), kit: T.take() };
+      if (pondPart.size > 80) pondPart.clear(); pondPart.set(id, q);
+    }
+    parts.push(q); K.chunk(q.kit);
   }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('pdat', new THREE.Float32BufferAttribute(dat, 3));
+  const cat = f => { const A = new Float32Array(parts.reduce((n, q) => n + q[f].length, 0)); let o = 0; for (const q of parts) { A.set(q[f], o); o += q[f].length; } return A; };
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(cat('pos'), 3)); g.setAttribute('pdat', new THREE.BufferAttribute(cat('dat'), 3));
   pondMesh.geometry.dispose(); pondMesh.geometry = g; pondK.set(K);
   return L;
 }
@@ -7732,7 +7743,9 @@ function worldSync(force) {
   // trees, rocks, posts
   tallB.begin(); treesBegin(); propsW.begin(); shN = 0;
   const props = propsNear(p.x, p.y, drawR() + 60); WORLD.props = props;
+  const far2 = (drawR() + 60) ** 2;   // propsNear gives a square: its corners are past the haze, so they're left undrawn
   for (const o of props) {
+    if ((o.x - p.x) ** 2 + (o.y - p.y) ** 2 > far2) continue;
     if (o.kind === 'tree') {
       const kind = kindOfTree(o), M = ATLAS.meta[kind], v = (o.seed * 997 | 0) % M.length, m = (o.seed * 7919 % 1) < 0.5 ? 1 : -1;
       if (!treeAdd(o, kind, Math.hypot(o.x - p.x, o.y - p.y))) tallB.add(kind, v, o.x, o.y, o.s * TREE_K, m, kind === 'dead' ? 0.4 : 1, o.shakeT ?? -99, o.seed);
@@ -7749,6 +7762,7 @@ function worldSync(force) {
   // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's
   coverB.begin(); plantB.begin(); bushB.begin();
   for (const d of decorNear(p.x, p.y, 430)) {
+    if ((d.x - p.x) ** 2 + (d.y - p.y) ** 2 > 450 * 450) continue;   // round you, not the square decorNear gives (its corners are past where plants fade)
     const k = d.dk === 'log' ? 'log' : d.dk;
     if (!ATLAS.meta[k] && !PROP_KIND[k]) continue;   // (a sapling has only its model, no picture)
     if (k === 'log') {   // a fallen log lies flat on the ground as a solid log, with a broken branch or two
@@ -7857,14 +7871,14 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
     // foot; and a tall pine, a long bare trunk going orange up high and a ragged crown of needle clumps on top. Each skirt is
     // pale at its tips where the new growth is and dark in toward the trunk, so the tiers read one under the next
     if (vi < 2) {
-      const sp = vi === 0, H = sp ? 110 : 102, y0 = sp ? 19 : 26;
+      const sp = vi === 0, H = sp ? 110 : 102, y0 = sp ? 29 : 33;   // the lowest boughs clear your head, so you walk in under them
       K.mt = 'bark';
       K.add(P_CONE_(9), 0, 0, 0, 8.4, H - 6, 8.4, hex('#6a4c37'), 0, 0, 0, 0, 0.35);        // the trunk, tapering up through the boughs
       roots(4.2, 5, hex('#5a402e'));
       K.mt = 8;
-      const tiers = sp ? 9 : 8, G = sp ? [['#173b2e', '#47836a'], ['#1b4234', '#52907a'], ['#15372a', '#3f7a60']] : [['#1d4026', '#58944f'], ['#22482b', '#66a05a'], ['#1b3c24', '#4c8846']];
+      const tiers = sp ? 8 : 7, G = sp ? [['#173b2e', '#47836a'], ['#1b4234', '#52907a'], ['#15372a', '#3f7a60']] : [['#1d4026', '#58944f'], ['#22482b', '#66a05a'], ['#1b3c24', '#4c8846']];
       for (let i = 0; i < tiers; i++) {
-        const f = i / (tiers - 1), y = y0 + f * (H - y0 - 18), r = (sp ? 72 : 80) * Math.pow(1 - f * 0.84, 1.08) * (0.9 + 0.2 * R()), h = (sp ? 22 : 24) - f * 9, c = G[(i + vi) % 3];
+        const f = i / (tiers - 1), y = y0 + f * (H - y0 - 18), r = (sp ? 66 : 72) * Math.pow(1 - f * 0.84, 1.08) * (0.9 + 0.2 * R()), h = (sp ? 22 : 24) - f * 9, c = G[(i + vi) % 3];
         kitGrad(K, () => K.add(P_TIER_((i + vi) % 4), (R() - 0.5) * 3, y, (R() - 0.5) * 3, r, h, r, hex(c[1]), R() * 6.28, 0, (R() - 0.5) * 0.1, 0, 0.32), hex(c[1]), hex(c[0]), 1.4);
       }
       kitGrad(K, () => K.add(P_CONE_(7), 0, H - 20, 0, 10, 24, 10, hex(G[1][1]), 0, 0, 0.05, 0, 0.3), hex(G[1][0]), hex(G[1][1]));   // the leader
@@ -7925,17 +7939,27 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
 }
 
 // one instanced draw (and its outline) per kind and way of building it
-const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 700, TREE_LOD = 520;   // past TREE_LOD a tree is drawn in its plainer form
+// Three bands round you, each its own draw: up close (TREE_NEAR) the trees whose leaves thin away as you brush past and,
+// seen from above, fade where they'd hide you; then the same trees drawn solid; then past TREE_LOD the plainer far-off
+// form, solid too. A shader that can throw away a pixel stops a phone skipping the hidden surfaces behind it, which in a
+// stand of trees is most of them, so only the few trees near enough to need it get that shader
+const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 700, TREE_LOD = 400, TREE_NEAR = 120;
+const treeMatSolid = (() => {
+  const a = 'if (occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;', b = 'if (d < 34.0 && dz > smoothstep(16.0, 34.0, d)) discard;';
+  if (!treeMat.fragmentShader.includes(a) || !treeMat.fragmentShader.includes(b)) throw new Error('treeMatSolid: the tree shader changed');
+  return new THREE.ShaderMaterial({ uniforms: treeMat.uniforms, vertexShader: treeMat.vertexShader, fragmentShader: treeMat.fragmentShader.replace(a, '').replace(b, '') });
+})();
 const TREES = {};
 for (const k of TREE_KINDS) TREES[k] = [];
 let treesBuilt = false;
 function treesBuild() {
   treesBuilt = true;
-  for (const k of TREE_KINDS) for (let v = 0; v < TREE_NV * 2; v++) {   // TREES[k]: each way of building it near, then the same far off
-    const g = treeModel(k, v % TREE_NV, v >= TREE_NV), m = new THREE.InstancedMesh(g, treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
+  for (const k of TREE_KINDS) { const G = [];
+    for (let v = 0; v < TREE_NV * 3; v++) {   // TREES[k]: each way of building it up close, then solid, then far off
+    const band = Math.floor(v / TREE_NV), g = band === 1 ? G[v % TREE_NV] : (G[v] = treeModel(k, v % TREE_NV, band === 2)), m = new THREE.InstancedMesh(g, band ? treeMatSolid : treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
     m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
     TREES[k].push({ m, e, list: [] });
-  }
+  } }
 }
 const _tm = new M4(), _tq = new THREE.Quaternion(), _tq2 = new THREE.Quaternion(), _te = new THREE.Euler(), _tp = new V3(), _ts = new V3(), _tax = new V3();
 function treeMatrix(o, tilt, ta) {
@@ -7947,7 +7971,8 @@ function treeMatrix(o, tilt, ta) {
 function treesBegin() { if (!treesBuilt) treesBuild(); for (const k of TREE_KINDS) for (const B of TREES[k]) B.list.length = 0; }
 function treeAdd(o, kind, d) {   // near enough to stand solid? then it's ours, not a picture
   if (d > TREE_R3D) return false;
-  const B = TREES[kind][(o.seed * 997 | 0) % TREE_NV + (d > TREE_LOD ? TREE_NV : 0)]; if (B.list.length >= TREE_CAP) return false;
+  const near = isoP() ? TREE_LOD : TREE_NEAR;   // (from above, any tree might stand between you and the camera)
+  const B = TREES[kind][(o.seed * 997 | 0) % TREE_NV + (d > TREE_LOD ? 2 : d > near ? 1 : 0) * TREE_NV]; if (B.list.length >= TREE_CAP) return false;
   B.list.push(o); return true;
 }
 function treesEnd() {
@@ -8198,8 +8223,8 @@ const P_BOULDER = (k = 0) => prim('boulder' + k, () => {
 });
 // a blade or a frond: flat, wide at the foot and running to a point
 const P_PEA = (w = 7, h = 5) => prim('pea' + w + h, () => new THREE.SphereGeometry(0.5, w, h));   // a ball with fewer faces, for things too small to show them
-const P_KNOB = (k = 0) => prim('knob' + k, () => {   // the trees' soft lump of leaf, in fewer faces for a bush
-  const g = new THREE.SphereGeometry(0.5, 10, 7), p = g.attributes.position, v = new V3();
+const P_KNOB = (k = 0, lo = false) => prim('knob' + k + (lo ? 'lo' : ''), () => {   // the trees' soft lump of leaf, in fewer faces for a bush (lo: fewer still, for the little ones)
+  const g = lo ? new THREE.SphereGeometry(0.5, 7, 5) : new THREE.SphereGeometry(0.5, 10, 7), p = g.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 0.9 + 0.14 * Math.sin(v.x * 9 + k) * Math.sin(v.y * 8 + k * 2) * Math.sin(v.z * 10 + k * 3) + 0.07 * Math.sin(v.x * 27 + v.y * 13 + v.z * 21 + k); v.multiplyScalar(n); v.y *= 0.88; p.setXYZ(i, v.x, v.y, v.z); }
   g.computeVertexNormals(); return g;
 });
@@ -8223,15 +8248,15 @@ function bushKit(K, R, vi, dark, mid, light, tall) {
   const mixc = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
   K.mt = 'plant';
   K.add(P_KNOB(5), 0, 7, 0, 22, 14 * tall, 22, dark, 0, 0, 0, 0, 0.35);
-  const n = 26 + vi * 3, ga = 2.39996;
+  const n = 19 + vi * 2, ga = 2.39996;   // (a bush is drawn by the dozen under a stand: kept to a few thousand points)
   for (let i = 0; i < n; i++) {
     const f = (i + 0.5) / n, e = Math.asin(f) * 1.05, a = i * ga + vi * 1.3 + R() * 0.4, rr = 12.5 * Math.cos(e) + 1 + R() * 1.5;
     const x = Math.cos(a) * rr, z = Math.sin(a) * rr, y = 3.5 + Math.sin(e) * 12 * tall, sz = 8 - f * 2.5 + R() * 1.8, h = mixc(mid, light, 0.45 + 0.55 * f + R() * 0.15), d = mixc(dark, mid, 0.3 + 0.5 * f);
-    kitGrad(K, () => K.add(P_KNOB(i % 5), x, y, z, sz, sz * 0.82, sz, h, R() * 6.28, 0, 0, 0, 0.35), d, h, 0.8);
+    kitGrad(K, () => K.add(P_KNOB(i % 5), x, y, z, sz * 1.1, sz * 0.9, sz * 1.1, h, R() * 6.28, 0, 0, 0, 0.35), d, h, 0.8);
   }
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 15; i++) {
     const f = R() * 0.85, e = Math.asin(f), a = R() * 6.28, rr = 14.5 * Math.cos(e) + 1.5, x = Math.cos(a) * rr, z = Math.sin(a) * rr, y = 3 + Math.sin(e) * 13.5 * tall, c = mixc(mid, light, 0.5 + 0.5 * f + R() * 0.2);
-    K.add(P_KNOB(i % 5), x, y, z, 3.6 + R() * 1.6, 1.5, 2.4 + R(), c, -a, 0.6 - f * 0.9, R() - 0.5, 0, 0.35);
+    K.add(P_KNOB(i % 5, true), x, y, z, 3.6 + R() * 1.6, 1.5, 2.4 + R(), c, -a, 0.6 - f * 0.9, R() - 0.5, 0, 0.35);
   }
   K.mt = 'bark';
   for (let j = 0; j < 3; j++) { const a = j * 2.1 + vi; K.rod(P_CYL(4), Math.cos(a) * 3, 0, Math.sin(a) * 3, Math.cos(a) * 9, 4.5, Math.sin(a) * 9, 0.7, hex('#4a3826')); }
@@ -8240,7 +8265,7 @@ function bushKit(K, R, vi, dark, mid, light, tall) {
 // a fern frond, one piece: a stalk rising from the middle and arching over, with pairs of leaflets all along it, longest
 // near the middle and shrinking to the tip, each lifted a little and swept forward. Length 1 along +z, faced both ways.
 const P_FROND = (k = 0) => prim('frond' + k, () => {
-  const N = 14, pos = [], arch = 0.62 + 0.1 * k, droop = 0.18 - 0.1 * k;
+  const N = 10, pos = [], arch = 0.62 + 0.1 * k, droop = 0.18 - 0.1 * k;
   const sp = t => { const u = 1 - t; return [0, 2 * u * t * arch + t * t * droop, 2 * u * t * 0.3 + t * t]; };   // a curve: up steeply, then over
   const tri = (a, b, c) => pos.push(...a, ...b, ...c, ...a, ...c, ...b);
   for (let i = 0; i < N; i++) {
@@ -8293,7 +8318,7 @@ function propModel(kind, vi) {
   } else if (kind === 'bush') {   // a low leafy mound (28 wide, 20 high): deep green in its heart, sunlit yellow-green on top
     bushKit(K, R, vi, hex('#1f3d1c'), hex('#3a6a2e'), hex('#6fa24a'), 1);
   } else if (kind === 'fern') {   // a crown of fronds rising from one root and arching out over the ground (34 wide, 16 high)
-    const G = [['#1f4a1c', '#5d9a40'], ['#244f1f', '#6aa646'], ['#1c4419', '#4f8c36']], fronds = 9 + vi * 2;
+    const G = [['#1f4a1c', '#5d9a40'], ['#244f1f', '#6aa646'], ['#1c4419', '#4f8c36']], fronds = 8 + vi;
     K.mt = 'plant'; K.add(P_KNOB(vi), 0, 0.5, 0, 4.5, 2.5, 4.5, hex('#2a3a1c'), 0, 0, 0, 0, 0.3);
     for (let i = 0; i < fronds; i++) {
       const a = i * 2.39996 + vi + R() * 0.3, L = 15 + R() * 6, c = G[(i + vi) % 3];

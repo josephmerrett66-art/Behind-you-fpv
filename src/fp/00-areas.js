@@ -136,11 +136,11 @@ function landDecor(i, j, h) {   // undefined: the ordinary rule; null: nothing h
   }
   // under the stands (landCover) the floor is ferns, bushes, fungus and fallen wood rather than grass, and young trees
   // come up round their edges where the light gets in
-  const A = landAt(cx, cy), cv = landCover(cx, cy), dens = 0.3 + 0.16 * A[0] + 0.12 * A[1] - 0.06 * A[2] + 0.04 * A[3] + 0.3 * cv;
+  const A = landAt(cx, cy), cv = landCover(cx, cy), dens = 0.3 + 0.16 * A[0] + 0.12 * A[1] - 0.06 * A[2] + 0.04 * A[3] + 0.2 * cv;
   if (h >= dens) return null;
   const r = h / dens, s = A[0] + A[1] + A[2] + A[3], edge = cv * (1 - cv) * 4;
   let c = 0, tot = 0; const w = DECOR_MIX[0].map((b, k) => b * Math.max(0, 1 - s) + A[0] * DECOR_MIX[1][k] + A[1] * DECOR_MIX[2][k] + A[2] * DECOR_MIX[3][k] + A[3] * DECOR_MIX[4][k]);
-  const under = [1 - 0.65 * cv, 1 + 1.6 * cv, 1 - 0.3 * cv, 1 + 0.9 * cv, 1 + 0.9 * cv, 1 + 0.5 * cv];
+  const under = [1 - 0.65 * cv, 1 + 1.1 * cv, 1 - 0.3 * cv, 1 + 0.6 * cv, 1 + 0.9 * cv, 1 + 0.5 * cv];
   for (let k = 0; k < 6; k++) w[k] *= under[k];
   w.push(0.03 + 0.2 * edge * (1 - A[2]) * (1 - A[1]));   // a sapling
   for (const v of w) tot += v;

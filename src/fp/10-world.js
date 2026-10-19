@@ -390,6 +390,7 @@ const pondMesh = new THREE.Mesh(new THREE.BufferGeometry(), pondMat); pondMesh.f
 const pondK = new KitMesh(false);   // no ink outline: it would swallow a reed
 const P_PAD = () => prim('pad', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0.45, 6.2832 - 0.45); g.translate(0, 0.5, 0); return g; });   // a lily pad: a disc with its notch
 let pondKey = '';
+const pondPart = new Map();   // (pondsSync) each pond's pieces, by where it lies
 function pondKit(K, P) {
   const R = (a, b) => hash(P.x * 0.31 + a * 7.7, P.y * 0.27 + b * 3.3);
   // reeds: clumps standing in the shallows round the shore, thicker on some sides than others; slim tapering stems that
@@ -438,13 +439,23 @@ function pondKit(K, P) {
 function pondsSync(px, py) {
   const L = lakesNear(px, py, drawR() + 100), key = L.map(P => P.x | 0).join();
   if (key === pondKey) return L; pondKey = key;
-  const pos = [], dat = [], N = 26, K = new Kit();
-  for (const P of L) {   // a sheet at the water's level over the hollow, marked where the pond reaches
-    const R = P.rmax * 1.12 + 8, st = 2 * R / N, v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, pondIn(P, x, y, 10) ? 1 : 0); };
-    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
-    pondKit(K, P);
+  // each pond's water and reeds are built the first time it comes near and kept, so walking on past ponds only puts the
+  // pieces together again (rebuilding every pond in reach each time the set changed was a hitch you could feel)
+  const N = 26, K = new Kit(), parts = [];
+  for (const P of L) {
+    const id = (P.x | 0) + ',' + (P.y | 0); let q = pondPart.get(id);
+    if (!q) {
+      const pos = [], dat = [];   // a sheet at the water's level over the hollow, marked where the pond reaches
+      const R = P.rmax * 1.12 + 8, st = 2 * R / N, v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, pondIn(P, x, y, 10) ? 1 : 0); };
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
+      const T = new Kit(); pondKit(T, P);
+      q = { pos: new Float32Array(pos), dat: new Float32Array(dat), kit: T.take() };
+      if (pondPart.size > 80) pondPart.clear(); pondPart.set(id, q);
+    }
+    parts.push(q); K.chunk(q.kit);
   }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('pdat', new THREE.Float32BufferAttribute(dat, 3));
+  const cat = f => { const A = new Float32Array(parts.reduce((n, q) => n + q[f].length, 0)); let o = 0; for (const q of parts) { A.set(q[f], o); o += q[f].length; } return A; };
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(cat('pos'), 3)); g.setAttribute('pdat', new THREE.BufferAttribute(cat('dat'), 3));
   pondMesh.geometry.dispose(); pondMesh.geometry = g; pondK.set(K);
   return L;
 }
@@ -481,7 +492,9 @@ function worldSync(force) {
   // trees, rocks, posts
   tallB.begin(); treesBegin(); propsW.begin(); shN = 0;
   const props = propsNear(p.x, p.y, drawR() + 60); WORLD.props = props;
+  const far2 = (drawR() + 60) ** 2;   // propsNear gives a square: its corners are past the haze, so they're left undrawn
   for (const o of props) {
+    if ((o.x - p.x) ** 2 + (o.y - p.y) ** 2 > far2) continue;
     if (o.kind === 'tree') {
       const kind = kindOfTree(o), M = ATLAS.meta[kind], v = (o.seed * 997 | 0) % M.length, m = (o.seed * 7919 % 1) < 0.5 ? 1 : -1;
       if (!treeAdd(o, kind, Math.hypot(o.x - p.x, o.y - p.y))) tallB.add(kind, v, o.x, o.y, o.s * TREE_K, m, kind === 'dead' ? 0.4 : 1, o.shakeT ?? -99, o.seed);
@@ -498,6 +511,7 @@ function worldSync(force) {
   // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's
   coverB.begin(); plantB.begin(); bushB.begin();
   for (const d of decorNear(p.x, p.y, 430)) {
+    if ((d.x - p.x) ** 2 + (d.y - p.y) ** 2 > 450 * 450) continue;   // round you, not the square decorNear gives (its corners are past where plants fade)
     const k = d.dk === 'log' ? 'log' : d.dk;
     if (!ATLAS.meta[k] && !PROP_KIND[k]) continue;   // (a sapling has only its model, no picture)
     if (k === 'log') {   // a fallen log lies flat on the ground as a solid log, with a broken branch or two

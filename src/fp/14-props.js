@@ -32,8 +32,8 @@ const P_BOULDER = (k = 0) => prim('boulder' + k, () => {
 });
 // a blade or a frond: flat, wide at the foot and running to a point
 const P_PEA = (w = 7, h = 5) => prim('pea' + w + h, () => new THREE.SphereGeometry(0.5, w, h));   // a ball with fewer faces, for things too small to show them
-const P_KNOB = (k = 0) => prim('knob' + k, () => {   // the trees' soft lump of leaf, in fewer faces for a bush
-  const g = new THREE.SphereGeometry(0.5, 10, 7), p = g.attributes.position, v = new V3();
+const P_KNOB = (k = 0, lo = false) => prim('knob' + k + (lo ? 'lo' : ''), () => {   // the trees' soft lump of leaf, in fewer faces for a bush (lo: fewer still, for the little ones)
+  const g = lo ? new THREE.SphereGeometry(0.5, 7, 5) : new THREE.SphereGeometry(0.5, 10, 7), p = g.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 0.9 + 0.14 * Math.sin(v.x * 9 + k) * Math.sin(v.y * 8 + k * 2) * Math.sin(v.z * 10 + k * 3) + 0.07 * Math.sin(v.x * 27 + v.y * 13 + v.z * 21 + k); v.multiplyScalar(n); v.y *= 0.88; p.setXYZ(i, v.x, v.y, v.z); }
   g.computeVertexNormals(); return g;
 });
@@ -57,15 +57,15 @@ function bushKit(K, R, vi, dark, mid, light, tall) {
   const mixc = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
   K.mt = 'plant';
   K.add(P_KNOB(5), 0, 7, 0, 22, 14 * tall, 22, dark, 0, 0, 0, 0, 0.35);
-  const n = 26 + vi * 3, ga = 2.39996;
+  const n = 19 + vi * 2, ga = 2.39996;   // (a bush is drawn by the dozen under a stand: kept to a few thousand points)
   for (let i = 0; i < n; i++) {
     const f = (i + 0.5) / n, e = Math.asin(f) * 1.05, a = i * ga + vi * 1.3 + R() * 0.4, rr = 12.5 * Math.cos(e) + 1 + R() * 1.5;
     const x = Math.cos(a) * rr, z = Math.sin(a) * rr, y = 3.5 + Math.sin(e) * 12 * tall, sz = 8 - f * 2.5 + R() * 1.8, h = mixc(mid, light, 0.45 + 0.55 * f + R() * 0.15), d = mixc(dark, mid, 0.3 + 0.5 * f);
-    kitGrad(K, () => K.add(P_KNOB(i % 5), x, y, z, sz, sz * 0.82, sz, h, R() * 6.28, 0, 0, 0, 0.35), d, h, 0.8);
+    kitGrad(K, () => K.add(P_KNOB(i % 5), x, y, z, sz * 1.1, sz * 0.9, sz * 1.1, h, R() * 6.28, 0, 0, 0, 0.35), d, h, 0.8);
   }
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 15; i++) {
     const f = R() * 0.85, e = Math.asin(f), a = R() * 6.28, rr = 14.5 * Math.cos(e) + 1.5, x = Math.cos(a) * rr, z = Math.sin(a) * rr, y = 3 + Math.sin(e) * 13.5 * tall, c = mixc(mid, light, 0.5 + 0.5 * f + R() * 0.2);
-    K.add(P_KNOB(i % 5), x, y, z, 3.6 + R() * 1.6, 1.5, 2.4 + R(), c, -a, 0.6 - f * 0.9, R() - 0.5, 0, 0.35);
+    K.add(P_KNOB(i % 5, true), x, y, z, 3.6 + R() * 1.6, 1.5, 2.4 + R(), c, -a, 0.6 - f * 0.9, R() - 0.5, 0, 0.35);
   }
   K.mt = 'bark';
   for (let j = 0; j < 3; j++) { const a = j * 2.1 + vi; K.rod(P_CYL(4), Math.cos(a) * 3, 0, Math.sin(a) * 3, Math.cos(a) * 9, 4.5, Math.sin(a) * 9, 0.7, hex('#4a3826')); }
@@ -74,7 +74,7 @@ function bushKit(K, R, vi, dark, mid, light, tall) {
 // a fern frond, one piece: a stalk rising from the middle and arching over, with pairs of leaflets all along it, longest
 // near the middle and shrinking to the tip, each lifted a little and swept forward. Length 1 along +z, faced both ways.
 const P_FROND = (k = 0) => prim('frond' + k, () => {
-  const N = 14, pos = [], arch = 0.62 + 0.1 * k, droop = 0.18 - 0.1 * k;
+  const N = 10, pos = [], arch = 0.62 + 0.1 * k, droop = 0.18 - 0.1 * k;
   const sp = t => { const u = 1 - t; return [0, 2 * u * t * arch + t * t * droop, 2 * u * t * 0.3 + t * t]; };   // a curve: up steeply, then over
   const tri = (a, b, c) => pos.push(...a, ...b, ...c, ...a, ...c, ...b);
   for (let i = 0; i < N; i++) {
@@ -127,7 +127,7 @@ function propModel(kind, vi) {
   } else if (kind === 'bush') {   // a low leafy mound (28 wide, 20 high): deep green in its heart, sunlit yellow-green on top
     bushKit(K, R, vi, hex('#1f3d1c'), hex('#3a6a2e'), hex('#6fa24a'), 1);
   } else if (kind === 'fern') {   // a crown of fronds rising from one root and arching out over the ground (34 wide, 16 high)
-    const G = [['#1f4a1c', '#5d9a40'], ['#244f1f', '#6aa646'], ['#1c4419', '#4f8c36']], fronds = 9 + vi * 2;
+    const G = [['#1f4a1c', '#5d9a40'], ['#244f1f', '#6aa646'], ['#1c4419', '#4f8c36']], fronds = 8 + vi;
     K.mt = 'plant'; K.add(P_KNOB(vi), 0, 0.5, 0, 4.5, 2.5, 4.5, hex('#2a3a1c'), 0, 0, 0, 0, 0.3);
     for (let i = 0; i < fronds; i++) {
       const a = i * 2.39996 + vi + R() * 0.3, L = 15 + R() * 6, c = G[(i + vi) % 3];

@@ -90,14 +90,14 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
     // foot; and a tall pine, a long bare trunk going orange up high and a ragged crown of needle clumps on top. Each skirt is
     // pale at its tips where the new growth is and dark in toward the trunk, so the tiers read one under the next
     if (vi < 2) {
-      const sp = vi === 0, H = sp ? 110 : 102, y0 = sp ? 19 : 26;
+      const sp = vi === 0, H = sp ? 110 : 102, y0 = sp ? 29 : 33;   // the lowest boughs clear your head, so you walk in under them
       K.mt = 'bark';
       K.add(P_CONE_(9), 0, 0, 0, 8.4, H - 6, 8.4, hex('#6a4c37'), 0, 0, 0, 0, 0.35);        // the trunk, tapering up through the boughs
       roots(4.2, 5, hex('#5a402e'));
       K.mt = 8;
-      const tiers = sp ? 9 : 8, G = sp ? [['#173b2e', '#47836a'], ['#1b4234', '#52907a'], ['#15372a', '#3f7a60']] : [['#1d4026', '#58944f'], ['#22482b', '#66a05a'], ['#1b3c24', '#4c8846']];
+      const tiers = sp ? 8 : 7, G = sp ? [['#173b2e', '#47836a'], ['#1b4234', '#52907a'], ['#15372a', '#3f7a60']] : [['#1d4026', '#58944f'], ['#22482b', '#66a05a'], ['#1b3c24', '#4c8846']];
       for (let i = 0; i < tiers; i++) {
-        const f = i / (tiers - 1), y = y0 + f * (H - y0 - 18), r = (sp ? 72 : 80) * Math.pow(1 - f * 0.84, 1.08) * (0.9 + 0.2 * R()), h = (sp ? 22 : 24) - f * 9, c = G[(i + vi) % 3];
+        const f = i / (tiers - 1), y = y0 + f * (H - y0 - 18), r = (sp ? 66 : 72) * Math.pow(1 - f * 0.84, 1.08) * (0.9 + 0.2 * R()), h = (sp ? 22 : 24) - f * 9, c = G[(i + vi) % 3];
         kitGrad(K, () => K.add(P_TIER_((i + vi) % 4), (R() - 0.5) * 3, y, (R() - 0.5) * 3, r, h, r, hex(c[1]), R() * 6.28, 0, (R() - 0.5) * 0.1, 0, 0.32), hex(c[1]), hex(c[0]), 1.4);
       }
       kitGrad(K, () => K.add(P_CONE_(7), 0, H - 20, 0, 10, 24, 10, hex(G[1][1]), 0, 0, 0.05, 0, 0.3), hex(G[1][0]), hex(G[1][1]));   // the leader
@@ -158,17 +158,27 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
 }
 
 // one instanced draw (and its outline) per kind and way of building it
-const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 700, TREE_LOD = 520;   // past TREE_LOD a tree is drawn in its plainer form
+// Three bands round you, each its own draw: up close (TREE_NEAR) the trees whose leaves thin away as you brush past and,
+// seen from above, fade where they'd hide you; then the same trees drawn solid; then past TREE_LOD the plainer far-off
+// form, solid too. A shader that can throw away a pixel stops a phone skipping the hidden surfaces behind it, which in a
+// stand of trees is most of them, so only the few trees near enough to need it get that shader
+const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 700, TREE_LOD = 400, TREE_NEAR = 120;
+const treeMatSolid = (() => {
+  const a = 'if (occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;', b = 'if (d < 34.0 && dz > smoothstep(16.0, 34.0, d)) discard;';
+  if (!treeMat.fragmentShader.includes(a) || !treeMat.fragmentShader.includes(b)) throw new Error('treeMatSolid: the tree shader changed');
+  return new THREE.ShaderMaterial({ uniforms: treeMat.uniforms, vertexShader: treeMat.vertexShader, fragmentShader: treeMat.fragmentShader.replace(a, '').replace(b, '') });
+})();
 const TREES = {};
 for (const k of TREE_KINDS) TREES[k] = [];
 let treesBuilt = false;
 function treesBuild() {
   treesBuilt = true;
-  for (const k of TREE_KINDS) for (let v = 0; v < TREE_NV * 2; v++) {   // TREES[k]: each way of building it near, then the same far off
-    const g = treeModel(k, v % TREE_NV, v >= TREE_NV), m = new THREE.InstancedMesh(g, treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
+  for (const k of TREE_KINDS) { const G = [];
+    for (let v = 0; v < TREE_NV * 3; v++) {   // TREES[k]: each way of building it up close, then solid, then far off
+    const band = Math.floor(v / TREE_NV), g = band === 1 ? G[v % TREE_NV] : (G[v] = treeModel(k, v % TREE_NV, band === 2)), m = new THREE.InstancedMesh(g, band ? treeMatSolid : treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
     m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
     TREES[k].push({ m, e, list: [] });
-  }
+  } }
 }
 const _tm = new M4(), _tq = new THREE.Quaternion(), _tq2 = new THREE.Quaternion(), _te = new THREE.Euler(), _tp = new V3(), _ts = new V3(), _tax = new V3();
 function treeMatrix(o, tilt, ta) {
@@ -180,7 +190,8 @@ function treeMatrix(o, tilt, ta) {
 function treesBegin() { if (!treesBuilt) treesBuild(); for (const k of TREE_KINDS) for (const B of TREES[k]) B.list.length = 0; }
 function treeAdd(o, kind, d) {   // near enough to stand solid? then it's ours, not a picture
   if (d > TREE_R3D) return false;
-  const B = TREES[kind][(o.seed * 997 | 0) % TREE_NV + (d > TREE_LOD ? TREE_NV : 0)]; if (B.list.length >= TREE_CAP) return false;
+  const near = isoP() ? TREE_LOD : TREE_NEAR;   // (from above, any tree might stand between you and the camera)
+  const B = TREES[kind][(o.seed * 997 | 0) % TREE_NV + (d > TREE_LOD ? 2 : d > near ? 1 : 0) * TREE_NV]; if (B.list.length >= TREE_CAP) return false;
   B.list.push(o); return true;
 }
 function treesEnd() {

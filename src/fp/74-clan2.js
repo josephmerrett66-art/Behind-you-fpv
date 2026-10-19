@@ -36,13 +36,13 @@ function clanParry(e, A, d) {
   c.dgCd = S.t + 1.3 + Math.random() * 0.8;   // never every swing: a combo lands
   if (r < dodge) {
     const a = Math.atan2(e.y - p.y, e.x - p.x) + (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.7);
-    c.hop = { vx: Math.cos(a) * 215, vy: Math.sin(a) * 215, t: 0.26, T: 0.26 }; clanSnd('breath', e.x, e.y, 0.6); clanSnd('rustle', e.x, e.y, 1);
+    c.hop = { vx: Math.cos(a) * 215, vy: Math.sin(a) * 215, t: 0.26, T: 0.26 }; clanSnd('breath', e.x, e.y, 0.6, e.cl.vp, e); clanSnd('rustle', e.x, e.y, 1, e.cl.vp, e);
   } else if (r < dodge + block) { c.block = S.t + 0.55; c.o.facing = 1; }
 }
 // a blow that lands while its club is up: a crack of wood, a stagger, and maybe straight back at you
 function clanBlocked(e) {
   const c = e.cl, lost = c.hp0 - e.hp; e.hp = c.hp0 - lost * 0.12; c.hp0 = e.hp; c.block = 0; c.blockedT = S.t;
-  clanSnd('clack', e.x, e.y); addShake(0.05);
+  clanSnd('clack', e.x, e.y, 1, e.cl.vp, e); addShake(0.05);
   const a = Math.atan2(e.y - S.p.y, e.x - S.p.x); c.hop = { vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, t: 0.18, T: 0.18 };
   if (!c.eng) clanNotice(e, true);
   if (clanConf(e) > 0.35 && Math.random() < 0.5 && clanTokFree(true)) clanGo(e, 'attack', { now: 1 });
@@ -77,7 +77,7 @@ Object.assign(CLAN_ST, {
   rescue(e, c, d, dt) {   // running to the fallen one
     const w = c.saving; if (!w || w.dead || w.cl.st !== 'down') { c.saving = null; return clanThink(e); }
     const L = clanMove(e, w.x, w.y, CL.run * 1.1, dt); c.cr = 0.4;
-    if (L < 16) { clanGo(e, 'drag'); clanSnd('breath', e.x, e.y, 0.8); }
+    if (L < 16) { clanGo(e, 'drag'); clanSnd('breath', e.x, e.y, 0.8, e.cl.vp, e); }
     if (c.t > 9) { c.saving = null; clanThink(e); }
   },
   drag(e, c, d, dt) {   // bent over, hauling it backwards by the wrists, away from you, its eyes on you
@@ -122,7 +122,7 @@ Object.assign(CLAN_ST, {
     const o = c.o, u = Math.min(1, c.t / o.T);
     e.x = lerp(o.x0, o.x1, u); e.y = lerp(o.y0, o.y1, u); c.z = lerp(o.z0, o.z1, u) + Math.sin(Math.PI * u) * 22; c.flyK = 1; c.cr = 0.5;
     c.faceW = Math.atan2(o.y1 - o.y0, o.x1 - o.x0); c.o.facing = 1;
-    if (u >= 1) { c.flyK = 0; clanSnd('rustle', e.x, e.y, 1.2); c.post = o.post; clanGo(e, 'perch'); }
+    if (u >= 1) { c.flyK = 0; clanSnd('rustle', e.x, e.y, 1.2, e.cl.vp, e); c.post = o.post; clanGo(e, 'perch'); }
   },
   pounce(e, c, d, dt) {   // off the branch and down on you
     const o = c.o, u = Math.min(1, c.t / o.T);
@@ -130,7 +130,7 @@ Object.assign(CLAN_ST, {
     const p = S.p; o.x1 = lerp(o.x1, p.x, dt * 3); o.y1 = lerp(o.y1, p.y, dt * 3);
     e.x = lerp(o.x0, o.x1, u); e.y = lerp(o.y0, o.y1, u); c.z = Math.max(0, lerp(o.z0, 0, u * u) + Math.sin(Math.PI * u) * 10); c.flyK = 1;
     c.faceW = Math.atan2(p.y - e.y, p.x - e.x); c.o.facing = 1;
-    if (u >= 1) { c.flyK = 0; c.z = 0; clanSnd('thud', e.x, e.y); addShake(0.12); clan().tok = e; clanGo(e, 'attack', { now: 1, landed: 1 }); }
+    if (u >= 1) { c.flyK = 0; c.z = 0; clanSnd('thud', e.x, e.y, 1, e.cl.vp, e); addShake(0.12); clan().tok = e; clanGo(e, 'attack', { now: 1, landed: 1 }); }
   },
 });
 // a leap to the next tree, or down onto you: called from the perch
@@ -141,7 +141,7 @@ function clanPerchMove(e, c, d) {
   }
   if (Math.random() < 0.5 && c.post && c.post.t) {
     const t = propsNear(e.x, e.y, 150).filter(o => o !== c.post.t && o.kind === 'tree' && (o.type === 'oak' || o.type === 'cherry') && Math.hypot(o.x - e.x, o.y - e.y) > 50)[0];
-    if (t) { const P2 = clanSpotAt(t, true); c.perched = 0; clanGo(e, 'leap', { x0: e.x, y0: e.y, z0: c.z, x1: P2.x, y1: P2.y, z1: t.s * 62, T: 0.7, post: { t, x: P2.x, y: P2.y, perch: 1 } }); clanSnd('rustle', e.x, e.y, 1.2); return true; }
+    if (t) { const P2 = clanSpotAt(t, true); c.perched = 0; clanGo(e, 'leap', { x0: e.x, y0: e.y, z0: c.z, x1: P2.x, y1: P2.y, z1: t.s * 62, T: 0.7, post: { t, x: P2.x, y: P2.y, perch: 1 } }); clanSnd('rustle', e.x, e.y, 1.2, e.cl.vp, e); return true; }
   }
   return false;
 }

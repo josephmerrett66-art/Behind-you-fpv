@@ -190,7 +190,7 @@ function critStep(dt) {
 function critSnd(b, k) {
   if (!actx || !noiseBuf) return;
   const d = Math.hypot(b.x - S.p.x, b.y - S.p.y); if (d > 750) return;
-  const out = placeOut(b.x, b.y, 1, 750); if (!out) return;
+  const out = placeOut(b.x, b.y, 1, 750, b); if (!out) return;
   const t = actx.currentTime;
   if (k === 'skit') noiseAt(t, 6500, 2400, 0.08, 0.1, out);   // claws on grit
   else if (k === 'hiss') noiseAt(t, 3400, 900, 0.5, 0.16, out);

@@ -1,41 +1,36 @@
 # Clan voices
 
-The clan's voices in `assets/voices.json` are cut from these recordings on [Freesound](https://freesound.org). Every one is released under **CC0 1.0** (public domain), so no credit is required; they're listed here so you can find the originals. Each was trimmed into single calls, cleaned of rumble, levelled and saved as small mono MP3s.
+The clan's voices in `assets/voices.json` are one matching set. Every recording is released under **CC0 1.0** (public domain), so no credit is required; they're listed here so you can find the originals.
 
-| Freesound sound | By | Used as |
-|---|---|---|
-| [Male Screams Grunts](https://freesound.org/s/745726/) | JD_Brick_Productions | die, scream (4) |
-| [caveman scream](https://freesound.org/s/867185/) | riippumattog | scream (1) |
-| [Man Screaming - Again](https://freesound.org/s/569083/) | esmayorga | scream (1) |
-| [non emotion scream.wav](https://freesound.org/s/471193/) | AuDRoger | scream (1) |
-| [VOXScrm_Loud Scream Male Medium Distance In Forest LCR](https://freesound.org/s/873718/) | VanEngelen | scream, yell (6) |
-| [Middle Ages War Cry.wav](https://freesound.org/s/521830/) | joelcarrsound | scream (1) |
-| [Middle Ages War Cry 3.wav](https://freesound.org/s/521831/) | joelcarrsound | scream (1) |
-| [Middle Ages War Cry 2.wav](https://freesound.org/s/521832/) | joelcarrsound | scream (1) |
-| [Weird ahhh men howling at the moon](https://freesound.org/s/848944/) | NateyNate | yell (2) |
-| [R21-21-Two Cowboys Whoop.wav](https://freesound.org/s/481756/) | craigsmith | yell (2) |
-| [Yelling Eyoh in Empty Parking Garage](https://freesound.org/s/859347/) | qubodup | yell (1) |
-| [Wolves : induced howling by humans 5](https://freesound.org/s/753893/) | Sacha.Julien | yell (3) |
-| [Male Grunts](https://freesound.org/s/727827/) | abraksil | grunt (5) |
-| [Cartoon-like male attack effort vocal sfx](https://freesound.org/s/712116/) | A_kn | grunt (3) |
-| [Soft Male Vocal, Short Pained/Exhertion Groans - Vocal Efforts](https://freesound.org/s/803168/) | salemaudio | grunt (3) |
-| [Strong_Male_Grunt1(2).wav](https://freesound.org/s/667697/) | EvilOldScratch | grunt (1) |
-| [Medium Male Pain Grunts](https://freesound.org/s/610998/) | unfa | hurt (4) |
-| [Male Grunting In Pain](https://freesound.org/s/464486/) | elynch0901 | hurt (1) |
-| [Voice_AdultMale_PainGrunts_09.wav](https://freesound.org/s/547209/) | MrFossy | hurt (1) |
-| [Male Aggressive Growls](https://freesound.org/s/257358/) | Kodack | growl (5) |
-| [R01-06-Big Animal Growling Performed by Human.wav](https://freesound.org/s/479809/) | craigsmith | growl (2) |
-| [imitating-monkeys.wav](https://freesound.org/s/400083/) | Radio_fragola_gorizia | chatter (4) |
-| [going crazy sounds](https://freesound.org/s/856149/) | riippumattog | chatter (1) |
-| [Monkey Imitation 3](https://freesound.org/s/417823/) | AntumDeluge | chatter (1) |
-| [Monkey noise (imitation) 3](https://freesound.org/s/588625/) | wilika2 | chatter (2) |
-| [Tribe of savage creatures](https://freesound.org/s/245448/) | Thanra | chatter (1) |
-| [wailing sounds](https://freesound.org/s/814010/) | riippumattog | wail (4) |
-| [Wails_ses2.wav](https://freesound.org/s/25287/) | freesound | wail (3) |
-| [CRWDMisc_Crowd Wailing, Crying_ShaneVincent_GSC24_SpacedOmni-MK012.wav](https://freesound.org/s/764298/) | ShangusBurger | wail (2) |
-| [Man sobbing, crying, or whimpering.mp3](https://freesound.org/s/643669/) | SnowFightStudios | wail (1) |
-| [Soldier-Death Agony scream](https://freesound.org/s/800871/) | TyrantTim | die (1) |
-| [Death cry](https://freesound.org/s/795690/) | randbsoundbites | die (1) |
-| [MaleDeathSound13.wav](https://freesound.org/s/577032/) | Blankened | die (1) |
-| [Male Death Sound](https://freesound.org/s/554443/) | Blankened | die (1) |
-| [zombie death](https://freesound.org/s/744096/) | dreggsome | die (1) |
+## How the set is made
+
+- **Four men, one studio.** The screams, calls, grunts and some of the hurt cries are all from one pack: four male vocalists recorded on the same Neumann mic and preamp. Each is a voice, marked `A` to `D` in the file. Each cannibal keeps one of the four voices, and a band's members each get a different one, so one cannibal never changes voice mid-fight.
+- **A few others for the rest.** The growls, pain grunts, death cries, long wails and a babble come from a few other recordings. Each is dry and close, with one man only. Their tone is nudged toward the four men's.
+- **Taken out.** These were cut from the earlier set because they didn't match:
+  - crowds and groups (wailing crowd, war cries, two cowboys, men howling, "tribe of savage creatures");
+  - imitations (monkeys, a cartoon effort, a zombie);
+  - recordings with their own space baked in (a parking garage, a scream recorded at a distance in a forest, howling recorded far off outdoors).
+  The game now adds distance and the forest's echo itself, the same way for every sound.
+- **One chain for every clip.**
+  - Rumble below 90 Hz and hiss above 9 kHz are cut.
+  - Each clip is trimmed tight and levelled to the same loudness.
+  - It is saved as a mono 22.05 kHz, 48 kbps MP3.
+  - Every clip is mono. Where it sits left, right, behind and how far off is set while it plays, from where the cannibal is and which way you face (`placeOut` in `src/fp/45-audio.js`).
+
+## Sources
+
+| Recording | By | Where | Used as |
+|---|---|---|---|
+| [Male Grunt/Yelling sounds](https://opengameart.org/content/male-gruntyelling-sounds) | haeldb | OpenGameArt | scream (24), yell (16), grunt (14), hurt (4), chatter (1), wail (2): voices A–D |
+| [caveman scream](https://freesound.org/s/867185/) | riippumattog | Freesound | scream (1) |
+| [wailing sounds](https://freesound.org/s/814010/) | riippumattog | Freesound | wail (4) |
+| [going crazy sounds](https://freesound.org/s/856149/) | riippumattog | Freesound | chatter (3) |
+| [Male Aggressive Growls](https://freesound.org/s/257358/) | Kodack | Freesound | growl (5) |
+| [Medium Male Pain Grunts](https://freesound.org/s/610998/) | unfa | Freesound | hurt (4) |
+| [Male Grunting In Pain](https://freesound.org/s/464486/) | elynch0901 | Freesound | hurt (1) |
+| [Voice_AdultMale_PainGrunts_09.wav](https://freesound.org/s/547209/) | MrFossy | Freesound | hurt (1) |
+| [Soldier-Death Agony scream](https://freesound.org/s/800871/) | TyrantTim | Freesound | die (1) |
+| [Death cry](https://freesound.org/s/795690/) | randbsoundbites | Freesound | die (1) |
+| [MaleDeathSound13.wav](https://freesound.org/s/577032/) | Blankened | Freesound | die (1) |
+| [Male Death Sound](https://freesound.org/s/554443/) | Blankened | Freesound | die (1) |
+| [Male Screams Grunts](https://freesound.org/s/745726/) | JD_Brick_Productions | Freesound | die (1) |

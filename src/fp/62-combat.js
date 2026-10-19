@@ -350,7 +350,7 @@ function threatScan(dt) {   // what's close and out of sight, nearest first
 }
 function warnCue(e) {   // a sharp rising hiss from where it's winding up, so you hear it coming
   if (!actx || !noiseBuf) return;
-  const out = placeOut(e.x, e.y, 0.9, 400); if (!out) return;
+  const out = placeOut(e.x, e.y, 0.9, 400, e, 1.2); if (!out) return;
   const t = actx.currentTime, src = actx.createBufferSource(), bp = actx.createBiquadFilter(), g = actx.createGain();
   src.buffer = noiseBuf; bp.type = 'bandpass'; bp.Q.value = 4; bp.frequency.setValueAtTime(900, t); bp.frequency.exponentialRampToValueAtTime(4200, t + 0.28);
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);

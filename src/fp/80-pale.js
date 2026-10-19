@@ -140,9 +140,9 @@ function paleLitAt(x, y, pad = 0) {
 
 // ---------------- their voices: clicking, hissing, the shriek ----------------
 const PALE_SND = { click: [0.95, 760], clickF: [1, 650], hiss: [0.8, 520], rattle: [0.75, 820], snore: [0.5, 300], shriek: [1.2, 1500], hurt: [1, 900], die: [1.1, 1300], chitter: [0.95, 1100], breath: [0.7, 300] };
-function paleSnd(k, x, y, v = 1, vp = 210) {
+function paleSnd(k, x, y, v = 1, vp = 210, who = null) {
   if (!actx || !noiseBuf || !sfxGain || !PALE_SND[k]) return;
-  const o = placeOut(x, y, PALE_SND[k][0] * v, PALE_SND[k][1]); if (!o) return;
+  const o = placeOut(x, y, PALE_SND[k][0] * v, PALE_SND[k][1], who); if (!o) return;
   const t = actx.currentTime, R = Math.random;
   if (k === 'click' || k === 'clickF') {   // the clicks it finds its way by: a tongue against the teeth, quick as a rattle
     const n = k === 'clickF' ? 9 + Math.floor(R() * 6) : 4 + Math.floor(R() * 5), gap = k === 'clickF' ? 0.024 : 0.045 + R() * 0.03, f = 2900 + R() * 1400;
@@ -173,7 +173,7 @@ function paleSnd(k, x, y, v = 1, vp = 210) {
   } else if (k === 'breath') { clanNz(t, 'bandpass', 1500, 0.35, 0.4, o, 1.6); clanNz(t + 0.45, 'bandpass', 1100, 0.4, 0.35, o, 1.6); }
 }
 function paleSay(e, k, v = 1) {
-  const c = e.cl; paleSnd(k, e.x, e.y, v, c.vp);
+  const c = e.cl; paleSnd(k, e.x, e.y, v, c.vp, e);
   if (k === 'click' || k === 'clickF' || k === 'chitter') c.clickT = S.t;
   if (k === 'shriek') { c.shriekT = S.t; paleNoise(e.x, e.y, PALE_EAR.shriek); }
   if (k === 'chitter') paleNoise(e.x, e.y, PALE_EAR.shriek * 0.8);
@@ -429,7 +429,7 @@ function paleStep(dt) {
   if ((PALE.amb -= dt) <= 0) {
     PALE.amb = 12 + Math.random() * 20;
     const far = L.filter(e => Math.hypot(e.x - p.x, e.y - p.y) > 380);
-    if (far.length) { const e = pick(far); paleSnd(e.cl.st === 'sleep' ? 'rattle' : Math.random() < 0.6 ? 'click' : 'chitter', e.x, e.y, 0.75, e.cl.vp); }
+    if (far.length) { const e = pick(far); paleSnd(e.cl.st === 'sleep' ? 'rattle' : Math.random() < 0.6 ? 'click' : 'chitter', e.x, e.y, 0.75, e.cl.vp, e); }
   }
 }
 { const cl = caveLeave; caveLeave = function (m) { cl(m); PALE.si = -1; PALE.tok = null; PALE.ev.length = 0; }; }
@@ -444,7 +444,7 @@ function paleStep(dt) {
 function paleDied(e) {
   const C = clan(), D = S.day, c = e.cl, si = caveSysAt(e.x);
   C.dead.push({ e, t: 0, rig: c.rig, face: c.face || 0, z: 0, x: e.x, y: e.y }); if (c.rig) c.rig.keep = true;
-  paleSnd('die', e.x, e.y, 1, c.vp);
+  paleSnd('die', e.x, e.y, 1, c.vp, e);
   if (PALE.tok === e) PALE.tok = null;
   const got = [], drop = (id, n) => { if (n <= 0) return; dayDrop(e.x + (Math.random() - 0.5) * 16, e.y + (Math.random() - 0.5) * 16, id, n); got.push(n > 1 ? `${DIT[id].n.toLowerCase()} ×${n}` : DIT[id].n.toLowerCase()); };
   drop('bone', c.old ? 6 : 2 + (Math.random() < 0.5 ? 1 : 0)); drop('hide', c.old ? 3 : 1);

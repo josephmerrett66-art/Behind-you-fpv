@@ -165,7 +165,7 @@ function clanShadow(e, c, g, d, dt) {
   if (c.vis && (c.eyed || c.seenT > 0.8) && S.t - H.seenAt > 5) {
     H.seenAt = S.t; const r = Math.random();
     if (r < 0.45) { H.mode = 'freeze'; H.t = 1.5 + Math.random() * 2.5; }
-    else if (r < 0.9 || c.P.cur < 0.6) { H.mode = 'move'; H.slip = 1; H.a += (angDiff(Math.atan2(e.y - p.y, e.x - p.x), S.aimW) > 0 ? 1 : -1) * (0.5 + Math.random() * 0.5); H.dr += 70; H.G = null; clanSnd('rustle', e.x, e.y, 1.1); }
+    else if (r < 0.9 || c.P.cur < 0.6) { H.mode = 'move'; H.slip = 1; H.a += (angDiff(Math.atan2(e.y - p.y, e.x - p.x), S.aimW) > 0 ? 1 : -1) * (0.5 + Math.random() * 0.5); H.dr += 70; H.G = null; clanSnd('rustle', e.x, e.y, 1.1, e.cl.vp, e); }
     else { H.mode = 'stare'; H.t = 2 + Math.random() * 2; }
   }
   if (H.mode !== 'move') {   // behind its trunk, watching you (frozen where it stood, or stood up tall staring back)

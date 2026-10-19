@@ -132,12 +132,13 @@ function clanBehind(r, side = 0) { const p = S.p, a = S.aimW + Math.PI + side; r
 
 
 // ---------------- each of them ----------------
+function clanVoiceFree(g) { const used = g ? clanList().filter(o => o.cl && o.cl.band === g).map(o => o.cl.voice) : [], free = CL_VOICES.filter(v => !used.includes(v)); return pick(free.length ? free : CL_VOICES); }
 function clanInit(e, g) {
   const vi = Math.random() < 0.22 ? 1 : pick([0, 2, 3]), pk = pick(PERS_K), B = PERS[pk], j = () => (Math.random() - 0.5) * 0.2;
   e.cl = { st: 'roam', t: 0, o: {}, band: g || null, pers: pk, P: { cur: clamp(B.cur + j(), 0, 1), agg: clamp(B.agg + j(), 0, 1), fear: clamp(B.fear + j(), 0, 1), soc: B.soc, terr: B.terr, opp: B.opp },
     fear: B.fear * 0.4, conf: 0, allies: 0, eng: false, engT: 0, hunter: 0, z: 0, cr: 0.5, crK: 0.5, q: 0, qK: 0, v: 0, dir: 0, face: Math.random() * 6.283, faceW: 0,
     vis: false, seenT: 0, unseenT: 9, hp0: e.hp, d: 999, dPrev: 999, vi, club: Math.random() < 0.55, seed: Math.random(), rus: 0, cd: 0, stuck: 0, px: e.x, py: e.y,
-    vp: Math.random() < 0.25 ? 175 + Math.random() * 45 : 95 + Math.random() * 45,
+    vp: Math.random() < 0.25 ? 175 + Math.random() * 45 : 95 + Math.random() * 45, voice: clanVoiceFree(g),
     lx: S.p.x, ly: S.p.y, lostT: 0, sees: false, noteT: Math.random() * 0.3, react: 0, kind: 'reg', spd: 1 };
 }
 function clanGo(e, st, o = {}) {
@@ -146,9 +147,9 @@ function clanGo(e, st, o = {}) {
   if (st === 'flee' || st === 'leave') c.dest = clanAway(e, o.dist || (st === 'flee' ? 420 : 700), st === 'flee');
   if (st === 'hdart') { e.swCd = 0; c.swung = false; }
   if (st === 'hwarn') { c.wT = 0.45 + Math.random() * 0.3; clanSay(e, 'scream'); c.gest = { k: 'scream', t: S.t }; }
-  if (st === 'drop') clanSnd('rustle', e.x, e.y, 1.2);
+  if (st === 'drop') clanSnd('rustle', e.x, e.y, 1.2, e.cl.vp, e);
 }
-function clanSay(e, k, v = 1) { clanSnd(k, e.x, e.y, v, e.cl.vp); if (k !== 'click' && k !== 'breath' && k !== 'grunt' && k !== 'hurt') e.cl.callT = S.t; }
+function clanSay(e, k, v = 1) { clanSnd(k, e.x, e.y, v, e.cl.vp, e); if (k !== 'click' && k !== 'breath' && k !== 'grunt' && k !== 'hurt') e.cl.callT = S.t; }
 function clanLater(dt, k, who, v = 1) { clan().q.push({ at: S.t + dt, k, who, v }); }
 function clanAllies(e) { let n = 0; for (const o of clanList()) if (o !== e && o.cl.eng && o.cl.st !== 'flee' && o.cl.st !== 'leave' && Math.hypot(o.x - e.x, o.y - e.y) < 420) n++; return n; }
 // how bold it feels right now: its nature, its friends about, its own ground, how weak you look, against its fear and your weapon
@@ -300,7 +301,7 @@ function clanAI(e, d, dt) {
   // rustling through the undergrowth when one moves near you, now and then a twig
   if (c.v > 40 && d < 280 && c.z < 1 && (c.rus -= dt) <= 0) {
     c.rus = (c.v > 120 ? 0.22 : 0.45) + Math.random() * 0.35;
-    clanSnd(Math.random() < (c.vis ? 0.02 : 0.07) ? 'twig' : 'rustle', e.x, e.y, (0.3 + 0.7 * (1 - d / 280)) * (c.v > 120 ? 1 : 0.6));
+    clanSnd(Math.random() < (c.vis ? 0.02 : 0.07) ? 'twig' : 'rustle', e.x, e.y, (0.3 + 0.7 * (1 - d / 280)) * (c.v > 120 ? 1 : 0.6), e.cl.vp, e);
   }
   // which way it faces: at you while it's watching you, the way it's going when it runs
   if (c.v > 25 && !['drag', 'down'].includes(c.st)) c.faceW = c.dir;   // moving: it looks the way it's going (Joe: no gliding sideways)
@@ -369,7 +370,7 @@ const CLAN_ST = {
       c.o.s = Math.random() < 0.5 ? -1 : 1; c.o.flipT = 0.4;
     }
     const k = c.o.k, p = S.p;
-    if (k === 'scream' || k === 'beat') { c.cr = 0.2; c.stare = 1; if (k === 'beat' && Math.random() < dt * 3) clanSnd('thud', e.x, e.y, 0.25); if (c.t > (k === 'beat' ? 1.9 : 1.4)) clanThink(e); return; }
+    if (k === 'scream' || k === 'beat') { c.cr = 0.2; c.stare = 1; if (k === 'beat' && Math.random() < dt * 3) clanSnd('thud', e.x, e.y, 0.25, e.cl.vp, e); if (c.t > (k === 'beat' ? 1.9 : 1.4)) clanThink(e); return; }
     if (k === 'bluff' || k === 'fake') {
       const stop = k === 'bluff' ? 78 : 56;
       if (!c.o.ph) { clanMove(e, p.x, p.y, CL.dart, dt); c.q = d > 120 ? 0.7 : 0; c.cr = 0.4; if (d < stop || c.t > 2.5) { c.o.ph = 1; c.o.t1 = c.t; if (k === 'bluff') { c.gest = { k: 'scream', t: S.t }; clanSay(e, 'scream'); } else { c.fake = { t0: S.t }; clanSay(e, 'grunt'); } } return; }
@@ -391,7 +392,7 @@ const CLAN_ST = {
       C.tok = e; c.o.ph = 'warn';
       if (c.o.landed) { c.o.ph = 'in'; c.o.t0 = c.t; e.swCd = 0; c.swung = false; }   // straight out of the pounce
       if (c.vis) { clanSay(e, 'scream'); c.gest = { k: 'scream', t: S.t }; c.o.wT = 0.4 + Math.random() * 0.35; }   // in front of you: it screams
-      else { clanSnd(Math.random() < 0.6 ? 'twig' : 'breath', e.x, e.y, 1); c.o.wT = 0.8 + Math.random() * 0.6; }   // behind you: a twig, a breath
+      else { clanSnd(Math.random() < 0.6 ? 'twig' : 'breath', e.x, e.y, 1, e.cl.vp, e); c.o.wT = 0.8 + Math.random() * 0.6; }   // behind you: a twig, a breath
       if (c.o.now) c.o.wT *= 0.6;
       if (c.o.landed) c.o.wT = 0;
     }
@@ -401,7 +402,7 @@ const CLAN_ST = {
     c.q = 0; c.cr = 0.45;
     if (c.o.lp) {   // the running leap: off its feet and in at you
       const L = c.o.lp; L.t += dt; const u = Math.min(1, L.t / L.T); c.z = Math.sin(Math.PI * u) * 15; c.flyK = 1;
-      clanMove(e, S.p.x, S.p.y, 270, dt); if (u >= 1) { c.z = 0; c.flyK = 0; c.o.lp = null; clanSnd('thud', e.x, e.y, 0.6); }
+      clanMove(e, S.p.x, S.p.y, 270, dt); if (u >= 1) { c.z = 0; c.flyK = 0; c.o.lp = null; clanSnd('thud', e.x, e.y, 0.6, e.cl.vp, e); }
       if (d > CL_MELEE.trig * 1.1) return;
       c.z = 0; c.flyK = 0; c.o.lp = null;
     }
@@ -483,7 +484,7 @@ const CLAN_ST = {
   },
   drop(e, c, d, dt) {   // down out of the branches with a thud
     c.vz = (c.vz || 0) - 520 * dt; c.z = Math.max(0, c.z + c.vz * dt); c.cr = 0.2; c.falling = 1;
-    if (c.z <= 0) { c.vz = 0; c.falling = 0; c.climbing = 0; c.perched = 0; clanSnd('thud', e.x, e.y); clanThink(e); }
+    if (c.z <= 0) { c.vz = 0; c.falling = 0; c.climbing = 0; c.perched = 0; clanSnd('thud', e.x, e.y, 1, e.cl.vp, e); clanThink(e); }
   },
   hunt(e, c, d, dt) {   // after a kill, the bold ones: out in the open round you, running from spot to spot, stopping to scream at you
     const C = clan(), p = S.p;
@@ -563,7 +564,7 @@ function clanDied(e) {   // one of them dead: the others react each in its own w
   D.clanN = Math.max(0, (D.clanN ?? CL.pool) - 1);
   if (C.tok === e) C.tok = null; if (C.rd) C.rd.aggr += 0.8;   // you killed one: the rest take note
   const body = { e, t: 0, rig: c.rig, face: c.face || 0, z: c.z || 0, x: e.x, y: e.y }; C.dead.push(body); if (c.rig) c.rig.keep = true;
-  clanSnd('die', e.x, e.y, 1, c.vp || 120);
+  clanSnd('die', e.x, e.y, 1, c.vp || 120, e);
   clanAngAdd(c.kind === 'leader' ? 16 : 10);   // they don't forget
   if (c.saving && c.saving.cl) { c.saving.cl.saver = null; } if (c.saver && c.saver.cl) { c.saver.cl.saving = null; if (!c.saver.dead) clanGo(c.saver, 'hesitate'); }
   if (c.kind === 'leader') {   // the leader: its band breaks and runs, wailing, and will be back for you
@@ -629,7 +630,7 @@ function clanStep(dt) {
   const rg = S.rg, D = S.day, p = S.p;
   if (!CLAN_ON || !D || rg.phase !== 'fight') return;
   const C = clan();
-  for (const q of C.q) if (S.t >= q.at) { const w = q.who; if (!w.dead) clanSnd(q.k, w.x, w.y, q.v, w.cl ? w.cl.vp : w.vp); if (w.cl && q.k !== 'click') w.cl.callT = S.t; q.done = 1; }
+  for (const q of C.q) if (S.t >= q.at) { const w = q.who; if (!w.dead) clanSnd(q.k, w.x, w.y, q.v, w.cl ? w.cl.vp : w.vp, w.cl ? w : null); if (w.cl && q.k !== 'click') w.cl.callT = S.t; q.done = 1; }
   C.q = C.q.filter(q => !q.done);
   if (ARENA && !ARENA.woods) { for (const e of clanList()) e.dead = e.gone = true; return; }
   if (D.clanN === undefined) D.clanN = CL.pool;
@@ -685,7 +686,7 @@ function clanStep(dt) {
     C.callT = 22 + Math.random() * 35;
     const far = clanList().filter(e => e.cl.d > 350), a = Math.random() * 6.283;
     const w = far.length ? pick(far) : { x: p.x + Math.cos(a) * 900, y: p.y + Math.sin(a) * 900, vp: 100 + Math.random() * 60 };
-    const k = Math.random() < 0.6 ? 'yell' : 'chatter'; clanSnd(k, w.x, w.y, 0.8, w.cl ? w.cl.vp : w.vp);
+    const k = Math.random() < 0.6 ? 'yell' : 'chatter'; clanSnd(k, w.x, w.y, 0.8, w.cl ? w.cl.vp : w.vp, w.cl ? w : null);
     if (Math.random() < 0.7) { const b = Math.random() * 6.283; clanLater(1 + Math.random() * 1.5, k, { x: p.x + Math.cos(b) * 950, y: p.y + Math.sin(b) * 950, vp: 100 + Math.random() * 70 }, 0.7); }   // and an answer from somewhere else
   }
 }
@@ -696,18 +697,25 @@ function clanStep(dt) {
 // Each of them has its own pitch (some deep, some higher), so you can tell there are several.
 const CL_SND = { clack: [1.1, 600], twig: [1.1, 520], rustle: [0.55, 420], click: [0.9, 700], thud: [1, 700], breath: [0.8, 380],
   grunt: [1, 800], hurt: [1, 800], scream: [1.15, 1400], yell: [1, 1900], growl: [1, 700], chatter: [0.9, 1000], die: [1.15, 1400], wail: [1, 2100] };
-// Real recorded voices (assets/voices.json, CC0 clips from Freesound, listed in assets/VOICES.md) take over from the built voice
-// once they're decoded. Each one is pitched a little by its owner's voice (deep leaders, high skinny ones), never the same clip
-// twice running, and dulled with distance so a call from far off sounds far off.
+// Real recorded voices (assets/voices.json, listed in assets/VOICES.md) take over from the built voice once they're decoded.
+// Joe: "the canibals sounds need to be better I think their is some in there that don't match so let's narrow it down a bit to
+// create a consistent coherent sound library". So the screams, calls, grunts and some of the hurt cries are now four men
+// recorded in one studio on one mic, and each cannibal keeps one of those four voices (a band's members each a different one)
+// for everything that man recorded, so you can tell them apart and none of them changes voice mid-fight. The growls, pain
+// grunts, death cries, long wails and a babble come from the few other dry, close, single-man recordings, matched in tone to
+// the four. Only a touch of pitch from its owner (deep leaders, high skinny ones) now, as more bends it out of a human voice.
+// Distance and direction are placeOut's: it keeps the voice where the cannibal is as it moves and as you turn.
 const CL_VB = {}, CL_VLAST = {}, CL_VG = { grunt: 1.6, hurt: 1.6, scream: 1.9, yell: 1.4, growl: 1.2, chatter: 0.95, die: 2.2, wail: 1.9 };   // about as loud as the built voice was
-function clanRec(k, x, y, v, vp) {
-  const B = (CL_VB[k] || []).filter(Boolean); if (B.length < 2) return false;
+const CL_VOICES = ['A', 'B', 'C', 'D'];
+function clanVoiceOf(who, vp) { return who && who.cl ? who.cl.voice : CL_VOICES[Math.floor(vp * 7.3) % 4]; }   // a call from no one in particular: still one man's
+function clanRec(k, x, y, v, vp, who) {
+  let B = (CL_VB[k] || []).filter(Boolean); if (B.length < 2) return false;
+  const mine = B.filter(b => b.voice === clanVoiceOf(who, vp)); if (mine.length >= 2) B = mine;   // its own voice, where that man recorded this kind of cry
   let i = Math.floor(Math.random() * B.length); if (B[i] === CL_VLAST[k]) i = (i + 1) % B.length; CL_VLAST[k] = B[i];
-  const o = placeOut(x, y, CL_SND[k][0] * v * CL_VG[k], CL_SND[k][1]); if (!o) return true;
-  const s = actx.createBufferSource(), lp = actx.createBiquadFilter(), d = Math.hypot(x - S.p.x, y - S.p.y);
-  s.buffer = B[i]; s.playbackRate.value = clamp(Math.pow(vp / 125, 0.4), 0.86, 1.18) * (0.97 + Math.random() * 0.06);
-  lp.type = 'lowpass'; lp.frequency.value = 11000 * Math.pow(1 - clamp(d / CL_SND[k][1], 0, 0.85), 2) + 1400;
-  s.connect(lp); lp.connect(o); s.start(actx.currentTime, B[i].lead || 0);   // from where the voice starts, straight away
+  const rate = clamp(Math.pow(vp / 125, 0.2), 0.93, 1.08) * (0.98 + Math.random() * 0.04);
+  const o = placeOut(x, y, CL_SND[k][0] * v * CL_VG[k], CL_SND[k][1], who, (B[i].duration - (B[i].lead || 0)) / rate + 0.3); if (!o) return true;
+  const s = actx.createBufferSource(); s.buffer = B[i]; s.playbackRate.value = rate;
+  s.connect(o); s.start(actx.currentTime, B[i].lead || 0);   // from where the voice starts, straight away
   return true;
 }
 const VOW = { a: [730, 1090, 2440], o: [570, 840, 2410], u: [320, 870, 2240], e: [530, 1840, 2480], i: [290, 2290, 3010], ae: [660, 1720, 2410], uh: [560, 1190, 2390] };
@@ -744,11 +752,11 @@ function clanVoice(t, out, o) {
   src.start(t); lfo.start(t); fl.start(t); nz.start(t, Math.random() * 0.4);
   for (const s of [src, lfo, fl, nz]) s.stop(t + len + 0.05);
 }
-function clanSnd(k, x, y, v = 1, vp = 120) {
+function clanSnd(k, x, y, v = 1, vp = 120, who = null) {
   if (!actx || !noiseBuf || !sfxGain || !CL_SND[k]) return;
-  if (CL_VG[k] && clanRec(k, x, y, v, vp)) return;
+  if (CL_VG[k] && (clanRec(k, x, y, v, vp, who) || (VOX && VOX[k]))) return;   // a voice: the recorded one, never the built one beside it
   if (k === 'hurt') k = 'grunt';
-  const o = placeOut(x, y, CL_SND[k][0] * v, CL_SND[k][1]); if (!o) return;
+  const o = placeOut(x, y, CL_SND[k][0] * v, CL_SND[k][1], who, 2.6); if (!o) return;
   const t = actx.currentTime, R = Math.random, fk = vp > 160 ? 1.17 : 1, V = (q) => clanVoice(q.t ?? t, o, Object.assign({ fk }, q));
   if (k === 'twig') { clanNz(t, 'highpass', 2600, 0.025, 0.9, o); clanNz(t + 0.035 + R() * 0.03, 'bandpass', 1800, 0.045, 0.6, o, 3); boomAt(t, 260, 120, 0.05, 0.25, o); }
   else if (k === 'rustle') { for (let i = 0; i < 3; i++) clanNz(t + i * 0.07 + R() * 0.05, 'bandpass', 2400 + R() * 2400, 0.12 + R() * 0.1, 0.35, o, 1.2); }
@@ -997,7 +1005,7 @@ function clanFoot(e, v, cr) {
   if (!actx || !stepBuf || !S) return;
   const d = Math.hypot(e.x - S.p.x, e.y - S.p.y); if (d > CL_FOOT_FAR) return;
   const run = clamp((v - 50) / 70, 0, 1), vol = (0.22 + 0.4 * run) * (1 - 0.6 * clamp(cr, 0, 1)) * (0.8 + Math.random() * 0.35);
-  const o = placeOut(e.x, e.y, vol, CL_FOOT_FAR); if (!o) return;
+  const o = placeOut(e.x, e.y, vol, CL_FOOT_FAR, e, 0.7); if (!o) return;
   const s = actx.createBufferSource(), lp = actx.createBiquadFilter();
   s.buffer = stepBuf; s.playbackRate.value = lerp(0.74, 0.9, run) + Math.random() * 0.1;
   lp.type = 'lowpass'; lp.frequency.value = lerp(1500, 3200, run) * (1 - 0.4 * d / CL_FOOT_FAR);

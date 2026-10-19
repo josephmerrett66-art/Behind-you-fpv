@@ -96,7 +96,7 @@ function clanFriendHit(e) {
 Object.assign(CLAN_ST, {
   stalk(e, c, d, dt) {   // your back's turned: it comes in, low and quick, and stops dead when you look round
     const p = S.p;
-    if (!c.o.init) { c.o.init = 1; c.o.stop = clamp(115 + 80 * c.fear - 60 * c.P.agg, 60, 190); }
+    if (!c.o.init) { c.o.init = 1; c.o.stop = Math.max(clanHomeR(e), clamp(115 + 80 * c.fear - 60 * c.P.agg, 60, 190)); }
     c.cr = 0.8;
     if (d > c.o.stop) clanMove(e, p.x, p.y, CL.walk * (c.backT > 0.3 ? 1.3 : 0.5), dt);
     else {

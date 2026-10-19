@@ -1,11 +1,11 @@
 // ================= the clan, over the days: stalked first, signs left behind, a little worse each day, drums at night =================
-// (Joe) A visit no longer starts on top of you. For the best part of a minute they keep out in the trees, circling: a twig going,
+// (Joe) A visit no longer starts on top of you. For the best part of a minute they keep out in the trees, each working its own way round you: a twig going,
 // feet in the leaves off to one side, a shape slipping between trunks that's gone when you look. Then the call, the answer, and
 // they come in. When they've gone they leave something behind: tracks in the mud round your camp, a bone marker at its edge, and
 // later on a chest with something missing. On the first day it's only one, a scout, that watches and goes. The second day two
 // come; from the third whole bands, and from the fourth they go for your things while you're out. At night they don't come, but
 // you hear their drums from their camp, and see their fire glowing off in the trees.
-const STALK = { t: [40, 70], r0: 430, r1: 270, sp: 40 };   // how long, how far out (at the start and at the end), how fast round you
+const STALK = { t: [40, 70], r0: 430, r1: 270 };   // how long, how far out (at the start and at the end)
 const SIGNS = { gap: 30, cap: 300, keep: 2, marks: 5 };       // a print each 30 of ground walked; up to 300 kept two days; five markers
 const signs = () => { const D = S.day; return D.clanSigns || (D.clanSigns = { prints: [], marks: [], stolen: null }); };
 
@@ -29,43 +29,32 @@ function clanStalkEnd(g, M) {   // done circling: the call, an answer, and in th
   clanSay(e, e.cl.scout ? 'click' : Math.random() < 0.6 ? 'yell' : 'scream', 1.15);
   const o = M[1], a = Math.atan2(e.y - p.y, e.x - p.x) + (Math.random() < 0.5 ? 1 : -1) * (1.2 + Math.random());
   if (!e.cl.scout) clanLater(1.2 + Math.random() * 0.8, Math.random() < 0.5 ? 'yell' : 'chatter', o || { x: p.x + Math.cos(a) * 520, y: p.y + Math.sin(a) * 520, vp: 110 + Math.random() * 50 }, 1);
-  g.close = 1; g.stop = 0;
+  g.close = 1; g.stop = 0; g.closeEnd = S.t + 25;
+  M.slice().sort(() => Math.random() - 0.5).forEach((o, i) => { const H = clanShadowOf(o); H.inAt = S.t + 0.4 + i * (0.6 + Math.random() * 1.2) + Math.random() * 0.8; H.stop = 170 + Math.random() * 100; });   // in one at a time, each from where it is
 }
-// ---- the band, while it stalks you, closes in, or goes for your things ----
+// ---- the band, while it stalks you, closes in, or goes for your things: each of them moves on its own (78-clan5) ----
 { const step = clanBandStep;
   clanBandStep = function (g, dt) {
-    const p = S.p, M = bandOf(g);
+    const M = bandOf(g);
     if (!M.length) { g.dead = 1; return; }
     if (M.some(e => e.cl.eng)) { g.stalk = null; g.close = 0; return step(g, dt); }
-    const go = (tx, ty, v) => { const L = Math.hypot(tx - g.x, ty - g.y), s = Math.min(L, v * dt); if (L > 1) { g.x += (tx - g.x) / L * s; g.y += (ty - g.y) / L * s; } return L; };
+    if (!g.stalk && !g.close && !g.raid) return step(g, dt);
+    let x = 0, y = 0; for (const e of M) { x += e.x; y += e.y; } g.x = x / M.length; g.y = y / M.length; g.stop = 0;   // the band is wherever they are
     const K = g.stalk;
     if (K) {
       if (S.t >= K.end) { g.stalk = null; clanStalkEnd(g, M); return; }
-      const k = 1 - (K.end - S.t) / K.T, R = lerp(STALK.r0, STALK.r1, k);
-      K.a += K.dir * dt * STALK.sp / R; if (Math.random() < dt * 0.06) K.dir *= -1;   // round you through the trees, now and then doubling back
-      go(p.x + Math.cos(K.a) * R, p.y + Math.sin(K.a) * R, 58); g.stop = 0;
       if ((K.cue -= dt) <= 0) { K.cue = 4 + Math.random() * 6; const e = pick(M); clanSnd(pick(['twig', 'twig', 'rustle', 'rustle', 'click', 'breath']), e.x, e.y, 1.15, e.cl.vp); }
-      return;
     }
-    if (g.close) {   // straight in at you, until one of them has you in sight
-      const L = go(p.x, p.y, 62); g.stop = 0;
-      if (L < 190) { g.close = 0; clanNotice(M[0]); }
-      return;
-    }
-    if (g.raid) {   // to your chest, while you're away
-      const R = g.raid, L = go(R.x, R.y, 52); g.stop = 0;
-      if (L < 30) clanSteal(g, R.B);
-      return;
-    }
-    return step(g, dt);
+    else if (g.close) { if (S.t > g.closeEnd) { g.close = 0; clanNotice(M[0]); } }   // you kept away from them: the nearest has you in sight anyway
+    else if (g.raid) { const R = g.raid; if (M.some(e => Math.hypot(e.x - R.x, e.y - R.y) < 40)) clanSteal(g, R.B); }   // to your chest, while you're away
   }; }
-// seen while it stalks: it doesn't come out to look at you, it slips off round the trunks the other way
+// caught at your things: one grabs what it can and they all run for it
 { const notice = clanNotice;
   clanNotice = function (e, quiet) {
     const g = e.cl.band;
-    if (g && (g.stalk || g.raid) && !quiet && e.cl.d > 150) {
-      if (g.stalk && e.cl.vis && S.t - g.stalk.seenT > 4) { g.stalk.seenT = S.t; g.stalk.dir *= -1; g.stalk.a += g.stalk.dir * 0.35; clanSnd('rustle', e.x, e.y, 1.2); }
-      return;
+    if (g && g.raid && !quiet) {
+      const R = g.raid, M = bandOf(g);
+      if (M.some(o => Math.hypot(o.x - R.x, o.y - R.y) < 160)) { clanSteal(g, R.B); clanSay(e, 'yell'); for (const o of M) { o.cl.done = 1; clanGo(o, 'flee', { dist: 600 }); } return; }
     }
     if (g) { g.stalk = null; g.raid = null; g.close = 0; }
     return notice(e, quiet);
@@ -82,7 +71,7 @@ function clanRaidVisit(C) {
   if (D.clanRaidDay === D.n || !home) return false;
   const dh = Math.hypot(p.x - home.x, p.y - home.y); if (dh < 450) return false;
   const chests = D.builds.filter(B => Array.isArray(B.inv) && !B.pen && B.inv.some(Boolean) && Math.hypot(B.x - home.x, B.y - home.y) < 260 && !stShutIn(B.x, B.y)); if (!chests.length) return false;   // not one you've shut in
-  const g = clanBand(2, { a: Math.atan2(home.y - p.y, home.x - p.x) + (Math.random() - 0.5) * 0.5, d: dh + 320, noLead: 1 }); if (!g) return false;
+  const g = clanBand(2, { a: Math.atan2(home.y - p.y, home.x - p.x) + (Math.random() - 0.5) * 0.5, d: dh + 320, noLead: 1, nearBase: 1 }); if (!g) return false;
   const B = pick(chests); g.raid = { B, x: B.x, y: B.y }; D.clanRaidDay = D.n;
   C.bandT = Math.max(C.bandT || 0, 60 + Math.random() * 40);
   return true;

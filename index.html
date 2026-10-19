@@ -1052,7 +1052,7 @@ function jfSlow(big) {                            // the last one falls: time dr
   if (actx) { const t = actx.currentTime; boomAt(t, 64, 28, 1.3, 0.55 * JF.slow.big, sfxGain); noiseAt(t, 900, 120, 1.1, 0.12, sfxGain); }
 }
 function jfPop(col) { JF.pops.push({ t: 0, col }); jfSquash(0.07); }
-const WX_MSG = { rain: ['it starts to rain', 'the torch hisses · oil burns faster'], fog: ['a fog rolls in', 'the beam won\'t reach as far'], storm: ['a storm breaks', 'lightning shows what hides'] };
+const WX_MSG = { rain: ['it starts to rain', 'the woods go grey'], fog: ['a fog rolls in', 'you can\'t see far'], storm: ['a storm breaks', 'lightning shows what hides'] };
 const inWoods = () => S && S.mode === 'expedition' && S.rg && !S.rg.beyond;
 function wxK(kind) { const w = S.wx; return inWoods() && w && (!kind || w.kind === kind || (kind === 'rain' && w.kind === 'storm')) ? w.k : 0; }
 function weatherStep(dt) {
@@ -2539,7 +2539,7 @@ const DIT = {
   meat: { n: 'Raw meat', c: '#b04a3a', st: 8, k: 'food', b: 'Cook it, or risk sickness', eat: { food: 8, sick: 0.4 } },
   cooked: { n: 'Cooked meat', c: '#8a4a28', st: 8, k: 'food', b: 'Filling · heals half a heart', eat: { food: 30, heal: 0.5 } },
   stew: { n: 'Stew', c: '#b0783a', st: 4, k: 'food', b: 'A big meal · heals a heart', eat: { food: 55, water: 15, heal: 1 } },
-  torch: { n: 'Hand torch', c: '#ff9a3c', st: 1, k: 'light', dur: 200, b: 'Light to carry into the dark · burns down' },
+  torch: { n: 'Fire torch', c: '#ff9a3c', st: 1, k: 'light', dur: 200, b: 'Your only real light in the dark · hold it and it burns down' },
   bandage: { n: 'Bandage', c: '#e6dfcc', st: 6, k: 'med', b: 'Stops bleeding · heals half a heart' },
   tea: { n: 'Herb tea', c: '#8aa86a', st: 4, k: 'food', b: 'Cures sickness · a long drink', eat: { food: 8, water: 28, cure: 1 } },
   fish: { n: 'Raw fish', c: '#8aa8b0', st: 8, k: 'food', b: 'Cook it, or risk sickness', eat: { food: 9, water: 4, sick: 0.35 } },
@@ -4681,9 +4681,11 @@ function renderDayPow(body) {
   body.replaceChildren(head, info, list);
 }
 const dayDark = () => S.day && dayLight() < 0.5;
-function dayTorchOn() {                                    // the beam comes on as the sun goes, and off once it is back up
-  const want = dayLight() < 0.7;
-  if (want !== !!S.torchOn) { S.torchOn = want; if (want && S.running) exNote('your torch is lit', true); }
+function dayTorchOn() {   // Joe: no torch to start with, coming on by itself at dusk; the only real light in the dark is a fire torch you make and hold
+  S.torchOn = false;
+  const D = S.day; if (!D || !S.running || dayLight() > 0.7 || D.inv.some(s => s && DIT[s.id].k === 'light')) return;
+  const r = DREC.find(q => q.id === 'torch');   // dusk with no torch on you: once a day, what one takes
+  if (r) dayNote('torch', `it's getting dark · a fire torch takes ${Object.entries(r.cost).map(([k, n]) => `${n} ${DIT[k].n.toLowerCase()}`).join(' and ')}`, 400);
 }
 const dayCapK = () => dayNight() ? 1.3 : 1;
 const RM_SEE = 330, RM_HALF = 1.05, RM_HEAR = 70, RM_LOSE = 4.5, RM_SEARCH = 7, RM_GRP_R = 240;
@@ -15603,8 +15605,9 @@ function paleAway(e, dist) {   // off into the dark, away from you
 }
 
 // ---------------- the light ----------------
-// your torch's beam, as it falls on the body (the same cone the light is drawn with, a little wider at the edges)
+// your fire torch's light, as it falls on the body: strongest close in, gone where its light runs out (90-main)
 function paleBeamK(e) {
+  if (dayTorch()) return clamp(1.25 - Math.hypot(e.x - S.p.x, e.y - S.p.y) / TORCH_R, 0, 1);
   if (!S.torchOn) return 0;
   const tl = LU.tCol.value.x; if (tl < 0.05) return 0;
   const P = LU.tPos.value, Dv = LU.tDir.value, hx = e.x - P.x, hz = e.y - P.z, hy = terrH(e.x, e.y) + 22 - P.y, d = Math.hypot(hx, hy, hz);
@@ -16225,7 +16228,7 @@ function caveEnter(si, m) {
   D.cave.seen = D.cave.seen || {}; const first = !D.cave.seen[si]; D.cave.seen[si] = (D.cave.seen[si] || 0) + 1;
   if (m) D.cave.found[m.key] = 1;
   if (first) { dayJLog(`went down into ${Sy.sp.n}`); caveStock(si); }
-  if (!D.cave.told) { D.cave.told = 1; setTimeout(() => { if (caveIn()) exNote('it is pitch dark down here · your torch is lit · walk into the light to get out', true); }, 2600); }
+  if (!D.cave.told) { D.cave.told = 1; setTimeout(() => { if (caveIn()) exNote(`it is pitch dark down here${dayTorch() ? '' : ' · you need a fire torch'} · walk into the light to get out`, true); }, 2600); }
   if (typeof paleEnter === 'function') paleEnter(si);
 }
 function caveLeave(m) {
@@ -16295,7 +16298,6 @@ function caveView() {
 }
 { const wl = weatherLight; weatherLight = function () { wl(); caveView(); }; }
 { const lf = lifeFrame; lifeFrame = function (rdt) { lf(rdt); if (caveIn()) flyMesh.visible = beeMesh.visible = birdMesh.visible = leafMesh.visible = false; }; }
-{ const to = dayTorchOn; dayTorchOn = function () { if (caveIn()) { if (!S.torchOn) S.torchOn = true; return; } to(); }; }
 { const rs = rainSound; rainSound = function (k) { return rs(caveIn() ? k * 0.1 : k); }; }
 { const cl = clanLights; clanLights = function (add, fire) {
     cl(add, fire);
@@ -18033,6 +18035,7 @@ function envFrame() {
 }
 
 // ---------------- lights: fires, lamps, your torch's spill, anything burning ----------------
+const TORCH_R = 210;   // how far a fire torch you're holding lights (the pale ones shy from it as far, 80-pale)
 const _lights = [];
 function lightsFrame(now, dt) {
   const L = LU.pl.value, C = LU.plc.value, p = S.p, D = S.day, rg = S.rg, night = 1 - ENV.lt * 0.85;
@@ -18054,7 +18057,7 @@ function lightsFrame(now, dt) {
     const h = P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8, [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
     add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') { fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); tongues(lx, ly, P.k === 'brazier' ? 0.7 : 0.3, h - 2); } else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
   // a hand torch, held up
-  if (dayTorch()) { const f = fk(1.3); add(p.x + Math.cos(S.aimW) * 8, 40, p.y + Math.sin(S.aimW) * 8, 210, 1.0 * f, 0.62 * f, 0.3 * f, 4); }
+  if (dayTorch()) { const f = fk(1.3); add(p.x + Math.cos(S.aimW) * 8, 40, p.y + Math.sin(S.aimW) * 8, TORCH_R, 1.0 * f, 0.62 * f, 0.3 * f, 4); }
   // a small glow round you at night, so your feet aren't lost
   add(p.x, 18, p.y, 80, 0.12 * night, 0.11 * night, 0.1 * night, 5);
   // anything burning, the burst of a kill, ground fire

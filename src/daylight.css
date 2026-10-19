@@ -189,6 +189,41 @@ body.pkopen #hotbar, body.pkopen #buildbar { display: none !important; }
 #craft .pkwhere { margin: 0; padding: 0.55rem 0.75rem; border-radius: 9px; font: 0.7rem var(--mono); color: #f0c090; background: rgba(240,170,90,0.1); border: 1px dashed rgba(240,170,90,0.45); }
 #craft .pkwhere.ok { color: #b6dc96; background: rgba(159,210,122,0.08); border: 1px solid rgba(159,210,122,0.35); }
 #craft .rec.away { opacity: 0.62; }
+/* v123 (Joe: hard to find things): the craft list by kind with a search, kinds down the side on a wide screen (56-craftui.js) */
+#craft .crwrap { display: grid; gap: 0.6rem; align-items: start; }
+#craft .crrail { display: grid; gap: 0.45rem; min-width: 0; }
+#craft .crmain { display: grid; gap: 0.5rem; min-width: 0; }
+#craft .crq { all: unset; box-sizing: border-box; width: 100%; padding: 0.6rem 0.75rem; border-radius: 9px; border: 1px solid rgba(239,239,234,0.25); background: rgba(239,239,234,0.05); font: 0.74rem var(--mono); color: var(--bone); cursor: text; }
+#craft .crq::placeholder { color: rgba(239,239,234,0.42); }
+#craft .crq:focus { border-color: #ffcf8a; background: rgba(255,190,120,0.06); }
+#craft .crtabs { display: flex; gap: 0.35rem; overflow-x: auto; scrollbar-width: none; padding: 0.1rem 0.05rem 0.2rem; }
+#craft .crtabs::-webkit-scrollbar { display: none; }
+#craft .crtab { all: unset; box-sizing: border-box; position: relative; flex: none; display: flex; align-items: center; gap: 0.45rem; padding: 0.45rem 0.75rem 0.45rem 0.5rem; border-radius: 99px; border: 1px solid rgba(239,239,234,0.2); color: var(--ash); font: 600 0.68rem var(--mono); cursor: pointer; white-space: nowrap; }
+#craft .crtab svg { width: 20px; height: 20px; flex: none; }
+#craft .crtab b { font: 600 0.64rem var(--mono); color: #9fd27a; }
+#craft .crtab .new { top: 3px; left: 3px; }
+#craft .crtab:hover { background: rgba(239,239,234,0.05); }
+#craft .crtab[aria-pressed="true"] { border-color: #ffcf8a; background: rgba(255,190,120,0.14); color: var(--bone); }
+#craft .crtab.here { border-color: rgba(159,210,122,0.55); color: #b6dc96; }
+#craft .crtab.here[aria-pressed="true"] { border-color: #9fd27a; background: rgba(159,210,122,0.15); color: var(--bone); }
+#craft .crtab.sm { padding: 0.32rem 0.65rem; font-size: 0.62rem; gap: 0.35rem; }
+#craft h3.crh { margin: 0.35rem 0 0; }
+#craft h3.crh.ready { color: #b6dc96; }
+#craft .crat { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; padding: 0.06rem 0.42rem 0.06rem 0.26rem; vertical-align: 0.1em; border-radius: 99px; border: 1px dashed rgba(240,170,90,0.6); font: 600 0.56rem var(--mono); letter-spacing: 0.05em; text-transform: uppercase; color: #f0c090; white-space: nowrap; }
+#craft .crat svg { width: 13px; height: 13px; }
+#craft .crat.here { border-style: solid; border-color: rgba(159,210,122,0.55); color: #b6dc96; }
+#craft .crhint { color: #f0c090; }
+#craft .pkshow { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+#craft .slot.dim { opacity: 0.25; }
+#craft .slot.lit { border-color: #ffcf8a; }
+@media (min-width: 760px) {
+  #craft .crwrap { grid-template-columns: 11.5rem minmax(0, 1fr); gap: 1.1rem; }
+  #craft .crrail { position: sticky; top: 0; z-index: 1; max-height: calc(100vh - 2rem); overflow-y: auto; scrollbar-width: none; padding: 0.15rem; }
+  #craft .crtabs { flex-direction: column; overflow: visible; padding: 0; }
+  #craft .crtab { border-radius: 9px; padding: 0.5rem 0.65rem; }
+  #craft .crtab span { flex: 1; }
+}
+@media (min-width: 1000px) { #craft .crrecs { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 #craft .rec .rgo1 { flex: none; padding: 0.5rem 0.8rem; font-size: 0.68rem; }
 #craft .rec:not(.ready) .rgo1 { opacity: 0.45; }
 #craft .rneed { display: flex; flex-wrap: wrap; gap: 0.3rem; padding: 0 0.7rem 0.55rem calc(0.7rem + 40px + 0.7rem); }

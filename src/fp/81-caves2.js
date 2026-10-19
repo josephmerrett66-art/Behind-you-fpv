@@ -159,7 +159,7 @@ function caveEnter(si, m) {
   D.cave.seen = D.cave.seen || {}; const first = !D.cave.seen[si]; D.cave.seen[si] = (D.cave.seen[si] || 0) + 1;
   if (m) D.cave.found[m.key] = 1;
   if (first) { dayJLog(`went down into ${Sy.sp.n}`); caveStock(si); }
-  if (!D.cave.told) { D.cave.told = 1; setTimeout(() => { if (caveIn()) exNote('it is pitch dark down here · your torch is lit · walk into the light to get out', true); }, 2600); }
+  if (!D.cave.told) { D.cave.told = 1; setTimeout(() => { if (caveIn()) exNote(`it is pitch dark down here${dayTorch() ? '' : ' · you need a fire torch'} · walk into the light to get out`, true); }, 2600); }
   if (typeof paleEnter === 'function') paleEnter(si);
 }
 function caveLeave(m) {
@@ -229,7 +229,6 @@ function caveView() {
 }
 { const wl = weatherLight; weatherLight = function () { wl(); caveView(); }; }
 { const lf = lifeFrame; lifeFrame = function (rdt) { lf(rdt); if (caveIn()) flyMesh.visible = beeMesh.visible = birdMesh.visible = leafMesh.visible = false; }; }
-{ const to = dayTorchOn; dayTorchOn = function () { if (caveIn()) { if (!S.torchOn) S.torchOn = true; return; } to(); }; }
 { const rs = rainSound; rainSound = function (k) { return rs(caveIn() ? k * 0.1 : k); }; }
 { const cl = clanLights; clanLights = function (add, fire) {
     cl(add, fire);

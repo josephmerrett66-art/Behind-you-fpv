@@ -114,8 +114,9 @@ function paleAway(e, dist) {   // off into the dark, away from you
 }
 
 // ---------------- the light ----------------
-// your torch's beam, as it falls on the body (the same cone the light is drawn with, a little wider at the edges)
+// your fire torch's light, as it falls on the body: strongest close in, gone where its light runs out (90-main)
 function paleBeamK(e) {
+  if (dayTorch()) return clamp(1.25 - Math.hypot(e.x - S.p.x, e.y - S.p.y) / TORCH_R, 0, 1);
   if (!S.torchOn) return 0;
   const tl = LU.tCol.value.x; if (tl < 0.05) return 0;
   const P = LU.tPos.value, Dv = LU.tDir.value, hx = e.x - P.x, hz = e.y - P.z, hy = terrH(e.x, e.y) + 22 - P.y, d = Math.hypot(hx, hy, hz);

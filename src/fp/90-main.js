@@ -31,6 +31,7 @@ function envFrame() {
 }
 
 // ---------------- lights: fires, lamps, your torch's spill, anything burning ----------------
+const TORCH_R = 210;   // how far a fire torch you're holding lights (the pale ones shy from it as far, 80-pale)
 const _lights = [];
 function lightsFrame(now, dt) {
   const L = LU.pl.value, C = LU.plc.value, p = S.p, D = S.day, rg = S.rg, night = 1 - ENV.lt * 0.85;
@@ -52,7 +53,7 @@ function lightsFrame(now, dt) {
     const h = P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8, [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
     add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') { fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); tongues(lx, ly, P.k === 'brazier' ? 0.7 : 0.3, h - 2); } else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
   // a hand torch, held up
-  if (dayTorch()) { const f = fk(1.3); add(p.x + Math.cos(S.aimW) * 8, 40, p.y + Math.sin(S.aimW) * 8, 210, 1.0 * f, 0.62 * f, 0.3 * f, 4); }
+  if (dayTorch()) { const f = fk(1.3); add(p.x + Math.cos(S.aimW) * 8, 40, p.y + Math.sin(S.aimW) * 8, TORCH_R, 1.0 * f, 0.62 * f, 0.3 * f, 4); }
   // a small glow round you at night, so your feet aren't lost
   add(p.x, 18, p.y, 80, 0.12 * night, 0.11 * night, 0.1 * night, 5);
   // anything burning, the burst of a kill, ground fire

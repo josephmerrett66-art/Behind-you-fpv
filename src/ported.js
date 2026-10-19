@@ -412,7 +412,7 @@ function jfSlow(big) {                            // the last one falls: time dr
   if (actx) { const t = actx.currentTime; boomAt(t, 64, 28, 1.3, 0.55 * JF.slow.big, sfxGain); noiseAt(t, 900, 120, 1.1, 0.12, sfxGain); }
 }
 function jfPop(col) { JF.pops.push({ t: 0, col }); jfSquash(0.07); }
-const WX_MSG = { rain: ['it starts to rain', 'the torch hisses · oil burns faster'], fog: ['a fog rolls in', 'the beam won\'t reach as far'], storm: ['a storm breaks', 'lightning shows what hides'] };
+const WX_MSG = { rain: ['it starts to rain', 'the woods go grey'], fog: ['a fog rolls in', 'you can\'t see far'], storm: ['a storm breaks', 'lightning shows what hides'] };
 const inWoods = () => S && S.mode === 'expedition' && S.rg && !S.rg.beyond;
 function wxK(kind) { const w = S.wx; return inWoods() && w && (!kind || w.kind === kind || (kind === 'rain' && w.kind === 'storm')) ? w.k : 0; }
 function weatherStep(dt) {
@@ -1899,7 +1899,7 @@ const DIT = {
   meat: { n: 'Raw meat', c: '#b04a3a', st: 8, k: 'food', b: 'Cook it, or risk sickness', eat: { food: 8, sick: 0.4 } },
   cooked: { n: 'Cooked meat', c: '#8a4a28', st: 8, k: 'food', b: 'Filling · heals half a heart', eat: { food: 30, heal: 0.5 } },
   stew: { n: 'Stew', c: '#b0783a', st: 4, k: 'food', b: 'A big meal · heals a heart', eat: { food: 55, water: 15, heal: 1 } },
-  torch: { n: 'Hand torch', c: '#ff9a3c', st: 1, k: 'light', dur: 200, b: 'Light to carry into the dark · burns down' },
+  torch: { n: 'Fire torch', c: '#ff9a3c', st: 1, k: 'light', dur: 200, b: 'Your only real light in the dark · hold it and it burns down' },
   bandage: { n: 'Bandage', c: '#e6dfcc', st: 6, k: 'med', b: 'Stops bleeding · heals half a heart' },
   tea: { n: 'Herb tea', c: '#8aa86a', st: 4, k: 'food', b: 'Cures sickness · a long drink', eat: { food: 8, water: 28, cure: 1 } },
   fish: { n: 'Raw fish', c: '#8aa8b0', st: 8, k: 'food', b: 'Cook it, or risk sickness', eat: { food: 9, water: 4, sick: 0.35 } },
@@ -4041,9 +4041,11 @@ function renderDayPow(body) {
   body.replaceChildren(head, info, list);
 }
 const dayDark = () => S.day && dayLight() < 0.5;
-function dayTorchOn() {                                    // the beam comes on as the sun goes, and off once it is back up
-  const want = dayLight() < 0.7;
-  if (want !== !!S.torchOn) { S.torchOn = want; if (want && S.running) exNote('your torch is lit', true); }
+function dayTorchOn() {   // Joe: no torch to start with, coming on by itself at dusk; the only real light in the dark is a fire torch you make and hold
+  S.torchOn = false;
+  const D = S.day; if (!D || !S.running || dayLight() > 0.7 || D.inv.some(s => s && DIT[s.id].k === 'light')) return;
+  const r = DREC.find(q => q.id === 'torch');   // dusk with no torch on you: once a day, what one takes
+  if (r) dayNote('torch', `it's getting dark · a fire torch takes ${Object.entries(r.cost).map(([k, n]) => `${n} ${DIT[k].n.toLowerCase()}`).join(' and ')}`, 400);
 }
 const dayCapK = () => dayNight() ? 1.3 : 1;
 const RM_SEE = 330, RM_HALF = 1.05, RM_HEAR = 70, RM_LOSE = 4.5, RM_SEARCH = 7, RM_GRP_R = 240;

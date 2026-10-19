@@ -144,7 +144,7 @@ function thingsFrame(now) {
   for (const q of rg.dshots || []) {
     if (q.f) continue;
     const ux = Math.cos(q.a), uy = Math.sin(q.a), z = q.land ? 2 : q.z || 18;
-    if (q.kind === 'arrow' || q.kind === 'jav') { const L = q.kind === 'jav' ? 34 : 18, tilt = q.land ? 0.45 : 0; K.rod(P_CYL(4), q.x - ux * L, z + (q.land ? L * tilt : 0), q.y - uy * L, q.x, z, q.y, q.kind === 'jav' ? 0.9 : 0.5, hex('#a08a62')); K.add(P_CONE(4), q.x, z, q.y, 1.6, 3.4, 1.6, hex('#4d5560'), 0, 0, 0); }
+    if (q.kind === 'arrow' || q.kind === 'jav') { const L = q.kind === 'jav' ? 34 : 18, tilt = q.land ? 0.45 : 0; K.rod(P_CYL(4), q.x - ux * L, z + (q.land ? L * tilt : -(q.dz || 0) * L), q.y - uy * L, q.x, z, q.y, q.kind === 'jav' ? 0.9 : 0.5, hex('#a08a62')); K.add(P_CONE(4), q.x, z, q.y, 1.6, 3.4, 1.6, hex('#4d5560'), 0, 0, 0); }
     else if (q.kind === 'stone' || q.kind === 'bomb' || q.kind === 'flash') K.add(P_BALL(), q.x, z, q.y, 3.6, 3.6, 3.6, hex(q.kind === 'stone' ? '#9a9893' : q.kind === 'bomb' ? '#3a3632' : '#e8e2d0'), 0, 0, 0, q.kind === 'flash' ? 0.6 : 0);
     else { const r = now * 14; K.rod(P_CYL(5), q.x - Math.cos(r) * 9, z - Math.sin(r) * 9, q.y, q.x + Math.cos(r) * 9, z + Math.sin(r) * 9, q.y, 0.9, hex('#6b4a2e')); }
   }

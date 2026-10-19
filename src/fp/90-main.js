@@ -117,7 +117,7 @@ function placeCamera(dt, rdt, now) {
   cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, terrH(p.x, p.y) + EYE - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
   const side = (p.vx * -Math.sin(S.aimW) + p.vy * Math.cos(S.aimW)) / RUN;
   cam.rotation.set(lerp(look.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + nz(6) * sh * 0.06 - side * 0.012 + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
-  cam.fov = baseFov() + VIEW_FX.fov; cam.updateProjectionMatrix(); cam.updateMatrixWorld();
+  aimZoomStep(rdt); cam.fov = (baseFov() + VIEW_FX.fov) * (1 - AIM.z); cam.updateProjectionMatrix();   // v124: a drawn bow brings the view in (66-aim) cam.updateMatrixWorld();
   LU.camPos.value.copy(cam.position); LU.fogC.value.copy(cam.position); LU.camRight.value.set(RX, 0, RZ);
   // the torch's light comes from your left hand and aims where you look, a beat behind
   look.tYaw += angDiff(look.yaw, look.tYaw) * Math.min(1, rdt * 15); look.tPitch += (look.pitch - look.tPitch) * Math.min(1, rdt * 15);
@@ -248,7 +248,7 @@ function frame(t) {
     if (IN.pause) { IN.pause = false; pause(); }
     // look: straight away, never slowed by hit-stop, so the view always answers your hand
     const free = S.running && !menusOpen();
-    if (free) { look.yaw -= IN.lx; look.pitch = clamp(look.pitch - IN.ly * (SET.invert ? -1 : 1), -1.3, 1.2); }
+    if (free) { const k = aimSensK(); look.yaw -= IN.lx * k; look.pitch = clamp(look.pitch - IN.ly * k * (SET.invert ? -1 : 1), -1.3, 1.2); }   // drawn and zoomed in, the view turns slower
     IN.lx = IN.ly = 0;
     readMove(); if (!free) MV.x = MV.y = 0;
     if (free && isoP()) isoAim(rdt);

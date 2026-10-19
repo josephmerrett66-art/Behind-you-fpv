@@ -3145,6 +3145,8 @@ function sneakHide(b, dx, dy) {                  // how much of its usual notice
   if (!S.day || !S.day.crouch) return 1;
   if (S.p.atk) return 0;                         // the strike itself is what gives you away, and by then it's too late
   const facing = Math.abs(angDiff(b.dir || 0, Math.atan2(-dy, -dx)));   // 0: you're right in front of it
+  const B = BEAST[b.k], prey = !B.angry && !B.pack && !B.crit;   // v124 (Joe: the bow the main way to hunt): deer and rabbits hear you creeping long before a blade's reach
+  if (prey) return (Math.hypot(S.p.vx, S.p.vy) > 10 ? 0.5 : 0.38) * (facing > 1.9 ? 0.75 : 1);
   return (Math.hypot(S.p.vx, S.p.vy) > 10 ? 0.3 : 0.22) * (facing > 1.9 ? 0.55 : 1);
 }
 function sneakHit(b) {                           // an unaware animal, struck while you're crouched
@@ -3207,7 +3209,7 @@ function beastStep(dt) {
     b.ph += dt * (2 + b.sp * 0.09);
     b.face = Math.cos(b.dir) - Math.sin(b.dir) >= 0 ? 1 : -1;   // which way it faces on screen
   }
-  D.beasts = D.beasts.filter(b => !(b.dead && b.dieT > 1.2) && (b.pen || Math.hypot(b.x - p.x, b.y - p.y) < 2600));   // a penned herd stays put while you're away
+  D.beasts = D.beasts.filter(b => !(b.dead && b.dieT > 1.2 && !b.carc) && (b.pen || Math.hypot(b.x - p.x, b.y - p.y) < 2600));   // a penned herd stays put while you're away
 }
 function beastScare(b) {
   if (dayEffigyNear(b.x, b.y) && !b.tame) {        // v155: nothing wild comes near the effigy
@@ -5064,7 +5066,8 @@ function dayShotStep(dt) {
   if (rg.rngCd > 0) rg.rngCd -= dt;
   for (const q of rg.dshots) {
     q.t += dt; if (q.land) { q.land.t += dt; continue; }
-    const st = q.sp * dt, n = Math.max(1, Math.ceil(st / 9));
+    const st = q.sp * dt, n = q.bal ? 0 : Math.max(1, Math.ceil(st / 9));
+    if (q.bal) balStep(q, dt);   // v124: arrows and stones you loose fly for real, where you look, and drop (66-aim)
     for (let k = 0; k < n && !q.done; k++) {
       q.x += Math.cos(q.a) * st / n; q.y += Math.sin(q.a) * st / n; q.d += st / n;
       const u = Math.min(1, q.d / q.max); q.z = q.lob ? 24 + 70 * 4 * u * (1 - u) - 20 * u : q.arc ? shotZ(q.max, u) : 22 - (q.kind === 'stone' ? 14 : 10) * u * u;
@@ -5081,7 +5084,7 @@ function dayShotStep(dt) {
     if (q.done && !q.land) {
       q.land = { t: 0 };
       if (q.lob) { dayBurst(q); q.gone = true; continue; }
-      const keep = q.kind === 'jav' || q.kind === 'taxe' ? true : q.kind === 'arrow' ? Math.random() < (q.stop ? 0.3 : 0.65) : q.id === 'shot' && Math.random() < 0.5;
+      const keep = q.noKeep ? false : q.kind === 'jav' || q.kind === 'taxe' ? true : q.kind === 'arrow' ? Math.random() < (q.stop ? 0.3 : 0.65) : q.id === 'shot' && Math.random() < 0.5;
       if (keep) { const f = dayDrop(q.x, q.y, q.id, 1); f.x = q.x; f.y = q.y; f.thrown = 1; q.f = f; }
       if (!q.stop && actx) { const t = actx.currentTime; if (q.kind === 'stone') noiseAt(t, 1400, 500, 0.06, 0.18, sfxGain); else boomAt(t, 260, 120, 0.06, 0.25, sfxGain); }
     }
@@ -9328,6 +9331,7 @@ function poseBeast(o, now, dt) {
   const hp = dead ? 0.25 : lerp(o.k === 'deer' ? 0.55 : 0.35, 1.25, gr) - (angry && o.k === 'wolf' ? 0.15 : 0) + nod * 0.5;
   const hDir = v3(Math.sin(look) * Math.cos(hp), -Math.sin(hp), Math.cos(look) * Math.cos(hp));
   const skull = addv(ne, hDir, A.hs * 0.2), snout = addv(skull, hDir, A.hl * 0.45 + A.mzl * 0.55), tip = addv(skull, hDir, A.hl * 0.45 + A.mzl);
+  o.fgHit = [chest, haunch, addv(skull, hDir, A.hl * 0.25)]; o.fgB = (o.fgB || new M4()).copy(_B); o.fgT = S && S.t;   // where its body and head are, for an arrow to find (88-hunt)
   bOval(PT.aBall, addv(skull, hDir, -A.hs * 0.55), addv(skull, hDir, A.hs * 0.6), A.hs * 1.15, A.hs * 1.05, col, em);
   bOval(PT.aBall, addv(ne, hDir, -A.hs * 0.2), addv(skull, hDir, A.hs * 0.1), A.hs * 1.05, A.hs * 1.15, col, em);   // the jowl, where the neck meets the head
   bOval(PT.aBall, addv(skull, hDir, A.hs * 0.2), tip, A.mzr * 2, A.mzr * 2.1, col, em, 1.05);
@@ -9377,6 +9381,7 @@ function poseBeast(o, now, dt) {
   else if (A.tail === 'puff') bBall(PT.aBall, addv(tb, v3(0, 0.9, -1.2)), 3.4, 3.2, 3, 0, 0, hexK('#f2ede4'), em);
   else if (A.tail === 'thin') { const t1 = addv(tb, v3(Math.sin(swish * 3) * 2, -3.5, -2)); bSeg(PT.aLimb, tb, t1, 0.5, back, em); bBall(PT.aBall, t1, 1.2, 1.8, 1.2, 0, 0, dark, em); }
   else bBall(PT.aBall, addv(tb, v3(0, 0, -0.6)), 3, 2.4, 2.4, 0, 0, back, em);
+  if (o.stuck) huntStuckDraw(o);   // the arrows still in it (88-hunt)
   if (o.tame) { _aV.set(0, shY + 3, fz).applyMatrix4(_B); stat(_aV.x, _aV.y + 3, _aV.z, 2.4, 1, 0.85, 0.55, 0.6, 0); }   // the one you tamed: a warm mark over its shoulders
 }
 function drawFigures(now, dt) {
@@ -9536,7 +9541,7 @@ function thingsFrame(now) {
   for (const q of rg.dshots || []) {
     if (q.f) continue;
     const ux = Math.cos(q.a), uy = Math.sin(q.a), z = q.land ? 2 : q.z || 18;
-    if (q.kind === 'arrow' || q.kind === 'jav') { const L = q.kind === 'jav' ? 34 : 18, tilt = q.land ? 0.45 : 0; K.rod(P_CYL(4), q.x - ux * L, z + (q.land ? L * tilt : 0), q.y - uy * L, q.x, z, q.y, q.kind === 'jav' ? 0.9 : 0.5, hex('#a08a62')); K.add(P_CONE(4), q.x, z, q.y, 1.6, 3.4, 1.6, hex('#4d5560'), 0, 0, 0); }
+    if (q.kind === 'arrow' || q.kind === 'jav') { const L = q.kind === 'jav' ? 34 : 18, tilt = q.land ? 0.45 : 0; K.rod(P_CYL(4), q.x - ux * L, z + (q.land ? L * tilt : -(q.dz || 0) * L), q.y - uy * L, q.x, z, q.y, q.kind === 'jav' ? 0.9 : 0.5, hex('#a08a62')); K.add(P_CONE(4), q.x, z, q.y, 1.6, 3.4, 1.6, hex('#4d5560'), 0, 0, 0); }
     else if (q.kind === 'stone' || q.kind === 'bomb' || q.kind === 'flash') K.add(P_BALL(), q.x, z, q.y, 3.6, 3.6, 3.6, hex(q.kind === 'stone' ? '#9a9893' : q.kind === 'bomb' ? '#3a3632' : '#e8e2d0'), 0, 0, 0, q.kind === 'flash' ? 0.6 : 0);
     else { const r = now * 14; K.rod(P_CYL(5), q.x - Math.cos(r) * 9, z - Math.sin(r) * 9, q.y, q.x + Math.cos(r) * 9, z + Math.sin(r) * 9, q.y, 0.9, hex('#6b4a2e')); }
   }
@@ -11407,7 +11412,7 @@ function drawHud() {
   let pr = '', sneak = false, hit = false;
   const o = dayUseTarget();
   if (o) pr = (inputMode === 'kb' ? 'E · ' : inputMode === 'pad' ? 'X · ' : '') + useLab(o).toUpperCase() + (STN_N[o.t] ? ' ' + STN_N[o.t].toUpperCase() : o.kind === 'dday' ? ' ' + DIT[o.it].n.toUpperCase() + (o.n > 1 ? ' ×' + o.n : '') : o.kind === 'dnode' ? ' ' + DIT[o.t === 'shroom' ? 'mushroom' : o.t].n.toUpperCase() : o === CAMP_BOX ? ' BOX' : o === EX_FIRE ? " AT THE FIRE" : '');
-  else if (D.crouch) for (const b of D.beasts) if (!b.dead && !b.tame && b.st === 'graze' && Math.hypot(b.x - S.p.x, b.y - S.p.y) < 44 + BEAST[b.k].w) { pr = (inputMode === 'kb' ? 'CLICK · ' : '') + 'SNEAK KILL'; sneak = true; break; }
+  else if (D.crouch) for (const b of D.beasts) if (!b.dead && !b.tame && b.st === 'graze' && b.k !== 'deer' && Math.hypot(b.x - S.p.x, b.y - S.p.y) < 44 + BEAST[b.k].w) { pr = (inputMode === 'kb' ? 'CLICK · ' : '') + 'SNEAK KILL'; sneak = true; break; }
   if (!pr && !(T && (T.rng || T.thr))) { const h = dayHitTarget(); if (h) { pr = (inputMode === 'kb' ? 'CLICK · ' : '') + 'HIT FOR ' + (h.t === 'grass' ? 'FIBRE' : 'BERRIES'); hit = true; } }   // nothing to take: the grass or bush a swing would gather from
   const pk = pr + sneak;
   if (pk !== promptKey) { promptKey = pk; hudEl.prompt.textContent = pr; hudEl.prompt.className = sneak ? 'sneak' : hit ? 'hit' : ''; useBtn.textContent = o ? useLab(o) : 'Use'; }
@@ -12109,58 +12114,156 @@ function useMarkFrame(play, tgt) {
 
 ;
 // ---------------- aiming the bow (and the sling) ----------------
-// Joe: you couldn't tell where an arrow would go. Now, while you draw, a guide shows it: a wedge on the ground for how far
-// a shot might stray, the arc the arrow will fly along, and a ring where it comes down. A light pull is loose and short;
-// the further you draw the narrower the wedge, until at full draw it closes to a single line and the arrow goes exactly
-// there. It lands where your crosshair meets the ground, as far as the draw will carry it; look higher and it flies its
-// full length. The guide and the flight use the same sums, so what you see is what it does.
+// v124 (Joe: "make the bow and arrow aiming better, also use inspirations from other games"). An arrow used to slide
+// along the ground to where your crosshair met it, inside a wedge of random stray, and the guide was drawn on the grass.
+// Now it goes the way The Forest, Skyrim and Horizon do it:
+//   - it flies for real: off along exactly where you look, and gravity takes it. A full draw goes fast and flat; a light
+//     pull is slow and dips. No random stray: where you point is where it goes, so it's yours to get right.
+//   - drawing brings the view in (Skyrim, Far Cry) and steadies the turn, more the further you draw.
+//   - the crosshair: four ticks that close in as you draw and lock gold at full draw, and a small diamond where the arrow
+//     will come down, worked out with the same sums as the flight. Up close it sits on the crosshair; far off it falls
+//     below it, so you learn to hold a touch high. Over an animal or one of them, the ticks go red. On a pad, the turn
+//     slows a little while you're on one (the aim friction console shooters use).
+// It hits what it meets in the air: the head or the body of an animal, the head or the body of one of them, a trunk, the
+// ground. The top-down view (isometric) still aims along the ground the old way.
 const AIM_SPREAD = 0.2, AIM_NEAR = 50;
-const aimSpread = c => AIM_SPREAD * Math.pow(1 - Math.min(1, c), 1.4);   // half-angle the shot can stray, in radians
-function aimReach(kind, c) {   // how far this draw carries, and where under the crosshair that is
+const aimSpread = c => isoP() ? AIM_SPREAD * Math.pow(1 - Math.min(1, c), 1.4) : 0;   // half-angle the shot can stray, in radians (top-down only)
+function aimReach(kind, c) {   // top-down: how far this draw carries, and where under the crosshair that is
   const R = RNG[kind], max = R.rng[0] + (R.rng[1] - R.rng[0]) * Math.max(0.2, Math.min(1, c));
   const sp = Math.sin(look.pitch), d = sp < -0.02 ? EYE * Math.cos(look.pitch) / -sp : 1e9;
   return Math.max(AIM_NEAR, Math.min(max, d));
 }
-// height along the flight: it leaves your hand at bow height, rises a touch and comes down at the end
+// top-down: height along the flight: it leaves your hand at bow height, rises a touch and comes down at the end
 const shotZ = (L, u) => 22 * (1 - u) + (4 + 0.035 * L) * Math.sin(Math.PI * u);
-function aimLooseAt(kind, c) {   // where this release goes: the way you face, strayed a little by a weak draw
-  const s = aimSpread(c);
-  return { off: s * (Math.random() * 2 - 1), L: aimReach(kind, c) };
-}
+function aimLooseAt(kind, c) { const s = aimSpread(c); return { off: s * (Math.random() * 2 - 1), L: aimReach(kind, c) }; }
 function aimBusy() { return !!(S.day && S.day.draw && state === 'play' && !isoP()); }
+
+// ---- the flight ----
+// world units are about 5 cm: a full draw leaves at some 66 m/s and drops about a metre over 30 m
+const BAL = { g: 190, drag: 0.3, life: 2.6, step: 5, bow: [430, 1320], sling: [380, 960], gk: { arrow: 1, stone: 1.4 }, head: 2.5, fhead: 1.6 };
+const balSpeed = (kind, c) => { const v = BAL[kind] || BAL.bow; return v[0] + (v[1] - v[0]) * Math.pow(Math.max(0.2, Math.min(1, c)), 0.85); };
+const balFwd = () => { const cp = Math.cos(look.pitch); return [-Math.sin(look.yaw) * cp, Math.sin(look.pitch), -Math.cos(look.yaw) * cp]; };   // (x, up, z)
+// what an arrow could meet along the way: the living near the line it takes
+function balCands(x, y, ang, reach) {
+  const ux = Math.cos(ang), uy = Math.sin(ang), out = [], near = (ox, oy, pad) => { const dx = ox - x, dy = oy - y, t = dx * ux + dy * uy; return t > -pad && t < reach + pad && Math.abs(dx * uy - dy * ux) < pad; };
+  for (const o of S.rg.enemies) if (!o.dead && near(o.x, o.y, 40)) out.push([o, 0]);
+  for (const b of S.day.beasts) if (!b.dead && !b.tame && near(b.x, b.y, 50)) out.push([b, 1]);
+  return out;
+}
+const _bsc = new Map();
+function balSolid(x, y, z, cache) {   // a trunk or a rock at this height: trees take an arrow up to their crowns, rocks only low down
+  const k = Math.floor(x / 50) + ',' + Math.floor(y / 50); let L = cache.get(k);
+  if (!L) { L = propsNear(Math.floor(x / 50) * 50 + 25, Math.floor(y / 50) * 50 + 25, 90).filter(o => o.r && o.s); cache.set(k, L); }
+  for (const o of L) if (Math.hypot(o.x - x, o.y - y) < o.r * o.s + 1.5 && z < (o.kind === 'tree' ? 170 : o.r * o.s * 1.4 + 4)) return o;
+  return null;
+}
+// where it is at (x, height above the sea of the world, y): which of these it's in, and where (1 body, 2 head)
+function balHit(cands, x, Y, y) {
+  for (const [o, beast] of cands) {
+    if (beast) { const z = huntZone(o, x, Y, y); if (z) return [o, beast, z]; continue; }
+    const F = FOES[o.type], h = (F ? F.h : 34) * (o.k || 1), w = F ? F.w : 12, d = Math.hypot(o.x - x, o.y - y), yl = Y - terrH(o.x, o.y) - (o.z || 0);
+    if (d < w * 0.55 + 3 && yl > -2 && yl < h + 2) return [o, 0, yl > h * 0.8 ? 2 : 1];
+  }
+  return null;
+}
+// run a flight through without touching anything: where it ends, and on what. The guide and the throw both use it.
+function balTrace(x, Y, y, vx, vY, vy, gk, maxT, path) {   // from (x, height, y) at (vx, vY up, vy)
+  const sp = Math.hypot(vx, vy, vY) || 1, h = BAL.step / sp, cache = _bsc; cache.clear();
+  const cands = balCands(x, y, Math.atan2(vy, vx), sp * maxT);
+  for (let t = 0, i = 0; t < maxT; t += h, i++) {
+    vY -= BAL.g * gk * h; const dk = Math.exp(-BAL.drag * h); vx *= dk; vy *= dk; vY *= dk;
+    x += vx * h; y += vy * h; Y += vY * h;
+    if (path && i % 6 === 0) path.push([x, Y, y]);
+    const hit = balHit(cands, x, Y, y); if (hit) return { x, Y, y, t, o: hit[0], beast: hit[1], zone: hit[2] };
+    const g = terrH(x, y); if (Y <= g + 0.3) return { x, Y: g, y, t, ground: 1 };
+    if (i % 2 === 0 && balSolid(x, y, Y - g, cache)) return { x, Y, y, t, solid: 1 };
+    if (caveIn() && Y - g > 75) return { x, Y, y, t, solid: 1 };
+  }
+  return { x, Y, y, t: maxT, none: 1 };
+}
+// let go: it leaves your eye (or from over your shoulder, toward what the crosshair is on) along where you look
+function balLaunch(q, kind, c, off) {
+  const v = balSpeed(kind, c), f = balFwd(); let ox, oY, oy, d;
+  if (thirdP()) {
+    const cp = cam.position, T = balTrace(cp.x, cp.y, cp.z, f[0] * 1e3, f[1] * 1e3, f[2] * 1e3, 0, 1.8);
+    ox = S.p.x + Math.cos(S.aimW) * 10; oy = S.p.y + Math.sin(S.aimW) * 10; oY = terrH(S.p.x, S.p.y) + 28;
+    const dx = T.x - ox, dY = T.Y - oY, dy = T.y - oy, L = Math.hypot(dx, dY, dy) || 1; d = [dx / L, dY / L, dy / L];
+  } else { const cp = cam.position; ox = cp.x + f[0] * 6; oY = cp.y - 1.2 + f[1] * 6; oy = cp.z + f[2] * 6; d = [f[0], f[1], f[2]]; }
+  if (off) { const hz = Math.hypot(d[0], d[2]), a = Math.atan2(d[2], d[0]) + off; d = [Math.cos(a) * hz, d[1], Math.sin(a) * hz]; }   // a volley's arrows fan out
+  Object.assign(q, { bal: 1, x: ox, y: oy, Y: oY, vx: d[0] * v, vy: d[2] * v, vz: d[1] * v, gk: BAL.gk[q.kind] || 1, t: 0, d: 0 });
+  q.a = Math.atan2(q.vy, q.vx); q.z = q.Y - terrH(q.x, q.y); q.dz = q.vz / Math.max(1, Math.hypot(q.vx, q.vy));
+}
+{ const dl = dayLoose; dayLoose = function (kind, s, c, a, spread, kk, L) {
+  const rg = S.rg, n0 = rg.dshots ? rg.dshots.length : 0;
+  dl.apply(this, arguments);
+  if (isoP() || !rg.dshots || rg.dshots.length === n0) return;
+  balLaunch(rg.dshots[rg.dshots.length - 1], kind, c, angDiff(a + (spread || 0), S.aimW));
+}; }
+// each step of a shot in flight (dayShotStep hands its flying ones here)
+function balStep(q, dt) {
+  const sp = Math.hypot(q.vx, q.vy, q.vz), n = Math.max(1, Math.ceil(sp * dt / BAL.step)), h = dt / n, D = S.day, rg = S.rg;
+  const cands = []; for (const o of rg.enemies) if (!o.dead && !q.hit.has(o) && Math.hypot(o.x - q.x, o.y - q.y) < sp * dt + 50) cands.push([o, 0]);
+  for (const b of D.beasts) if (!b.dead && !b.tame && !q.hit.has(b) && Math.hypot(b.x - q.x, b.y - q.y) < sp * dt + 60) cands.push([b, 1]);
+  _bsc.clear();
+  for (let k = 0; k < n && !q.done; k++) {
+    q.vz -= BAL.g * q.gk * h; const dk = Math.exp(-BAL.drag * h); q.vx *= dk; q.vy *= dk; q.vz *= dk;
+    q.x += q.vx * h; q.y += q.vy * h; q.Y += q.vz * h; q.d += Math.hypot(q.vx, q.vy) * h;
+    const g = terrH(q.x, q.y); q.z = q.Y - g;
+    const hit = balHit(cands.filter(([o]) => !q.hit.has(o)), q.x, q.Y, q.y);
+    if (hit) { const [o, beast, zone] = hit; q.hit.add(o); balStrike(q, o, beast, zone); if (q.pierce-- <= 0) { q.done = q.stop = true; if (q.noKeep) q.gone = true; break; } continue; }   // gone into it: it shows stuck in the animal now
+    if (q.z <= 0.3) { q.z = 0.5; q.done = true; break; }
+    if (balSolid(q.x, q.y, q.z, _bsc) || q.t > BAL.life || (caveIn() && q.z > 75)) { q.done = true; break; }
+  }
+  q.a = Math.atan2(q.vy, q.vx); q.dz = clamp(q.vz / Math.max(1, Math.hypot(q.vx, q.vy)), -1.5, 1.5);
+}
+function balStrike(q, o, beast, zone) {   // it went in: a head shot counts for more
+  if (beast) { huntStrike(q, o, zone); return; }
+  const k = q.dmg; if (zone === 2) { q.dmg *= BAL.fhead; const F = FOES[o.type]; wpPop('HEADSHOT', o.x, o.y, (F ? F.h : 34) + 12, '255,214,120', 0.8); }
+  dayShotHit(q, o, false); q.dmg = k;
+}
+
+// ---- in the view: closer, steadier, and the crosshair that tells you ----
+const AIM = { z: 0, on: null, pv: null, at: 0 };
+function aimZoomStep(rdt) {
+  const W = S && S.day && S.day.draw && !isoP() && state === 'play' ? S.day.draw : null, c = W ? Math.min(1, W.t / RNG[W.kind].full) : 0;
+  const want = W ? (W.kind === 'bow' ? 0.24 : 0.12) * sEase(c) : 0;
+  AIM.z += (want - AIM.z) * Math.min(1, rdt * (want > AIM.z ? 5 : 10));
+  if (!W) AIM.on = null;
+}
+function aimSensK() { return (1 - AIM.z * 0.9) * (AIM.on && inputMode === 'pad' ? 0.6 : 1); }
 function aimDraw(g) {
   const W = S.day && S.day.draw; if (!W || isoP()) return;
-  const R = RNG[W.kind], c = Math.min(1, W.t / R.full), p = S.p, a = S.aimW, s = aimSpread(c), L = aimReach(W.kind, c), now = S.t;
-  const d0 = thirdP() ? 48 : AIM_NEAR * 0.6, a0 = thirdP() ? 48 : 12;   // from behind, start clear of your own body
-  const full = c >= 1, col = full ? '255,214,120' : '240,236,226', at = (ang, d, h) => scr(p.x + Math.cos(ang) * d, h, p.y + Math.sin(ang) * d);
+  const R = RNG[W.kind], c = Math.min(1, W.t / R.full), full = c >= 1, now = S.t, kind = W.kind === 'bow' ? 'arrow' : 'stone';
+  // where this draw would come down if you let go now: the same flight, run through ahead of time
+  const v = balSpeed(W.kind, c), f = balFwd(), path = thirdP() ? [] : null; let P;
+  if (thirdP()) {
+    const cp = cam.position, T = balTrace(cp.x, cp.y, cp.z, f[0] * 1e3, f[1] * 1e3, f[2] * 1e3, 0, 1.8), ox = S.p.x + Math.cos(S.aimW) * 10, oy = S.p.y + Math.sin(S.aimW) * 10, oY = terrH(S.p.x, S.p.y) + 28;
+    const dx = T.x - ox, dY = T.Y - oY, dy = T.y - oy, L = Math.hypot(dx, dY, dy) || 1;
+    P = balTrace(ox, oY, oy, dx / L * v, dY / L * v, dy / L * v, BAL.gk[kind], BAL.life, path);
+  } else { const cp = cam.position; P = balTrace(cp.x + f[0] * 6, cp.y - 1.2 + f[1] * 6, cp.z + f[2] * 6, f[0] * v, f[1] * v, f[2] * v, BAL.gk[kind], BAL.life, null); }
+  AIM.on = P.o || null; AIM.pv = P;
+  const on = !!P.o, col = on ? '255,112,92' : full ? '255,214,120' : '240,236,226', mx = FW / 2, my = FH / 2;
   g.globalCompositeOperation = 'source-over'; g.lineCap = 'round';
-  // the wedge it could stray across, on the ground
-  if (s > 0.004) {
-    const pts = [];
-    for (let i = 0; i <= 10; i++) { const q = at(a - s, d0 + (L - d0) * i / 10, 0.6); if (q) pts.push(q); }
-    for (let i = 10; i >= 0; i--) { const q = at(a + s, d0 + (L - d0) * i / 10, 0.6); if (q) pts.push(q); }
-    if (pts.length > 4) {
-      g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
-      g.fillStyle = `rgba(${col},${0.07 + 0.08 * c})`; g.fill(); g.strokeStyle = `rgba(${col},0.35)`; g.lineWidth = 1.5; g.stroke();
-    }
+  // from over your shoulder: the arc it will fly along
+  if (path && path.length > 1) {
+    g.setLineDash([6, 8]); g.lineDashOffset = -now * 50; g.strokeStyle = `rgba(${col},${0.25 + 0.3 * c})`; g.lineWidth = 1.6; g.beginPath(); let pen = false;
+    for (const [x, Y, y] of path) { const q = scr(x, Y - terrH(x, y), y); if (!q) { pen = false; continue; } pen ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); pen = true; }
+    g.stroke(); g.setLineDash([]);
   }
-  // the arc it flies along: dashes that run outward, brighter as the draw builds
-  g.setLineDash([7, 9]); g.lineDashOffset = -now * 60;
-  g.strokeStyle = `rgba(${col},${0.25 + 0.35 * c})`; g.lineWidth = full ? 2.5 : 1.6;
-  g.beginPath(); let on = false;
-  for (let i = 0; i <= 24; i++) { const u = i / 24, d = 12 + (L - 12) * u; if (d < a0) continue; const q = at(a, d, shotZ(L, u)); if (!q) { on = false; continue; } on ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); on = true; }
-  g.stroke(); g.setLineDash([]);
-  // where it comes down: brackets either side as wide as it could stray there, closing in on the spot as you draw
-  const lx = p.x + Math.cos(a) * L, ly = p.y + Math.sin(a) * L, w = Math.sin(s) * L, m = scr(lx, 1, ly), e = scr(lx - Math.sin(a) * w, 1, ly + Math.cos(a) * w);
-  if (m) {
-    const r = Math.max(5, e ? Math.hypot(e[0] - m[0], e[1] - m[1]) : 5), hgt = 9 + 5 * (1 - c), x = m[0], y = m[1];
-    g.strokeStyle = 'rgba(10,8,6,0.5)'; g.lineWidth = 4.5;
-    const brk = () => { for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(x + sd * (r - 4), y - hgt); g.lineTo(x + sd * r, y - hgt); g.lineTo(x + sd * r, y + hgt); g.lineTo(x + sd * (r - 4), y + hgt); g.stroke(); } };
-    brk(); g.strokeStyle = `rgba(${col},${0.7 + 0.3 * c})`; g.lineWidth = full ? 2.5 : 1.8; brk();
-    g.fillStyle = `rgba(${col},0.95)`; g.beginPath(); g.arc(x, y, full ? 3 + Math.sin(now * 12) : 2, 0, 7); g.fill();
-    const ring = [], rw = Math.max(4, w);   // and a ring on the ground there, so you can judge the distance
-    for (let i = 0; i <= 20; i++) { const t = i / 20 * 6.283, q = scr(lx + Math.cos(t) * rw, 0.8, ly + Math.sin(t) * Math.max(4, rw * 0.35)); if (q) ring.push(q); }
-    if (ring.length > 12) { g.beginPath(); ring.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.strokeStyle = `rgba(${col},${0.4 + 0.3 * c})`; g.lineWidth = 1.5; g.stroke(); }
+  // four ticks that close in on the middle as you draw, and lock at full draw
+  const r = 6 + 24 * (1 - sEase(c)) + (full ? Math.sin(now * 10) * 0.8 : 0), L = full ? 9 : 7;
+  for (const pass of [0, 1]) {
+    g.strokeStyle = pass ? `rgba(${col},${0.65 + 0.35 * c})` : 'rgba(8,6,4,0.55)'; g.lineWidth = pass ? (full ? 2.4 : 1.8) : 4.2;
+    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a); g.beginPath(); g.moveTo(mx + ca * r, my + sa * r); g.lineTo(mx + ca * (r + L), my + sa * (r + L)); g.stroke(); }
+  }
+  // the diamond: where it comes down (or goes in), with a faint line down to it from the crosshair when it falls short
+  const q = scr(P.x, P.Y - terrH(P.x, P.y), P.y);
+  if (q && !P.none) {
+    const dx = q[0] - mx, dy = q[1] - my, far = Math.hypot(dx, dy), s = on ? 5 : 4;
+    if (far > r + 2) { g.strokeStyle = `rgba(${col},0.3)`; g.lineWidth = 1.2; g.setLineDash([2, 4]); g.beginPath(); g.moveTo(mx + dx / far * (r + 2), my + dy / far * (r + 2)); g.lineTo(q[0] - dx / far * s, q[1] - dy / far * s); g.stroke(); g.setLineDash([]); }
+    const dia = () => { g.beginPath(); g.moveTo(q[0], q[1] - s); g.lineTo(q[0] + s, q[1]); g.lineTo(q[0], q[1] + s); g.lineTo(q[0] - s, q[1]); g.closePath(); };
+    g.strokeStyle = 'rgba(8,6,4,0.6)'; g.lineWidth = 3.5; dia(); g.stroke(); g.strokeStyle = `rgba(${col},0.95)`; g.lineWidth = 1.6; dia(); g.stroke();
+    if (on) { g.fillStyle = `rgba(${col},0.5)`; dia(); g.fill(); }
   }
 }
 
@@ -17707,6 +17810,149 @@ function critPose(o, now, dt) { if (o.k === 'lizard') lizardPose(o, now, dt); el
   }; }
 
 ;
+// ================= hunting with the bow: where it goes in, the wounded, the blood, the body you go and take =================
+// Joe: "I want to make an arrow the main way you can hunt for meat". The way Red Dead, theHunter and The Forest do it:
+//   - an animal has a head and a body (taken from its own drawn shape, so it's where you see it). An arrow in the head drops
+//     it where it stands: a clean kill, and a clean kill gives an extra cut of meat. A shot from a crouch at one that
+//     hasn't seen you does double, so a full draw from hiding drops it.
+//   - an arrow in the body wounds it. It bolts, but it bleeds: it slows as it weakens, leaves blood on the ground behind it,
+//     and before long it goes down. Follow the blood to find it.
+//   - one that drops out there lies where it fell until you walk up to it: then the meat and the hide are yours, and most of
+//     the arrows that went in come back out with them. Till then you can see them, stuck in it.
+//   - deer and rabbits hear you creeping long before you're near enough for a blade (sneakHide in the main game), and a
+//     blade no longer kills a deer outright from behind: it bolts, faster than you run. The bow is how you'll get them;
+//     boars, wolves and bears still come at you.
+const HUNT = { by: null, thrown: 0, zone: 0, back: 0.8, near: 70, take: 30, carcT: 420, bloodLife: 150, bloodCap: 320, R: 700 };
+PT.blood = new Part(new THREE.SphereGeometry(0.5, 8, 4), HUNT.bloodCap + 8, false);
+const _hnv = new V3(), _hnd = new V3(), _hnm = new M4();
+// where its body (a capsule from chest to haunch) and head (a ball) are, heights above the ground under it
+function huntParts(b) {
+  if (b._hpT === S.t && b._hp) return b._hp;
+  const B = BEAST[b.k], A = ANAT[b.k], g = terrH(b.x, b.y); let P;
+  if (A && b.fgHit && b.fgB && S.t - (b.fgT ?? -9) < 0.4) {   // drawn just now: its own pose
+    const w = v => { _hnv.set(v[0], v[1], v[2]).applyMatrix4(b.fgB); return [_hnv.x, _hnv.y, _hnv.z]; };
+    P = { g, a: w(b.fgHit[0]), b: w(b.fgHit[1]), r: Math.max(A.bw, A.dp) * 0.56, hd: w(b.fgHit[2]), hr: A.hs * 0.95 };
+  } else if (A) {   // out of sight: where they would be, standing
+    const f = b.fgFace ?? b.dir ?? 0, cx = Math.cos(f), cy = Math.sin(f), hb = A.sh - A.dp * 0.4, hl = A.len * 0.45 + A.nk * 0.55;
+    P = { g, a: [b.x + cx * A.len * 0.33, hb, b.y + cy * A.len * 0.33], b: [b.x - cx * A.len * 0.33, hb, b.y - cy * A.len * 0.33], r: Math.max(A.bw, A.dp) * 0.56, hd: [b.x + cx * hl, A.sh + A.nk * 0.6, b.y + cy * hl], hr: A.hs * 0.95 };
+  } else { const h = B.h || 8, z = (b.z || 0) + h * 0.5; P = { g, a: [b.x, z, b.y], b: [b.x, z, b.y], r: Math.max(B.w, h) * 0.7 + 1.5, hd: null, hr: 0 }; }   // the small ones: one ball
+  b._hp = P; b._hpT = S.t; return P;
+}
+function huntSegD(px, py, pz, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2], L2 = dx * dx + dy * dy + dz * dz;
+  const t = L2 ? clamp(((px - a[0]) * dx + (py - a[1]) * dy + (pz - a[2]) * dz) / L2, 0, 1) : 0;
+  return Math.hypot(px - a[0] - dx * t, py - a[1] - dy * t, pz - a[2] - dz * t);
+}
+function huntZone(b, x, Y, y) {   // 2 the head, 1 the body, 0 a miss
+  const P = huntParts(b), yl = Y - P.g;
+  if (P.hd && Math.hypot(x - P.hd[0], yl - P.hd[1], y - P.hd[2]) < P.hr + 1.2) return 2;
+  return huntSegD(x, yl, y, P.a, P.b) < P.r + 1.2 ? 1 : 0;
+}
+// an arrow (or a stone) goes into an animal
+function huntStrike(q, b, zone) {
+  const B = BEAST[b.k], k = q.dmg;
+  if (zone === 2) q.dmg *= BAL.head;
+  HUNT.by = q; HUNT.zone = zone;
+  try { dayShotHit(q, b, true); } finally { HUNT.by = null; q.dmg = k; }   // the main game's blow: the damage, a sneak shot, its fright
+  if (q.kind === 'arrow') { q.noKeep = 1; huntStick(q, b); }
+  huntBlood(q.x, q.y, zone === 2 ? 4 : 2, 1.4);
+  CFX.marks.push({ t: 0, kill: b.dead ? 1 : 0, col: '255,120,96' });
+  if (b.dead) { if (zone === 2 && !critOf(b)) wpPop('CLEAN KILL', b.x, b.y, (B.h || 10) + 14, '255,214,120', 0.85); }
+  else {
+    b.wound = (b.wound || 0) + 1;
+    if (zone === 2) wpPop('HEAD', b.x, b.y, (B.h || 10) + 14, '255,214,120', 0.7);
+    if (!critOf(b)) dayNote('wounded', 'it\'s hit · it won\'t get far · follow the blood', 45);
+  }
+  if (actx) { const t = actx.currentTime, out = placeOut(b.x, b.y, 1, 800, b, 1.2) || sfxGain;
+    boomAt(t, 170, 70, 0.07, 0.45, out); noiseAt(t, 2600, 900, 0.05, 0.25, out);   // the thunk of it going in
+    if (!b.dead) noiseAt(t + 0.05, b.k === 'deer' ? 1300 : b.k === 'rabbit' || B.crit ? 3200 : 420, 500, 0.28, 0.32, out); }   // and its cry
+}
+function huntStick(q, b) {   // most arrows come back out of the body; and you can see them in it till then
+  if (Math.random() < HUNT.back) { const Q = b.quiver || (b.quiver = {}); Q[q.id] = (Q[q.id] || 0) + 1; }
+  if (!b.fgB || critOf(b)) return;
+  _hnm.copy(b.fgB).invert(); _hnv.set(q.x, q.Y - terrH(b.x, b.y), q.y).applyMatrix4(_hnm); _hnd.set(q.vx, q.vz, q.vy).normalize().transformDirection(_hnm);
+  (b.stuck || (b.stuck = [])).push([_hnv.x, _hnv.y, _hnv.z, _hnd.x, _hnd.y, _hnd.z]); if (b.stuck.length > 6) b.stuck.shift();
+}
+const HUNT_SHAFT = hexK('#a08a62'), HUNT_FLETCH = hexK('#d8cbb0');
+function huntStuckDraw(o) {   // called from poseBeast, in the animal's own frame
+  for (const [x, y, z, dx, dy, dz] of o.stuck) {
+    const p = [x, y, z], tail = addv(p, [dx, dy, dz], -14), tip = addv(p, [dx, dy, dz], 2.5);
+    bOval(PT.aBall, tail, tip, 0.6, 0.6, HUNT_SHAFT, 0); bOval(PT.aBall, tail, addv(p, [dx, dy, dz], -10.5), 1.8, 0.3, HUNT_FLETCH, 0);
+  }
+}
+// it dies: close by, it's yours at once as before; out there it lies where it fell
+{ const bd = beastDie; beastDie = function (b) {
+  if (b.dead) return;
+  if (HUNT.by && HUNT.zone === 2) b.clean = 1;
+  const far = Math.hypot(b.x - S.p.x, b.y - S.p.y) > HUNT.near;
+  if ((HUNT.by || b.wound) && far && !critOf(b) && ANAT[b.k]) {
+    b.dead = true; b.dieT = 0; b.carc = 1; b.carcT = S.t; huntBlood(b.x, b.y, 5, 2.2);
+    if (actx) { const out = placeOut(b.x, b.y, 1, 1400, b, 1.5); if (out) boomAt(actx.currentTime, 90, 40, 0.3, 0.5, out); }   // you hear it go down
+    exNote(b.wound && !HUNT.by ? `you hear the ${b.k} go down · follow the blood` : `the ${b.k} is down · go and take it`, true);
+    return;
+  }
+  bd.call(this, b); huntTake(b);
+}; }
+function huntTake(b) {   // the extra cut from a clean kill, and the arrows back out of it
+  const bits = [];
+  if (b.clean && !critOf(b)) { dayGive('meat', 1, b.x, b.y, true); bits.push('clean kill · 1 more meat'); }
+  for (const [id, n] of Object.entries(b.quiver || {})) if (n > 0) { dayGive(id, n, b.x, b.y, true); bits.push(`${n} arrow${n > 1 ? 's' : ''} back`); }
+  b.quiver = null; b.stuck = null; b.carc = 0;
+  if (bits.length) exNote(bits.join(' · '), true);
+}
+// the wounded slow and bleed, and leave a trail; walk up to a body and it's yours
+{ const bs = beastStep; beastStep = function (dt) {
+  const D = S.day, p = S.p, W = D.beasts.filter(b => b.wound && !b.dead), at = W.map(b => [b.x, b.y]);
+  bs(dt);
+  W.forEach((b, i) => {
+    if (b.dead) return;
+    const B = BEAST[b.k], k = 0.55 + 0.45 * clamp(b.hp / B.hp, 0, 1), [x0, y0] = at[i];
+    b.x = x0 + (b.x - x0) * k; b.y = y0 + (b.y - y0) * k;   // it can't keep up its pace
+    b.hp -= Math.min(3, b.wound) * clamp(B.hp * 0.06, 0.12, 0.35) * dt;
+    b.bled = (b.bled || 0) + Math.hypot(b.x - x0, b.y - y0); b.bT = (b.bT ?? 2.5) - dt;
+    if (b.bled > 13 || b.bT <= 0) { huntBlood(b.x, b.y, b.bT <= 0 ? 2 : 1, 1); b.bled = 0; b.bT = 2.5; }
+    if (b.hp <= 0) beastDie(b);
+  });
+  for (const b of D.beasts) if (b.carc) {
+    if (Math.hypot(b.x - p.x, b.y - p.y) < HUNT.take) { b.dead = false; b.carc = 0; b.wound = 0; beastDie(b); }
+    else if (S.t - b.carcT > HUNT.carcT) b.carc = 0;   // left too long: something else had it
+  }
+}; }
+// the blood: dark spots on the ground, fresh ones wetter, fading over a couple of minutes
+function huntBlood(x, y, n, spread) {
+  const L = S.day.blood || (S.day.blood = []);
+  for (let i = 0; i < n; i++) L.push([x + (Math.random() - 0.5) * spread * 6, y + (Math.random() - 0.5) * spread * 6, S.t, 0.6 + Math.random() * 0.7 * spread, Math.random() * 6.283]);
+  while (L.length > HUNT.bloodCap) L.shift();
+}
+const HUNT_BLOOD = [hex('#5a1410'), hex('#7c1c14')];
+function huntBloodDraw() {
+  const L = S.day.blood, p = S.p; if (!L || !L.length) return;
+  const now = S.t; while (L.length && now - L[0][2] > HUNT.bloodLife) L.shift();
+  for (const [x, y, t, s, a] of L) {
+    if (Math.abs(x - p.x) > HUNT.R || Math.abs(y - p.y) > HUNT.R) continue;
+    const u = clamp((now - t - (HUNT.bloodLife - 45)) / 45, 0, 1), k = s * (1 - u * 0.5);
+    blob(PT.blood, x, 0.14 - u * 0.22, y, 2.3 * k, 0.12, 1.6 * k, a, HUNT_BLOOD[now - t < 25 ? 1 : 0]);
+  }
+}
+{ const df = drawFigures; drawFigures = function (now, dt) { df(now, dt); if (S && S.day) huntBloodDraw(); }; }
+// the first time you draw a bow: how it works now
+{ const ds = dayDrawStart; dayDrawStart = function () {
+  const had = !!(S.day && S.day.draw), r = ds.apply(this, arguments);
+  if (!had && S.day.draw && S.day.draw.kind === 'bow' && !isoP() && !S.day.told.bowaim) { S.day.told.bowaim = 1; exNote('hold to draw · the diamond is where it lands · far off, hold a touch high · go for the head', true); }
+  return r;
+}; }
+// a sneak on a deer or a rabbit: double for an arrow from hiding; a blade still takes a rabbit, but not a deer
+{ const sh = sneakHit; sneakHit = function (b) {
+  const B = BEAST[b.k], prey = !B.angry && !B.pack;
+  if (!prey || !S.day || !S.day.crouch || b.st !== 'graze' || b.tame) return sh(b);
+  if (HUNT.by) { exNote('sneak shot', true); return 2; }
+  if (b.k === 'deer' && !HUNT.thrown) return 1;
+  return sh(b);
+}; }
+{ const ss = daySpearStep; daySpearStep = function () { HUNT.thrown = 1; try { return ss.apply(this, arguments); } finally { HUNT.thrown = 0; } }; }   // a thrown spear, axe or javelin is a shot too
+{ const st = dayShotStep; dayShotStep = function () { HUNT.thrown = 1; try { return st.apply(this, arguments); } finally { HUNT.thrown = 0; } }; }
+
+;
 // ================= snares and fish traps: traps that hunt for you while you're away (Joe's number 7) =================
 // A snare is a bent sapling, a trigger peg and a noose on a cord. Set it out in the woods, away from your camp, and now and
 // then a rabbit or a grouse runs into it: come back and it's hanging there for you to take. Bait it with berries and it
@@ -18718,7 +18964,7 @@ function placeCamera(dt, rdt, now) {
   cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, terrH(p.x, p.y) + EYE - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
   const side = (p.vx * -Math.sin(S.aimW) + p.vy * Math.cos(S.aimW)) / RUN;
   cam.rotation.set(lerp(look.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + nz(6) * sh * 0.06 - side * 0.012 + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
-  cam.fov = baseFov() + VIEW_FX.fov; cam.updateProjectionMatrix(); cam.updateMatrixWorld();
+  aimZoomStep(rdt); cam.fov = (baseFov() + VIEW_FX.fov) * (1 - AIM.z); cam.updateProjectionMatrix();   // v124: a drawn bow brings the view in (66-aim) cam.updateMatrixWorld();
   LU.camPos.value.copy(cam.position); LU.fogC.value.copy(cam.position); LU.camRight.value.set(RX, 0, RZ);
   // the torch's light comes from your left hand and aims where you look, a beat behind
   look.tYaw += angDiff(look.yaw, look.tYaw) * Math.min(1, rdt * 15); look.tPitch += (look.pitch - look.tPitch) * Math.min(1, rdt * 15);
@@ -18849,7 +19095,7 @@ function frame(t) {
     if (IN.pause) { IN.pause = false; pause(); }
     // look: straight away, never slowed by hit-stop, so the view always answers your hand
     const free = S.running && !menusOpen();
-    if (free) { look.yaw -= IN.lx; look.pitch = clamp(look.pitch - IN.ly * (SET.invert ? -1 : 1), -1.3, 1.2); }
+    if (free) { const k = aimSensK(); look.yaw -= IN.lx * k; look.pitch = clamp(look.pitch - IN.ly * k * (SET.invert ? -1 : 1), -1.3, 1.2); }   // drawn and zoomed in, the view turns slower
     IN.lx = IN.ly = 0;
     readMove(); if (!free) MV.x = MV.y = 0;
     if (free && isoP()) isoAim(rdt);

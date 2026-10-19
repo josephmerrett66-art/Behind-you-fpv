@@ -333,6 +333,7 @@ function poseBeast(o, now, dt) {
   const hp = dead ? 0.25 : lerp(o.k === 'deer' ? 0.55 : 0.35, 1.25, gr) - (angry && o.k === 'wolf' ? 0.15 : 0) + nod * 0.5;
   const hDir = v3(Math.sin(look) * Math.cos(hp), -Math.sin(hp), Math.cos(look) * Math.cos(hp));
   const skull = addv(ne, hDir, A.hs * 0.2), snout = addv(skull, hDir, A.hl * 0.45 + A.mzl * 0.55), tip = addv(skull, hDir, A.hl * 0.45 + A.mzl);
+  o.fgHit = [chest, haunch, addv(skull, hDir, A.hl * 0.25)]; o.fgB = (o.fgB || new M4()).copy(_B); o.fgT = S && S.t;   // where its body and head are, for an arrow to find (88-hunt)
   bOval(PT.aBall, addv(skull, hDir, -A.hs * 0.55), addv(skull, hDir, A.hs * 0.6), A.hs * 1.15, A.hs * 1.05, col, em);
   bOval(PT.aBall, addv(ne, hDir, -A.hs * 0.2), addv(skull, hDir, A.hs * 0.1), A.hs * 1.05, A.hs * 1.15, col, em);   // the jowl, where the neck meets the head
   bOval(PT.aBall, addv(skull, hDir, A.hs * 0.2), tip, A.mzr * 2, A.mzr * 2.1, col, em, 1.05);
@@ -382,6 +383,7 @@ function poseBeast(o, now, dt) {
   else if (A.tail === 'puff') bBall(PT.aBall, addv(tb, v3(0, 0.9, -1.2)), 3.4, 3.2, 3, 0, 0, hexK('#f2ede4'), em);
   else if (A.tail === 'thin') { const t1 = addv(tb, v3(Math.sin(swish * 3) * 2, -3.5, -2)); bSeg(PT.aLimb, tb, t1, 0.5, back, em); bBall(PT.aBall, t1, 1.2, 1.8, 1.2, 0, 0, dark, em); }
   else bBall(PT.aBall, addv(tb, v3(0, 0, -0.6)), 3, 2.4, 2.4, 0, 0, back, em);
+  if (o.stuck) huntStuckDraw(o);   // the arrows still in it (88-hunt)
   if (o.tame) { _aV.set(0, shY + 3, fz).applyMatrix4(_B); stat(_aV.x, _aV.y + 3, _aV.z, 2.4, 1, 0.85, 0.55, 0.6, 0); }   // the one you tamed: a warm mark over its shoulders
 }
 function drawFigures(now, dt) {

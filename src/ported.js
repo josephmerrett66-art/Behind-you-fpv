@@ -2470,6 +2470,8 @@ function sneakHide(b, dx, dy) {                  // how much of its usual notice
   if (!S.day || !S.day.crouch) return 1;
   if (S.p.atk) return 0;                         // the strike itself is what gives you away, and by then it's too late
   const facing = Math.abs(angDiff(b.dir || 0, Math.atan2(-dy, -dx)));   // 0: you're right in front of it
+  const B = BEAST[b.k], prey = !B.angry && !B.pack && !B.crit;   // v124 (Joe: the bow the main way to hunt): deer and rabbits hear you creeping long before a blade's reach
+  if (prey) return (Math.hypot(S.p.vx, S.p.vy) > 10 ? 0.5 : 0.38) * (facing > 1.9 ? 0.75 : 1);
   return (Math.hypot(S.p.vx, S.p.vy) > 10 ? 0.3 : 0.22) * (facing > 1.9 ? 0.55 : 1);
 }
 function sneakHit(b) {                           // an unaware animal, struck while you're crouched
@@ -2532,7 +2534,7 @@ function beastStep(dt) {
     b.ph += dt * (2 + b.sp * 0.09);
     b.face = Math.cos(b.dir) - Math.sin(b.dir) >= 0 ? 1 : -1;   // which way it faces on screen
   }
-  D.beasts = D.beasts.filter(b => !(b.dead && b.dieT > 1.2) && (b.pen || Math.hypot(b.x - p.x, b.y - p.y) < 2600));   // a penned herd stays put while you're away
+  D.beasts = D.beasts.filter(b => !(b.dead && b.dieT > 1.2 && !b.carc) && (b.pen || Math.hypot(b.x - p.x, b.y - p.y) < 2600));   // a penned herd stays put while you're away
 }
 function beastScare(b) {
   if (dayEffigyNear(b.x, b.y) && !b.tame) {        // v155: nothing wild comes near the effigy
@@ -4389,7 +4391,8 @@ function dayShotStep(dt) {
   if (rg.rngCd > 0) rg.rngCd -= dt;
   for (const q of rg.dshots) {
     q.t += dt; if (q.land) { q.land.t += dt; continue; }
-    const st = q.sp * dt, n = Math.max(1, Math.ceil(st / 9));
+    const st = q.sp * dt, n = q.bal ? 0 : Math.max(1, Math.ceil(st / 9));
+    if (q.bal) balStep(q, dt);   // v124: arrows and stones you loose fly for real, where you look, and drop (66-aim)
     for (let k = 0; k < n && !q.done; k++) {
       q.x += Math.cos(q.a) * st / n; q.y += Math.sin(q.a) * st / n; q.d += st / n;
       const u = Math.min(1, q.d / q.max); q.z = q.lob ? 24 + 70 * 4 * u * (1 - u) - 20 * u : q.arc ? shotZ(q.max, u) : 22 - (q.kind === 'stone' ? 14 : 10) * u * u;
@@ -4406,7 +4409,7 @@ function dayShotStep(dt) {
     if (q.done && !q.land) {
       q.land = { t: 0 };
       if (q.lob) { dayBurst(q); q.gone = true; continue; }
-      const keep = q.kind === 'jav' || q.kind === 'taxe' ? true : q.kind === 'arrow' ? Math.random() < (q.stop ? 0.3 : 0.65) : q.id === 'shot' && Math.random() < 0.5;
+      const keep = q.noKeep ? false : q.kind === 'jav' || q.kind === 'taxe' ? true : q.kind === 'arrow' ? Math.random() < (q.stop ? 0.3 : 0.65) : q.id === 'shot' && Math.random() < 0.5;
       if (keep) { const f = dayDrop(q.x, q.y, q.id, 1); f.x = q.x; f.y = q.y; f.thrown = 1; q.f = f; }
       if (!q.stop && actx) { const t = actx.currentTime; if (q.kind === 'stone') noiseAt(t, 1400, 500, 0.06, 0.18, sfxGain); else boomAt(t, 260, 120, 0.06, 0.25, sfxGain); }
     }

@@ -85,6 +85,10 @@ body.playing #prompt { display: block; }
 #notes { position: fixed; left: 0; right: 0; top: calc(64px + env(safe-area-inset-top, 0px)); display: grid; justify-items: center; gap: 2px; pointer-events: none; }
 #notes div { font-size: 0.72rem; letter-spacing: 0.1em; color: var(--bone); text-shadow: 0 1px 5px rgba(0,0,0,0.95); transition: opacity 0.3s; }
 #notes div.big { font-size: 0.86rem; font-weight: 600; letter-spacing: 0.14em; }
+#notes div { max-width: min(560px, calc(100vw - 32px)); text-align: center; line-height: 1.35; }
+#notes div.hd { margin: 2px 0; padding: 4px 12px 5px; background: rgba(12,10,8,0.45); border-radius: 3px; }   /* a headline: what the old middle-of-the-screen banner said */
+#notes div.hd b { display: block; font: 600 0.84rem var(--mono); letter-spacing: 0.2em; text-transform: uppercase; color: #fff0c8; }
+#notes div.hd span { display: block; margin-top: 1px; font-size: 0.66rem; letter-spacing: 0.08em; color: var(--bone); }
 #banner { position: fixed; left: 0; right: 0; top: 24%; text-align: center; pointer-events: none; opacity: 0; transition: opacity 0.6s; text-shadow: 0 0 18px rgba(0,0,0,0.9); padding: 0 16px; }
 #banner b { display: block; font: 400 clamp(1.6rem, 6vw, 3rem) var(--display); letter-spacing: 0.06em; text-transform: lowercase; }
 #banner span { display: block; margin-top: 0.5rem; font-size: 0.78rem; letter-spacing: 0.12em; color: #cfcfc8; }
@@ -447,7 +451,7 @@ button.mini:disabled { opacity: 0.35; cursor: default; }
 #craft *, #stats * { touch-action: manipulation; }
 #hotbar { z-index: 5; }
 body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { display: none !important; }
-@media (max-height: 520px) { #info { display: none; } #notes { top: calc(50px + env(safe-area-inset-top, 0px)); } #banner { top: 31%; } #banner b { font-size: 2.2rem; } #banner span { margin-top: 0.3rem; font-size: 0.7rem; } }
+@media (max-height: 520px) { #info { display: none; } #notes { top: calc(50px + env(safe-area-inset-top, 0px)); } #notes div { max-width: max(300px, calc(100vw - 530px)); } #banner { top: 31%; } #banner b { font-size: 2.2rem; } #banner span { margin-top: 0.3rem; font-size: 0.7rem; } }
 @media (max-width: 560px) and (min-height: 521px) {   /* a phone held upright: the hotbar runs along the bottom, the buttons sit above it */
   #hotbar { left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
   #bAtk { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
@@ -459,7 +463,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
   #campBtn { bottom: calc(256px + env(safe-area-inset-bottom, 0px)); }
   #bSpec { bottom: calc(152px + env(safe-area-inset-bottom, 0px)); }
   #buildbar { bottom: calc(254px + env(safe-area-inset-bottom, 0px)) !important; }
-  #notes { top: 31%; } #banner { top: 38%; }
+  #notes { top: calc(166px + env(safe-area-inset-top, 0px)); } #banner { top: 38%; }   /* below the hearts and bars, clear of the middle */
 }
 </style>
 </head>
@@ -629,7 +633,11 @@ function jfSquash(k) { FP.squash(k); }
 function layoutBtns() { FP.layout(); }
 function wpUi(force) { FP.ui(force); }
 function flaskUi() {}
-function exNote(text, big) { S.rg.notes.push({ text, t: 0, big: !!big }); if (S.rg.notes.length > 3) S.rg.notes.shift(); }
+function exNote(text, big, life, sub) {   // sub given: a headline, which outlasts the pickups crowding in after it; two headlines at most
+  const N = S.rg.notes, hd = n => n.sub != null; N.push({ text, t: 0, big: !!big, life, sub });
+  if (hd(N[N.length - 1]) && N.filter(hd).length > 2) N.splice(N.findIndex(hd), 1);
+  if (N.length > 3) { const i = N.findIndex(n => !hd(n)); N.splice(Math.max(0, i), 1); }
+}
 function showDeathCard() { S.rg.cardShown = true; if (S.day) dayCard(); }
 // the woods have no weather yet, and none of the far places
 const inBeyond = () => false, inNext = () => false, inDunes = () => false;
@@ -1146,9 +1154,11 @@ function decorAt(i, j) {
       const v = hash(i * 3.3, j * 5.1);
       d = { kind: 'decor', dk: fl, x, y, s: 1.1 + hash(j * 1.7, i) * 0.4, v: (v * 97 | 0) % 3, seed: v };
     }
-  } else if (!(Math.abs(i) < 2 && Math.abs(j) < 2) && !propAt(i, j)) {
+  } else if (!(Math.abs(i) < 2 && Math.abs(j) < 2) && (!propAt(i, j) || propAt(i, j).kind === 'tree')) {
     const L = landDecor(i, j, h);   // fp: what grows here by the lie of the land (00-areas)
-    const x = L && L.x !== undefined ? L.x : i * T + 6 + hash(j - 3, i + 5) * (T - 12), y = L && L.y !== undefined ? L.y : j * T + 6 + hash(i + 9, j * 2) * (T - 12);
+    let x = L && L.x !== undefined ? L.x : i * T + 6 + hash(j - 3, i + 5) * (T - 12), y = L && L.y !== undefined ? L.y : j * T + 6 + hash(i + 9, j * 2) * (T - 12);
+    const P = propAt(i, j);   // fp: under a tree, the undergrowth keeps clear of its trunk, and no log lies through it
+    if (P && L) { const dx = x - P.x, dy = y - P.y, d = Math.hypot(dx, dy) || 1; if (d < 26) { x = P.x + dx / d * 26; y = P.y + dy / d * 26; } if (L.dk === 'log' || L.dk === 'sapling') L.dk = 'fern'; }
     if (L && !(S && S.mode === 'expedition' && (Math.hypot(x, y) < CAMP_R + 45 || nearPortal(x, y, 70)))) {
       const kind = L.dk, v = hash(i * 3.3, j * 5.1);
       d = { kind: 'decor', dk: kind, x, y, s: (kind.startsWith('flower') ? 1.1 : 1) + hash(j * 1.7, i) * (kind.startsWith('flower') ? 0.4 : 0.55), v: (v * 97 | 0) % (SPRITE_KINDS[kind] ? SPRITE_KINDS[kind][0] : 3), seed: v };
@@ -6477,7 +6487,7 @@ const AREA = (() => {
     marks.push({ t, x, y, r: MARK_R[t], a: rnd(a, b, 95) * 6.283, seed: rnd(a, b, 96), ci: a, cj: b });
   }
   const STAMP = { stones: [3, 0.7], grove: [3, 1], deadwood: [2, 1], fairy: [3, 1], fallen: [0, 0.85], boulders: [1, 1] };
-  const data = new Uint8Array(N * N * 4), w = [0, 0, 0, 0];
+  const data = new Uint8Array(N * N * 4), stand = new Uint8Array(N * N), w = [0, 0, 0, 0];
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
     const th = noise(i, j, 4, 1) * 0.6 + noise(i, j, 16, 2) * 0.4, ro = noise(i, j, 8, 3) * 0.6 + noise(i, j, 32, 4) * 0.4;
     const dr = noise(i, j, 4, 5) * 0.65 + noise(i, j, 16, 6) * 0.35, gl = noise(i, j, 8, 7) * 0.6 + noise(i, j, 16, 8) * 0.4;
@@ -6491,9 +6501,16 @@ const AREA = (() => {
     const cd = Math.hypot(Math.min(px, AREA_P - px), Math.min(py, AREA_P - py)), calm = ss(500, 1100, cd);   // round the camp the woods stay as they were
     const sum = w[0] + w[1] + w[2] + w[3], k = (sum > 1 ? 1 / sum : 1) * calm, o = (j * N + i) * 4;
     for (let q = 0; q < 4; q++) data[o + q] = Math.round(w[q] * k * 255);
+    // the stands: the trees grow close in clumps a few hundred across, with clearings and thinner woods between them. Thick
+    // woods are close nearly everywhere, glades, dry and rocky ground mostly open; the camp keeps its clearing
+    const st = noise(i, j, 48, 21) * 0.55 + noise(i, j, 96, 22) * 0.3 + noise(i, j, 24, 23) * 0.15, A0 = w[0] * k, A1 = w[1] * k, A2 = w[2] * k, A3 = w[3] * k;
+    let cv = ss(0.38, 0.6, st) * Math.max(0, 0.62 + 0.38 * A0 - 0.5 * A3 - 0.32 * A2 - 0.36 * A1) + 0.32 * A0 * ss(0.25, 0.45, st);
+    for (const M of marks) { const dx = Math.abs(px - M.x), dy = Math.abs(py - M.y), d = Math.hypot(Math.min(dx, AREA_P - dx), Math.min(dy, AREA_P - dy)); if (d < M.r * 1.4) cv *= ss(M.r * 0.8, M.r * 1.4, d); }   // the places with stories keep their own ground
+    stand[j * N + i] = Math.round(Math.min(1, cv) * ss(150, 430, cd) * 255);
   }
   const tex = new THREE.DataTexture(data, N, N, THREE.RGBAFormat); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.magFilter = tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
-  return { data, marks, tex };
+  const standTex = new THREE.DataTexture(stand, N, N, THREE.RedFormat, THREE.UnsignedByteType); standTex.wrapS = standTex.wrapT = THREE.RepeatWrapping; standTex.magFilter = standTex.minFilter = THREE.LinearFilter; standTex.needsUpdate = true;
+  return { data, marks, tex, stand, standTex };
 })();
 const _land = [0, 0, 0, 0];
 function landAt(x, y) {   // [thicket, rocky, dry, glade] here, 0 to 1: the same as the ground's shader reads
@@ -6501,6 +6518,11 @@ function landAt(x, y) {   // [thicket, rocky, dry, glade] here, 0 to 1: the same
   const i0 = ((i % N) + N) % N, j0 = ((j % N) + N) % N, i1 = (i0 + 1) % N, j1 = (j0 + 1) % N;
   for (let q = 0; q < 4; q++) _land[q] = ((D[(j0 * N + i0) * 4 + q] * (1 - u) + D[(j0 * N + i1) * 4 + q] * u) * (1 - v) + (D[(j1 * N + i0) * 4 + q] * (1 - u) + D[(j1 * N + i1) * 4 + q] * u) * v) / 255;
   return _land;
+}
+function landCover(x, y) {   // how close the trees stand here, 0 (a clearing) to 1 (a dense stand): the same as the ground's shader reads
+  const N = AREA_N, D = AREA.stand, fx = x / AREA_CELL - 0.5, fy = y / AREA_CELL - 0.5, i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j;
+  const i0 = ((i % N) + N) % N, j0 = ((j % N) + N) % N, i1 = (i0 + 1) % N, j1 = (j0 + 1) % N;
+  return ((D[j0 * N + i0] * (1 - u) + D[j0 * N + i1] * u) * (1 - v) + (D[j1 * N + i0] * (1 - u) + D[j1 * N + i1] * u) * v) / 255;
 }
 function landMark(x, y) {   // the place with a story whose ground this is, if any, where it stands in the world
   const px = ((x % AREA_P) + AREA_P) % AREA_P, py = ((y % AREA_P) + AREA_P) % AREA_P, a = Math.floor(px / MARK_CELL), b = Math.floor(py / MARK_CELL);
@@ -6549,14 +6571,16 @@ function landProp(i, j, h, tv, x, y) {
       if (M.t === 'boulders') return h > 1 - 0.06 - 0.14 * f ? rock(0.9 + sc * 0.8 + f * 0.3) : h < 0.03 ? tree('dead', 0.7 + sc * 0.4) : null;   // great stones strewn about
     }
   }
-  const A = landAt(x, y), tp = Math.max(0.02, 0.08 + 0.13 * A[0] - 0.06 * A[3] - 0.03 * A[2] - 0.04 * A[1]), rp = Math.max(0.006, 0.025 + 0.055 * A[1] + 0.01 * A[2] - 0.015 * A[3] - 0.01 * A[0]);
-  if (h > 1 - tp) return tree(landTree(A, tv), 0.8 + sc * 0.6 + 0.25 * A[0]);
+  // the trees by the stands (landCover): close together in them, few and far between in the clearings. One to a tile at most,
+  // so a tile in the heart of a stand nearly always has its tree; those in a stand grow taller, reaching for the light
+  const A = landAt(x, y), cv = landCover(x, y), tp = Math.max(0.025, 0.04 + 0.6 * cv - 0.02 * A[3]), rp = Math.max(0.006, 0.025 + 0.055 * A[1] + 0.01 * A[2] - 0.015 * A[3] - 0.01 * A[0]);
+  if (h > 1 - tp) return tree(landTree(A, tv), 0.78 + sc * 0.55 + 0.2 * A[0] + 0.18 * cv);
   if (h > 1 - tp - rp) return rock(0.7 + hash(i, j * 5) * 0.7 + 0.35 * A[1]);
   if (h > 1 - tp - rp - 0.01) return { kind: 'post', x, y, r: 4, s: 1 };
   return null;
 }
 // what decorAt grows on tile (i, j): grass, fern, pebbles, bush, mushrooms or a log, by the lie of the land
-const DECOR_KINDS = ['grass', 'fern', 'pebbles', 'bush', 'shrooms', 'log'];
+const DECOR_KINDS = ['grass', 'fern', 'pebbles', 'bush', 'shrooms', 'log', 'sapling'];
 const DECOR_MIX = [[0.36, 0.16, 0.12, 0.12, 0.09, 0.15], [0.1, 0.36, 0.03, 0.15, 0.2, 0.16], [0.22, 0.1, 0.48, 0.08, 0.04, 0.08], [0.56, 0.02, 0.2, 0.05, 0.02, 0.15], [0.44, 0.12, 0.04, 0.28, 0.08, 0.04]];
 function landDecor(i, j, h) {   // undefined: the ordinary rule; null: nothing here; else the kind to grow
   const T = AREA_CELL, cx = i * T + T / 2, cy = j * T + T / 2, M = landMark(cx, cy);
@@ -6570,12 +6594,17 @@ function landDecor(i, j, h) {   // undefined: the ordinary rule; null: nothing h
     if (M.t === 'boulders') return h < 0.45 ? at(h < 0.3 ? 'pebbles' : 'grass') : null;
     if (M.t === 'grove') return M.d < 150 ? (h < 0.4 ? at(h < 0.18 ? 'flowerY' : h < 0.26 ? 'flowerW' : 'grass') : null) : undefined;
   }
-  const A = landAt(cx, cy), dens = 0.27 + 0.16 * A[0] + 0.12 * A[1] - 0.06 * A[2] + 0.04 * A[3];
+  // under the stands (landCover) the floor is ferns, bushes, fungus and fallen wood rather than grass, and young trees
+  // come up round their edges where the light gets in
+  const A = landAt(cx, cy), cv = landCover(cx, cy), dens = 0.3 + 0.16 * A[0] + 0.12 * A[1] - 0.06 * A[2] + 0.04 * A[3] + 0.3 * cv;
   if (h >= dens) return null;
-  const r = h / dens, s = A[0] + A[1] + A[2] + A[3];
+  const r = h / dens, s = A[0] + A[1] + A[2] + A[3], edge = cv * (1 - cv) * 4;
   let c = 0, tot = 0; const w = DECOR_MIX[0].map((b, k) => b * Math.max(0, 1 - s) + A[0] * DECOR_MIX[1][k] + A[1] * DECOR_MIX[2][k] + A[2] * DECOR_MIX[3][k] + A[3] * DECOR_MIX[4][k]);
+  const under = [1 - 0.65 * cv, 1 + 1.6 * cv, 1 - 0.3 * cv, 1 + 0.9 * cv, 1 + 0.9 * cv, 1 + 0.5 * cv];
+  for (let k = 0; k < 6; k++) w[k] *= under[k];
+  w.push(0.03 + 0.2 * edge * (1 - A[2]) * (1 - A[1]));   // a sapling
   for (const v of w) tot += v;
-  for (let k = 0; k < 6; k++) { c += w[k] / tot; if (r < c) return { dk: DECOR_KINDS[k] }; }
+  for (let k = 0; k < 7; k++) { c += w[k] / tot; if (r < c) return { dk: DECOR_KINDS[k] }; }
   return { dk: 'log' };
 }
 const flowerLand = (a, b) => { const A = landAt((a * 6 + 3) * AREA_CELL, (b * 6 + 3) * AREA_CELL); return 0.2 + 0.32 * A[3] - 0.12 * A[2] - 0.14 * A[0] - 0.08 * A[1]; };   // how likely a patch of flowers is here
@@ -6650,7 +6679,7 @@ const LU = {
   shMap: { value: null }, shM: { value: new M4() }, shP: { value: new V4(0, 1 / 2048, 0.002, 0) }, shC: { value: new V4(0, 0, 1, 0) },
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(420, 950) },
-  landT: { value: AREA.tex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
+  landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
 uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK;
@@ -6794,7 +6823,8 @@ vec3 terrN(vec2 p) {
 // The soil changes as you walk: broad patches of dry sandy ground, dark rich loam, a reddish clay and stony bare ground,
 // laid out by slow noise so each patch runs a long way. The bare ground and the turf over it (12-grass) read the same patches,
 // so dry ground grows short straw-coloured grass, loam grows it deep and green, and the stony bits are thin.
-const SOIL_GLSL = COAST_GLSL + `uniform sampler2D landT; vec4 landW(vec2 p) { return texture2D(landT, p / ${AREA_P.toFixed(1)}); }
+const SOIL_GLSL = COAST_GLSL + `uniform sampler2D landT, standT; vec4 landW(vec2 p) { return texture2D(landT, p / ${AREA_P.toFixed(1)}); }
+float coverW(vec2 p) { return texture2D(standT, p / ${AREA_P.toFixed(1)}).r; }   // how close the trees stand (00-areas landCover)
 float sHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float sNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(sHash(i), sHash(i + vec2(1.0, 0.0)), f.x), mix(sHash(i + vec2(0.0, 1.0)), sHash(i + vec2(1.0)), f.x), f.y); }
@@ -6907,9 +6937,17 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
         t = mix(t, vec3(0.44, 0.41, 0.37) * (0.75 + 0.5 * sp2), smoothstep(0.02, 0.07, st) * 0.45);
         vec4 L = landW(vW.xz);
         t = mix(t, t * vec3(0.66, 0.56, 0.44) + vec3(0.03, 0.015, 0.0) * sNoise(vW.xz * 0.2), L.r * 0.65);   // leaf litter under the thickets
+        // the floor of a stand of trees: fallen needles and leaves, brown and patchy, with moss in the damp hollows. Its edge
+        // wanders, so a stand's floor runs out into the grass in tongues rather than a line
+        float cv = coverW(vW.xz), lf = sNoise(vW.xz * 0.09 + 3.0), lf2 = sNoise(vW.xz * 0.55 + 11.0);
+        float fl = smoothstep(0.22, 0.6, cv + (sNoise(vW.xz * 0.022 + 5.0) - 0.5) * 0.45);
+        vec3 litter = mix(vec3(0.34, 0.25, 0.16), vec3(0.47, 0.35, 0.21), lf) * (0.82 + 0.32 * lf2);
+        litter = mix(litter, vec3(0.25, 0.31, 0.15) * (0.85 + 0.3 * lf2), smoothstep(0.58, 0.78, sNoise(vW.xz * 0.03 + 21.0)) * 0.7);
+        t = mix(t, litter * (0.82 + 0.36 * t.r), fl * 0.85 * (1.0 - 0.6 * s.w));
         float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
         vec3 under = mix(vec3(0.34, 0.42, 0.19), vec3(0.5, 0.47, 0.24), s.x); under = mix(under, vec3(0.22, 0.34, 0.13), s.y);
-        t = mix(t, under * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm) * (1.0 - 0.75 * s.w));
+        t = mix(t, under * (0.8 + 0.4 * t.r), 0.55 * smoothstep(0.2, 0.8, gm) * (1.0 - 0.75 * s.w) * (1.0 - 0.8 * fl));
+        t *= 1.0 - 0.08 * cv;                                                           // the shade under the canopy
         #ifdef BEACH
         { float cs = coastS(vW.xz), n1 = sNoise(vW.xz * 0.035), n2 = sNoise(vW.xz * 0.6 + 3.0);
           float sandK = smoothstep(-205.0, -140.0, cs + 30.0 * sin(vW.x * 0.05) * sin(vW.z * 0.043) + (n1 - 0.5) * 40.0);   // 1 on the sand
@@ -7712,7 +7750,7 @@ function worldSync(force) {
   coverB.begin(); plantB.begin(); bushB.begin();
   for (const d of decorNear(p.x, p.y, 430)) {
     const k = d.dk === 'log' ? 'log' : d.dk;
-    if (!ATLAS.meta[k]) continue;
+    if (!ATLAS.meta[k] && !PROP_KIND[k]) continue;   // (a sapling has only its model, no picture)
     if (k === 'log') {   // a fallen log lies flat on the ground as a solid log, with a broken branch or two
       propsW.add('log', d.seed * 31 | 0, d.x, d.y, d.s, d.seed);   // one of a few logs modelled once, laid down many times (14-props)
       shadow(d.x, d.y, 38 * d.s * 0.45, 0);
@@ -7763,10 +7801,10 @@ const treeMat = new THREE.ShaderMaterial({
         float up = smoothstep(-0.5, 0.9, N.y) * 0.55 + smoothstep(10.0, 110.0, vL.y) * 0.25;   // lit from above, darker underneath and inside
         if (leaf) {   // dabs of paint: clumps of leaves, lighter ones catching the light
           float a = vn(vG * 0.55), b = vn(vG * 1.7 + 7.0);
-          c = vC * (0.55 + 0.55 * up) * (0.78 + 0.32 * a) + vC * smoothstep(0.62, 0.8, b) * 0.35 * up;
+          c = vC * (0.62 + 0.5 * up) * (0.78 + 0.32 * a) + vC * smoothstep(0.62, 0.8, b) * 0.35 * up;
         } else {      // needles: short strokes raked down and out
           float s = vn(vec3(vG.x * 1.6, vG.y * 0.35, vG.z * 1.6)), t = vn(vG * 0.4);
-          c = vC * (0.6 + 0.5 * up) * (0.75 + 0.35 * s) * (0.9 + 0.2 * t) + vec3(0.06, 0.12, 0.08) * smoothstep(0.7, 0.85, s) * up;
+          c = vC * (0.68 + 0.45 * up) * (0.75 + 0.35 * s) * (0.9 + 0.2 * t) + vec3(0.06, 0.12, 0.08) * smoothstep(0.7, 0.85, s) * up;   // (never quite black underneath: light comes in sideways under the canopy)
         }
       } else { paintH = vL.y; c = paint(vC, vM, vG, vW, N); }
       vec3 o = c * lightAt(vW, N, 1.0) * 1.05;
@@ -7792,13 +7830,13 @@ const treeEdge = new THREE.ShaderMaterial({
 });
 
 // soft lumps for a crown, and a tier of a pine's skirt with a ragged, drooping hem
-const P_LUMP = (k = 0) => prim('lump' + k, () => {
-  const g = new THREE.SphereGeometry(0.5, 14, 10), p = g.attributes.position, v = new V3();
+const P_LUMP = (k = 0, lo = false) => prim('lump' + k + (lo ? 'lo' : ''), () => {
+  const g = lo ? new THREE.SphereGeometry(0.5, 8, 6) : new THREE.SphereGeometry(0.5, 12, 9), p = g.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 0.9 + 0.14 * Math.sin(v.x * 9 + k) * Math.sin(v.y * 8 + k * 2) * Math.sin(v.z * 10 + k * 3) + 0.07 * Math.sin(v.x * 27 + v.y * 13 + v.z * 21 + k); v.multiplyScalar(n); v.y *= 0.88; p.setXYZ(i, v.x, v.y, v.z); }
   g.computeVertexNormals(); return g;
 });
-const P_TIER = (k = 0) => prim('tier' + k, () => {
-  const n = 18, g = new THREE.ConeGeometry(0.5, 1, n, 3), p = g.attributes.position, v = new V3();
+const P_TIER = (k = 0, lo = false) => prim('tier' + k + (lo ? 'lo' : ''), () => {
+  const n = lo ? 9 : 16, g = new THREE.ConeGeometry(0.5, 1, n, lo ? 1 : 2), p = g.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i); if (v.y > 0.49) continue;
     const r = Math.hypot(v.x, v.z); if (r < 1e-4) continue;
@@ -7808,49 +7846,76 @@ const P_TIER = (k = 0) => prim('tier' + k, () => {
   g.translate(0, 0.5, 0); g.computeVertexNormals(); return g;
 });
 
-function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine is about 112 high), its foot at the origin
+function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own units (a pine is about 112 high), its foot at the origin
   let s = 977 + vi * 131 + kind.length * 17; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
   const tone = (list, j) => hex(list[j % list.length]);
+  // lo: the same tree for the far woods, in fewer faces and without the twigs you couldn't see from there (TREE_LOD)
+  const roots = (r, n, col) => { for (let i = 0; i < n; i++) { const a = i / n * 6.283 + R() * 0.6; K.rod(P_CYL_(5), Math.cos(a) * r * 0.4, r * 1.6, Math.sin(a) * r * 0.4, Math.cos(a) * r * 2.3, -0.6, Math.sin(a) * r * 2.3, r * 0.34, col); } };   // roots running out into the ground (bark)
+  const P_TIER_ = k => P_TIER(k, lo), P_LUMP_ = k => P_LUMP(k, lo), P_CYL_ = n => P_CYL(lo ? Math.max(4, n >> 1) : n), P_CONE_ = n => P_CONE(lo ? Math.max(4, n >> 1) : n), P_KNOB_ = k => lo ? P_LUMP(k, true) : P_KNOB(k);
   if (kind === 'pine') {
-    K.mt = 'bark'; K.add(P_CYL(9), 0, 0, 0, 7.5, 34, 7.5, hex('#4a3526'), 0, 0, 0, 0, 0.35); K.mt = null;
-    const tiers = 6 + (vi % 2), G = ['#1a4232', '#21503c', '#1d4a37', '#275a43'];
-    for (let i = 0; i < tiers; i++) {
-      const f = i / (tiers - 1), y = 14 + f * 74, r = 64 * (1 - f * 0.8) * (0.92 + 0.16 * R()), h = 30 - f * 8;
-      K.mt = 8; K.add(P_TIER(i % 4), (R() - 0.5) * 3, y, (R() - 0.5) * 3, r, h, r, tone(G, i + vi), R() * 6.28, 0, (R() - 0.5) * 0.12, 0, 0.32);
+    // three of them: a spruce in drooping skirts of boughs, blue-green; a fir, broader and greener, the trunk showing at its
+    // foot; and a tall pine, a long bare trunk going orange up high and a ragged crown of needle clumps on top. Each skirt is
+    // pale at its tips where the new growth is and dark in toward the trunk, so the tiers read one under the next
+    if (vi < 2) {
+      const sp = vi === 0, H = sp ? 110 : 102, y0 = sp ? 19 : 26;
+      K.mt = 'bark';
+      K.add(P_CONE_(9), 0, 0, 0, 8.4, H - 6, 8.4, hex('#6a4c37'), 0, 0, 0, 0, 0.35);        // the trunk, tapering up through the boughs
+      roots(4.2, 5, hex('#5a402e'));
+      K.mt = 8;
+      const tiers = sp ? 9 : 8, G = sp ? [['#173b2e', '#47836a'], ['#1b4234', '#52907a'], ['#15372a', '#3f7a60']] : [['#1d4026', '#58944f'], ['#22482b', '#66a05a'], ['#1b3c24', '#4c8846']];
+      for (let i = 0; i < tiers; i++) {
+        const f = i / (tiers - 1), y = y0 + f * (H - y0 - 18), r = (sp ? 72 : 80) * Math.pow(1 - f * 0.84, 1.08) * (0.9 + 0.2 * R()), h = (sp ? 22 : 24) - f * 9, c = G[(i + vi) % 3];
+        kitGrad(K, () => K.add(P_TIER_((i + vi) % 4), (R() - 0.5) * 3, y, (R() - 0.5) * 3, r, h, r, hex(c[1]), R() * 6.28, 0, (R() - 0.5) * 0.1, 0, 0.32), hex(c[1]), hex(c[0]), 1.4);
+      }
+      kitGrad(K, () => K.add(P_CONE_(7), 0, H - 20, 0, 10, 24, 10, hex(G[1][1]), 0, 0, 0.05, 0, 0.3), hex(G[1][0]), hex(G[1][1]));   // the leader
+    } else {
+      K.mt = 'bark';
+      K.rod(P_CYL_(9), 0, 0, 0, 1.5, 64, 0.6, 3.7, hex('#5e4433'));                           // low down the bark is dark and deep-furrowed...
+      K.add(P_CONE_(9), 1.5, 62, 0.6, 6.8, 60, 6.8, hex('#b4704a'), 0, 0, 0, 0, 0.3);        // ...up high it goes thin and orange
+      roots(3.7, 4, hex('#523a2b'));
+      for (let i = 0; i < 4; i++) { const a = i * 2.3 + 0.7, y = 30 + i * 8, L = 7 + R() * 5, dy = R() * 3; if (!lo) K.rod(P_CYL_(4), 1.2, y, 0.4, 1.2 + Math.cos(a) * L, y - 2 - dy, 0.4 + Math.sin(a) * L, 0.7, hex('#4a3a2e')); }   // old snapped-off branches (the same draws of R near and far, so the two forms match)
+      const tips = [];
+      for (let i = 0; i < 6; i++) {   // boughs out from the top of the trunk, each ending in a clump of needles
+        const a = i * 2.4 + vi + R() * 0.5, y = 74 + i * 6 + R() * 4, L = 16 + R() * 10 - i * 1.2, tx = 1.5 + Math.cos(a) * L, tz = 0.6 + Math.sin(a) * L, ty = y + 6 + R() * 6;
+        K.rod(P_CYL_(5), 1.5, y, 0.6, tx, ty, tz, 1.3, hex('#7a4c32')); tips.push([tx, ty, tz, 1 - i / 7]);
+      }
+      tips.push([1.5, 122, 0.6, 0.5]);
+      K.mt = 8;
+      const G = [['#22462a', '#64a058'], ['#284e2e', '#72aa62'], ['#1f4127', '#58944e']];
+      tips.forEach(([x, y, z, w], i) => { const r = 30 + w * 14 + R() * 6, c = G[i % 3]; kitGrad(K, () => K.add(P_TIER_((i + 1) % 4), x, y - 4, z, r, r * 0.42, r * 0.92, hex(c[1]), R() * 6.28, 0, (R() - 0.5) * 0.25, 0, 0.32), hex(c[1]), hex(c[0]), 1.3); });   // flat ragged tufts of needles, pale at their tips
     }
-    K.add(P_CONE(7), 0, 100, 0, 7, 16, 7, hex('#24533e'), 0, 0, 0.06, 0, 0.3);
-    K.mt = 'bark'; K.add(P_CONE(6), 0, 102, 0, 1.8, 14, 1.8, hex('#5a3e2c'), 0, 0, 0, 0, 0.25); K.mt = null;
+    K.mt = null;
   } else if (kind === 'oak' || kind === 'cherry') {
     const ch = kind === 'cherry', trunkH = ch ? 46 : 50, crownY = ch ? 66 : 64;
     K.mt = 'bark';
-    K.add(P_CYL(10), 0, 0, 0, 13, 6, 13, hex('#3e3127'), 0, 0, 0, 0, 0.35);   // the flare at its foot
-    K.rod(P_CYL(10), 0, 0, 0, (R() - 0.5) * 4, trunkH, (R() - 0.5) * 4, ch ? 4.4 : 5.2, hex(ch ? '#40332a' : '#443629'));
+    K.rod(P_CYL_(10), 0, 0, 0, (R() - 0.5) * 4, trunkH, (R() - 0.5) * 4, ch ? 4.4 : 5.2, hex(ch ? '#54443a' : '#5c4a3a'));
+    roots(ch ? 4.4 : 5.2, 5, hex(ch ? '#4a3c32' : '#4e3f31'));   // roots spreading into the ground at its foot
     const limbs = ch ? 5 : 4, tips = [];
     for (let i = 0; i < limbs; i++) {   // limbs out from the top of the trunk into the crown
       const a = i / limbs * 6.28 + R() * 0.8, L = (ch ? 30 : 22) + R() * 10, y0 = trunkH * (0.6 + 0.3 * R());
       const tx = Math.cos(a) * L, tz = Math.sin(a) * L, ty = crownY - 4 + R() * 10;
-      K.rod(P_CYL(7), 0, y0, 0, tx, ty, tz, ch ? 1.9 : 2.3, hex('#40332a')); tips.push([tx, ty, tz]);
+      K.rod(P_CYL_(7), 0, y0, 0, tx, ty, tz, ch ? 1.9 : 2.3, hex('#54443a')); tips.push([tx, ty, tz]);
     }
     K.mt = null;
     // the crown: soft lumps of leaf (or blossom), bigger and darker at the heart, smaller and lighter round the top and edges
-    const G = ch ? ['#cc649c', '#e080b2', '#ee9ec4', '#d670a8'] : ['#24461a', '#2f5a21', '#3b6a29', '#325f23'];
+    const G = ch ? ['#cc649c', '#e080b2', '#ee9ec4', '#d670a8'] : ['#2b5220', '#386628', '#477834', '#3d6c2b'];
     K.mt = 'plant';
-    const lumps = ch ? 5 + vi % 2 : 7 + vi % 2;
+    const lumps = ch ? 5 + vi % 2 : 8 + vi % 2;
     for (let i = 0; i < lumps; i++) {
       const a = i / lumps * 6.28 + R(), d = (ch ? 22 : 20) + R() * 12, r = (ch ? 32 : 38) + R() * 12, y = crownY + (R() - 0.3) * 18;
-      K.add(P_LUMP(i % 5), Math.cos(a) * d, y, Math.sin(a) * d, r, r * 0.85, r, tone(G, i), R() * 6.28, 0, 0, 0, 0.32);
+      K.add(P_LUMP_(i % 5), Math.cos(a) * d, y, Math.sin(a) * d, r, r * 0.85, r, tone(G, i), R() * 6.28, 0, 0, 0, 0.32);
     }
-    K.add(P_LUMP(5), 0, crownY + 16, 0, ch ? 34 : 40, 30, ch ? 34 : 40, tone(G, 2), 0, 0, 0, 0, 0.32);
-    if (ch) for (const [x, y, z] of tips) K.add(P_LUMP(6), x, y + 4, z, 30, 24, 30, tone(G, 3), R() * 6.28, 0, 0, 0, 0.3);
+    K.add(P_LUMP_(5), 0, crownY + 16, 0, ch ? 34 : 40, 30, ch ? 34 : 40, tone(G, 2), 0, 0, 0, 0, 0.32);
+    if (ch) for (const [x, y, z] of tips) K.add(P_LUMP_(6), x, y + 4, z, 30, 24, 30, tone(G, 3), R() * 6.28, 0, 0, 0, 0.3);
     K.mt = null;
   } else {   // dead: a bare trunk, snapped at the top, its limbs forking into twigs
     K.mt = 'bark';
-    K.add(P_CYL(9), 0, 0, 0, 10, 5, 10, hex('#3f3630'), 0, 0, 0, 0, 0.35);
-    K.rod(P_CYL(9), 0, 0, 0, 1, 52, 0, 4.4, hex('#4d433b'));
-    K.add(P_CONE(7), 1, 51, 0, 7, 8, 7, hex('#4d433b'), 0, 0, 0.3, 0, 0.3);
+    K.add(P_CYL_(9), 0, 0, 0, 10, 5, 10, hex('#3f3630'), 0, 0, 0, 0, 0.35);
+    K.rod(P_CYL_(9), 0, 0, 0, 1, 52, 0, 4.4, hex('#4d433b'));
+    K.add(P_CONE_(7), 1, 51, 0, 7, 8, 7, hex('#4d433b'), 0, 0, 0.3, 0, 0.3);
     const fork = (x, y, z, a, el, L, r, depth) => {
       const ex = x + Math.cos(a) * Math.cos(el) * L, ey = y + Math.sin(el) * L, ez = z + Math.sin(a) * Math.cos(el) * L;
-      K.rod(P_CYL(5), x, y, z, ex, ey, ez, r, hex('#4d433b'));
+      if (!lo || depth > 0) K.rod(P_CYL_(5), x, y, z, ex, ey, ez, r, hex('#4d433b'));   // far off, without the finest twigs
       if (depth > 0) for (let j = 0; j < 2; j++) fork(ex, ey, ez, a + (j ? 0.6 : -0.6) + (R() - 0.5) * 0.5, el + 0.15 + R() * 0.3, L * 0.6, r * 0.6, depth - 1);
     };
     for (let i = 0; i < 4; i++) fork(0, 26 + i * 7, 0, i * 1.7 + R(), 0.35 + R() * 0.4, 20 + R() * 8, 1.25, 2);
@@ -7860,14 +7925,14 @@ function treeModel(kind, vi) {   // one tree, in the pictures' own units (a pine
 }
 
 // one instanced draw (and its outline) per kind and way of building it
-const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 700;
+const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 700, TREE_LOD = 520;   // past TREE_LOD a tree is drawn in its plainer form
 const TREES = {};
 for (const k of TREE_KINDS) TREES[k] = [];
 let treesBuilt = false;
 function treesBuild() {
   treesBuilt = true;
-  for (const k of TREE_KINDS) for (let v = 0; v < TREE_NV; v++) {
-    const g = treeModel(k, v), m = new THREE.InstancedMesh(g, treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
+  for (const k of TREE_KINDS) for (let v = 0; v < TREE_NV * 2; v++) {   // TREES[k]: each way of building it near, then the same far off
+    const g = treeModel(k, v % TREE_NV, v >= TREE_NV), m = new THREE.InstancedMesh(g, treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
     m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
     TREES[k].push({ m, e, list: [] });
   }
@@ -7882,7 +7947,7 @@ function treeMatrix(o, tilt, ta) {
 function treesBegin() { if (!treesBuilt) treesBuild(); for (const k of TREE_KINDS) for (const B of TREES[k]) B.list.length = 0; }
 function treeAdd(o, kind, d) {   // near enough to stand solid? then it's ours, not a picture
   if (d > TREE_R3D) return false;
-  const B = TREES[kind][(o.seed * 997 | 0) % TREE_NV]; if (B.list.length >= TREE_CAP) return false;
+  const B = TREES[kind][(o.seed * 997 | 0) % TREE_NV + (d > TREE_LOD ? TREE_NV : 0)]; if (B.list.length >= TREE_CAP) return false;
   B.list.push(o); return true;
 }
 function treesEnd() {
@@ -7946,7 +8011,8 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
       vec4 sw = soilW(rt); vS = sw;
       k *= step(sw.w * 0.85, fract(bd.w * 13.7));                       // thin on stony ground
       k *= 1.0 - 0.35 * sw.x + 0.4 * sw.y;
-      vec4 L = landW(rt); k *= step(L.r * 0.6, fract(bd.w * 5.3)) * (1.0 + 0.25 * L.a);   // sparse in the thickets' shade, lush in the glades                              // short and dry on sand, long on loam
+      vec4 L = landW(rt); k *= step(L.r * 0.6, fract(bd.w * 5.3)) * (1.0 + 0.25 * L.a);
+      float cv = coverW(rt); k *= step(smoothstep(0.22, 0.6, cv + (sNoise(rt * 0.022 + 5.0) - 0.5) * 0.45) * 0.82, fract(bd.w * 3.71));   // thin on a stand's floor (the ground's own litter, 00-core)   // sparse in the thickets' shade, lush in the glades                              // short and dry on sand, long on loam
     }
     float shrink = 1.0 / (1.0 + d / 260.0), widen = 1.0 + d / 140.0;      // smaller further off, but never thinner than a hair
     float up = position.y * shrink * k;
@@ -8113,9 +8179,9 @@ function propMats(sway, cullR) {
   const e = new THREE.ShaderMaterial({ uniforms: uni(), side: THREE.BackSide, vertexShader: treeEdge.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeEdge.fragmentShader.replace('void main() {', cut) });
   return { m, e };
 }
-const PROP_MAT = { still: null, plant: null, grass: null };
+const PROP_MAT = { still: null, plant: null, grass: null, sap: null };
 function propMat(k) {
-  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, 470); PROP_MAT.grass = propMats(0.035, 470); }
+  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, 470); PROP_MAT.grass = propMats(0.035, 470); PROP_MAT.sap = propMats(0.011, 470); }
   return PROP_MAT[k];
 }
 
@@ -8205,6 +8271,7 @@ Object.assign(PROP_KIND, { nsticks: { n: 3, mat: 'still', edge: true, shadow: fa
   nshroom1: { n: 2, mat: 'still', edge: true, shadow: false }, nshroom2: { n: 2, mat: 'still', edge: true, shadow: false }, nshroom3: { n: 2, mat: 'still', edge: true, shadow: false },
   nberries: { n: 3, mat: 'still', edge: true, shadow: false }, bbush: { n: 3, mat: 'plant', edge: false, shadow: true } });
 PROP_KIND.log = { n: 3, mat: 'still', edge: true, shadow: true };
+PROP_KIND.sapling = { n: 3, mat: 'sap', edge: true, shadow: true };
 function propModel(kind, vi) {
   let s = 4211 + vi * 337 + kind.length * 59; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
   const pick = (list, j) => hex(list[((j % list.length) + list.length) % list.length]);
@@ -8275,6 +8342,25 @@ function propModel(kind, vi) {
     const L = 38, r = 4.2, ux = L / 2, col = hex(vi % 2 ? '#4e4034' : '#5c4a3a');
     logRod(K, -ux, r * 0.8, 0, ux, r * 0.85, 0, r, col);
     for (let j = 0; j < 2; j++) { const t = j ? 0.3 : -0.2, bx = ux * t, ba = (j ? 1 : -1) * (0.8 + 0.4 * ((vi * 0.37 + j * 0.21) % 1)); K_BR(K, bx, r * 1.2, 0, bx + Math.cos(ba) * r * 2.2, r * 2.4, Math.sin(ba) * r * 2.2, r * 0.3); }
+  } else if (kind === 'sapling') {   // a young tree come up where the light gets in: a little pine, a little spruce, or an oak whip in leaf
+    if (vi < 2) {
+      const H = 44 + vi * 10, tiers = 4 + vi, G = vi ? [['#1f4a36', '#4a8a66'], ['#245040', '#559674']] : [['#2a4f2c', '#62964f'], ['#30582f', '#70a258']];
+      K.mt = 'bark'; K.add(P_CONE(6), 0, 0, 0, 3.4, H, 3.4, hex('#5c4232'), 0, 0, 0, 0, 0.3);
+      K.mt = 8;
+      for (let i = 0; i < tiers; i++) {
+        const f = i / (tiers - 1), y = 7 + f * (H - 18), r = (vi ? 22 : 27) * (1 - f * 0.72) * (0.92 + 0.16 * R()), h = 13 - f * 3, c = G[i % 2];
+        kitGrad(K, () => K.add(P_TIER((i + vi) % 4), 0, y, 0, r, h, r, hex(c[1]), R() * 6.28, 0, (R() - 0.5) * 0.12, 0, 0.3), hex(c[1]), hex(c[0]), 1.2);
+      }
+      K.add(P_CONE(6), 0, H - 9, 0, 4.5, 11, 4.5, hex(G[0][1]), 0, 0, 0, 0, 0.28);
+    } else {
+      K.mt = 'bark'; K.rod(P_CYL(5), 0, 0, 0, 1.5, 40, -1, 1.5, hex('#4c3c2e'));
+      const tips = [[0, 46, 0]];
+      for (let i = 0; i < 3; i++) { const a = i * 2.1 + 0.4, y0 = 18 + i * 7, L = 11 + R() * 4, t = [Math.cos(a) * L, y0 + 9, Math.sin(a) * L]; K.rod(P_CYL(4), 0.5, y0, 0, t[0], t[1], t[2], 0.8, hex('#4c3c2e')); tips.push(t); }
+      K.mt = 'plant';
+      const G = ['#36622a', '#447434', '#528440'];
+      tips.forEach(([x, y, z], i) => kitGrad(K, () => K.add(P_KNOB(i % 5), x, y, z, 15 - i, 12 - i * 0.8, 15 - i, hex(G[i % 3]), R() * 6.28, 0, 0, 0, 0.3), hex('#24451c'), hex(G[i % 3]), 0.8));
+    }
+    K.mt = null;
   } else if (kind === 'nsticks') {   // a few fallen sticks, crossed, each with a twig off it
     const sd = vi * 0.37 + 0.11;
     for (let i = 0; i < 4; i++) {
@@ -10685,7 +10771,7 @@ FP.exStep = function (dt) {
   dayTorchOn(); dayStep(dt, inCamp);
   clanStep(dt);                               // the clan watching from the trees (72-clan)
   for (const n of rg.notes) n.t += dt;
-  rg.notes = rg.notes.filter(n => n.t < 2.4);
+  rg.notes = rg.notes.filter(n => n.t < (n.life || 2.4));
   if (rg.ringMsg && !(S.msg && S.msg.t < 2.2)) { rg.ringMsg.t += dt; if (rg.ringMsg.t > 2.8) rg.ringMsg = null; }
   if (inCamp !== rg.inCamp) {
     rg.inCamp = inCamp;
@@ -11347,12 +11433,18 @@ function drawHud() {
   const pk = pr + sneak;
   if (pk !== promptKey) { promptKey = pk; hudEl.prompt.textContent = pr; hudEl.prompt.className = sneak ? 'sneak' : hit ? 'hit' : ''; useBtn.textContent = o ? useLab(o) : 'Use'; }
   // the woods' words: the notes that pop up as things happen, the big banner for a new day or a new place
-  const nk = rg.notes.map(n => n.text + (n.t > 1.8 ? 'f' : '')).join('|');
-  if (nk !== notesKey) { notesKey = nk; hudEl.notes.innerHTML = rg.notes.map(n => `<div class="${n.big ? 'big' : ''}" style="opacity:${n.t > 1.8 ? 0.15 : 1}">${esc(n.text)}</div>`).join(''); }
-  const m = S.msg && S.msg.t < 3.2 ? S.msg : rg.ringMsg && rg.ringMsg.t < 2.8 ? rg.ringMsg : null;
+  const fade = n => n.t > (n.life || 2.4) - 0.6;
+  const nk = rg.notes.map(n => n.text + (n.sub || '') + (fade(n) ? 'f' : '')).join('|');
+  if (nk !== notesKey) { notesKey = nk; hudEl.notes.innerHTML = rg.notes.map(n => `<div class="${n.sub != null ? 'hd' : n.big ? 'big' : ''}" style="opacity:${fade(n) ? 0.15 : 1}">${n.sub != null ? `<b>${esc(n.text)}</b>${n.sub ? `<span>${esc(n.sub)}</span>` : ''}` : esc(n.text)}</div>`).join(''); }
+  // Joe: nothing in the middle of the screen while you play. What the big banner said (a new day, night falling, a raid,
+  // the weather, a new recipe) goes up top as a headline among the notes; only the end of a run still has its words in the middle
+  const mid = rg.phase === 'dead';
+  if (!mid) for (const q of [S.msg, rg.ringMsg]) if (q && !q.noted) { q.noted = true; exNote(q.text, true, 4.5, q.sub || ''); }
+  const m = mid && S.msg && S.msg.t < 3.2 ? S.msg : null;
   const bk = m ? m.text + '|' + (m.sub || '') : '';
   if (bk !== bannerKey) { bannerKey = bk; if (m) { hudEl.bT.textContent = m.text; hudEl.bS.textContent = m.sub || ''; } }
-  hudEl.banner.style.opacity = !deathCard.hidden ? 0 : m ? clamp(Math.min(m.t * 3, (m === S.msg ? 3.2 : 2.8) - m.t), 0, 1) : 0;
+  hudEl.banner.style.opacity = !deathCard.hidden || !m ? 0 : clamp(Math.min(m.t * 3, 3.2 - m.t), 0, 1);
+  hudEl.notes.style.visibility = mid ? 'hidden' : '';
   // the weapon's special, when what you hold has one
   const rk = dayRngId(), w = rk || (dArmOn() ? curW() : null), SPC = w ? DSP[w] : null;
   hudEl.spec.hidden = !SPC || rg.inCamp;

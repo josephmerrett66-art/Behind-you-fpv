@@ -10,7 +10,7 @@ const BEAST_BACK = 150, BEAST_CAP = 22, BEAST_SKIP = 0.2;   // more animals, and
 // What you make at a fire or a rack goes on it and is ready a while later. Walk up to it to take it.
 const COOK_T = { cook: 14, roast: 9, fishC: 12, stew: 30, tea: 12, jerky: 150, jerkyf: 150 };
 const POT_MAX = 4, POT_GRAB = 46;
-const cookSlow = r => r.g === 'food' && !r.make && (r.at === 'fire' || r.at === 'rack');
+const cookSlow = r => (r.g === 'food' || COOK_T[r.id]) && !r.make && (r.at === 'fire' || r.at === 'rack');   // herb tea brews too, though it sits under Consumables
 function cookAt(at) {   // the fire or rack you are at
   const p = S.p, D = S.day;
   if (at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };

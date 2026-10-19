@@ -2666,7 +2666,7 @@ const DREC = [
   { id: 'cook', g: 'food', out: 'cooked', at: 'fire', cost: { meat: 1 } },
   { id: 'roast', g: 'food', out: 'roast', at: 'fire', cost: { mushroom: 1 } },
   { id: 'stew', g: 'food', out: 'stew', at: 'fire', cost: { cooked: 2, berries: 2 } },
-  { id: 'tonic', g: 'food', name: 'Healing tonic', sh: 'One more flask', icon: 'tonic', at: 'fire', cost: { berries: 4, fibre: 2 }, ok: () => S.rg.flask < FLASK_MAX, make: () => { S.rg.flask++; } },
+  { id: 'tonic', g: 'use', name: 'Healing tonic', sh: 'One more flask', icon: 'tonic', at: 'fire', cost: { berries: 4, fibre: 2 }, ok: () => S.rg.flask < FLASK_MAX, make: () => { S.rg.flask++; } },
   { id: 'tcol', g: 'stn', out: 'tcol', at: 'hand', cost: { tarp: 1, sticks: 4 } },
   { id: 'campfire', g: 'stn', out: 'campfire', at: 'hand', cost: { sticks: 6, stones: 5 } },
   { id: 'bench', g: 'stn', out: 'bench', at: 'hand', cost: { logs: 4, stones: 4, rope: 2 } },
@@ -2685,10 +2685,10 @@ const DREC = [
   { id: 'helm', g: 'gear', out: 'helm', at: 'furnace', cost: { iron: 4, hide: 2 } },
   { id: 'mail', g: 'gear', out: 'mail', at: 'furnace', cost: { iron: 6, hide: 3, rope: 2 } },
   { id: 'jerky', g: 'food', out: 'jerky', n: 3, at: 'rack', cost: { meat: 2, fibre: 1 } },
-  { id: 'jerkyf', g: 'food', out: 'jerky', n: 3, at: 'rack', cost: { fish: 2, fibre: 1 } },
+  { id: 'jerkyf', g: 'food', name: 'Dried meat, from fish', out: 'jerky', n: 3, at: 'rack', cost: { fish: 2, fibre: 1 } },
   { id: 'torch', g: 'tool', out: 'torch', at: 'hand', cost: { sticks: 2, fibre: 3 } },
-  { id: 'bandage', g: 'gear', out: 'bandage', n: 2, at: 'hand', cost: { fibre: 4, hide: 1 } },
-  { id: 'tea', g: 'food', out: 'tea', at: 'fire', cost: { mushroom: 2, berries: 2 } },
+  { id: 'bandage', g: 'use', out: 'bandage', n: 2, at: 'hand', cost: { fibre: 4, hide: 1 } },
+  { id: 'tea', g: 'use', out: 'tea', at: 'fire', cost: { mushroom: 2, berries: 2 } },
   { id: 'fishC', g: 'food', out: 'fishC', at: 'fire', cost: { fish: 1 } },
   { id: 'rod', g: 'tool', out: 'rod', at: 'bench', cost: { sticks: 3, rope: 2, bone: 1 } },
   { id: 'hammer', g: 'tool', out: 'hammer', at: 'hand', cost: { sticks: 2, stones: 3, fibre: 2 } },
@@ -2698,7 +2698,7 @@ const DREC = [
   { id: 'effigy', g: 'build', out: 'effigy', at: 'bench', cost: { bone: 4, hide: 2, sticks: 4 } },
 ];
 const DCATS = [{ id: 'tool', n: 'Tools', icon: 'pick1' }, { id: 'wpn', n: 'Weapons', icon: 'spear2' }, { id: 'gear', n: 'Gear', icon: 'vest' },
-  { id: 'food', n: 'Food', icon: 'cooked' }, { id: 'stn', n: 'Stations', icon: 'bench' }, { id: 'build', n: 'Build', icon: 'wall' }, { id: 'mat', n: 'Materials', icon: 'rope' }];
+  { id: 'food', n: 'Food', icon: 'cooked' }, { id: 'use', n: 'Consumables', icon: 'bandage' }, { id: 'stn', n: 'Stations', icon: 'bench' }, { id: 'build', n: 'Build', icon: 'wall' }, { id: 'mat', n: 'Materials', icon: 'rope' }];
 const AT_NAME = { hand: 'By hand', fire: 'At a fire', bench: 'At a workbench', furnace: 'At a furnace', rack: 'At a drying rack', anvil: 'At a forge' };
 const recName = r => r.name || DIT[r.out].n, recBlurb = r => r.sh || DIT[r.out].b;
 const BEAST = {   // health, run speed, size, how close you get before it reacts, what it leaves
@@ -11804,7 +11804,7 @@ const BEAST_BACK = 150, BEAST_CAP = 22, BEAST_SKIP = 0.2;   // more animals, and
 // What you make at a fire or a rack goes on it and is ready a while later. Walk up to it to take it.
 const COOK_T = { cook: 14, roast: 9, fishC: 12, stew: 30, tea: 12, jerky: 150, jerkyf: 150 };
 const POT_MAX = 4, POT_GRAB = 46;
-const cookSlow = r => r.g === 'food' && !r.make && (r.at === 'fire' || r.at === 'rack');
+const cookSlow = r => (r.g === 'food' || COOK_T[r.id]) && !r.make && (r.at === 'fire' || r.at === 'rack');   // herb tea brews too, though it sits under Consumables
 function cookAt(at) {   // the fire or rack you are at
   const p = S.p, D = S.day;
   if (at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
@@ -17190,7 +17190,7 @@ Object.assign(DIT, {
   feather: { n: 'Feathers', c: '#d8cbb0', st: 30, k: 'mat', b: 'From grouse · fletch arrows with them and the same wood makes more' },
   shell: { n: 'Turtle shell', c: '#6e6a3e', st: 5, k: 'mat', b: 'Hard and light · plates for armour, or a bowl to mix herbs in' },
 });
-DREC.push({ id: 'arrowsFe', g: 'wpn', out: 'arrows', n: 10, at: 'hand', cost: { sticks: 3, flint: 1, feather: 2 } });
+DREC.push({ id: 'arrowsFe', g: 'wpn', name: 'Flint arrows, feathered', out: 'arrows', n: 10, at: 'hand', cost: { sticks: 3, flint: 1, feather: 2 } });
 Object.assign(ICON, {
   feather: '<path d="M5 20.5C8 13 12.5 6.5 19.5 3.5c-.6 7.4-5.4 12.6-12.4 15.2z" fill="#d8cbb0"/><path d="M4 21.5L17 6" stroke="#8a7a5a" stroke-width="1.1" stroke-linecap="round"/><path d="M9.5 15.5l-2.6-1.2M12 12.4l-2.8-1.4M14.4 9.6l-2.4-1.6M11.6 14.6l2.6.4M14 11.6l2.8.2" stroke="#a8987a" stroke-width=".8"/>',
   shell: '<path d="M2.5 15.5C3 9 7 5.5 12 5.5S21 9 21.5 15.5z" fill="#6e6a3e"/><path d="M2 15.5h20v1.6c-3 1.6-17 1.6-20 0z" fill="#b4a676"/><g fill="none" stroke="#3e3d28" stroke-width="1"><path d="M9 7.6l-1.4 3.6 2 4.3M15 7.6l1.4 3.6-2 4.3M7.6 11.2h8.8M5 12.8l2.6-1.6M19 12.8l-2.6-1.6"/></g>',
@@ -17870,9 +17870,9 @@ Object.assign(DIT, {
   poultice: { n: 'Herb poultice', c: '#a8b86a', st: 6, k: 'med', b: 'Yarrow bound up in fibre · stops bleeding, heals a whole heart' },
 });
 DREC.push(
-  { id: 'hmix', g: 'food', out: 'hmix', at: 'hand', cost: { aloe: 1, yarrow: 1 } },
-  { id: 'emix', g: 'food', out: 'emix', at: 'hand', cost: { coneflower: 1, chicory: 1 } },
-  { id: 'poultice', g: 'gear', out: 'poultice', at: 'hand', cost: { yarrow: 2, fibre: 2 } },
+  { id: 'hmix', g: 'use', out: 'hmix', at: 'hand', cost: { aloe: 1, yarrow: 1 } },
+  { id: 'emix', g: 'use', out: 'emix', at: 'hand', cost: { coneflower: 1, chicory: 1 } },
+  { id: 'poultice', g: 'use', out: 'poultice', at: 'hand', cost: { yarrow: 2, fibre: 2 } },
 );
 Object.assign(ICON, {
   yarrow: '<path d="M12 22V9M12 15l-4-5M12 13l4-4" stroke="#6a8040" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M6 21c1.5-2.5 3.5-3 6-3M18 21c-1.5-2.5-3.5-3-6-3" stroke="#5f7a3a" stroke-width="1.3" fill="none"/><g fill="#ece6d2"><ellipse cx="12" cy="7.5" rx="5" ry="2.4"/><ellipse cx="7" cy="9" rx="3" ry="1.6"/><ellipse cx="16.5" cy="8" rx="3" ry="1.6"/></g><g fill="#cfc6a8"><circle cx="10.5" cy="7" r=".7"/><circle cx="13.5" cy="7.6" r=".7"/><circle cx="7" cy="8.6" r=".6"/><circle cx="16.4" cy="7.6" r=".6"/></g>',

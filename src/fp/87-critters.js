@@ -14,7 +14,7 @@ Object.assign(DIT, {
   feather: { n: 'Feathers', c: '#d8cbb0', st: 30, k: 'mat', b: 'From grouse · fletch arrows with them and the same wood makes more' },
   shell: { n: 'Turtle shell', c: '#6e6a3e', st: 5, k: 'mat', b: 'Hard and light · plates for armour, or a bowl to mix herbs in' },
 });
-DREC.push({ id: 'arrowsFe', g: 'wpn', out: 'arrows', n: 10, at: 'hand', cost: { sticks: 3, flint: 1, feather: 2 } });
+DREC.push({ id: 'arrowsFe', g: 'wpn', name: 'Flint arrows, feathered', out: 'arrows', n: 10, at: 'hand', cost: { sticks: 3, flint: 1, feather: 2 } });
 Object.assign(ICON, {
   feather: '<path d="M5 20.5C8 13 12.5 6.5 19.5 3.5c-.6 7.4-5.4 12.6-12.4 15.2z" fill="#d8cbb0"/><path d="M4 21.5L17 6" stroke="#8a7a5a" stroke-width="1.1" stroke-linecap="round"/><path d="M9.5 15.5l-2.6-1.2M12 12.4l-2.8-1.4M14.4 9.6l-2.4-1.6M11.6 14.6l2.6.4M14 11.6l2.8.2" stroke="#a8987a" stroke-width=".8"/>',
   shell: '<path d="M2.5 15.5C3 9 7 5.5 12 5.5S21 9 21.5 15.5z" fill="#6e6a3e"/><path d="M2 15.5h20v1.6c-3 1.6-17 1.6-20 0z" fill="#b4a676"/><g fill="none" stroke="#3e3d28" stroke-width="1"><path d="M9 7.6l-1.4 3.6 2 4.3M15 7.6l1.4 3.6-2 4.3M7.6 11.2h8.8M5 12.8l2.6-1.6M19 12.8l-2.6-1.6"/></g>',

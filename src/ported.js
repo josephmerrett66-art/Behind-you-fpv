@@ -2026,7 +2026,7 @@ const DREC = [
   { id: 'cook', g: 'food', out: 'cooked', at: 'fire', cost: { meat: 1 } },
   { id: 'roast', g: 'food', out: 'roast', at: 'fire', cost: { mushroom: 1 } },
   { id: 'stew', g: 'food', out: 'stew', at: 'fire', cost: { cooked: 2, berries: 2 } },
-  { id: 'tonic', g: 'food', name: 'Healing tonic', sh: 'One more flask', icon: 'tonic', at: 'fire', cost: { berries: 4, fibre: 2 }, ok: () => S.rg.flask < FLASK_MAX, make: () => { S.rg.flask++; } },
+  { id: 'tonic', g: 'use', name: 'Healing tonic', sh: 'One more flask', icon: 'tonic', at: 'fire', cost: { berries: 4, fibre: 2 }, ok: () => S.rg.flask < FLASK_MAX, make: () => { S.rg.flask++; } },
   { id: 'tcol', g: 'stn', out: 'tcol', at: 'hand', cost: { tarp: 1, sticks: 4 } },
   { id: 'campfire', g: 'stn', out: 'campfire', at: 'hand', cost: { sticks: 6, stones: 5 } },
   { id: 'bench', g: 'stn', out: 'bench', at: 'hand', cost: { logs: 4, stones: 4, rope: 2 } },
@@ -2045,10 +2045,10 @@ const DREC = [
   { id: 'helm', g: 'gear', out: 'helm', at: 'furnace', cost: { iron: 4, hide: 2 } },
   { id: 'mail', g: 'gear', out: 'mail', at: 'furnace', cost: { iron: 6, hide: 3, rope: 2 } },
   { id: 'jerky', g: 'food', out: 'jerky', n: 3, at: 'rack', cost: { meat: 2, fibre: 1 } },
-  { id: 'jerkyf', g: 'food', out: 'jerky', n: 3, at: 'rack', cost: { fish: 2, fibre: 1 } },
+  { id: 'jerkyf', g: 'food', name: 'Dried meat, from fish', out: 'jerky', n: 3, at: 'rack', cost: { fish: 2, fibre: 1 } },
   { id: 'torch', g: 'tool', out: 'torch', at: 'hand', cost: { sticks: 2, fibre: 3 } },
-  { id: 'bandage', g: 'gear', out: 'bandage', n: 2, at: 'hand', cost: { fibre: 4, hide: 1 } },
-  { id: 'tea', g: 'food', out: 'tea', at: 'fire', cost: { mushroom: 2, berries: 2 } },
+  { id: 'bandage', g: 'use', out: 'bandage', n: 2, at: 'hand', cost: { fibre: 4, hide: 1 } },
+  { id: 'tea', g: 'use', out: 'tea', at: 'fire', cost: { mushroom: 2, berries: 2 } },
   { id: 'fishC', g: 'food', out: 'fishC', at: 'fire', cost: { fish: 1 } },
   { id: 'rod', g: 'tool', out: 'rod', at: 'bench', cost: { sticks: 3, rope: 2, bone: 1 } },
   { id: 'hammer', g: 'tool', out: 'hammer', at: 'hand', cost: { sticks: 2, stones: 3, fibre: 2 } },
@@ -2058,7 +2058,7 @@ const DREC = [
   { id: 'effigy', g: 'build', out: 'effigy', at: 'bench', cost: { bone: 4, hide: 2, sticks: 4 } },
 ];
 const DCATS = [{ id: 'tool', n: 'Tools', icon: 'pick1' }, { id: 'wpn', n: 'Weapons', icon: 'spear2' }, { id: 'gear', n: 'Gear', icon: 'vest' },
-  { id: 'food', n: 'Food', icon: 'cooked' }, { id: 'stn', n: 'Stations', icon: 'bench' }, { id: 'build', n: 'Build', icon: 'wall' }, { id: 'mat', n: 'Materials', icon: 'rope' }];
+  { id: 'food', n: 'Food', icon: 'cooked' }, { id: 'use', n: 'Consumables', icon: 'bandage' }, { id: 'stn', n: 'Stations', icon: 'bench' }, { id: 'build', n: 'Build', icon: 'wall' }, { id: 'mat', n: 'Materials', icon: 'rope' }];
 const AT_NAME = { hand: 'By hand', fire: 'At a fire', bench: 'At a workbench', furnace: 'At a furnace', rack: 'At a drying rack', anvil: 'At a forge' };
 const recName = r => r.name || DIT[r.out].n, recBlurb = r => r.sh || DIT[r.out].b;
 const BEAST = {   // health, run speed, size, how close you get before it reacts, what it leaves

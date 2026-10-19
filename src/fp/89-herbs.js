@@ -18,9 +18,9 @@ Object.assign(DIT, {
   poultice: { n: 'Herb poultice', c: '#a8b86a', st: 6, k: 'med', b: 'Yarrow bound up in fibre · stops bleeding, heals a whole heart' },
 });
 DREC.push(
-  { id: 'hmix', g: 'food', out: 'hmix', at: 'hand', cost: { aloe: 1, yarrow: 1 } },
-  { id: 'emix', g: 'food', out: 'emix', at: 'hand', cost: { coneflower: 1, chicory: 1 } },
-  { id: 'poultice', g: 'gear', out: 'poultice', at: 'hand', cost: { yarrow: 2, fibre: 2 } },
+  { id: 'hmix', g: 'use', out: 'hmix', at: 'hand', cost: { aloe: 1, yarrow: 1 } },
+  { id: 'emix', g: 'use', out: 'emix', at: 'hand', cost: { coneflower: 1, chicory: 1 } },
+  { id: 'poultice', g: 'use', out: 'poultice', at: 'hand', cost: { yarrow: 2, fibre: 2 } },
 );
 Object.assign(ICON, {
   yarrow: '<path d="M12 22V9M12 15l-4-5M12 13l4-4" stroke="#6a8040" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M6 21c1.5-2.5 3.5-3 6-3M18 21c-1.5-2.5-3.5-3-6-3" stroke="#5f7a3a" stroke-width="1.3" fill="none"/><g fill="#ece6d2"><ellipse cx="12" cy="7.5" rx="5" ry="2.4"/><ellipse cx="7" cy="9" rx="3" ry="1.6"/><ellipse cx="16.5" cy="8" rx="3" ry="1.6"/></g><g fill="#cfc6a8"><circle cx="10.5" cy="7" r=".7"/><circle cx="13.5" cy="7.6" r=".7"/><circle cx="7" cy="8.6" r=".6"/><circle cx="16.4" cy="7.6" r=".6"/></g>',

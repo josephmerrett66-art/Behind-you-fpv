@@ -971,7 +971,7 @@ function clanPose(R, e, c, now, dt, dead) {
   if (c.torch && !dead && !c.climbing && !c.perched && !c.falling && !c.dragK && !c.flyK && c.st !== 'down' && !(S.t < (c.block || 0))) { P.armL = cmix(P.armL, [-1.2 + 0.05 * Math.sin(t * 1.3), 0.2, -0.32], 0.85); P.foreL[0] = lerp(P.foreL[0], -1.0, 0.85); }
   if (c.flinch > 0) { P.spine[0] -= 0.5 * c.flinch; P.head[0] -= 0.4 * c.flinch; P.armL[2] -= 0.5 * c.flinch; P.armR[2] += 0.5 * c.flinch; lunge -= 4 * c.flinch; }
   // dead: pitched over onto its face
-  if (dead) { const k = ease.back(Math.min(1, dead.t / 0.6)); roll = 1.45 * k; rootY = -9.5 * c.crK * (1 - k) + 2 * k - Math.max(0, dead.t - 37) * 3; P.armL = [-2.5, 0.2, -0.5]; P.armR = [-2.2, -0.2, 0.6]; P.foreL[0] = -0.4; P.foreR[0] = -0.3; P.legL[0] = 0.2; P.shinL[0] = 1.1; P.head[0] = -0.5; stiff = 10; }
+  if (dead) { const k = ease.back(Math.min(1, dead.t / 0.6)); roll = 1.45 * k; rootY = -9.5 * c.crK * (1 - k) + 2 * k - Math.max(0, dead.t - (dead.life || 40) + 3) * 3; P.armL = [-2.5, 0.2, -0.5]; P.armR = [-2.2, -0.2, 0.6]; P.foreL[0] = -0.4; P.foreR[0] = -0.3; P.legL[0] = 0.2; P.shinL[0] = 1.1; P.head[0] = -0.5; stiff = 10; }
   const k = 1 - Math.exp(-stiff * dt);
   for (const [n] of BONES) { const cu = R.cur[n], w = P[n]; for (let i = 0; i < 3; i++) cu[i] += (w[i] - cu[i]) * k; R.B[n].rotation.set(cu[0], cu[1], cu[2], 'YXZ'); }
   R.root[0] += (lunge - R.root[0]) * Math.min(1, dt * 25); R.root[1] += (rootY - R.root[1]) * Math.min(1, dt * 18);
@@ -1024,8 +1024,8 @@ function clanDraw(now, dt) {
     clanPose(c.rig, e, c, now, dt, null);
   }
   if (C) {
-    for (const g of C.dead) { g.t += dt; if (g.x === undefined) { g.x = g.e.x; g.y = g.e.y; } if (g.rig && g.t < 40) clanPose(g.rig, g.e, g.e.cl, now, dt, g); }
-    for (const g of C.dead) if (g.t >= 40 && g.rig) { g.rig.keep = false; g.rig.owner = null; g.rig = null; }
-    C.dead = C.dead.filter(g => g.t < 40);
+    for (const g of C.dead) { g.t += dt; if (g.x === undefined) { g.x = g.e.x; g.y = g.e.y; } if (g.rig && g.t < (g.life || 40)) clanPose(g.rig, g.e, g.e.cl, now, dt, g); }
+    for (const g of C.dead) if (g.t >= (g.life || 40) && g.rig) { g.rig.keep = false; g.rig.owner = null; g.rig = null; }
+    C.dead = C.dead.filter(g => g.t < (g.life || 40));   // life: a body lasts till it's cut up and a while after (88-meat)
   }
 }

@@ -5,12 +5,12 @@
 //     hasn't seen you does double, so a full draw from hiding drops it.
 //   - an arrow in the body wounds it. It bolts, but it bleeds: it slows as it weakens, leaves blood on the ground behind it,
 //     and before long it goes down. Follow the blood to find it.
-//   - one that drops out there lies where it fell until you walk up to it: then the meat and the hide are yours, and most of
-//     the arrows that went in come back out with them. Till then you can see them, stuck in it.
+//   - one that drops lies where it fell, with the arrows that went in still in it, till you cut it up (88-meat): then the
+//     meat and the hide are yours, and most of the arrows come back out.
 //   - deer and rabbits hear you creeping long before you're near enough for a blade (sneakHide in the main game), and a
 //     blade no longer kills a deer outright from behind: it bolts, faster than you run. The bow is how you'll get them;
 //     boars, wolves and bears still come at you.
-const HUNT = { by: null, thrown: 0, zone: 0, back: 0.8, near: 70, take: 30, carcT: 420, bloodLife: 150, bloodCap: 320, R: 700 };
+const HUNT = { by: null, thrown: 0, zone: 0, back: 0.8, near: 70, bloodLife: 150, bloodCap: 320, R: 700 };
 PT.blood = new Part(new THREE.SphereGeometry(0.5, 8, 4), HUNT.bloodCap + 8, false);
 const _hnv = new V3(), _hnd = new V3(), _hnm = new M4();
 // where its body (a capsule from chest to haunch) and head (a ball) are, heights above the ground under it
@@ -68,29 +68,9 @@ function huntStuckDraw(o) {   // called from poseBeast, in the animal's own fram
     bOval(PT.aBall, tail, tip, 0.6, 0.6, HUNT_SHAFT, 0); bOval(PT.aBall, tail, addv(p, [dx, dy, dz], -10.5), 1.8, 0.3, HUNT_FLETCH, 0);
   }
 }
-// it dies: close by, it's yours at once as before; out there it lies where it fell
-{ const bd = beastDie; beastDie = function (b) {
-  if (b.dead) return;
-  if (HUNT.by && HUNT.zone === 2) b.clean = 1;
-  const far = Math.hypot(b.x - S.p.x, b.y - S.p.y) > HUNT.near;
-  if ((HUNT.by || b.wound) && far && !critOf(b) && ANAT[b.k]) {
-    b.dead = true; b.dieT = 0; b.carc = 1; b.carcT = S.t; huntBlood(b.x, b.y, 5, 2.2);
-    if (actx) { const out = placeOut(b.x, b.y, 1, 1400, b, 1.5); if (out) boomAt(actx.currentTime, 90, 40, 0.3, 0.5, out); }   // you hear it go down
-    exNote(b.wound && !HUNT.by ? `you hear the ${b.k} go down · follow the blood` : `the ${b.k} is down · go and take it`, true);
-    return;
-  }
-  bd.call(this, b); huntTake(b);
-}; }
-function huntTake(b) {   // the extra cut from a clean kill, and the arrows back out of it
-  const bits = [];
-  if (b.clean && !critOf(b)) { dayGive('meat', 1, b.x, b.y, true); bits.push('clean kill · 1 more meat'); }
-  for (const [id, n] of Object.entries(b.quiver || {})) if (n > 0) { dayGive(id, n, b.x, b.y, true); bits.push(`${n} arrow${n > 1 ? 's' : ''} back`); }
-  b.quiver = null; b.stuck = null; b.carc = 0;
-  if (bits.length) exNote(bits.join(' · '), true);
-}
-// the wounded slow and bleed, and leave a trail; walk up to a body and it's yours
+// the wounded slow and bleed, and leave a trail
 { const bs = beastStep; beastStep = function (dt) {
-  const D = S.day, p = S.p, W = D.beasts.filter(b => b.wound && !b.dead), at = W.map(b => [b.x, b.y]);
+  const D = S.day, W = D.beasts.filter(b => b.wound && !b.dead), at = W.map(b => [b.x, b.y]);
   bs(dt);
   W.forEach((b, i) => {
     if (b.dead) return;
@@ -101,10 +81,6 @@ function huntTake(b) {   // the extra cut from a clean kill, and the arrows back
     if (b.bled > 13 || b.bT <= 0) { huntBlood(b.x, b.y, b.bT <= 0 ? 2 : 1, 1); b.bled = 0; b.bT = 2.5; }
     if (b.hp <= 0) beastDie(b);
   });
-  for (const b of D.beasts) if (b.carc) {
-    if (Math.hypot(b.x - p.x, b.y - p.y) < HUNT.take) { b.dead = false; b.carc = 0; b.wound = 0; beastDie(b); }
-    else if (S.t - b.carcT > HUNT.carcT) b.carc = 0;   // left too long: something else had it
-  }
 }; }
 // the blood: dark spots on the ground, fresh ones wetter, fading over a couple of minutes
 function huntBlood(x, y, n, spread) {

@@ -333,6 +333,7 @@ function posePlayer(now) {
     if (act.pose === 8 || act.pose === 9) { P.armR = bmix(P.armR, [-1.3, -0.4, 0.2], k); P.foreR = bmix(P.foreR, [-2.4, 0, 0], k); P.head[0] -= 0.25 * k; }   // to your mouth
     else if (act.pose === 7) { rootY -= 7 * k; lean(1.1 * k); P.legL[0] -= 1.1 * k; P.legR[0] -= 0.5 * k; P.shinL[0] += 1.6 * k; P.shinR[0] += 1.2 * k; P.armR = bmix(P.armR, [-1.1, 0, 0.2], k); P.foreR[0] = -0.2; }
     else if (act.pose === 10) { const c = Math.abs(Math.sin(u * Math.PI * 3)); lean(0.4); P.armR = [-1.0 - 1.4 * (1 - c), 0, 0.2]; P.foreR = [-0.9, 0, 0]; P.armL = [-0.9, 0, -0.2]; P.foreL = [-1.2, 0, 0]; }
+    else if (act.pose === 11) { const c = Math.sin(u * Math.PI * 4), q = act.cont ? 1 : Math.min(1, u * 6); rootY -= 8 * q; lean(0.9 * q); P.legL[0] -= 1.2 * q; P.legR[0] -= 0.3 * q; P.shinL[0] += 1.7 * q; P.shinR[0] += 1.9 * q; P.armR = [-1.0 + 0.3 * c, 0, 0.3 + 0.2 * c]; P.foreR = [-0.5 - 0.3 * c, 0, 0]; P.armL = [-0.8, 0, -0.3]; P.foreL = [-0.9, 0, 0]; }   // knelt at a body, cutting (88-meat)
     else { P.armR = bmix(P.armR, [-1.3, 0, 0.1], k); P.foreR = bmix(P.foreR, [-0.6, 0, 0], k); }
   }
   // your torch, held up and out in the left hand by night; with a bow in that hand it hangs from your belt instead, still lit

@@ -443,11 +443,11 @@ function paleStep(dt) {
 // a dead one: no tooth, no tally of the clan; bone and hide, and the others shrieking in the dark
 function paleDied(e) {
   const C = clan(), D = S.day, c = e.cl, si = caveSysAt(e.x);
-  C.dead.push({ e, t: 0, rig: c.rig, face: c.face || 0, z: 0, x: e.x, y: e.y }); if (c.rig) c.rig.keep = true;
+  const g = cutBody({ e, t: 0, rig: c.rig, face: c.face || 0, z: 0, x: e.x, y: e.y }); C.dead.push(g); if (c.rig) c.rig.keep = true;
   paleSnd('die', e.x, e.y, 1, c.vp, e);
   if (PALE.tok === e) PALE.tok = null;
   const got = [], drop = (id, n) => { if (n <= 0) return; dayDrop(e.x + (Math.random() - 0.5) * 16, e.y + (Math.random() - 0.5) * 16, id, n); got.push(n > 1 ? `${DIT[id].n.toLowerCase()} ×${n}` : DIT[id].n.toLowerCase()); };
-  drop('bone', c.old ? 6 : 2 + (Math.random() < 0.5 ? 1 : 0)); drop('hide', c.old ? 3 : 1);
+  cutAdd(g, 'bone', c.old ? 6 : 2 + (Math.random() < 0.5 ? 1 : 0)); cutAdd(g, 'hide', c.old ? 3 : 1);   // in its body, for a knife (88-meat)
   if (c.old) { drop('iron', 3); const t = pick(['sword2', 'mace', 'spear3', 'bow3']); dayDrop(e.x, e.y, t, 1, DIT[t].dur ? Math.round(DIT[t].dur * 0.7) : undefined); got.push(DIT[t].n.toLowerCase()); }
   else if (Math.random() < 0.35) drop('flint', 1);
   if (D.cave && si >= 0) {
@@ -455,7 +455,7 @@ function paleDied(e) {
     D.cave.kills = (D.cave.kills || 0) + 1;
   }
   const left = paleList().filter(o => o !== e).length;
-  exNote(`${c.old ? 'the old one is dead' : 'a pale one dead'} · ${left ? `${left} more down here` : 'nothing else moving down here'} · it dropped ${got.join(', ')}`, true);
+  exNote(`${c.old ? 'the old one is dead' : 'a pale one dead'} · ${left ? `${left} more down here` : 'nothing else moving down here'}${got.length ? ` · it dropped ${got.join(', ')}` : ''}`, true); cutTell(g);
   dayJLog(c.old ? 'killed the old one at the bottom of the deep' : `killed one of the pale ones in the caves (${D.cave ? D.cave.kills : 1})`);
   // the others: the near ones come for you, shrieking; when the old one goes, they all run
   for (const o of paleList()) {

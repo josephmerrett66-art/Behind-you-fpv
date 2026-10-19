@@ -106,7 +106,7 @@ function placeCamera(dt, rdt, now) {
   VIEW_FX.dip = rollU >= 0 ? Math.sin(Math.PI * rollU) * 14 : VIEW_FX.dip * Math.exp(-rdt * 10);
   if (rollU >= 0) VIEW_FX.fov = Math.max(VIEW_FX.fov, 6 * Math.sin(Math.PI * rollU));
   VIEW_FX.fov = Math.max(VIEW_FX.fov, 7 * SPR.k);   // sprinting: the view stretches a little
-  const crouch = (D.crK || 0) * 10;
+  const crouch = (D.crK || 0) * 10 + (D.butK || 0) * 9;   // knelt at a body you're cutting up (88-meat)
   const v = Math.hypot(p.vx, p.vy);
   VIEW_FX.bobAmt = lerp(VIEW_FX.bobAmt, p.roll > 0 ? 0 : Math.min(1, v / RUN), Math.min(1, rdt * 8));
   const bobY = Math.sin(p.phase * 2) * 1.1 * VIEW_FX.bobAmt, bobX = Math.cos(p.phase) * 0.7 * VIEW_FX.bobAmt;

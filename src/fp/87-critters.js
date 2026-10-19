@@ -162,7 +162,7 @@ function critStep(dt) {
     }
     b.ph += dt * (2 + b.sp * 0.25);
   }
-  D.beasts = D.beasts.filter(b => !critOf(b) || !(b.hid || (b.dead && b.dieT > 1.2) || Math.hypot(b.x - p.x, b.y - p.y) > 2600));
+  D.beasts = D.beasts.filter(b => !critOf(b) || !(b.hid || (b.dead && b.dieT > 1.2 && !b.carc) || Math.hypot(b.x - p.x, b.y - p.y) > 2600));   // a body stays till it's cut up (88-meat)
 }
 // the woods' own animal step leaves them out; the rest of the game (your blows, arrows, the journal) treats them like any other
 { const bs = beastStep; beastStep = function (dt) {
@@ -215,9 +215,10 @@ function critSnd(b, k) {
 // ---------------- their bodies ----------------
 // Built the way the woods' animals are (20-figures): soft rounded parts in the animal's own frame (x across, y up, z forward),
 // turned into the woods by one matrix, so a lizard can flip on its back dead or a grouse bank into a turn.
-const critTint = (o, h) => { const c = hexK(h), f = o.flash > 0 ? o.flash : 0; return f ? c.map(v => lerp(v, 1.5, f)) : c; };
+const critTint = (o, h) => { let c = hexK(h); const f = o.flash > 0 ? o.flash : 0; if (o.skin) c = mixc(c, CUT_RAW, o.skin * 0.85); return f ? c.map(v => lerp(v, 1.5, f)) : c; };
 function critFrame(o, dt, turnK, pitch, roll, lift, sc = 1) {
   const want = o.dir ?? 0;
+  if (o.dead) { const k = cutFallK(o.dieT); roll = (roll || 0) * k; lift = (lift || 0) * k; }   // it flips over as it dies (88-meat)
   o.fa = o.fa === undefined ? want : o.fa + clamp(angDiff(want, o.fa), -turnK * dt, turnK * dt);
   _B.compose(_aV.set(o.x, (o.z || 0) + (lift || 0), o.y), _aQ.setFromEuler(_e.set(pitch || 0, faceYaw(o.fa), roll || 0, 'YXZ')), _aS.set(sc, sc, sc));
 }

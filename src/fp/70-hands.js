@@ -330,6 +330,7 @@ function placeHands(dt, now, bob, lag) {
     if (act.pose === 8 || act.pose === 9) cur = lerp6(base, [1.5, -5, -9, 0.6, 0.2, 0.1], k);                 // to your mouth
     else if (act.pose === 7) cur = lerp6(base, [4, -16, -18, -1.9, 0.2, 0.2], k);                            // down to pick it up
     else if (act.pose === 10) { const c = Math.abs(Math.sin(u * Math.PI * 3)); cur = lerp6(base, [5, -6 + 8 * c, -15, -0.4 - 1.4 * (1 - c), 0.05, 0], Math.min(1, u * 5)); }   // working at it
+    else if (act.pose === 11) { const c = Math.sin(u * Math.PI * 4); cur = lerp6(base, [4.5 + 2.4 * c, -12.5 + 1.4 * Math.abs(c), -19 + 1.6 * Math.abs(c), -1.35 + 0.18 * c, 0.1 + 0.32 * c, 0.6], act.cont ? 1 : Math.min(1, u * 6)); }   // down at a body, the knife sawing (88-meat)
     else cur = lerp6(base, [6, -2, -20, -1.2, 0, 0.3], k);
   }
   if (bow && D.draw) { const c = clamp(D.draw.t / (RNG.bow ? RNG.bow.full : 0.8), 0, 1); cur = lerp6(base, [1.2, -4, -14, -0.02, -0.04, -0.06], Math.min(1, c * 3)); }

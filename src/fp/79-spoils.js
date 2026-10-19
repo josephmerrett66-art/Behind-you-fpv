@@ -15,23 +15,25 @@ Object.assign(ICON, {
 });
 const SPOILS = { bone: [2, 3], hide: [1, 1], flint: [1, 2], flintP: 0.5, clubP: 0.7, lead: 3 };   // the leader leaves three times as much
 const spN = ([a, b]) => a + Math.floor(Math.random() * (b - a + 1));
-function clanSpoils(e) {
+function clanSpoils(e, g) {   // g, its body: the bone, hide and teeth are in it, for your knife (88-meat); what it carried falls by it
   const c = e.cl || {}, k = c.kind === 'leader' ? SPOILS.lead : 1, got = [];
   const drop = (id, n) => { if (n <= 0) return; dayDrop(e.x, e.y, id, n); got.push(n > 1 ? `${DIT[id].n.toLowerCase()} ×${n}` : DIT[id].n.toLowerCase()); };
-  drop('bone', spN(SPOILS.bone) * k); drop('hide', spN(SPOILS.hide) * k);
+  const cut = (id, n) => { if (n <= 0) return; if (g) cutAdd(g, id, n); else drop(id, n); };
+  cut('bone', spN(SPOILS.bone) * k); cut('hide', spN(SPOILS.hide) * k);
   if (k > 1 || Math.random() < SPOILS.flintP) drop('flint', spN(SPOILS.flint) * k);
   if (c.club && Math.random() < SPOILS.clubP) drop('club', 1);
-  drop('ctooth', k);
+  cut('ctooth', k);
   return got;
 }
 { const died = clanDied;
   clanDied = function (e) {
     died(e);
     const D = S.day; if (!D) return;
-    const got = clanSpoils(e), lead = e.cl && e.cl.kind === 'leader';
+    const g = cutBody(clan().dead.find(q => q.e === e)), got = clanSpoils(e, g), lead = e.cl && e.cl.kind === 'leader';
     D.clanKills = (D.clanKills || 0) + 1;
     const left = D.clanN ?? CL.pool;
-    exNote(`${lead ? 'their leader is dead' : 'a cannibal dead'} · ${left ? `${left} of them left in the woods` : 'the last of them'} · it dropped ${got.join(', ')}`, true);
+    exNote(`${lead ? 'their leader is dead' : 'a cannibal dead'} · ${left ? `${left} of them left in the woods` : 'the last of them'}${got.length ? ` · it dropped ${got.join(', ')}` : ''}`, true);
+    if (g) cutTell(g);
     dayJLog(lead ? `killed the clan's leader (${D.clanKills} of them dead)` : `killed a cannibal (${D.clanKills} of them dead)`);
     if (actx) { const t = actx.currentTime; boomAt(t + 0.15, 110, 55, 0.4, 0.35, sfxGain); toneAt(t + 0.2, 196, 0.9, 0.05, 'triangle', sfxGain); }
     dayChanged();

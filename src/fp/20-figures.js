@@ -238,7 +238,7 @@ function ik2(root, end, l1, l2, fwd) {
 const _sm = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
 function poseBeast(o, now, dt) {
   const A = ANAT[o.k], C = BCOL[o.k]; if (!A) return;
-  const fl = o.flash > 0 ? o.flash : 0, em = fl * 0.7, tint = c => fl ? c.map(v => lerp(v, 1.5, fl)) : c;
+  const fl = o.flash > 0 ? o.flash : 0, em = fl * 0.7, tint = c => { if (o.skin) c = mixc(c, CUT_RAW, o.skin * 0.85); return fl ? c.map(v => lerp(v, 1.5, fl)) : c; };   // skin: raw and red where it's been cut up (88-meat)
   const col = tint(hexK(C[0])), belly = tint(hexK(C[1])), back = tint(hexK(C[2])), hoof = hexK('#1e1814'), dark = hexK('#120f0d');
   // lighter belly and muzzle, darker lower legs and feet, a pale tip to the nose, pink inside the ears
   const legC = col, legLo = mixc(col, back, 0.6).map(v => v * 0.88), joint = mixc(col, legLo, 0.6), pale = mixc(belly, col, 0.15), pink = hexK('#d39a92'), shine = [1, 1, 1];
@@ -258,11 +258,11 @@ function poseBeast(o, now, dt) {
   o.fgGk = lerp(o.fgGk || 0, gk, Math.min(1, gdt * 8)); const mk = o.fgGk;   // eased in and out, so starting and stopping don't snap
   const ph = o.fgPh, seed = (o.fgSeed ?? (o.fgSeed = Math.random() * 50));
   // its body: position and turn in the woods, rearing (a bear stands up to strike), lying on its side when dead
-  const rear = o.k === 'bear' && st === 'wind' ? clamp((0.6 - (o.t || 0)) / 0.25 + 0.2, 0, 1) : 0, dead = o.dead ? 1 : 0;
+  const rear = o.k === 'bear' && st === 'wind' ? clamp((0.6 - (o.t || 0)) / 0.25 + 0.2, 0, 1) : 0, dead = o.dead ? cutFallK(o.dieT) : 0;   // it topples over (88-meat)
   const bobW = A.hop ? Math.max(0, Math.sin(ph * Math.PI * 2 - 0.6)) * A.hp * 0.55 * mk : (G === GAIT.gallop ? Math.sin(ph * 6.283 + 1) : Math.cos(ph * 12.566)) * A.sh * G.bob * mk;
   const lean = clamp(-o.fgTurn * 0.04 * mk, -0.25, 0.25);   // leaning into a turn
   _B.compose(_aV.set(o.x, 0, o.y), _aQ.setFromEuler(_e.set(0, faceYaw(o.fgFace), lean + dead * 1.5, 'YXZ')), _aS.set(1, 1, 1));
-  if (dead) _B.multiply(_t.makeTranslation(A.bw * 0.45, -A.sh * 0.12, 0));   // on its side, resting on its flank
+  if (dead) _B.multiply(_t.makeTranslation(A.bw * 0.45 * dead, -A.sh * 0.12 * dead, 0));   // on its side, resting on its flank
   // pivoting up on its hind legs
   if (rear) { const hz = -A.len * 0.34; _B.multiply(_t.makeTranslation(0, 0, hz)).multiply(_t2.makeRotationX(-rear * 1.05)).multiply(_t.makeTranslation(0, 0, -hz)); }
   const breathe = Math.sin(now * (angry ? 5 : 1.6) + seed) * (angry ? 0.035 : 0.02);

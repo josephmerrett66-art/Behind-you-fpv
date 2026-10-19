@@ -8322,10 +8322,13 @@ if (BEACH) {
       const t0 = actx.currentTime + 0.05; src.start(t0);
       surf = { src, lp, g, pan, t0 };
     }
-    const p = S.p, s = coastS(p.x, p.y), near = Math.pow(clamp(1 - Math.abs(Math.min(s, 0) + 15) / 900, 0, 1), 1.5);
+    // Joe: "turn down the beach sound a lot and make the fade in a lot slower so it is from further away". So it's a third as
+    // loud as it was, and it starts far back in the woods (2400 out, not 900) as a faint low roar, growing slowly the whole way
+    // down to the sand; it only brightens into the hiss of each wave over the last stretch.
+    const p = S.p, s = coastS(p.x, p.y), dS = Math.abs(Math.min(s, 0) + 15), near = Math.pow(clamp(1 - dS / 2400, 0, 1), 2.2), close = Math.pow(clamp(1 - dS / 900, 0, 1), 1.5);
     const t = actx.currentTime, k = state === 'play' ? 1 : 0;
-    surf.g.gain.setTargetAtTime(k * near * 0.9, t, 0.3);
-    surf.lp.frequency.setTargetAtTime(500 + 17000 * near * near * near, t, 0.3);   // far off, only the low roar comes through the trees
+    surf.g.gain.setTargetAtTime(k * near * 0.3, t, k ? 1.2 : 0.3);
+    surf.lp.frequency.setTargetAtTime(420 + 17000 * close * close * close, t, 1.2);   // far off, only the low roar comes through the trees
     if (surf.pan) {   // which way the sea is: out from the middle of the island (or the islet's shore, when that's nearer)
       const di = Math.hypot(p.x - ISLET.x, p.y - ISLET.y) - ISLET.r, a = di < Math.hypot(p.x, p.y) - isleR(Math.atan2(p.y, p.x)) ? Math.atan2(ISLET.y - p.y, ISLET.x - p.x) : Math.atan2(p.y, p.x);
       const side = -Math.sin(S.aimW || 0) * Math.cos(a) + Math.cos(S.aimW || 0) * Math.sin(a);

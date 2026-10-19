@@ -58,7 +58,7 @@ function maker(K, x, y, a, z0 = 0) {   // z0: how far off the ground it all star
     lash(f, s, z, r, h = 1.4) { put(P_CYL(8), f, s, z, (r + 0.35) * 2, h, (r + 0.35) * 2, MAKE.rope, 'cloth'); },
   };
 }
-const WALL_TOP = ROOF_H - 2.6;   // a full wall, a doorway or a corner post reaches up to the rafters of a roof laid over it, so a room is closed in
+const WALL_TOP = ROOF_H + 0.3;   // a full wall, a doorway or a corner post reaches right up under a roof laid over it, so a room is closed in with no gap of sky
 const pcRnd = (o, i) => hash(Math.round(o.x * 3.7) + i * 17.3, Math.round(o.y * 2.9) - i * 5.1);   // the same every time for the same piece
 
 // ---------------- your grid pieces: floors, walls, doors, roofs, fences, lights, furniture ----------------
@@ -75,7 +75,10 @@ function pieceKit(K, o) {
   const P = PC(o.id), a = o.a || 0, x = o.x, y = o.y, H = P.H || 36, L = P.L || GRID, M = maker(K, x, y, a, P.lay === 'flat' && floorBelow(o) ? 1.9 : 0), h2 = L / 2;
   if (P.sh === 'sq' || P.sh === 'tri') {
     const roof = P.lay === 'roof', z = roof ? ROOF_H : 0;
-    if (!roof && o.clip) { floorClipKit(K, o, tone(P.m)[1], z - 0.5, 2); return; }
+    if (!roof && o.clip) {   // a floor cut off at the camp's fence, its tiles in the same boards, flags or matting as a whole one
+      const pal = P.m === 'stone' ? (i, j) => MAKE.stone[(i * 3 + j * 5) % 4] : P.m === 'thatch' ? (i, j) => (i + j) % 2 ? MAKE.straw : lit3(MAKE.straw, 0.86) : (i, j) => MAKE.plank[Math.floor(j * 5 / CLIP_N) % 3];
+      K.mt = P.m === 'stone' ? 'stone' : 'wood'; floorClipKit(K, o, pal, z - 0.5, 2); K.mt = null; return;
+    }
     if (P.sh === 'tri') { triKit(K, o, P, z, roof); return; }
     if (roof) roofKit(M, o, P); else floorKit(M, o, P);
     return;
@@ -144,13 +147,38 @@ function roofKit(M, o, P) {
     for (let i = 0; i < 4; i++) M.box(-G / 2 + (i + 0.5) * G / 4, 0, z + 0.9, G / 4 + 1.6, 1.5, G, MAKE.plank[(i + Math.floor(pcRnd(o, i) * 3)) % 3], 'wood', { tip: -0.08 });
   }
 }
-// the corner pieces: a triangle, its edge a shade darker
+// the corner pieces, made the same way as the squares: boards in a frame, flagstones or slates cut into small triangles,
+// matting woven in triangles. Corner k of the piece is at angle a + k * 120 degrees, TRI_R out from its middle
 function triKit(K, o, P, z, roof) {
-  const a = o.a || 0, c = P.m === 'stone' ? (roof ? MAKE.slate : MAKE.mortar) : P.m === 'thatch' ? MAKE.strawD : roof ? MAKE.board : MAKE.dark, top = P.m === 'stone' ? (roof ? MAKE.slate : MAKE.stone[0]) : P.m === 'thatch' ? MAKE.straw : MAKE.plank[0];
-  K.mt = P.m === 'stone' ? 'stone' : 'wood';
-  K.add(P_CYL(3), o.x, z - 0.5, o.y, TRI_R * 2, roof ? 2.6 : 1.6, TRI_R * 2, c, Math.PI / 2 - a);
-  K.add(P_CYL(3), o.x, z + (roof ? 1.8 : 0.9), o.y, TRI_R * 1.8, roof ? 2 : 0.6, TRI_R * 1.8, top, Math.PI / 2 - a);
-  K.mt = null;
+  const M = maker(K, o.x, o.y, o.a || 0), R = TRI_R, V = [0, 1, 2].map(k => [Math.cos(k * 2.0944) * R, Math.sin(k * 2.0944) * R]);
+  const tri = (f, s, r, z0, h, col, mt, inv) => M.cyl(f, s, z0, r, h, col, mt, 3, 0, r, inv ? -Math.PI / 6 : -Math.PI / 2);   // inv: pointing the other way
+  const cut = (n, z0, h, gap, col, mt) => {   // the triangle cut into n * n smaller ones, each laid a touch out of true
+    const e1 = [V[1][0] - V[0][0], V[1][1] - V[0][1]], e2 = [V[2][0] - V[0][0], V[2][1] - V[0][1]]; let k = 0;
+    for (let i = 0; i < n; i++) for (let j = 0; i + j < n; j++) for (const inv of [0, 1]) {
+      if (inv && i + j > n - 2) continue;
+      const t = inv ? 2 / 3 : 1 / 3, q = pcRnd(o, k); k++;
+      tri(V[0][0] + ((i + t) * e1[0] + (j + t) * e2[0]) / n, V[0][1] + ((i + t) * e1[1] + (j + t) * e2[1]) / n, R / n - gap, z0 + q * 0.2, h, col(q, k), mt, inv);
+    }
+  };
+  const boards = (z0, h, zf, tf) => {   // planks laid across, cut to the triangle, and a frame round all three edges to finish them
+    const n = 8, w = 1.5 * R / n;
+    for (let i = 0; i < n - 1; i++) { const u = -R / 2 + (i + 0.5) * w, hw = (R - (u + w / 2)) * Math.tan(Math.PI / 6); if (hw > 0.5) M.box(u, 0, z0, w - 0.25, h, hw * 2, lit3(MAKE.plank[(i + Math.floor(pcRnd(o, i) * 3)) % 3], 0.92 + 0.12 * pcRnd(o, i + 5))); }
+    const k = (R - 3.2) / R;
+    for (let e = 0; e < 3; e++) {
+      const A = V[e], B = V[(e + 1) % 3], dx = B[0] - A[0], dy = B[1] - A[1], L = Math.hypot(dx, dy), ux = dx / L * 2.6, uy = dy / L * 2.6;
+      M.slab([A[0] * k - ux, A[1] * k - uy, zf + e * 0.08], [B[0] * k + ux, B[1] * k + uy, zf + e * 0.08], 3.2, tf, MAKE.trim);
+    }
+  };
+  if (!roof) {
+    if (P.m === 'stone') { tri(0, 0, R, -0.5, 1.6, MAKE.mortar, 'stone'); cut(3, 0.1, 1.4, 1.2, (q, k) => MAKE.stone[(k + Math.floor(q * 4)) % 4], 'stone'); }
+    else if (P.m === 'thatch') { tri(0, 0, R, -0.4, 1.3, MAKE.strawD, 'wood'); cut(4, -0.3, 1.5, 0.3, (q, k) => k % 2 ? MAKE.straw : lit3(MAKE.straw, 0.86), 'wood'); }
+    else { tri(0, 0, R, -0.5, 1.6, MAKE.dark); boards(-0.2, 1.9, 1.2, 1.4); }
+    return;
+  }
+  M.box((R - R / 2) / 2, 0, z - 2.6, 1.5 * R - 3, 2.6, 2.4, MAKE.dark);   // a rafter under it, for inside
+  if (P.m === 'thatch') { tri(0, 0, R, z, 2.2, MAKE.strawD, 'wood'); cut(3, z + 1.6, 2.4, 0.3, (q, k) => k % 2 ? MAKE.straw : lit3(MAKE.straw, 0.92), 'wood'); }
+  else if (P.m === 'stone') { tri(0, 0, R, z, 1.4, MAKE.board); cut(3, z + 1.1, 1.3, 0.8, q => lit3(MAKE.slate, 0.9 + 0.2 * q), 'stone'); }
+  else { tri(0, 0, R, z, 1.2, MAKE.board); boards(z + 0.9, 1.5, z + 1.6, 1.6); }
 }
 
 // a run of wall from f0 to f1, z0 to z1: logs, stone courses, iron-bound planks, or thatch on a frame
@@ -286,14 +314,17 @@ function furnKit(M, o, P) {
       for (let i = 0; i < 8; i++) { const q = pcRnd(o, i + 20); M.box((q - 0.5) * w * 0.8, (pcRnd(o, i + 30) - 0.5) * w * 0.8, 0.5, 3.6, 0.3, 2.2, i % 2 ? MAKE.leaf : hex('#8a6a3a'), 'plant', { turn: q * 3 }); }
       break;
     }
-    case 'thorns': {   // a bramble hedge: dark leafy clumps along it, thorny canes arching up out of them, a few dark berries
-      for (let i = 0; i < 6; i++) { const f = (i - 2.5) * r * 0.32, s = (i % 2 ? 1 : -1) * 2.2, q = pcRnd(o, i); M.rock(f, s, 4.6 + q, 11 + 3 * q, 9 + 2 * q, 11, i % 2 ? MAKE.leafD : MAKE.leaf, i, q * 2, 0, 'plant'); }
-      for (let i = 0; i < 10; i++) {
-        const q = pcRnd(o, i + 40), f = (i - 4.5) * r * 0.2, sd = i % 2 ? 1 : -1, A = [f, sd * 2, 7], Bp = [f + (q - 0.5) * 6, sd * (5 + 2 * q), 13 + 3 * q], C = [f + (q - 0.5) * 9, sd * (8 + 2 * q), 9 + 2 * q];
-        M.rod(A, Bp, 0.45, hex('#6a3a2a'), 'bark', 4); M.rod(Bp, C, 0.38, hex('#6a3a2a'), 'bark', 4);
-        for (const [u, v] of [[A, Bp], [Bp, C]]) { const m = [(u[0] + v[0]) / 2, (u[1] + v[1]) / 2, (u[2] + v[2]) / 2]; M.point(m, [m[0], m[1] + sd * 1.2, m[2] + 0.6], 0.3, hex('#c8b890'), 'plain', 3); }
+    case 'thorns': {   // a bramble thicket: leafy clumps in two rows and on top, stiff thorny canes bristling up and out of it, blackberries
+      const len = r * 1.8, cane = hex('#9c6c48'), thorn = hex('#eadcb4');
+      const C = [[-0.38, -3.4, 1], [-0.13, -3.6, 0.9], [0.13, -3.2, 1.05], [0.38, -3.5, 0.92], [-0.26, 3.4, 0.95], [0, 3.6, 1.1], [0.26, 3.3, 0.9], [-0.12, 0.2, 0.75], [0.16, -0.3, 0.7]];
+      C.forEach(([u, sv, k], i) => { const q = pcRnd(o, i), top = i > 6; M.rock(u * len, sv, (top ? 8.6 : 4.4) + q * 0.8, (10 + 2.6 * q) * k, (top ? 6.4 : 8.8 + 1.6 * q) * k, (9.4 + 1.6 * q) * k, i % 2 ? MAKE.leafD : MAKE.leaf, i, q * 2, 0, 'plant'); });
+      for (let i = 0; i < 8; i++) {
+        const q = pcRnd(o, i + 40), sd = i % 2 ? 1 : -1, f = (i - 3.5) * len / 8 + (q - 0.5) * 2, lean = 0.5 + 0.4 * q, L = 13 + 4 * pcRnd(o, i + 50);
+        const A = [f, sd * 1.6, 4.5], B = [f + (q - 0.5) * 7, sd * (1.6 + Math.sin(lean) * L), 4.5 + Math.cos(lean) * L];
+        M.point(A, B, 1.25, cane, 'bark', 5);
+        for (const [t, k] of [[0.4, 1], [0.58, -1], [0.76, 1]]) { const m = [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t, A[2] + (B[2] - A[2]) * t]; M.point(m, [m[0] + k * 2.2, m[1] + sd * 0.6, m[2] + 0.9], 0.55, thorn, 'plain', 4); }
       }
-      for (let i = 0; i < 5; i++) { const q = pcRnd(o, i + 60); M.rock((i - 2) * r * 0.28, (q - 0.5) * 8, 9.6 + q * 2, 1.7, 1.7, 1.7, hex('#4a2238'), i, 0, 0, 'plain'); }
+      for (let i = 0; i < 6; i++) { const q = pcRnd(o, i + 60); M.rock((i - 2.5) * len / 6 + (q - 0.5) * 4, (i % 2 ? -1 : 1) * (6.6 + q * 1.2), 6.4 + q * 2.4, 1.7, 1.7, 1.7, i % 3 ? hex('#3c1c2e') : hex('#a82a3a'), i, 0, 0, 'plain'); }   // blackberries, ripe and not
       break;
     }
     case 'chimes': {   // a crook post with bones hung from its arm on cords
@@ -309,11 +340,13 @@ function furnKit(M, o, P) {
     }
     case 'sconce': {   // an iron bracket on the wall holding a torch, its rag burning at dusk
       const night = dayLight() < 0.85;
-      M.box(0, -3.2, 21, 3.4, 9, 1.8, MAKE.ironD, 'metal');
-      M.rod([0, -2.6, 23.4], [0, 2.8, 26.2], 0.45, MAKE.iron, 'metal', 5);
-      M.cyl(0, 3, 25.4, 1.5, 2.4, MAKE.iron, 'metal', 8);
-      M.rod([0, 2.9, 23.6], [0, 3.4, 30], 0.7, MAKE.trim, 'wood', 6);
-      M.cyl(0, 3.4, 29.2, 1.2, 3, night ? MAKE.ember : hex('#4a3a2a'), 'cloth', 7, night ? 0.85 : 0);
+      M.box(0, -3.3, 17.6, 4.4, 12, 1.6, MAKE.plank[1]);   // a wooden backing board against the wall, iron straps across it
+      for (const z of [19, 27.4]) M.box(0, -2.4, z, 4.8, 1, 0.4, MAKE.ironD, 'metal');
+      M.rod([0, -2.4, 21.4], [0, 2.9, 24.4], 0.5, MAKE.iron, 'metal', 5); M.rod([0, -2.4, 27.2], [0, 2.9, 25.4], 0.4, MAKE.iron, 'metal', 5);
+      M.cyl(0, 3, 24, 1.5, 1.8, MAKE.iron, 'metal', 8);
+      M.rod([0, 2.7, 19.4], [0, 3.4, 30], 0.75, MAKE.trim, 'wood', 6);
+      M.cyl(0, 3.4, 29, 1.45, 3.4, night ? MAKE.ember : MAKE.hideD, 'cloth', 7, night ? 0.85 : 0);   // the rag wound round its head
+      if (night) M.cone(0, 3.4, 32.4, 1.1, 2.6, MAKE.glow, 'plain', 5, 1);
       break;
     }
     case 'lamp': {   // a lantern hung from a post's arm, lit at dusk
@@ -409,9 +442,11 @@ function furnKit(M, o, P) {
       break;
     }
     case 'pelt': {   // a hide laid out: its body, four legs and the head
-      M.cyl(0, 0, 0.3, 13.6, 0.6, 8.6, MAKE.hideD, 'cloth', 14); M.cyl(0, 0, 0.6, 12.6, 0.7, 7.6, MAKE.hide, 'cloth', 14);
-      for (const [f, s] of [[-8, -8], [8, -8], [8, 8], [-8, 8]]) M.box(f, s, 0.3, 8, 0.6, 3.4, MAKE.hideD, 'cloth', { turn: Math.sign(s) * Math.sign(f) * 0.9 });
-      M.cyl(14.4, 0, 0.3, 3.6, 0.7, 3, MAKE.hideD, 'cloth', 8); M.box(-14.6, 0, 0.3, 5, 0.6, 2, MAKE.hideD, 'cloth');
+      M.cyl(0, 0, 0.4, 13.6, 0.6, MAKE.hideD, 'cloth', 14, 0, 8.6); M.cyl(0, 0, 0.7, 12.4, 0.6, MAKE.hide, 'cloth', 14, 0, 7.4);
+      M.cyl(-1, 0, 1, 7.6, 0.5, lit3(MAKE.hide, 1.08), 'cloth', 12, 0, 3.6);   // the paler belly fur down its middle
+      for (const [f, s] of [[-8, -8], [8, -8], [8, 8], [-8, 8]]) M.box(f, s, 0.4, 8, 0.6, 3.4, MAKE.hideD, 'cloth', { turn: Math.sign(s) * Math.sign(f) * 0.9 });
+      M.cyl(14.6, 0, 0.4, 3.8, 0.8, MAKE.hideD, 'cloth', 8, 0, 3.2); for (const sd of [-1, 1]) M.cone(16, sd * 2.6, 0.9, 1, 1.6, MAKE.hideD, 'cloth', 4);   // the head and its ears
+      M.box(-14.8, 0, 0.4, 5, 0.6, 2, MAKE.hideD, 'cloth');
       break;
     }
     case 'woodpile': {   // split logs stacked between stakes, their pale ends towards you
@@ -820,4 +855,25 @@ function campKit1(K, o) {
       if (B.t === 'furnace' && (B.fuel > 0 || B.lit || B.smelt) && Math.random() < dt * 4) spark(B.x + (Math.random() - 0.5) * 4, 37, B.y + (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 10, 30 + Math.random() * 30, (Math.random() - 0.5) * 10, 0.9 + Math.random(), 1.3, 1, 0.6, 0.25, 1, 0, -6, 0.6);
       else if (B.smoke && B.inv && B.inv.some(s => s && (s.id === 'meat' || s.id === 'fish')) && Math.random() < dt * 3) { const [dx, dy] = U(B.a || 0, 4.4, -5.6); spark(B.x + dx, 27, B.y + dy, (Math.random() - 0.5) * 3, 7 + Math.random() * 4, (Math.random() - 0.5) * 3, 2.6 + Math.random(), 6 + Math.random() * 3, 0.32, 0.31, 0.3, 0.14, 0, -1.5, 0.7); }
     }
+  }; }
+
+// a door or gate on the swing is drawn afresh every frame, on its own, so you see it open and shut; once it has come to
+// rest it goes back in with everything else (the rest isn't redrawn while it moves)
+const SWING = { skip: new Set(), next: null, k: null, had: false };
+{ const pk = pieceKit; pieceKit = function (K, o) {
+    if (SWING.next && o.done && stDoorish(PC(o.id)) && (o.open || 0) !== (o.ajar || 0)) { SWING.next.add(o); return; }
+    return pk.apply(this, arguments);
+  }; }
+{ const ts = thingsSync; thingsSync = function (force) {
+    const k0 = thingsKey; SWING.next = new Set();
+    try { return ts.apply(this, arguments); } finally { if (force || thingsKey !== k0) SWING.skip = SWING.next; SWING.next = null; }
+  }; }
+{ const tf = thingsFrame; thingsFrame = function () {
+    const r = tf.apply(this, arguments);
+    if (SWING.skip.size || SWING.had) {
+      if (!SWING.k) SWING.k = new KitMesh(true);
+      const K = new Kit(); for (const o of SWING.skip) if (S.day && S.day.bld.get(o.key) === o) pieceKit(K, o);
+      SWING.k.set(K); SWING.had = K.pos.length > 0;
+    }
+    return r;
   }; }

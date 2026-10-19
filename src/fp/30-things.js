@@ -103,7 +103,7 @@ function thingsSync(force) {
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size + ':' + dayRelics();
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.open ? 'O' : '') + (B.pen && B.inv.some(s => s && s.id === 'meat') ? 'm' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
-  for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');
+  for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + ((o.open || 0) !== (o.ajar || 0) ? 'm' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');   // m: a door on the swing (31-make draws it)
   key += dayLight() < 0.85 ? 'N' : 'D';
   if (!force && key === thingsKey && Math.hypot(p.x - thingsAt.x, p.y - thingsAt.y) < 120) return;
   thingsKey = key; thingsAt = { x: p.x, y: p.y };

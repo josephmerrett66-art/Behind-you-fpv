@@ -47,7 +47,7 @@ function floorClipKit(K, o, col, z, th) {   // the floor as CLIP_N x CLIP_N tile
     const f = -span / 2 + (i + 0.5) * c, s = -span / 2 + (j + 0.5) * c, [dx, dy] = U(a, f, s), x = o.x + dx, y = o.y + dy;
     if (!inPoly(x, y)) continue;
     const r = Math.hypot(x, y); if (side > 0 ? r > CAMP_R - 1 : r < CAMP_R + 1) continue;
-    K.add(P_BOX(), x, z + th / 2, y, c + 0.15, th, c + 0.15, col, -a);
+    K.add(P_BOX(), x, z + th / 2, y, c + 0.15, th, c + 0.15, typeof col === 'function' ? col(i, j) : col, -a);
   }
 }
 // a floor from an older save, laid across the fence before floors were trimmed: it was meant for the camp, so it keeps the

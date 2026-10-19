@@ -62,6 +62,7 @@ function doorToggle(o) {
     for (const [o, open0] of keep) {
       const want = o.ajar || 0, was = o.open;
       o.open = open0 + (want - open0) * Math.min(1, dt * (want ? DOOR.open : DOOR.shut));
+      if (Math.abs(want - o.open) < 0.004) o.open = want;   // come to rest, so it's drawn at rest
       if (!want && was >= 0.08 && o.open < 0.08 && actx && monNear(o, 500) > 0) boomAt(actx.currentTime, 120, 60, 0.12, 0.3 * monNear(o, 500), sfxGain);   // the thud as it meets the frame
     }
     if (D && cl.length) clanSpikes(D, cl, dt, dayNight());

@@ -103,7 +103,7 @@ function balStep(q, dt) {
 }
 function balStrike(q, o, beast, zone) {   // it went in: a head shot counts for more
   if (beast) { huntStrike(q, o, zone); return; }
-  const k = q.dmg; if (zone === 2) { q.dmg *= BAL.fhead; const F = FOES[o.type]; wpPop('HEADSHOT', o.x, o.y, (F ? F.h : 34) + 12, '255,214,120', 0.8); }
+  const k = q.dmg; if (zone === 2) q.dmg *= BAL.fhead;   // v129: and no word over them for it
   dayShotHit(q, o, false); q.dmg = k;
 }
 

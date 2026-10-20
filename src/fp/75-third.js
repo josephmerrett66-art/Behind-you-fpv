@@ -34,7 +34,6 @@ let frameDtTP = 1 / 60;
 function thirdFrame(rdt, now, headY) {
   frameDtTP = rdt;
   const on = outsideP() && state === 'play';
-  trail.visible = !on;
   if (!isoP() || !on) isoOff();
   if (!on) { TP.hold.visible = false; TP.boom = 76; return false; }
   handG.visible = torchG.visible = false;

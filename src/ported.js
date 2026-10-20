@@ -299,7 +299,7 @@ function startSwing() {
   let i = 0;
   if ((p.roll || 0) > 0 || (p.rollEnd || 0) > 0) i = 3;   // out of a roll: the dash strike
   else if (prev && S.t - prev.end < ATK_CHAIN && prev.i < 2) i = prev.i + 1;
-  const tov = S.day && TOOL_SWING[dayTool()] && i !== 3 ? TOOL_SWING[dayTool()] : null; if (tov) i = 0;   // v133: a tool swings its own way, one stroke at a time
+  const tov = S.day && i !== 3 && !(dArmOn() && curW() !== 'torch') ? TOOL_SWING[dayTool()] || TOOL_SWING.hand : null; if (tov) i = 0;   // v133: a tool swings its own way, one stroke at a time (v129: and a torch or a hammer like a fist with it in, not the old game's leap and slam)
   if (!tov && (wpOn() || dArmOn()) && curW() !== 'torch') { if (S.day) { S.day.st = Math.max(0, S.day.st - STA_SWING); S.day.stT = 0; } return wpStart(i === 3); }   // v170: Daylight weapons too   // v141: a boss weapon swings its own way
   const D = ATK[i], a = S.aimW !== undefined ? S.aimW : 0;
   if (S.day) { S.day.st = Math.max(0, S.day.st - (D.slam ? STA_SLAM : STA_SWING)); S.day.stT = 0; }
@@ -310,8 +310,7 @@ function startSwing() {
   rg.atkHist = (rg.atkHist || []).filter(h => S.t - h.t < 1.6).concat([{ i, side, t: S.t }]);   // v120: a false Mirage you strike throws your own combo back
   rg.slashes = rg.slashes || [];
   if (!D.slam && !tov) rg.slashes.push({ i, a, side, t: 0, life: 0.28, r: D.reach, arc: D.arc });
-  addShake(D.slam ? 0.12 : 0.07); camKick(a, D.kick * 0.5);
-  dustKick(p.x, p.y, a, D.slam ? 14 : 6, D.slam ? 110 : 70);
+  if (!S.day) { addShake(D.slam ? 0.12 : 0.07); camKick(a, D.kick * 0.5); dustKick(p.x, p.y, a, D.slam ? 14 : 6, D.slam ? 110 : 70); }   // v129: in Daylight a swing doesn't jolt the view or kick up the ground
   if (actx && noiseBuf) { const t = actx.currentTime; noiseAt(t, D.slam ? 1400 : 3000, D.slam ? 250 : 700, D.slam ? 0.3 : 0.14, D.slam ? 0.45 : 0.32, sfxGain); if (D.slam) boomAt(t, 90, 60, 0.15, 0.3, sfxGain); }
 }
 function atkHit(D, a) {                          // everything in reach takes the blow, once per swing
@@ -324,6 +323,7 @@ function atkHit(D, a) {                          // everything in reach takes th
   };
   const spark = (o, h, n) => {                   // a spray of hot sparks off the point of impact, and a little flash ring
     const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy) || 1;
+    if (S.day) return plainBlood(o, h, Math.atan2(dy, dx));   // v129: in Daylight, blood (62-plain)
     for (let k = 0; k < n; k++) rg.embers.push({ x: o.x - dx / d * 6, y: o.y - dy / d * 6, z: h * (0.3 + Math.random() * 0.5), vz: 50 + Math.random() * 110, vx: dx / d * (90 + Math.random() * 170) + (Math.random() - 0.5) * 120, vy: dy / d * (90 + Math.random() * 170) + (Math.random() - 0.5) * 120, life: 0.3 + Math.random() * 0.35, ember: true });
     rg.blasts.push({ x: o.x - dx / d * 8, y: o.y - dy / d * 8, t: 0, life: 0.18, r: 34, col: 'white' });
   };
@@ -553,8 +553,8 @@ const POSES = [
     { u: 0.6, ph: 0.65, ln: 7, cr: 3.5, st: 7, a: -0.05, R: 15.5, h: -3, ta: 0, tp: 0, la: 3, lR: 7.5, lh: -4, e: 'io' },
     { u: 1, ph: 0.3, ln: 3, cr: 1.8, st: 4, a: -0.15, R: 11, h: -5, ta: -0.1, tp: -0.05, la: -2.2, lR: 6.5, lh: -8, e: 'io' } ],
 ];
-function addShake(a) { S.trauma = Math.min(1, (S.trauma || 0) + a); if (a >= 0.2) padRumble(a); }
-function hitStop(t) { S.hitstop = Math.max(S.hitstop || 0, t); }
+function addShake(a) { S.trauma = Math.min(1, (S.trauma || 0) + a * 0.5); if (a >= 0.2) padRumble(a); }   // v129 (Joe: de-arcadeify): half the shake it was, from everything
+function hitStop(t) {}   // v129: nothing freezes when a blow lands any more (62-plain)
 function musLoad(url) {                        // v148: the music lives as separate files next to the game (the browser caches them)
   return fetch(url).then(r => { if (!r.ok) throw new Error(url); return r.arrayBuffer(); }).then(b => new Promise((ok, no) => {
     const p = actx.decodeAudioData(b, ok, no);
@@ -775,7 +775,7 @@ function lightBurst(x, y, R, frac, col) {
 }
 const rdCol = t => t === 'searcher' ? '90,230,255' : t === 'boss' ? '255,226,190' : stkCol(t);
 function rdKill(e) {                             // a kill is a crisp pop in its colour, so you can count them in a crowd
-  const rg = S.rg; if (!rg || e.type === 'centi' && !e.hz) return;
+  const rg = S.rg; if (!rg || S.day || e.type === 'centi' && !e.hz) return;   // v129: not in Daylight
   rg.rdPops = rg.rdPops || []; if (rg.rdPops.length > 40) rg.rdPops.shift();
   rg.rdPops.push({ x: e.x, y: e.y, h: (FOES[e.type] ? FOES[e.type].h : 30) * (e.k || 1), col: rdCol(e.type), t: 0, a: Math.random() * 6 });
 }
@@ -863,7 +863,7 @@ function stkWord(id, extra) {                     // a bonus: its word by the co
 }
 const STK_GRP = { double: 'multi', triple: 'multi', multi: 'multi' };
 function stkKill(e) {                             // called from killFoe: every kill feeds the streak
-  if (!stkFight()) return;
+  if (!stkFight() || S.day) return;               // v129 (Joe: de-arcadeify): no streak in Daylight
   const rg = S.rg, f = FOES[e.type]; if (!f) return;
   const last = rg.hp <= 1 && !(rg.steel > 0);
   const m = stkAdd(e.x, e.y, f.h * 0.75, (STK_PTS[e.type] || 10) * (last ? 2 : 1), stkCol(e.type), true);
@@ -1922,25 +1922,25 @@ const DIT = {
   axe2: { n: 'Flint axe', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'axe', tier: 2, dmg: 1.05, dur: 120, b: 'Fells a tree in 3 chops' },
   pick1: { n: 'Stone pick', c: STONE_HEAD, st: 1, k: 'tool', tool: 'pick', tier: 1, dmg: 0.8, dur: 60, b: 'Breaks rock for flint' },
   pick2: { n: 'Flint pick', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'pick', tier: 2, dmg: 0.95, dur: 120, b: 'Breaks rock in 2 blows, more flint' },
-  club: { n: 'Wooden club', c: '#6e5235', st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#6e5235', dmg: 1.05, r: 6, dur: 60, b: 'Club · wide sweeps that send them flying' },
+  club: { n: 'Wooden club', c: '#6e5235', st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#6e5235', dmg: 1.05, r: 6, dur: 60, b: 'Club · slow, heavy swings' },
   spear1: { n: 'Stone spear', c: STONE_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: STONE_HEAD, dmg: 1.15, r: 20, dur: 50, b: 'Spear · quick jabs at a safe distance' },
   spear2: { n: 'Flint spear', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: FLINT_HEAD, dmg: 1.35, r: 24, dur: 100, b: 'Spear · long reach, hits hard' },
   bonec: { n: 'Bone club', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'bone', fam: 'club', bc: '#e6dfcc', dmg: 1.75, r: 8, dur: 140, b: 'Club · heavy, and hard as rock' },
   // v170: weapon families. fam = the move set it swings with (spear: twin, club, axe, knife, sword); hc = the colour of its head or blade, bc = a club's body
   spear0: { n: 'Sharpened stick', c: '#a08a62', st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: '#b89a6a', dmg: 0.95, dur: 35, b: 'Spear · better than nothing, just' },
   spearB: { n: 'Bone spear', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: '#e6dfcc', dmg: 1.55, dur: 150, b: 'Spear · a jagged bone point that bites deep' },
-  waxe1: { n: 'Stone war axe', c: STONE_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: STONE_HEAD, dmg: 1.15, dur: 70, b: 'War axe · huge slow chops that knock them flat' },
+  waxe1: { n: 'Stone war axe', c: STONE_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: STONE_HEAD, dmg: 1.15, dur: 70, b: 'War axe · slow, heavy chops' },
   waxe2: { n: 'Flint war axe', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: FLINT_HEAD, dmg: 1.4, dur: 130, b: 'War axe · a keen black edge' },
   waxe3: { n: 'Bone war axe', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: '#e6dfcc', dmg: 1.65, dur: 170, b: 'War axe · a jawbone blade, cruel and heavy' },
   waxe4: { n: 'Iron war axe', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: IRON_HEAD, dmg: 2.0, dur: 320, b: 'War axe · splits anything in two' },
   sclub: { n: 'Spiked club', c: '#5e4630', st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#5e4630', spikes: FLINT_HEAD, dmg: 1.35, dur: 100, b: 'Club · flint driven through the head' },
   maul: { n: 'Stone maul', c: STONE_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#8d8b85', dmg: 1.5, dur: 120, b: 'Club · a rock lashed to a log' },
   mace: { n: 'Iron mace', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#9aa0a6', spikes: '#d8dce0', dmg: 2.15, dur: 320, b: 'Club · flanged iron, nothing stands up to it' },
-  knife1: { n: 'Flint knife', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'knife', fam: 'knife', hc: FLINT_HEAD, dmg: 0.9, dur: 70, b: 'Knife · five lightning cuts, and they bleed' },
+  knife1: { n: 'Flint knife', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'knife', fam: 'knife', hc: FLINT_HEAD, dmg: 0.9, dur: 70, b: 'Knife · quick cuts, and they bleed' },
   knife2: { n: 'Bone knife', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'knife', fam: 'knife', hc: '#e6dfcc', dmg: 1.15, dur: 130, b: 'Knife · fast, and it holds an edge' },
   knife3: { n: 'Iron knife', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'knife', fam: 'knife', hc: IRON_HEAD, dmg: 1.45, dur: 280, b: 'Knife · a hunter\'s blade' },
-  sword1: { n: 'Bone sword', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'sword', fam: 'sword', hc: '#e6dfcc', dmg: 1.45, dur: 160, b: 'Sword · cuts both ways, then a spin · parry' },
-  sword2: { n: 'Iron sword', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'sword', fam: 'sword', hc: IRON_HEAD, dmg: 1.9, dur: 340, b: 'Sword · the all-rounder, in good iron · parry' },
+  sword1: { n: 'Bone sword', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'sword', fam: 'sword', hc: '#e6dfcc', dmg: 1.45, dur: 160, b: 'Sword · cuts both ways' },
+  sword2: { n: 'Iron sword', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'sword', fam: 'sword', hc: IRON_HEAD, dmg: 1.9, dur: 340, b: 'Sword · the all-rounder, in good iron' },
   bow1: { n: 'Short bow', c: '#9a7040', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#9a7040', dmg: 1.0, dur: 90, b: 'Bow · hold to draw, let go to loose · needs arrows' },   // v189: weapons stage 2, ranged
   bow2: { n: 'Bone bow', c: '#d8cfb8', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#cfc6ae', dmg: 1.35, dur: 170, b: 'Bow · horn and bone, a hard pull and a long flight' },
   bow3: { n: 'War bow', c: '#6e4a2c', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#5e3e24', tip: IRON_HEAD, dmg: 1.8, dur: 300, b: 'Bow · iron-tipped yew, it drops a deer at forty paces' },
@@ -4245,17 +4245,17 @@ function daySpearStep(dt) {
       for (const o of rg.enemies) if (!o.dead && !q.hit.has(o) && Math.hypot(o.x - q.x, o.y - q.y) < (FOES[o.type] ? FOES[o.type].w : 12) + 6) {
         q.hit.add(o); o.hp -= dmg; o.jit = 1; o.kHit = 'spear'; o.kHitT = S.t; o.swung = true; stkTouch();
         if (o.type !== 'tall') { o.x += Math.cos(q.a) * 22; o.y += Math.sin(q.a) * 22; }
-        wjSpray(o, q.a, '220,225,200', 10); wjMark(o, q.a, '255,255,255', 34, 0.2, 1.5); hitStop(0.05); addShake(0.2);
+        plainBlood(o, FOES[o.type] ? FOES[o.type].h : 30, q.a, 7);   // v129: blood, not a slash of light
         q.s.d = Math.max(1, (q.s.d ?? T.dur) - 1);
         if (actx) { const t = actx.currentTime; boomAt(t, 150, 50, 0.12, 0.5, sfxGain); noiseAt(t, 4200, 1400, 0.06, 0.3, sfxGain); }
       }
       for (const b of D.beasts) if (!b.dead && !q.hit.has(b) && Math.hypot(b.x - q.x, b.y - q.y) < BEAST[b.k].w + 6) {
-        q.hit.add(b); b.hp -= dmg * 1.4 * sneakHit(b); b.flash = 1; if (b.hp <= 0) beastDie(b); else beastScare(b);
+        q.hit.add(b); b.hp -= dmg * 1.4 * sneakHit(b); b.flash = 1; plainBlood(b, BEAST[b.k].h || 20, q.a, 7); if (b.hp <= 0) beastDie(b); else beastScare(b);
       }
       if (q.d >= q.max || wpSolidAt(q.x, q.y, 2)) q.done = true;
     }
     if (q.done) {   // it lands, point down, quivering
-      q.land = { t: 0 }; addShake(0.06);
+      q.land = { t: 0 };
       if (actx) { const t = actx.currentTime; boomAt(t, 220, 120, 0.08, 0.3, sfxGain); }
       const f = dayDrop(q.x, q.y, q.s.id, 1, q.s.d); f.x = q.x; f.y = q.y; f.thrown = 1; q.f = f;
     }
@@ -4364,9 +4364,8 @@ function dayShotHit(q, o, beast) {               // a shot lands on something al
     if (o.type !== 'tall' && (o.type !== 'brute' || q.kind === 'taxe' || q.stun > 1)) { o.x += Math.cos(q.a) * q.knock; o.y += Math.sin(q.a) * q.knock; }
     foeSwBreak(o);
   }
-  wjSpray(o, q.a, q.kind === 'stone' ? '200,200,190' : '220,225,200', q.kind === 'arrow' ? 5 : 8);
-  hitStop(q.kind === 'taxe' || q.c >= 1 ? 0.06 : 0.03); addShake(q.kind === 'taxe' ? 0.28 : 0.08 + 0.1 * (q.c || 0)); padRumble(0.3, 70);
-  if (q.c >= 1 && !beast) wpPop(q.kind === 'arrow' ? 'FULL DRAW' : 'CRACK', o.x, o.y, h + 10, '255,230,170', 0.75);
+  if (q.kind !== 'stone') plainBlood(o, h, q.a, q.kind === 'arrow' ? 3 : 6);   // v129: blood where it went in, not sparks, and no word over it
+  addShake(q.kind === 'taxe' ? 0.28 : 0.08 + 0.1 * (q.c || 0)); padRumble(0.3, 70);
   if (actx) { const t = actx.currentTime;
     if (q.kind === 'stone') { boomAt(t, 180, 70, 0.08, 0.45, sfxGain); noiseAt(t, 2000, 700, 0.05, 0.3, sfxGain); }
     else if (q.kind === 'taxe') { boomAt(t, 130, 45, 0.18, 0.6, sfxGain); noiseAt(t, 3600, 1000, 0.08, 0.4, sfxGain); }
@@ -4576,15 +4575,15 @@ function dayNamedHit(hit, a) {                    // a blow from a named weapon 
   if (id === 'nbell' && (rg.bellN = (rg.bellN || 0) + 1) % 3 === 0) {   // the third blow rings the bell
     for (const o of rg.enemies) if (!o.dead && Math.hypot(o.x - p.x, o.y - p.y) < 130) { o.frozen = Math.max(o.frozen || 0, 1.3); o.jit = 1; foeSwBreak(o); }
     for (const b of S.day.beasts) if (!b.dead && !b.tame && Math.hypot(b.x - p.x, b.y - p.y) < 160) beastScare(b);
-    wpRing(p.x, p.y, 130, '255,214,130', 0.7); wpRing(p.x, p.y, 80, '255,240,200', 0.5); wpPop('BELL', p.x, p.y, 70, '255,214,130', 1); addShake(0.35); hitStop(0.07); padRumble(0.6, 180);
+    addShake(0.35); padRumble(0.6, 180);   // v129: it rings out, no rings of light or word over you
     if (actx) { const t = actx.currentTime; for (const [f, g, l] of [[392, 0.07, 2.2], [784, 0.04, 1.6], [1176, 0.025, 1.2], [988, 0.02, 1]]) toneAt(t, f, l, g, 'sine', sfxGain); boomAt(t, 140, 60, 0.25, 0.4, sfxGain); }
   }
-  if (id === 'nfang') for (const b of S.day.beasts) if (b.tame && !b.dead && Math.hypot(b.x - p.x, b.y - p.y) < 420) { b.fangTgt = hit[0]; b.bite = 0; if (!b.howl || S.t - b.howl > 3) { b.howl = S.t; wpPop('PACK', b.x, b.y, 30, '240,232,214', 0.7); } }
+  if (id === 'nfang') for (const b of S.day.beasts) if (b.tame && !b.dead && Math.hypot(b.x - p.x, b.y - p.y) < 420) { b.fangTgt = hit[0]; b.bite = 0; if (!b.howl || S.t - b.howl > 3) b.howl = S.t; }
 }
 function dayNamedTouch(o) {                       // per enemy struck: the Ash Crown Blade's burn at night
   if (heldNamed() !== 'nash' || !dayDark()) return;
   o.hp -= 0.5 * dayK(); o.wburn = Math.max(o.wburn || 0, 2.5); o.wburnK = 1.5;
-  wpEmbers(o.x, o.y, 30, 8, '240,232,255'); if (Math.random() < 0.3) wpPop('BURN', o.x, o.y, (FOES[o.type] ? FOES[o.type].h : 30) + 8, '240,232,255', 0.6);
+  wpEmbers(o.x, o.y, 30, 8, '240,232,255');
 }
 function dayNamedTick(dt) {
   const id = heldNamed(), rg = S.rg, p = S.p;
@@ -4637,7 +4636,7 @@ function dayMatSnd(n, D) {                        // the blow lands: the sound o
   else if (inf === 'ash' || inf === 'wisp') toneAt(t + 0.03, inf === 'ash' ? 2640 : 1980, 0.35, 0.014, 'sine', sfxGain);
   padRumble(Math.min(0.7, 0.2 + 0.18 * (T.dmg - 0.8)), 55 + 25 * T.dmg);
 }
-const TOOL_SWING = { axe: { pose: 4, dur: 0.44, hitAt: 0.22, hop: 0, lunge: 8 }, pick: { pose: 5, dur: 0.46, hitAt: 0.24, hop: 0, lunge: 6 }, hand: { pose: 6, dur: 0.32, hitAt: 0.1, hop: 2, lunge: 14 } };
+const TOOL_SWING = { axe: { pose: 4, dur: 0.44, hitAt: 0.22, hop: 0, lunge: 8, knock: 12, shake: 0.08, kick: 1.5 }, pick: { pose: 5, dur: 0.46, hitAt: 0.24, hop: 0, lunge: 6, knock: 12, shake: 0.08, kick: 1.5 }, hand: { pose: 6, dur: 0.32, hitAt: 0.1, hop: 0, lunge: 8, knock: 8, shake: 0.05, kick: 1 } };   // v129: a step in, no hop, and a blow that barely moves the view
 function dayAct(pose, dur, col, item) { S.p.act = { pose, t: 0, dur, col, item }; }
 function dayActStep(dt) { const a = S.p.act; if (a && (a.t += dt) >= a.dur) S.p.act = null; }
 const POOF_T = 0.32;
@@ -4798,7 +4797,7 @@ function wpSwing(i, D, dash, k = 1, key) {
   const sp = (w === 'club' ? 1 / (1 - 0.1 * Math.min(3, rg.wclub || 0)) : 1) * dayFgSp();   // a chipped club swings quicker (v190: and a balanced weapon)
   p.atk = { i, t: 0, dur: D.dur, a, side: D.side || (i % 2 ? -1 : 1), hit: new Set(), done: false, queued: false, pose: D.pose, wd: D, hi: 0, w, key: key || w, k, sp };
   rg.atkHist = (rg.atkHist || []).filter(h => S.t - h.t < 1.6).concat([{ i: dash ? 3 : Math.min(2, i), side: p.atk.side, t: S.t }]);
-  camKick(a, D.charge ? 6 : D.thrust ? 2 : -3); addShake(D.charge ? 0.12 : 0.04);   // heavy: the wind-up pulls you back before it throws you forward
+  if (!S.day) { camKick(a, D.charge ? 6 : D.thrust ? 2 : -3); addShake(D.charge ? 0.12 : 0.04); }   // heavy: the wind-up pulls you back before it throws you forward (v129: not in Daylight)
   (WSND[w] || WSND.axe)(D);
   if (w === 'lance' && !dash) wpEcho(D, a);       // the decoys copy your thrusts
 }
@@ -4856,7 +4855,7 @@ function wpHit(D, a) {                            // the blow goes through atkHi
   const rg = S.rg, p = S.p, A = p.atk, w = A ? A.w : curW();
   if (D.proj) return wpShoot(D, a);
   const trip = rg.wtrip ? 3 : 1, back = w === 'knife' && rg.wvan, k = (A && A.k || 1) * trip;
-  const D2 = Object.assign({ wpn: 1 }, D, { dmg: D.dmg * k * wjPow(w), boss: D.boss * k * wjPow(w), kh: D.kh || 'swing' }); wjFeel(w, D2);   // v146: power climbs boss by boss, and the weight goes into the feel
+  const D2 = Object.assign({ wpn: 1 }, D, { dmg: D.dmg * k * wjPow(w), boss: D.boss * k * wjPow(w), kh: D.kh || 'swing' }); if (!S.day) wjFeel(w, D2);   // v146: power climbs boss by boss, and the weight goes into the feel
   if (back) Object.assign(D2, { dmg: 99, boss: D.boss * 3, kh: 'backstab' });   // out of nowhere: a backstab kills anything that isn't a boss
   const n = atkHit(D2, a) || 0;
   const hit = n ? rg.enemies.filter(o => o.kHitT === S.t && o.kHit === D2.kh) : [];
@@ -4866,6 +4865,7 @@ function wpHit(D, a) {                            // the blow goes through atkHi
   if (S.day && A && !A.worn && n) { A.worn = true; dayWear(); }   // v170: a blow that lands wears the weapon, once a swing
   if (S.day && n) { dayNamedHit(hit, a); dayMatSnd(n, D); }   // v191: named weapons' rules (v192: and the sound of what it's made of)
   if (D.charge) return n;
+  if (S.day) { plainHit(w, D, n, a, hit); return n; }   // v129: a plain blow (62-plain)
   (WHIT[w] || WHIT.axe)(D, n, a, hit);
   if (WJ[w]) wjHit(w, D2, n, a, hit);   // v146
   if (D.fin && n) wpFinish(D, a);
@@ -5050,7 +5050,7 @@ function wjTick(dt) {
   for (const e of rg.enemies) {
     if (e.dead) continue;
     if (e.wburn > 0) { e.wburn -= dt; e.hp -= 0.42 * (e.wburnK || 1) * dt; e.jit = Math.max(e.jit || 0, 0.3); if (Math.random() < dt * 14) wpEmbers(e.x, e.y, 30, 1, '255,150,60'); }
-    if (e.wbleedT > 0) { e.wbleedT -= dt; e.hp -= 0.16 * e.wbleed * (e.wbleedK || 1) * dt; if (Math.random() < dt * 6 * e.wbleed) wjSpray(e, Math.random() * 7, '200,40,30', 1, 0.3); if (e.wbleedT <= 0) e.wbleed = 0; }
+    if (e.wbleedT > 0) { e.wbleedT -= dt; e.hp -= 0.16 * e.wbleed * (e.wbleedK || 1) * dt; if (S.day) { if (Math.random() < dt * 1.5 * e.wbleed) huntBlood(e.x, e.y, 1, 0.8); } else if (Math.random() < dt * 6 * e.wbleed) wjSpray(e, Math.random() * 7, '200,40,30', 1, 0.3); if (e.wbleedT <= 0) e.wbleed = 0; }   // v129: in Daylight it drips on the ground
     if (e.wyank && e.wyank.hook && e.wyank.t >= 1) { /* landed below */ }
     if (e.wlift) { e.wlift.t += dt; if (e.wlift.t > 0.55) { e.wlift = null; wpRing(e.x, e.y, 46, '255,220,170', 0.3); ashBurst(e.x, e.y, 8, 6); addShake(0.12); for (const o of rg.enemies) if (o !== e && !o.dead && Math.hypot(o.x - e.x, o.y - e.y) < 46) { o.hp -= 0.6 * wjPow('fists'); o.jit = 1; o.kHit = 'uppercut'; o.kHitT = S.t; } if (actx) boomAt(actx.currentTime, 100, 35, 0.18, 0.5, sfxGain); } }   // it comes back down hard
     if (e.wbowl && e.wfly > 0) for (const o of rg.enemies) {

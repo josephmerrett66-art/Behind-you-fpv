@@ -3,7 +3,7 @@
 // bends smoothly at every joint, with the game's dark outline round it. Each frame a pose is worked out from what the
 // main game says you're doing, and every joint eases toward it, so one movement flows into the next. Blows are built the
 // way a brawler's are: a wind-up that coils the body, a strike that throws the hips and shoulders through with a step in,
-// a beat of follow-through, then the settle; the blade leaves a smear of light behind it.
+// a beat of follow-through, then the settle.
 // (Joe's character sheet) a red-orange beanie with a white bobble, a cream shirt with the sleeves rolled up, a dark harness and
 // belt, a tan rucksack, taupe cargo trousers turned up at the ankle, brown lace-up boots
 const BODY_COL = { tunic: [234, 224, 202], trou: [132, 118, 100], trouL: [138, 123, 104], boot: [112, 76, 52], sole: [50, 40, 34], lace: [200, 172, 130], skin: [218, 170, 130],
@@ -174,20 +174,6 @@ const BODY = (() => {
   const cur = {}; for (const [n] of BONES) cur[n] = [0, 0, 0];
   return { mesh, edge, B, cur, root: [0, 0, 0], face: undefined, deadT: 0, atk: null, lastU: 0 };
 })();
-
-// ---- the smear behind the blade: a ribbon of light from the weapon's tip in the world ----
-const SMEAR_N = 16, smPos = new Float32Array(SMEAR_N * 2 * 3), smA = new Float32Array(SMEAR_N * 2), smGeo = new THREE.BufferGeometry();
-smGeo.setAttribute('position', new THREE.BufferAttribute(smPos, 3).setUsage(THREE.DynamicDrawUsage));
-smGeo.setAttribute('ta', new THREE.BufferAttribute(smA, 1).setUsage(THREE.DynamicDrawUsage));
-{ const ix = []; for (let i = 0; i < SMEAR_N - 1; i++) { const a = i * 2; ix.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } smGeo.setIndex(ix); }
-const smear = new THREE.Mesh(smGeo, new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
-  uniforms: { tcol: { value: new V3(1, 0.8, 0.55) } },
-  vertexShader: `attribute float ta; varying float vA; void main() { vA = ta; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `uniform vec3 tcol; varying float vA; void main() { gl_FragColor = vec4(mix(tcol, vec3(1.0, 0.98, 0.94), smoothstep(0.55, 1.0, vA)) * vA, 1.0); }`,
-}));
-smear.frustumCulled = false; smear.renderOrder = 6; scene.add(smear);
-const smPts = [];
 
 // ---- the pose: worked out fresh each frame, then every joint eases toward it ----
 const ease = {
@@ -371,7 +357,6 @@ function posePlayer(now) {
   X.mesh.rotation.set(rollX, faceYaw(X.face), 0, 'YXZ');
   X.edge.position.copy(X.mesh.position); X.edge.rotation.copy(X.mesh.rotation);
   X.mesh.visible = X.edge.visible = true;
-  bodyMat.uniforms.flash.value = Math.max(0, CFX.hurt ? 0.7 * (1 - CFX.hurt.t / 0.15) : 0);
   X.mesh.updateMatrixWorld(true); X.edge.updateMatrixWorld(true);
   // what's in your hand: the same model as in first person, gripped in your fist
   if (id !== TP.holdId) {
@@ -399,22 +384,5 @@ function posePlayer(now) {
     between(PT.rod, a.x, a.y, a.z, b.x, b.y, b.z, 1.2, hex('#66655e'), 0);
     stat(b.x, b.y, b.z, 7, 1, 0.92, 0.75, 0.6 * S.torchLvl, 0); stat(b.x, b.y, b.z, 2.4, 1, 1, 0.95, 1, 0);
   }
-  // the smear: tip and middle of the blade while it's cutting
-  const cutting = kind && (() => { const u = (A || Wa).t / ((A || Wa).dur || 0.4); return u > 0.17 && u < 0.6; })();
-  if (TP.hold.visible || kind) {
-    const L = T && (T.wpn === 'spear' || T.thr === 'jav') ? 30 : T && T.wpn === 'sword' ? 17 : TP.hold.visible ? 14 : 4;
-    const m = TP.hold.visible ? TP.hold.matrix : hand.matrixWorld, tip = new V3(0, TP.hold.visible ? L : -3, 0).applyMatrix4(m), mid = new V3(0, TP.hold.visible ? L * 0.6 : -1, 0).applyMatrix4(m);
-    if (!TP.hold.visible) { const ty = terrH(X.mesh.position.x, X.mesh.position.z); tip.y += ty; mid.y += ty; }   // the item's matrix is already lifted onto the ground
-    smPts.unshift({ tip, mid, a: cutting ? 1 : 0 });
-  } else smPts.unshift({ tip: new V3(), mid: new V3(), a: 0 });
-  if (smPts.length > SMEAR_N) smPts.length = SMEAR_N;
-  for (let i = 0; i < SMEAR_N; i++) {
-    const q = smPts[Math.min(i, smPts.length - 1)];
-    smPos.set([q.tip.x, q.tip.y, q.tip.z], i * 6); smPos.set([q.mid.x, q.mid.y, q.mid.z], i * 6 + 3);
-    const fa = 0.8 * q.a * Math.pow(1 - i / SMEAR_N, 1.6); smA[i * 2] = fa; smA[i * 2 + 1] = 0;
-  }
-  smGeo.attributes.position.needsUpdate = true; smGeo.attributes.ta.needsUpdate = true;
-  { const c = CFX.tint.split(','); smear.material.uniforms.tcol.value.set(c[0] / 255, c[1] / 255, c[2] / 255); }
-  smear.visible = true;
 }
-function bodyHide() { BODY.mesh.visible = BODY.edge.visible = false; smear.visible = false; }
+function bodyHide() { BODY.mesh.visible = BODY.edge.visible = false; }

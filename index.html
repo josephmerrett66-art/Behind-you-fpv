@@ -974,7 +974,7 @@ function startSwing() {
   let i = 0;
   if ((p.roll || 0) > 0 || (p.rollEnd || 0) > 0) i = 3;   // out of a roll: the dash strike
   else if (prev && S.t - prev.end < ATK_CHAIN && prev.i < 2) i = prev.i + 1;
-  const tov = S.day && TOOL_SWING[dayTool()] && i !== 3 ? TOOL_SWING[dayTool()] : null; if (tov) i = 0;   // v133: a tool swings its own way, one stroke at a time
+  const tov = S.day && i !== 3 && !(dArmOn() && curW() !== 'torch') ? TOOL_SWING[dayTool()] || TOOL_SWING.hand : null; if (tov) i = 0;   // v133: a tool swings its own way, one stroke at a time (v129: and a torch or a hammer like a fist with it in, not the old game's leap and slam)
   if (!tov && (wpOn() || dArmOn()) && curW() !== 'torch') { if (S.day) { S.day.st = Math.max(0, S.day.st - STA_SWING); S.day.stT = 0; } return wpStart(i === 3); }   // v170: Daylight weapons too   // v141: a boss weapon swings its own way
   const D = ATK[i], a = S.aimW !== undefined ? S.aimW : 0;
   if (S.day) { S.day.st = Math.max(0, S.day.st - (D.slam ? STA_SLAM : STA_SWING)); S.day.stT = 0; }
@@ -985,8 +985,7 @@ function startSwing() {
   rg.atkHist = (rg.atkHist || []).filter(h => S.t - h.t < 1.6).concat([{ i, side, t: S.t }]);   // v120: a false Mirage you strike throws your own combo back
   rg.slashes = rg.slashes || [];
   if (!D.slam && !tov) rg.slashes.push({ i, a, side, t: 0, life: 0.28, r: D.reach, arc: D.arc });
-  addShake(D.slam ? 0.12 : 0.07); camKick(a, D.kick * 0.5);
-  dustKick(p.x, p.y, a, D.slam ? 14 : 6, D.slam ? 110 : 70);
+  if (!S.day) { addShake(D.slam ? 0.12 : 0.07); camKick(a, D.kick * 0.5); dustKick(p.x, p.y, a, D.slam ? 14 : 6, D.slam ? 110 : 70); }   // v129: in Daylight a swing doesn't jolt the view or kick up the ground
   if (actx && noiseBuf) { const t = actx.currentTime; noiseAt(t, D.slam ? 1400 : 3000, D.slam ? 250 : 700, D.slam ? 0.3 : 0.14, D.slam ? 0.45 : 0.32, sfxGain); if (D.slam) boomAt(t, 90, 60, 0.15, 0.3, sfxGain); }
 }
 function atkHit(D, a) {                          // everything in reach takes the blow, once per swing
@@ -999,6 +998,7 @@ function atkHit(D, a) {                          // everything in reach takes th
   };
   const spark = (o, h, n) => {                   // a spray of hot sparks off the point of impact, and a little flash ring
     const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy) || 1;
+    if (S.day) return plainBlood(o, h, Math.atan2(dy, dx));   // v129: in Daylight, blood (62-plain)
     for (let k = 0; k < n; k++) rg.embers.push({ x: o.x - dx / d * 6, y: o.y - dy / d * 6, z: h * (0.3 + Math.random() * 0.5), vz: 50 + Math.random() * 110, vx: dx / d * (90 + Math.random() * 170) + (Math.random() - 0.5) * 120, vy: dy / d * (90 + Math.random() * 170) + (Math.random() - 0.5) * 120, life: 0.3 + Math.random() * 0.35, ember: true });
     rg.blasts.push({ x: o.x - dx / d * 8, y: o.y - dy / d * 8, t: 0, life: 0.18, r: 34, col: 'white' });
   };
@@ -1228,8 +1228,8 @@ const POSES = [
     { u: 0.6, ph: 0.65, ln: 7, cr: 3.5, st: 7, a: -0.05, R: 15.5, h: -3, ta: 0, tp: 0, la: 3, lR: 7.5, lh: -4, e: 'io' },
     { u: 1, ph: 0.3, ln: 3, cr: 1.8, st: 4, a: -0.15, R: 11, h: -5, ta: -0.1, tp: -0.05, la: -2.2, lR: 6.5, lh: -8, e: 'io' } ],
 ];
-function addShake(a) { S.trauma = Math.min(1, (S.trauma || 0) + a); if (a >= 0.2) padRumble(a); }
-function hitStop(t) { S.hitstop = Math.max(S.hitstop || 0, t); }
+function addShake(a) { S.trauma = Math.min(1, (S.trauma || 0) + a * 0.5); if (a >= 0.2) padRumble(a); }   // v129 (Joe: de-arcadeify): half the shake it was, from everything
+function hitStop(t) {}   // v129: nothing freezes when a blow lands any more (62-plain)
 function musLoad(url) {                        // v148: the music lives as separate files next to the game (the browser caches them)
   return fetch(url).then(r => { if (!r.ok) throw new Error(url); return r.arrayBuffer(); }).then(b => new Promise((ok, no) => {
     const p = actx.decodeAudioData(b, ok, no);
@@ -1450,7 +1450,7 @@ function lightBurst(x, y, R, frac, col) {
 }
 const rdCol = t => t === 'searcher' ? '90,230,255' : t === 'boss' ? '255,226,190' : stkCol(t);
 function rdKill(e) {                             // a kill is a crisp pop in its colour, so you can count them in a crowd
-  const rg = S.rg; if (!rg || e.type === 'centi' && !e.hz) return;
+  const rg = S.rg; if (!rg || S.day || e.type === 'centi' && !e.hz) return;   // v129: not in Daylight
   rg.rdPops = rg.rdPops || []; if (rg.rdPops.length > 40) rg.rdPops.shift();
   rg.rdPops.push({ x: e.x, y: e.y, h: (FOES[e.type] ? FOES[e.type].h : 30) * (e.k || 1), col: rdCol(e.type), t: 0, a: Math.random() * 6 });
 }
@@ -1538,7 +1538,7 @@ function stkWord(id, extra) {                     // a bonus: its word by the co
 }
 const STK_GRP = { double: 'multi', triple: 'multi', multi: 'multi' };
 function stkKill(e) {                             // called from killFoe: every kill feeds the streak
-  if (!stkFight()) return;
+  if (!stkFight() || S.day) return;               // v129 (Joe: de-arcadeify): no streak in Daylight
   const rg = S.rg, f = FOES[e.type]; if (!f) return;
   const last = rg.hp <= 1 && !(rg.steel > 0);
   const m = stkAdd(e.x, e.y, f.h * 0.75, (STK_PTS[e.type] || 10) * (last ? 2 : 1), stkCol(e.type), true);
@@ -2597,25 +2597,25 @@ const DIT = {
   axe2: { n: 'Flint axe', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'axe', tier: 2, dmg: 1.05, dur: 120, b: 'Fells a tree in 3 chops' },
   pick1: { n: 'Stone pick', c: STONE_HEAD, st: 1, k: 'tool', tool: 'pick', tier: 1, dmg: 0.8, dur: 60, b: 'Breaks rock for flint' },
   pick2: { n: 'Flint pick', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'pick', tier: 2, dmg: 0.95, dur: 120, b: 'Breaks rock in 2 blows, more flint' },
-  club: { n: 'Wooden club', c: '#6e5235', st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#6e5235', dmg: 1.05, r: 6, dur: 60, b: 'Club · wide sweeps that send them flying' },
+  club: { n: 'Wooden club', c: '#6e5235', st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#6e5235', dmg: 1.05, r: 6, dur: 60, b: 'Club · slow, heavy swings' },
   spear1: { n: 'Stone spear', c: STONE_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: STONE_HEAD, dmg: 1.15, r: 20, dur: 50, b: 'Spear · quick jabs at a safe distance' },
   spear2: { n: 'Flint spear', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: FLINT_HEAD, dmg: 1.35, r: 24, dur: 100, b: 'Spear · long reach, hits hard' },
   bonec: { n: 'Bone club', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'bone', fam: 'club', bc: '#e6dfcc', dmg: 1.75, r: 8, dur: 140, b: 'Club · heavy, and hard as rock' },
   // v170: weapon families. fam = the move set it swings with (spear: twin, club, axe, knife, sword); hc = the colour of its head or blade, bc = a club's body
   spear0: { n: 'Sharpened stick', c: '#a08a62', st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: '#b89a6a', dmg: 0.95, dur: 35, b: 'Spear · better than nothing, just' },
   spearB: { n: 'Bone spear', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'spear', fam: 'twin', hc: '#e6dfcc', dmg: 1.55, dur: 150, b: 'Spear · a jagged bone point that bites deep' },
-  waxe1: { n: 'Stone war axe', c: STONE_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: STONE_HEAD, dmg: 1.15, dur: 70, b: 'War axe · huge slow chops that knock them flat' },
+  waxe1: { n: 'Stone war axe', c: STONE_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: STONE_HEAD, dmg: 1.15, dur: 70, b: 'War axe · slow, heavy chops' },
   waxe2: { n: 'Flint war axe', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: FLINT_HEAD, dmg: 1.4, dur: 130, b: 'War axe · a keen black edge' },
   waxe3: { n: 'Bone war axe', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: '#e6dfcc', dmg: 1.65, dur: 170, b: 'War axe · a jawbone blade, cruel and heavy' },
   waxe4: { n: 'Iron war axe', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'waxe', fam: 'axe', hc: IRON_HEAD, dmg: 2.0, dur: 320, b: 'War axe · splits anything in two' },
   sclub: { n: 'Spiked club', c: '#5e4630', st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#5e4630', spikes: FLINT_HEAD, dmg: 1.35, dur: 100, b: 'Club · flint driven through the head' },
   maul: { n: 'Stone maul', c: STONE_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#8d8b85', dmg: 1.5, dur: 120, b: 'Club · a rock lashed to a log' },
   mace: { n: 'Iron mace', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'club', fam: 'club', bc: '#9aa0a6', spikes: '#d8dce0', dmg: 2.15, dur: 320, b: 'Club · flanged iron, nothing stands up to it' },
-  knife1: { n: 'Flint knife', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'knife', fam: 'knife', hc: FLINT_HEAD, dmg: 0.9, dur: 70, b: 'Knife · five lightning cuts, and they bleed' },
+  knife1: { n: 'Flint knife', c: FLINT_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'knife', fam: 'knife', hc: FLINT_HEAD, dmg: 0.9, dur: 70, b: 'Knife · quick cuts, and they bleed' },
   knife2: { n: 'Bone knife', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'knife', fam: 'knife', hc: '#e6dfcc', dmg: 1.15, dur: 130, b: 'Knife · fast, and it holds an edge' },
   knife3: { n: 'Iron knife', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'knife', fam: 'knife', hc: IRON_HEAD, dmg: 1.45, dur: 280, b: 'Knife · a hunter\'s blade' },
-  sword1: { n: 'Bone sword', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'sword', fam: 'sword', hc: '#e6dfcc', dmg: 1.45, dur: 160, b: 'Sword · cuts both ways, then a spin · parry' },
-  sword2: { n: 'Iron sword', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'sword', fam: 'sword', hc: IRON_HEAD, dmg: 1.9, dur: 340, b: 'Sword · the all-rounder, in good iron · parry' },
+  sword1: { n: 'Bone sword', c: '#e6dfcc', st: 1, k: 'tool', tool: 'weapon', wpn: 'sword', fam: 'sword', hc: '#e6dfcc', dmg: 1.45, dur: 160, b: 'Sword · cuts both ways' },
+  sword2: { n: 'Iron sword', c: IRON_HEAD, st: 1, k: 'tool', tool: 'weapon', wpn: 'sword', fam: 'sword', hc: IRON_HEAD, dmg: 1.9, dur: 340, b: 'Sword · the all-rounder, in good iron' },
   bow1: { n: 'Short bow', c: '#9a7040', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#9a7040', dmg: 1.0, dur: 90, b: 'Bow · hold to draw, let go to loose · needs arrows' },   // v189: weapons stage 2, ranged
   bow2: { n: 'Bone bow', c: '#d8cfb8', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#cfc6ae', dmg: 1.35, dur: 170, b: 'Bow · horn and bone, a hard pull and a long flight' },
   bow3: { n: 'War bow', c: '#6e4a2c', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#5e3e24', tip: IRON_HEAD, dmg: 1.8, dur: 300, b: 'Bow · iron-tipped yew, it drops a deer at forty paces' },
@@ -4920,17 +4920,17 @@ function daySpearStep(dt) {
       for (const o of rg.enemies) if (!o.dead && !q.hit.has(o) && Math.hypot(o.x - q.x, o.y - q.y) < (FOES[o.type] ? FOES[o.type].w : 12) + 6) {
         q.hit.add(o); o.hp -= dmg; o.jit = 1; o.kHit = 'spear'; o.kHitT = S.t; o.swung = true; stkTouch();
         if (o.type !== 'tall') { o.x += Math.cos(q.a) * 22; o.y += Math.sin(q.a) * 22; }
-        wjSpray(o, q.a, '220,225,200', 10); wjMark(o, q.a, '255,255,255', 34, 0.2, 1.5); hitStop(0.05); addShake(0.2);
+        plainBlood(o, FOES[o.type] ? FOES[o.type].h : 30, q.a, 7);   // v129: blood, not a slash of light
         q.s.d = Math.max(1, (q.s.d ?? T.dur) - 1);
         if (actx) { const t = actx.currentTime; boomAt(t, 150, 50, 0.12, 0.5, sfxGain); noiseAt(t, 4200, 1400, 0.06, 0.3, sfxGain); }
       }
       for (const b of D.beasts) if (!b.dead && !q.hit.has(b) && Math.hypot(b.x - q.x, b.y - q.y) < BEAST[b.k].w + 6) {
-        q.hit.add(b); b.hp -= dmg * 1.4 * sneakHit(b); b.flash = 1; if (b.hp <= 0) beastDie(b); else beastScare(b);
+        q.hit.add(b); b.hp -= dmg * 1.4 * sneakHit(b); b.flash = 1; plainBlood(b, BEAST[b.k].h || 20, q.a, 7); if (b.hp <= 0) beastDie(b); else beastScare(b);
       }
       if (q.d >= q.max || wpSolidAt(q.x, q.y, 2)) q.done = true;
     }
     if (q.done) {   // it lands, point down, quivering
-      q.land = { t: 0 }; addShake(0.06);
+      q.land = { t: 0 };
       if (actx) { const t = actx.currentTime; boomAt(t, 220, 120, 0.08, 0.3, sfxGain); }
       const f = dayDrop(q.x, q.y, q.s.id, 1, q.s.d); f.x = q.x; f.y = q.y; f.thrown = 1; q.f = f;
     }
@@ -5039,9 +5039,8 @@ function dayShotHit(q, o, beast) {               // a shot lands on something al
     if (o.type !== 'tall' && (o.type !== 'brute' || q.kind === 'taxe' || q.stun > 1)) { o.x += Math.cos(q.a) * q.knock; o.y += Math.sin(q.a) * q.knock; }
     foeSwBreak(o);
   }
-  wjSpray(o, q.a, q.kind === 'stone' ? '200,200,190' : '220,225,200', q.kind === 'arrow' ? 5 : 8);
-  hitStop(q.kind === 'taxe' || q.c >= 1 ? 0.06 : 0.03); addShake(q.kind === 'taxe' ? 0.28 : 0.08 + 0.1 * (q.c || 0)); padRumble(0.3, 70);
-  if (q.c >= 1 && !beast) wpPop(q.kind === 'arrow' ? 'FULL DRAW' : 'CRACK', o.x, o.y, h + 10, '255,230,170', 0.75);
+  if (q.kind !== 'stone') plainBlood(o, h, q.a, q.kind === 'arrow' ? 3 : 6);   // v129: blood where it went in, not sparks, and no word over it
+  addShake(q.kind === 'taxe' ? 0.28 : 0.08 + 0.1 * (q.c || 0)); padRumble(0.3, 70);
   if (actx) { const t = actx.currentTime;
     if (q.kind === 'stone') { boomAt(t, 180, 70, 0.08, 0.45, sfxGain); noiseAt(t, 2000, 700, 0.05, 0.3, sfxGain); }
     else if (q.kind === 'taxe') { boomAt(t, 130, 45, 0.18, 0.6, sfxGain); noiseAt(t, 3600, 1000, 0.08, 0.4, sfxGain); }
@@ -5251,15 +5250,15 @@ function dayNamedHit(hit, a) {                    // a blow from a named weapon 
   if (id === 'nbell' && (rg.bellN = (rg.bellN || 0) + 1) % 3 === 0) {   // the third blow rings the bell
     for (const o of rg.enemies) if (!o.dead && Math.hypot(o.x - p.x, o.y - p.y) < 130) { o.frozen = Math.max(o.frozen || 0, 1.3); o.jit = 1; foeSwBreak(o); }
     for (const b of S.day.beasts) if (!b.dead && !b.tame && Math.hypot(b.x - p.x, b.y - p.y) < 160) beastScare(b);
-    wpRing(p.x, p.y, 130, '255,214,130', 0.7); wpRing(p.x, p.y, 80, '255,240,200', 0.5); wpPop('BELL', p.x, p.y, 70, '255,214,130', 1); addShake(0.35); hitStop(0.07); padRumble(0.6, 180);
+    addShake(0.35); padRumble(0.6, 180);   // v129: it rings out, no rings of light or word over you
     if (actx) { const t = actx.currentTime; for (const [f, g, l] of [[392, 0.07, 2.2], [784, 0.04, 1.6], [1176, 0.025, 1.2], [988, 0.02, 1]]) toneAt(t, f, l, g, 'sine', sfxGain); boomAt(t, 140, 60, 0.25, 0.4, sfxGain); }
   }
-  if (id === 'nfang') for (const b of S.day.beasts) if (b.tame && !b.dead && Math.hypot(b.x - p.x, b.y - p.y) < 420) { b.fangTgt = hit[0]; b.bite = 0; if (!b.howl || S.t - b.howl > 3) { b.howl = S.t; wpPop('PACK', b.x, b.y, 30, '240,232,214', 0.7); } }
+  if (id === 'nfang') for (const b of S.day.beasts) if (b.tame && !b.dead && Math.hypot(b.x - p.x, b.y - p.y) < 420) { b.fangTgt = hit[0]; b.bite = 0; if (!b.howl || S.t - b.howl > 3) b.howl = S.t; }
 }
 function dayNamedTouch(o) {                       // per enemy struck: the Ash Crown Blade's burn at night
   if (heldNamed() !== 'nash' || !dayDark()) return;
   o.hp -= 0.5 * dayK(); o.wburn = Math.max(o.wburn || 0, 2.5); o.wburnK = 1.5;
-  wpEmbers(o.x, o.y, 30, 8, '240,232,255'); if (Math.random() < 0.3) wpPop('BURN', o.x, o.y, (FOES[o.type] ? FOES[o.type].h : 30) + 8, '240,232,255', 0.6);
+  wpEmbers(o.x, o.y, 30, 8, '240,232,255');
 }
 function dayNamedTick(dt) {
   const id = heldNamed(), rg = S.rg, p = S.p;
@@ -5312,7 +5311,7 @@ function dayMatSnd(n, D) {                        // the blow lands: the sound o
   else if (inf === 'ash' || inf === 'wisp') toneAt(t + 0.03, inf === 'ash' ? 2640 : 1980, 0.35, 0.014, 'sine', sfxGain);
   padRumble(Math.min(0.7, 0.2 + 0.18 * (T.dmg - 0.8)), 55 + 25 * T.dmg);
 }
-const TOOL_SWING = { axe: { pose: 4, dur: 0.44, hitAt: 0.22, hop: 0, lunge: 8 }, pick: { pose: 5, dur: 0.46, hitAt: 0.24, hop: 0, lunge: 6 }, hand: { pose: 6, dur: 0.32, hitAt: 0.1, hop: 2, lunge: 14 } };
+const TOOL_SWING = { axe: { pose: 4, dur: 0.44, hitAt: 0.22, hop: 0, lunge: 8, knock: 12, shake: 0.08, kick: 1.5 }, pick: { pose: 5, dur: 0.46, hitAt: 0.24, hop: 0, lunge: 6, knock: 12, shake: 0.08, kick: 1.5 }, hand: { pose: 6, dur: 0.32, hitAt: 0.1, hop: 0, lunge: 8, knock: 8, shake: 0.05, kick: 1 } };   // v129: a step in, no hop, and a blow that barely moves the view
 function dayAct(pose, dur, col, item) { S.p.act = { pose, t: 0, dur, col, item }; }
 function dayActStep(dt) { const a = S.p.act; if (a && (a.t += dt) >= a.dur) S.p.act = null; }
 const POOF_T = 0.32;
@@ -5473,7 +5472,7 @@ function wpSwing(i, D, dash, k = 1, key) {
   const sp = (w === 'club' ? 1 / (1 - 0.1 * Math.min(3, rg.wclub || 0)) : 1) * dayFgSp();   // a chipped club swings quicker (v190: and a balanced weapon)
   p.atk = { i, t: 0, dur: D.dur, a, side: D.side || (i % 2 ? -1 : 1), hit: new Set(), done: false, queued: false, pose: D.pose, wd: D, hi: 0, w, key: key || w, k, sp };
   rg.atkHist = (rg.atkHist || []).filter(h => S.t - h.t < 1.6).concat([{ i: dash ? 3 : Math.min(2, i), side: p.atk.side, t: S.t }]);
-  camKick(a, D.charge ? 6 : D.thrust ? 2 : -3); addShake(D.charge ? 0.12 : 0.04);   // heavy: the wind-up pulls you back before it throws you forward
+  if (!S.day) { camKick(a, D.charge ? 6 : D.thrust ? 2 : -3); addShake(D.charge ? 0.12 : 0.04); }   // heavy: the wind-up pulls you back before it throws you forward (v129: not in Daylight)
   (WSND[w] || WSND.axe)(D);
   if (w === 'lance' && !dash) wpEcho(D, a);       // the decoys copy your thrusts
 }
@@ -5531,7 +5530,7 @@ function wpHit(D, a) {                            // the blow goes through atkHi
   const rg = S.rg, p = S.p, A = p.atk, w = A ? A.w : curW();
   if (D.proj) return wpShoot(D, a);
   const trip = rg.wtrip ? 3 : 1, back = w === 'knife' && rg.wvan, k = (A && A.k || 1) * trip;
-  const D2 = Object.assign({ wpn: 1 }, D, { dmg: D.dmg * k * wjPow(w), boss: D.boss * k * wjPow(w), kh: D.kh || 'swing' }); wjFeel(w, D2);   // v146: power climbs boss by boss, and the weight goes into the feel
+  const D2 = Object.assign({ wpn: 1 }, D, { dmg: D.dmg * k * wjPow(w), boss: D.boss * k * wjPow(w), kh: D.kh || 'swing' }); if (!S.day) wjFeel(w, D2);   // v146: power climbs boss by boss, and the weight goes into the feel
   if (back) Object.assign(D2, { dmg: 99, boss: D.boss * 3, kh: 'backstab' });   // out of nowhere: a backstab kills anything that isn't a boss
   const n = atkHit(D2, a) || 0;
   const hit = n ? rg.enemies.filter(o => o.kHitT === S.t && o.kHit === D2.kh) : [];
@@ -5541,6 +5540,7 @@ function wpHit(D, a) {                            // the blow goes through atkHi
   if (S.day && A && !A.worn && n) { A.worn = true; dayWear(); }   // v170: a blow that lands wears the weapon, once a swing
   if (S.day && n) { dayNamedHit(hit, a); dayMatSnd(n, D); }   // v191: named weapons' rules (v192: and the sound of what it's made of)
   if (D.charge) return n;
+  if (S.day) { plainHit(w, D, n, a, hit); return n; }   // v129: a plain blow (62-plain)
   (WHIT[w] || WHIT.axe)(D, n, a, hit);
   if (WJ[w]) wjHit(w, D2, n, a, hit);   // v146
   if (D.fin && n) wpFinish(D, a);
@@ -5725,7 +5725,7 @@ function wjTick(dt) {
   for (const e of rg.enemies) {
     if (e.dead) continue;
     if (e.wburn > 0) { e.wburn -= dt; e.hp -= 0.42 * (e.wburnK || 1) * dt; e.jit = Math.max(e.jit || 0, 0.3); if (Math.random() < dt * 14) wpEmbers(e.x, e.y, 30, 1, '255,150,60'); }
-    if (e.wbleedT > 0) { e.wbleedT -= dt; e.hp -= 0.16 * e.wbleed * (e.wbleedK || 1) * dt; if (Math.random() < dt * 6 * e.wbleed) wjSpray(e, Math.random() * 7, '200,40,30', 1, 0.3); if (e.wbleedT <= 0) e.wbleed = 0; }
+    if (e.wbleedT > 0) { e.wbleedT -= dt; e.hp -= 0.16 * e.wbleed * (e.wbleedK || 1) * dt; if (S.day) { if (Math.random() < dt * 1.5 * e.wbleed) huntBlood(e.x, e.y, 1, 0.8); } else if (Math.random() < dt * 6 * e.wbleed) wjSpray(e, Math.random() * 7, '200,40,30', 1, 0.3); if (e.wbleedT <= 0) e.wbleed = 0; }   // v129: in Daylight it drips on the ground
     if (e.wyank && e.wyank.hook && e.wyank.t >= 1) { /* landed below */ }
     if (e.wlift) { e.wlift.t += dt; if (e.wlift.t > 0.55) { e.wlift = null; wpRing(e.x, e.y, 46, '255,220,170', 0.3); ashBurst(e.x, e.y, 8, 6); addShake(0.12); for (const o of rg.enemies) if (o !== e && !o.dead && Math.hypot(o.x - e.x, o.y - e.y) < 46) { o.hp -= 0.6 * wjPow('fists'); o.jit = 1; o.kHit = 'uppercut'; o.kHitT = S.t; } if (actx) boomAt(actx.currentTime, 100, 35, 0.18, 0.5, sfxGain); } }   // it comes back down hard
     if (e.wbowl && e.wfly > 0) for (const o of rg.enemies) {
@@ -9237,7 +9237,7 @@ function ik2(root, end, l1, l2, fwd) {
 const _sm = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
 function poseBeast(o, now, dt) {
   const A = ANAT[o.k], C = BCOL[o.k]; if (!A) return;
-  const fl = o.flash > 0 ? o.flash : 0, em = fl * 0.7, tint = c => { if (o.skin) c = mixc(c, CUT_RAW, o.skin * 0.85); return fl ? c.map(v => lerp(v, 1.5, fl)) : c; };   // skin: raw and red where it's been cut up (88-meat)
+  const em = 0, tint = c => o.skin ? mixc(c, CUT_RAW, o.skin * 0.85) : c;   // skin: raw and red where it's been cut up (88-meat); v129: no white flash when it's hit
   const col = tint(hexK(C[0])), belly = tint(hexK(C[1])), back = tint(hexK(C[2])), hoof = hexK('#1e1814'), dark = hexK('#120f0d');
   // lighter belly and muzzle, darker lower legs and feet, a pale tip to the nose, pink inside the ears
   const legC = col, legLo = mixc(col, back, 0.6).map(v => v * 0.88), joint = mixc(col, legLo, 0.6), pale = mixc(belly, col, 0.15), pink = hexK('#d39a92'), shine = [1, 1, 1];
@@ -11439,10 +11439,12 @@ FP.fly = (x, y, it) => { if (DIT[it]) for (let k = 0; k < 6; k++) spark(x, 10, y
 FP.squash = () => {};
 
 ;
-// ================= the fight: blows that land hard, kills that blow apart, and the streak counting it all up =================
-// Everything the top-down game throws on screen in a fight, seen from behind your own eyes: the crescent of a swing sweeping
-// across the view, sparks off every blow, a kill bursting in its colour with a ring of light, words punching up off the bodies,
-// and the streak (its count, its multiplier, its bonus words, the tier names slamming in) drawn over it all on a flat layer.
+// ================= the fight, from behind your own eyes: a blow jars your hand, and one that gets you comes from somewhere =================
+// v129 (Joe: "de-arcadeify ... a more kind of realistic, simple, real version"): the top-down game's light show is gone. No
+// crescent of light sweeping across the view with every swing, no sparks and white stars off every blow, no kill bursting in
+// its colour with a ring and a pillar of light, no flare round the edges, no crosshair flicking, no words punching up, no
+// streak counting it all up. What's left is plain: your hand jars back when a blow lands, the blood is where it went in
+// (62-plain), and a blow on you knocks your head away from it and reddens that edge of the view for a moment.
 const fxc = document.createElement('canvas'); fxc.id = 'fxc'; $('gl').after(fxc);
 const fx2 = fxc.getContext('2d');
 let FW = innerWidth, FH = innerHeight, FD = 1, fxDirty = true;
@@ -11461,86 +11463,23 @@ function scr(x, h, y, out) {
 }
 const onScr = (q, m = 80) => q && q[0] > -m && q[0] < FW + m && q[1] > -m && q[1] < FH + m;
 
-// ---- what the fight feels like in your hands and eyes ----
-const CFX = { recoil: 0, marks: [], kflash: null, rings: [], pillars: [], tint: '255,200,130', lastStop: -9, atk: null, wact: null, seen: new WeakSet(), sl: [], hurt: null, threats: [], warned: new WeakSet() };
-const rgbOf = s => s.split(',').map(v => +v / 255);
-function fxTint() {   // the colour of what you're swinging: its own if it has one, else torchlight
-  const rg = S.rg, sl = rg.slashes && rg.slashes[rg.slashes.length - 1];
-  if (sl && sl.tint) return sl.tint[1];
-  const s = heldSlot(), T = s && DIT[s.id];
-  if (T && T.wpn && ARMS[s.id] && ARMS[s.id].tint) return ARMS[s.id].tint[1];
-  return '255,200,130';
-}
-function fxHit(e) {   // a blow lands: sparks off the far side, a white star where it struck, the view jolts
-  const p = S.p, F = FOES[e.type], sc = foeScale(e), h = (F ? F.h : 30) * sc, a = Math.atan2(e.y - p.y, e.x - p.x), ca = Math.cos(a), sa = Math.sin(a);
-  const x = e.x - ca * 5 * sc, y = e.y - sa * 5 * sc, z = h * 0.62, t = rgbOf(CFX.tint);
-  spark(x, z, y, 0, 0, 0, 0.09, 34 * sc, 1, 1, 1, 1, 1);
-  spark(x, z, y, 0, 0, 0, 0.16, 22 * sc, t[0], t[1], t[2], 0.9, 0);
-  for (let i = 0; i < 22; i++) {
-    const b = a + (Math.random() - 0.5) * 1.9, v = 120 + Math.random() * 260, w = Math.random() < 0.45;
-    spark(x, z + (Math.random() - 0.5) * 8, y, Math.cos(b) * v, 40 + Math.random() * 180, Math.sin(b) * v, 0.22 + Math.random() * 0.3, 2.6 + Math.random() * 3,
-      w ? 1 : t[0], w ? 0.97 : t[1], w ? 0.9 : t[2], 1, 0, 520, 2.4);
-  }
-  hitStop(0.045); S.trauma = Math.min(1, (S.trauma || 0) + 0.14);
-  VIEW_FX.roll += (Math.random() < 0.5 ? -1 : 1) * 0.018; VIEW_FX.fov -= 2.2;
-  CFX.recoil = 1; CFX.marks.push({ t: 0, kill: 0, col: '255,250,240' });
-  e.fxHitT = S.t;
-}
-function fxKill(g) {   // a kill: it blows apart in its colour, a ring of light snaps out along the ground, a pillar of light goes up
-  const p = S.p, F = FOES[g.type], sc = (g.k || 1) * (g.type === 'tall' ? 1.6 : g.type === 'brute' ? 1.25 : 1), h = (F ? F.h : 30) * sc;
-  const col = typeof rdCol === 'function' ? rdCol(g.type) : '236,226,210', c = rgbOf(col), big = g.type === 'tall' || g.type === 'brute';
-  const a = Math.atan2(g.y - p.y, g.x - p.x), z = h * 0.55;
-  spark(g.x, z, g.y, 0, 0, 0, 0.14, 55 * sc, 1, 1, 1, 0.9, 0);
-  spark(g.x, z, g.y, 0, 0, 0, 0.12, 60 * sc, 1, 1, 1, 1, 1);
-  for (let i = 0; i < (big ? 90 : 56); i++) {   // the burst: mostly its colour, some white-hot, thrown on away from you
-    const b = Math.random() * Math.PI * 2, el = (Math.random() - 0.25) * 1.5, v = (140 + Math.random() * 320) * (big ? 1.3 : 1), w = Math.random() < 0.3;
-    const vx = Math.cos(b) * Math.cos(el) * v + Math.cos(a) * 120, vz = Math.sin(b) * Math.cos(el) * v + Math.sin(a) * 120, vy = Math.sin(el) * v + 90;
-    spark(g.x, z + (Math.random() - 0.5) * h * 0.5, g.y, vx, vy, vz, 0.35 + Math.random() * 0.6, 3 + Math.random() * 5, w ? 1 : c[0], w ? 0.96 : c[1], w ? 0.88 : c[2], 1, Math.random() < 0.15 ? 1 : 0, 420, 2);
-  }
-  for (let i = 0; i < 14; i++) { const b = Math.random() * 6.283, v = 30 + Math.random() * 60; spark(g.x, 4, g.y, Math.cos(b) * v, 10 + Math.random() * 30, Math.sin(b) * v, 0.6 + Math.random() * 0.5, 10 + Math.random() * 8, c[0] * 0.5, c[1] * 0.5, c[2] * 0.5, 0.6, 0, -20, 2.5); }
-  CFX.rings.push({ x: g.x, y: g.y, t: 0, life: big ? 0.6 : 0.45, r: (big ? 150 : 95) * sc, c });
-  CFX.pillars.push({ x: g.x, y: g.y, t: 0, life: 0.32, h: h * 2.2, c });
-  if (S.t - CFX.lastStop > 0.22) { CFX.lastStop = S.t; hitStop(big ? 0.12 : 0.075); }
-  S.trauma = Math.min(1, (S.trauma || 0) + (big ? 0.4 : 0.22)); VIEW_FX.fov += big ? 6 : 3.5;
-  CFX.kflash = { t: 0, col, k: big ? 0.5 : 0.28 };
-  CFX.marks.push({ t: 0, kill: 1, col });
-  g.ka = a;
-}
+// ---- what the fight feels like in your hands ----
+const CFX = { recoil: 0, atk: null, hurt: null, threats: [], warned: new WeakSet() };
+function fxHit(e) { if (S.p.atk || S.p.wact) CFX.recoil = Math.max(CFX.recoil, 0.7); }   // your own blow landing: it jars back up your arm
 
-// ---- each frame: notice new blows and kills, age what's ours, put the 3D parts in the point cloud ----
+// ---- each frame: notice new blows, age what's ours, draw the flat layer ----
 function combatFrame(dt, rdt, now) {
   const rg = S.rg; if (!rg) return;
-  CFX.tint = fxTint();
   threatScan(rdt);
   for (const e of rg.enemies) { if (e.dead || e.kHitT === undefined || e.kHitT === e.fxSeen) continue; e.fxSeen = e.kHitT; if (S.t - e.kHitT < 0.2) fxHit(e); }
-  for (const g of rg.dying) if (!CFX.seen.has(g)) { CFX.seen.add(g); fxKill(g); }
-  // a new swing: the view leans into it and widens a touch
-  const A = S.p.atk, W = S.p.wact;
-  if (A && A !== CFX.atk) {
-    CFX.atk = A; VIEW_FX.roll += (A.side || 1) * (A.i === 3 ? 0.02 : 0.045); VIEW_FX.fov += A.i === 3 ? 5 : 2.5;
-    const sl = rg.slashes && rg.slashes[rg.slashes.length - 1];
-    if (!sl || sl.t > 0.05) CFX.sl.push({ i: A.ov ? 2 : A.pose === 3 ? 3 : A.i, a: A.a, side: A.side || 1, t: 0, life: A.ov ? 0.22 : 0.26, r: A.ov ? 34 : 40, arc: A.ov ? 1.6 : 2.2, dim: A.ov ? 0.6 : 1 });   // a tool or a bare swing: the main game draws no crescent for it, so we do
-  }
-  for (const s of CFX.sl) s.t += dt; CFX.sl = CFX.sl.filter(s => s.t < s.life);
-  if (W && W !== CFX.wact) { CFX.wact = W; VIEW_FX.roll += 0.04; VIEW_FX.fov += 3; }
-  CFX.recoil = Math.max(0, CFX.recoil - rdt * 7);
-  if (rg.rdPops) { for (const k of rg.rdPops) k.t += dt; rg.rdPops = rg.rdPops.filter(k => k.t < 0.42); }
-  for (const R of CFX.rings) {   // the shockwave: a flat ring of light racing out along the ground
-    R.t += dt; const u = R.t / R.life, e = 1 - (1 - u) * (1 - u), r = R.r * (0.15 + 0.85 * e), n = 40;
-    for (let i = 0; i < n; i++) { const a = i / n * 6.283; stat(R.x + Math.cos(a) * r, 2, R.y + Math.sin(a) * r, 7 * (1 - u) + 3, 1, 1, 1, 0.8 * (1 - u), 0); stat(R.x + Math.cos(a) * r * 0.9, 2, R.y + Math.sin(a) * r * 0.9, 12 * (1 - u) + 4, R.c[0], R.c[1], R.c[2], 0.5 * (1 - u), 0); }
-  }
-  CFX.rings = CFX.rings.filter(R => R.t < R.life);
-  for (const P of CFX.pillars) {   // a column of light where it stood
-    P.t += dt; const u = P.t / P.life, w = 1 - u;
-    for (let i = 0; i < 12; i++) { const f = i / 11; stat(P.x, f * P.h * (0.6 + 0.4 * u), P.y, (26 - 14 * f) * w + 2, lerp(1, P.c[0], f), lerp(1, P.c[1], f), lerp(1, P.c[2], f), 0.35 * w * (1 - f * 0.6), 0); }
-  }
-  CFX.pillars = CFX.pillars.filter(P => P.t < P.life);
+  const A = S.p.atk; if (A && A !== CFX.atk) { CFX.atk = A; VIEW_FX.roll += (A.side || 1) * 0.012; }   // a new swing: your shoulders turn into it, a little
+  CFX.recoil = Math.max(0, CFX.recoil - rdt * 6);
   combatDraw(rdt, now);
 }
 
 // ---- the flat layer over the view ----
 const sEase = u => 1 - Math.pow(1 - Math.min(1, Math.max(0, u)), 3);
-function fxText(txt, x, y, size, rgb, a, opt = {}) {   // slanted arcade numerals: a dark rim, then the fill
+function fxText(txt, x, y, size, rgb, a, opt = {}) {   // slanted numerals, a dark rim then the fill (the stealth alerts, 63-alert)
   const g = fx2; g.save(); g.translate(x, y); g.transform(1, 0, -0.18, 1, 0, 0); if (opt.s) g.scale(opt.s, opt.s);
   g.font = `${opt.w || 700} ${Math.round(size)}px "IBM Plex Mono", ui-monospace, monospace`; g.textAlign = opt.align || 'center'; g.textBaseline = 'middle';
   g.globalAlpha = Math.max(0, Math.min(1, a));
@@ -11549,210 +11488,25 @@ function fxText(txt, x, y, size, rgb, a, opt = {}) {   // slanted arcade numeral
   g.fillStyle = `rgb(${rgb})`; g.fillText(txt, 0, 0);
   g.restore();
 }
-const _q0 = [0, 0, 0], _q1 = [0, 0, 0];
+const _q0 = [0, 0, 0];
 function combatDraw(rdt, now) {
-  const g = fx2, rg = S.rg, p = S.p, alert = alertScan(rdt);
-  const busy = alert || cookBusy() || aimBusy() || CFX.hurt || CFX.threats.length || (rg.slashes && rg.slashes.length) || CFX.sl.length || (rg.rdPops && rg.rdPops.length) || (rg.wpops && rg.wpops.length) || (rg.wcracks && rg.wcracks.length) || (rg.wlines && rg.wlines.length)
-    || CFX.marks.length || CFX.kflash || (rg.stkfx && (rg.stk && rg.stk.n || rg.stkfx.pops.length || rg.stkfx.words.length || rg.stkfx.tier || rg.stkfx.cash || rg.stkfx.lost || rg.stkfx.drop));
+  const g = fx2, rg = S.rg, alert = alertScan(rdt);
+  const busy = alert || cookBusy() || aimBusy() || CFX.hurt || CFX.threats.length || (rg.wpops && rg.wpops.length);
   if (!busy && !fxDirty) return;
   g.setTransform(FD, 0, 0, FD, 0, 0); g.clearRect(0, 0, FW, FH); fxDirty = !!busy;
   if (!busy || state !== 'play') return;
-  const cx = cam.position.x, cz = cam.position.z;
   g.lineCap = 'round'; g.lineJoin = 'round';
-  // splits in the ground, glowing hot inside, then closing over
-  for (const k of rg.wcracks || []) {
-    const u = k.t / k.life, a = (1 - u) * (1 - u), segs = k.big ? 14 : 5, pts = [];
-    for (let j = 0; j <= segs; j++) { const f = j / segs, off = (hash(k.seed + j, 3.1) - 0.5) * (k.big ? 14 : 8) * Math.sin(f * Math.PI + 0.2); const q = scr(k.x + Math.cos(k.a) * k.len * f - Math.sin(k.a) * off, 0.6, k.y + Math.sin(k.a) * k.len * f + Math.cos(k.a) * off); if (q) pts.push(q.slice()); }
-    if (pts.length < 2) continue;
-    const line = () => { g.beginPath(); pts.forEach(([x, y], j) => j ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }, z = Math.min(4, pts[0][2]);
-    g.strokeStyle = `rgba(12,9,6,${0.85 * Math.min(1, (1 - u) * 3)})`; g.lineWidth = (k.big ? 6 : 3.5) * z; line();
-    g.globalCompositeOperation = 'lighter'; g.strokeStyle = `rgba(255,140,50,${0.8 * a})`; g.lineWidth = (k.big ? 2.6 : 1.4) * z; line(); g.globalCompositeOperation = 'source-over';
-  }
-  g.globalCompositeOperation = 'lighter';
-  // lines of light left hanging in the air
-  for (const L of rg.wlines || []) {
-    const u = L.t / L.life, a = scr(L.x0, 20, L.y0, _q0), b = a && scr(L.x1, 20, L.y1, _q1); if (!a || !b) continue;
-    const z = Math.min(4, (a[2] + b[2]) / 2);
-    g.strokeStyle = `rgba(${L.col},${0.45 * (1 - u)})`; g.lineWidth = (L.w || 1) * 9 * z; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
-    g.strokeStyle = `rgba(255,252,240,${1 - u})`; g.lineWidth = (L.w || 1) * 2.4 * z; g.stroke();
-  }
-  // the swing: a crescent of light sweeping across your view the way the blade goes, white-hot on its leading edge
-  for (const s of (rg.slashes || []).concat(CFX.sl)) drawCrescent(g, s);
-  // kill pops: a white flash in the body, a ring in its colour, four ticks flying out
-  for (const k of rg.rdPops || []) {
-    const q = scr(k.x, k.h * 0.55, k.y, _q0); if (!onScr(q)) continue;
-    const u = k.t / 0.42, Z = Math.min(3.2, q[2]), [x, y] = q, r = (8 + 30 * (1 - (1 - u) * (1 - u))) * Z * Math.sqrt(k.h / 34);
-    if (u < 0.25) { const gr = g.createRadialGradient(x, y, 0, x, y, r * 0.9); gr.addColorStop(0, `rgba(255,255,255,${0.9 * (1 - u / 0.25)})`); gr.addColorStop(1, `rgba(${k.col},0)`); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r * 0.9, 0, 7); g.fill(); }
-    g.strokeStyle = `rgba(${k.col},${0.95 * (1 - u)})`; g.lineWidth = (3.5 * (1 - u) + 0.5) * Z; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke();
-    g.strokeStyle = `rgba(255,250,240,${1 - u})`; g.lineWidth = 1.6 * Z;
-    for (let i = 0; i < 4; i++) { const a = k.a + i * Math.PI / 2, r0 = r * 0.6, r1 = r * (1.05 + 0.35 * (1 - u)); g.beginPath(); g.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0); g.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1); g.stroke(); }
-  }
-  // the crosshair answers: a hit flicks four white ticks out, a kill flings them wide in its colour
-  const mx = FW / 2, my = FH / 2;
-  for (const m of CFX.marks) {
-    m.t += rdt; const L = m.kill ? 0.38 : 0.2, u = m.t / L, r0 = (m.kill ? 9 : 7) + (m.kill ? 16 : 7) * sEase(u), r1 = r0 + (m.kill ? 13 : 8) * (1 - u * 0.5);
-    g.strokeStyle = `rgba(${m.kill ? m.col : '255,252,245'},${1 - u})`; g.lineWidth = m.kill ? 3 : 2;
-    for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; g.beginPath(); g.moveTo(mx + Math.cos(a) * r0, my + Math.sin(a) * r0); g.lineTo(mx + Math.cos(a) * r1, my + Math.sin(a) * r1); g.stroke(); }
-  }
-  CFX.marks = CFX.marks.filter(m => m.t < (m.kill ? 0.38 : 0.2));
-  // a kill flares the edges of the view in its colour
-  if (CFX.kflash) {
-    const K = CFX.kflash; K.t += rdt; const u = K.t / 0.3, gr = g.createRadialGradient(mx, my, Math.min(FW, FH) * 0.25, mx, my, Math.hypot(FW, FH) / 2);
-    gr.addColorStop(0, `rgba(${K.col},0)`); gr.addColorStop(1, `rgba(${K.col},${K.k * (1 - u)})`); g.fillStyle = gr; g.fillRect(0, 0, FW, FH);
-    if (u >= 1) CFX.kflash = null;
-  }
-  g.globalCompositeOperation = 'source-over';
-  // words punching up off the bodies
+  // a word over something, small and plain, rising and fading: what came off a body you're cutting up (88-meat)
   for (const w of rg.wpops || []) {
     const q = scr(w.x, w.h, w.y, _q0); if (!onScr(q, 200)) continue;
-    const u = w.t, pop = u < 0.12 ? 1.6 - 0.6 * (u / 0.12) : 1, a = u > 0.7 ? (1 - u) / 0.3 : 1, zk = Math.max(0.9, Math.min(1.6, q[2] * 0.9));
-    fxText(w.text, q[0], q[1] - 18 * u * zk, 21 * (w.s || 1) * zk, w.col, a, { s: pop, glow: w.col, blur: 12 });
+    const u = w.t, a = Math.min(1, u / 0.1) * (u > 0.7 ? (1 - u) / 0.3 : 1), zk = Math.max(0.9, Math.min(1.4, q[2] * 0.9));
+    g.save(); g.font = `600 ${Math.round(13 * zk)}px "IBM Plex Mono", ui-monospace, monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = Math.max(0, a);
+    g.lineWidth = 3; g.strokeStyle = 'rgba(8,6,4,0.6)'; g.strokeText(w.text, q[0], q[1] - 14 * u * zk); g.fillStyle = `rgb(${w.col})`; g.fillText(w.text, q[0], q[1] - 14 * u * zk); g.restore();
   }
   cookDraw(g);
   aimDraw(g);
   alertDraw(g, rdt);
   drawThreats(g, rdt);
-  stkDrawFp(rdt);
-}
-
-function drawCrescent(g, s) {
-  if (outsideP()) return;   // seen from outside the blade itself leaves the smear (76-body.js)
-  const k = s.t / s.life, fade = (1 - k * k) * (s.dim || 1), tint = s.tint || ['255,150,60', '255,200,120', '255,248,225'];
-  const thrust = s.i === 3 || (s.cleave && !s.whirl && (s.life || 0) < 0.2), whirl = s.whirl || s.ring, chop = s.i === 2;
-  const sweep = sEase(Math.min(1, s.t / (thrust ? 0.06 : 0.11))), M = Math.min(FW, FH);
-  if (thrust) {   // a spear of light driving out from your hand to the point you aim at, with the air rushing in round it
-    const x0 = FW * 0.66, y0 = FH * 1.02, x1 = FW / 2, y1 = FH / 2, f = sweep, xe = x0 + (x1 - x0) * f, ye = y0 + (y1 - y0) * f, nx = -(y1 - y0), ny = x1 - x0, nl = Math.hypot(nx, ny), w = M * 0.05;
-    const gr = g.createLinearGradient(x0, y0, xe, ye); gr.addColorStop(0, `rgba(${tint[0]},0)`); gr.addColorStop(0.6, `rgba(${tint[1]},${0.6 * fade})`); gr.addColorStop(1, `rgba(${tint[2]},${fade})`);
-    g.fillStyle = gr; g.beginPath(); g.moveTo(x0 + nx / nl * w, y0 + ny / nl * w); g.lineTo(xe, ye); g.lineTo(x0 - nx / nl * w, y0 - ny / nl * w); g.closePath(); g.fill();
-    g.strokeStyle = `rgba(255,252,242,${0.8 * fade})`; g.lineWidth = 2;
-    for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + 0.3, r0 = M * (0.08 + 0.1 * k), r1 = r0 + M * 0.1 * (1 - k); g.beginPath(); g.moveTo(x1 + Math.cos(a) * r1, y1 + Math.sin(a) * r1); g.lineTo(x1 + Math.cos(a) * r0, y1 + Math.sin(a) * r0); g.stroke(); }
-    return;
-  }
-  // an ellipse round the middle of the view; the cut runs along it from where the blade starts to where it ends
-  const side = s.side || 1, cx = FW / 2, cy = chop ? FH * 0.5 : whirl ? FH * 0.66 : FH * 0.74;
-  const rx = chop ? M * 0.24 : FW * 0.44, ry = chop ? FH * 0.46 : whirl ? FH * 0.2 : FH * 0.44, tilt = chop ? 0.12 * side : whirl ? 0 : side * 0.22;
-  const span = whirl ? Math.PI * 2 : Math.PI + 0.6, th0 = chop ? -Math.PI / 2 - 0.3 : side > 0 ? 0.3 : Math.PI - 0.3, dir = chop ? 1 : side > 0 ? -1 : 1;
-  const lead = sweep, tail = Math.max(0, lead - 0.85) + 0.75 * sEase(Math.max(0, (s.t - 0.06) / (s.life - 0.06)));
-  if (lead - tail < 0.01) return;
-  const n = 26, ct = Math.cos(tilt), st = Math.sin(tilt), wMax = M * (whirl ? 0.1 : 0.17);
-  const at = (f, inset) => { const th = th0 + dir * span * f, x = Math.cos(th) * (rx - inset), y = Math.sin(th) * (ry - inset * ry / rx); return [cx + x * ct - y * st, cy + x * st + y * ct]; };
-  const outer = [], inner = [];
-  for (let j = 0; j <= n; j++) { const f = tail + (lead - tail) * j / n, w = wMax * (0.12 + 0.88 * Math.pow(j / n, 0.9)); outer.push(at(f, 0)); inner.push(at(f, w)); }
-  const a = outer[0], b = outer[n], gr = g.createLinearGradient(a[0], a[1], b[0], b[1]);
-  gr.addColorStop(0, `rgba(${tint[0]},0)`); gr.addColorStop(0.45, `rgba(${tint[1]},${0.6 * fade})`); gr.addColorStop(1, `rgba(${tint[2]},${0.95 * fade})`);
-  g.fillStyle = gr; g.beginPath(); outer.concat(inner.reverse()).forEach(([x, y], j) => j ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill();
-  const edge = (w, c) => { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); for (let j = Math.floor(n * 0.3); j <= n; j++) { const [x, y] = outer[j]; j > Math.floor(n * 0.3) ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); };
-  edge(M * 0.03, `rgba(${tint[0]},${0.3 * fade})`);       // a warm glow round the edge
-  edge(M * 0.009, `rgba(${tint[1]},${0.85 * fade})`);
-  edge(Math.max(2, M * 0.004), `rgba(255,252,242,${fade})`);   // the white-hot leading edge
-  if (sweep < 1) { const gl = g.createRadialGradient(b[0], b[1], 0, b[0], b[1], M * 0.06); gl.addColorStop(0, `rgba(255,252,240,${fade})`); gl.addColorStop(1, `rgba(${tint[1]},0)`); g.fillStyle = gl; g.beginPath(); g.arc(b[0], b[1], M * 0.06, 0, 7); g.fill(); }
-}
-
-// ---- the streak, as the top-down game draws it, anchored up over the middle of your view ----
-function stkAnchorFp() { return FW >= FH ? [FW / 2 + Math.min(FW * 0.2, 210), FH * 0.42] : [FW / 2 - 20, FH * 0.64]; }   // beside where you aim, clear of the notes up top
-const stkUFp = () => Math.max(0.8, Math.min(1.15, Math.min(FW, FH) / 540));
-function stkDrawFp(dt) {
-  const rg = S.rg, F = rg.stkfx; if (!F || !stkOn()) return;
-  const g = fx2, k = rg.stk, live = k && k.n >= 2, [ax, ay] = stkAnchorFp();
-  const T = live ? STK_TIERS[k.tier] : STK_TIERS[0], tcol = COLOUR ? T.col.join(',') : '239,239,234';
-  F.punch = Math.max(0, F.punch - dt * 5); F.crack = Math.max(0, F.crack - dt * 2.2); F.glow = Math.max(0, F.glow - dt * 1.6);
-  // the edges warm as the streak climbs, with a flare on each tier up
-  if (stkLoud() && live && k.tier > 0) {
-    const a = 0.05 * k.tier + 0.22 * F.glow, gr = g.createRadialGradient(FW / 2, FH / 2, Math.min(FW, FH) * 0.32, FW / 2, FH / 2, Math.hypot(FW, FH) / 2);
-    gr.addColorStop(0, 'rgba(255,130,40,0)'); gr.addColorStop(1, `rgba(255,${COLOUR ? 120 : 200},${COLOUR ? 40 : 160},${a})`);
-    g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = gr; g.fillRect(0, 0, FW, FH); g.restore();
-  }
-  // a tier up: a ring of light snapping out along the ground round you
-  if (F.ring.length) {
-    for (const r of F.ring) { r.t += dt; const u = r.t / 0.45, R = 20 + 190 * sEase(u), c = rgbOf(tcol); for (let i = 0; i < 48; i++) { const a = i / 48 * 6.283; stat(S.p.x + Math.cos(a) * R, 3, S.p.y + Math.sin(a) * R, 9 * (1 - u) + 3, c[0], c[1], c[2], 0.9 * (1 - u), 0); } }
-    F.ring = F.ring.filter(r => r.t < 0.45);
-  }
-  // the points: burst out of the body, hang a beat, then arc into the counter
-  for (const P of F.pops) {
-    P.t += dt;
-    const U1 = 0.26, U2 = P.big ? 0.62 : 0.56;
-    let x, y, s, a = 1;
-    if (P.t < U1) {
-      const q = scr(P.x, P.z + 8, P.y, _q0), u = P.t / U1;
-      if (q && onScr(q, 40)) { x = q[0]; y = q[1] - 18 * sEase(u) * Math.min(3, q[2]); } else { x = P.sx ?? ax; y = P.sy ?? ay + 60; }
-      s = u < 0.35 ? 1.7 - 0.9 * (u / 0.35) : 0.8 + 0.2 * Math.min(1, (u - 0.35) / 0.3) + 0.08 * Math.sin(Math.min(1, (u - 0.35) / 0.65) * Math.PI);
-      P.sx = x; P.sy = y;
-    } else {
-      const u = (P.t - U1) / (U2 - U1), e = u * u;
-      x = P.sx + (ax - P.sx) * e; y = P.sy + (ay - P.sy) * e - Math.sin(u * Math.PI) * 50;
-      s = 1 - 0.45 * u; a = 1 - 0.3 * u;
-      if (u >= 1 && !P.in) { P.in = true; F.punch = 1; F.shown += P.v; }
-    }
-    if (P.in) continue;
-    const size = P.big ? 30 : P.spot ? 18 : 22;
-    if (P.t >= U1) {   // sparks trailing it along its path
-      g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(${P.col},0.55)`;
-      for (let j = 1; j <= 4; j++) { g.beginPath(); g.arc(x + (P.sx - x) * 0.06 * j, y + (P.sy - y) * 0.06 * j, 3 - 0.55 * j, 0, 7); g.fill(); }
-      g.restore();
-    } else if (P.t < 0.12) {   // a thin white ring snapping out of the body
-      const u = P.t / 0.12; g.save(); g.globalCompositeOperation = 'lighter'; g.strokeStyle = `rgba(255,250,240,${1 - u})`; g.lineWidth = 2.5;
-      g.beginPath(); g.ellipse(x, y + 12, 8 + 34 * u, 5 + 18 * u, 0, 0, 7); g.stroke(); g.restore();
-    }
-    fxText(P.spot ? 'SPOTTED' : `+${Math.round(P.v).toLocaleString()}`, x, y, size, P.col, a, { s });
-  }
-  F.pops = F.pops.filter(P => !P.in);
-  // the counter itself
-  const U = stkUFp(); g.save(); g.translate(ax, ay); g.scale(U, U); g.translate(-ax, -ay);
-  const show = live || F.cash ? 1 : 0;
-  if (show > 0.01) {
-    const sh = F.crack > 0 ? (Math.random() - 0.5) * 7 * F.crack : 0, pu = 1 + 0.32 * F.punch * F.punch;
-    const cx = ax + sh, cy = ay;
-    if (F.cash) {   // cashing out: the total counts up, swells, then lifts away
-      const C = F.cash; C.t += dt;
-      const u = sEase(C.t / 0.55), n = Math.round(C.pts * u), sw = 1 + 0.35 * Math.max(0, 1 - Math.abs(C.t - 0.6) / 0.2);
-      const fa = C.t < 1.3 ? 1 : Math.max(0, 1 - (C.t - 1.3) / 0.45), lift = Math.max(0, C.t - 1.3) * 30;
-      const cc = COLOUR ? STK_TIERS[C.tier].col.join(',') : '239,239,234';
-      fxText(n.toLocaleString(), cx, cy - lift, 32 * sw, cc, fa, { glow: C.tier > 0 ? cc : null, blur: 16 });
-      fxText(`STREAK ${C.n}${C.tier ? ' · x' + STK_TIERS[C.tier].m : ''}`, cx, cy + 26 - lift, 12, '239,239,234', fa * 0.85, { w: 600 });
-      if (C.t > 1.75) F.cash = null;
-    } else {
-      const n = live ? k.n : (F.lastN || 0); if (live) { F.lastN = k.n; F.lastM = T.m; F.lastPts = k.pts; }
-      const m = live ? T.m : F.lastM || 1;
-      fxText(`${n}`, cx - (m > 1 ? 16 : 0), cy, 40 * pu, tcol, show, { glow: m > 1 && stkLoud() ? tcol : null, blur: 10 + 8 * F.punch });
-      if (m > 1) fxText(`x${m}`, cx + 26 + (n > 9 ? 11 : 0) + (n > 99 ? 11 : 0), cy + 5, 22 * (1 + 0.4 * F.glow), tcol, show);
-      // the timer: a thin bar draining in to the middle, flickering in its last moments
-      const left = live ? Math.max(0, k.t / stkWin(k)) : 0, bw = 80, low = live && k.t < 0.6;
-      g.save(); g.globalAlpha = show * (low ? 0.55 + 0.45 * Math.sin(S.t * 40) : 1);
-      g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(cx - bw / 2 - 1, cy + 23, bw + 2, 5);
-      g.fillStyle = `rgb(${tcol})`; g.fillRect(cx - bw / 2 * left, cy + 24, bw * left, 3);
-      g.restore();
-      if (live) F.shown += (k.pts - F.shown) * Math.min(1, dt * 10);
-      fxText(Math.round(live ? F.shown : F.lastPts || 0).toLocaleString(), cx, cy + 39, 12, '239,239,234', show * 0.8, { w: 600 });
-      if (live && T.name && !(F.tier && F.tier.t < 0.5)) fxText(T.name, cx, cy - 31, 13, tcol, show * 0.9, { w: 700 });
-    }
-    if (F.crack > 0.05) {   // the hit: a crack across the counter
-      g.save(); g.strokeStyle = `rgba(255,90,70,${F.crack})`; g.lineWidth = 2; g.beginPath();
-      g.moveTo(cx - 30, cy - 16); g.lineTo(cx - 7, cy - 2); g.lineTo(cx - 14, cy + 7); g.lineTo(cx + 12, cy + 16); g.moveTo(cx - 7, cy - 2); g.lineTo(cx + 16, cy - 12); g.stroke(); g.restore();
-    }
-  }
-  // bonus words, stacked to the right of the counter
-  F.words.forEach((w, i) => {
-    w.t += dt; const a = Math.min(1, w.t / 0.06) * Math.max(0, 1 - Math.max(0, w.t - 0.85) / 0.3), s = 1 + 0.5 * Math.max(0, 1 - w.t / 0.12);
-    const y = ay - 12 + (i - (F.words.length - 1)) * 17, x = ax + 58 + 14 * Math.max(0, 1 - w.t / 0.1);
-    fxText(w.c > 1 && w.id !== 'quick' ? `${w.txt} x${w.c}` : w.txt, x, y, w.id === 'nohit' || w.id === 'boss' || w.id === 'untouched' ? 16 : 13, w.id === 'last' ? '255,90,80' : '255,240,220', a, { align: 'left', s, w: 700 });
-  });
-  F.words = F.words.filter(w => w.t < 1.15);
-  g.restore();
-  // a tier up: its name slams into the middle of the screen, then shrinks into the counter
-  if (F.tier) {
-    const R = F.tier; R.t += dt;
-    if (stkLoud()) {
-      const u = R.t, cc = COLOUR ? R.col.join(',') : '239,239,234', fs = Math.min(72, FW / 8);
-      let x = FW / 2, y = FH * 0.36, s, a = 1;
-      if (u < 0.1) s = 2.4 - 1.4 * (u / 0.1); else if (u < 0.32) s = 1 + 0.06 * Math.sin((u - 0.1) / 0.22 * Math.PI); else { const v = sEase((u - 0.32) / 0.22); s = 1 - 0.8 * v; x += (ax - x) * v; y += (ay - 31 - y) * v; a = 1 - 0.5 * v; }
-      if (u < 0.08) { g.save(); g.fillStyle = `rgba(255,240,220,${0.18 * (1 - u / 0.08)})`; g.fillRect(0, 0, FW, FH); g.restore(); }
-      fxText(R.name, x, y, fs, cc, a, { s, glow: cc, blur: 22 });
-      if (u < 0.32) fxText(`x${R.m}`, x, y + fs * 0.75 * s, fs * 0.42, cc, a, { s });
-    }
-    if (R.t > 0.54) F.tier = null;
-  }
-  if (F.drop) { F.drop.t += dt; if (F.drop.t < 0.6 && F.drop.name) fxText(F.drop.name, ax, ay - 46 - 34 * F.drop.t, 13, '255,90,70', 1 - F.drop.t / 0.6, { w: 700, s: 1 + 0.3 * F.drop.t }); else if (F.drop.t >= 0.6) F.drop = null; }
-  if (F.lost) { F.lost.t += dt; const u = F.lost.t; fxText(`STREAK LOST · ${F.lost.n}`, ax, ay + 10 * u, 15, '255,90,70', Math.max(0, 1 - u / 1.4), { w: 700 }); if (u > 1.4) F.lost = null; }
 }
 
 // ---- what's behind you: the blow that got you, and what's coming that you can't see ----
@@ -11762,16 +11516,14 @@ function viewAngle(x, y) {
   const fwd = -dx * Math.sin(yaw) - dy * Math.cos(yaw), right = dx * Math.cos(yaw) - dy * Math.sin(yaw);
   return { th: Math.atan2(-fwd, right), off: Math.atan2(right, fwd), d: Math.hypot(dx, dy) };
 }
-const FP_NAME = { shade: 'SHADE', stalker: 'STALKER', brute: 'BRUTE', tall: 'TALL ONE', bomber: 'BOMB', laser: 'LASER', kamikaze: 'KAMIKAZE', splitter: 'SPLITTER', splitling: 'SPLITTER', centi: 'CENTIPEDE', spear: 'SPEAR', archer: 'ARROW', wolf: 'WOLF', boar: 'BOAR', bear: 'BEAR' };
-function rdHitBy(e, kind) {   // something got you: remember where from, and take the blow on the chin
+function rdHitBy(e, kind) {   // something got you: remember where from, and take the blow
   const p = S.p, src = e && e.x !== undefined ? e : null, x = src ? src.x : p.x, y = src ? src.y : p.y + 1;
-  const col = kind === 'shield' ? '200,225,255' : kind === 'steel' ? '210,215,230' : '255,70,50';
-  CFX.hurt = { t: 0, x, y, ref: src, col, name: src ? FP_NAME[src.type || src.k] || '' : '', heart: kind === 'heart' };
-  const v = viewAngle(x, y), side = Math.cos(v.th) >= 0 ? 1 : -1, behind = Math.sin(v.th) > 0.3;
-  // your head snaps away from it, the view drops and staggers, the world goes tight for a beat
-  VIEW_FX.roll -= side * (kind === 'heart' ? 0.11 : 0.06); VIEW_FX.fov -= kind === 'heart' ? 7 : 4; VIEW_FX.dip += kind === 'heart' ? 9 : 5;
-  camKick(Math.atan2(p.y - y, p.x - x), kind === 'heart' ? 9 : 5);
-  if (behind) look.yaw += side * 0.06;   // hit from behind: it turns you a little toward it
+  const col = kind === 'shield' ? '200,225,255' : kind === 'steel' ? '210,215,230' : '200,40,30';
+  CFX.hurt = { t: 0, x, y, ref: src, col, heart: kind === 'heart' };
+  const v = viewAngle(x, y), side = Math.cos(v.th) >= 0 ? 1 : -1;
+  // your head goes with it, away from where it came from, and the view drops a little
+  VIEW_FX.roll -= side * (kind === 'heart' ? 0.035 : 0.02); VIEW_FX.dip += kind === 'heart' ? 3 : 2;
+  camKick(Math.atan2(p.y - y, p.x - x), kind === 'heart' ? 3 : 2);
   if (actx && sfxGain) { const t = actx.currentTime; boomAt(t, 120, 38, 0.3, kind === 'heart' ? 0.55 : 0.3, sfxGain); noiseAt(t, 2200, 260, 0.16, kind === 'heart' ? 0.4 : 0.25, sfxGain); }
 }
 function foeWinding(e) { return (e.sw && e.sw.ph === 'wind') || e.ai === 'wind' || e.ai === 'draw' || e.ai === 'aim' || (e.type === 'kamikaze' && e.lit); }
@@ -11811,29 +11563,13 @@ function drawThreats(g, dt) {
     g.restore();
     if (q.wind) { g.save(); g.globalCompositeOperation = 'lighter'; const gr = g.createRadialGradient(cx + ca * FW, cy + sa * FH, 0, cx + ca * FW, cy + sa * FH, M * 0.9); gr.addColorStop(0, `rgba(255,60,40,${0.28 * u})`); gr.addColorStop(1, 'rgba(255,60,40,0)'); g.fillStyle = gr; g.fillRect(0, 0, FW, FH); g.restore(); }
   }
-  // the blow that got you: an arc on the ring pointing back at it (following it if it's still about), its name, that edge of the view red
+  // the blow that got you: that edge of the view goes red for a moment, the side it came from (following it if it's still about)
   const H = CFX.hurt;
   if (H) {
-    H.t += dt; const u = H.t / 1.6, a = u < 0.7 ? 1 : Math.max(0, (1 - u) / 0.3), src = H.ref && !H.ref.dead ? H.ref : H;
-    const th = viewAngle(src.x, src.y).th, pop = 1 + 0.25 * Math.max(0, 1 - H.t / 0.15), rx = RX * pop, ry = RY * pop;
-    g.save(); g.globalAlpha = a; g.lineCap = 'round';
-    g.strokeStyle = 'rgba(8,6,5,0.75)'; g.lineWidth = 14; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, th - 0.42, th + 0.42); g.stroke();
-    g.strokeStyle = `rgb(${H.col})`; g.lineWidth = 8; g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, th - 0.42, th + 0.42); g.stroke();
-    if (H.name) fxText(H.name, cx + Math.cos(th) * (rx - 30), cy + Math.sin(th) * (ry - 24), 13, H.col, a, { w: 700 });
-    if (H.t < 0.5) { const k = 1 - H.t / 0.5, ex = cx + Math.cos(th) * FW * 0.75, ey = cy + Math.sin(th) * FH * 0.75, gr = g.createRadialGradient(ex, ey, 0, ex, ey, M);
-      gr.addColorStop(0, `rgba(${H.col},${(H.heart ? 0.55 : 0.3) * k})`); gr.addColorStop(1, `rgba(${H.col},0)`); g.globalAlpha = 1; g.fillStyle = gr; g.fillRect(0, 0, FW, FH); }
-    // three raking claw marks across the view from the side it came, for a heart lost
-    if (H.heart && H.t < 0.7) {
-      const k = 1 - H.t / 0.7, sd = Math.cos(th) >= 0 ? 1 : -1, L = Math.min(FW * 0.5, M * 0.9); g.globalAlpha = k;
-      for (let i = 0; i < 3; i++) {
-        const x0 = cx + sd * L * 0.55 + sd * i * 14, y0 = cy - M * 0.3 + i * M * 0.09, x1 = x0 - sd * L, y1 = y0 + M * 0.32, mx = (x0 + x1) / 2, my = (y0 + y1) / 2 - M * 0.04, w = 9 - i * 1.5;
-        const nx = -(y1 - y0), ny = x1 - x0, nl = Math.hypot(nx, ny), ox = nx / nl * w, oy = ny / nl * w;
-        g.fillStyle = 'rgba(120,8,4,0.9)'; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx + ox, my + oy, x1, y1); g.quadraticCurveTo(mx - ox, my - oy, x0, y0); g.fill();
-        g.fillStyle = 'rgba(255,90,60,0.8)'; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(mx + ox * 0.3, my + oy * 0.3, x1, y1); g.quadraticCurveTo(mx - ox * 0.3, my - oy * 0.3, x0, y0); g.fill();
-      }
-    }
-    g.restore();
-    if (u >= 1) CFX.hurt = null;
+    H.t += dt; const src = H.ref && !H.ref.dead ? H.ref : H, th = viewAngle(src.x, src.y).th, k = 1 - H.t / 0.5;
+    if (k > 0) { const ex = cx + Math.cos(th) * FW * 0.75, ey = cy + Math.sin(th) * FH * 0.75, gr = g.createRadialGradient(ex, ey, 0, ex, ey, M);
+      gr.addColorStop(0, `rgba(${H.col},${(H.heart ? 0.4 : 0.22) * k})`); gr.addColorStop(1, `rgba(${H.col},0)`); g.fillStyle = gr; g.fillRect(0, 0, FW, FH); }
+    else CFX.hurt = null;
   }
 }
 
@@ -11858,6 +11594,49 @@ function homeFrame() {
   }
   homeEl.hidden = false; homeEl.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   homeArrow.hidden = th === null; if (th !== null) homeArrow.style.transform = `rotate(${th.toFixed(3)}rad) translateX(26px)`;
+}
+
+;
+// ================= a plain fight: one stroke at a time, and blood instead of light (Joe: "de-arcadeify") =================
+// Joe: "because this game is becoming more of a real survival sim ... we probably should go back and kind of de-arcadeify all
+// these animations and game feel aspects ... put back to a more kind of realistic, simple, real version". The old action game
+// made every blow loud so you could cut through crowds and build combos; here a fight is you and one or two of them in the
+// woods, so:
+//   - every weapon swings one stroke at a time, forehand then backhand (a spear jabs), however long you keep at it: no
+//     finishers, spins, leaps or ground cracks, no words over your head, and a swing is a step in, not a lunge.
+//   - a blow that lands draws blood: dark drops thrown off the far side and a spot on the ground. Nothing flashes white or
+//     throws sparks, and nothing goes flying; a cannibal grunts and flinches (72-clan).
+//   - nothing freezes when a blow lands (hitStop), and the shake from everything, a blow on you or a tree coming down, is
+//     half what it was (addShake). Your hand jars back instead (62-combat).
+//   - no streak: no points, no counter, no tier names.
+const PLAIN_ATK = {   // [reach, arc, a step in, how long, when it lands, damage, knock]: about the old combos' damage over time
+  club: { reach: 92, arc: 2.4, lunge: 12, moveT: [0.16, 0.3], dur: 0.62, hitAt: 0.3, dmg: 1.45, boss: 1.9, knock: 16, shake: 0.12, stop: 0, kick: 2, kh: 'sweep' },
+  axe: { reach: 80, arc: 1.9, lunge: 10, moveT: [0.15, 0.28], dur: 0.58, hitAt: 0.29, dmg: 1.7, boss: 2.2, knock: 14, shake: 0.12, stop: 0, kick: 2, kh: 'chop' },
+  sword: { reach: 86, arc: 2.2, lunge: 12, moveT: [0.1, 0.2], dur: 0.44, hitAt: 0.2, dmg: 1.3, boss: 1.5, knock: 14, shake: 0.08, stop: 0, kick: 1.5, kh: 'slash' },
+  knife: { reach: 52, arc: 1.5, lunge: 8, moveT: [0.05, 0.14], dur: 0.36, hitAt: 0.15, dmg: 0.95, boss: 1.1, knock: 5, shake: 0.04, stop: 0, kick: 1, kh: 'cut' },
+  twin: { reach: 94, arc: 0.5, lunge: 10, moveT: [0.08, 0.18], dur: 0.48, hitAt: 0.2, dmg: 1.3, boss: 1.6, knock: 10, shake: 0.06, stop: 0, kick: 1.5, thrust: 1, kh: 'jab' },
+};
+function plainArms() {   // each family's two strokes, in place of the boss weapon's combo it borrowed
+  for (const w in PLAIN_ATK) {
+    const W = ARMS[w], old = w === 'twin' ? W.spear : W.atk;
+    W.atk = [Object.assign({ pose: old[0].pose }, PLAIN_ATK[w]), Object.assign({ pose: old[1].pose, side: -1 }, PLAIN_ATK[w])];
+    W.loop = W.beat = 0;
+  }
+}
+{ const init = dArmInit; dArmInit = function () { if (dArmInit.done) return; init(); plainArms(); }; }
+// the blow lands: a thud through it, and a knife's cut keeps bleeding (the blood itself is plainBlood, from where it struck)
+const PLAIN_THUD = { club: [1, 0.8], axe: [0.9, 0.9], sword: [0.6, 1.1], twin: [0.5, 1.2], knife: [0.3, 1.4] };
+function plainHit(w, D, n, a, hit) {
+  if (!n) return;
+  if (w === 'knife') for (const o of hit) { o.wbleed = Math.min(4, (o.wbleed || 0) + 1); o.wbleedT = 2.2; o.wbleedK = 1; }
+  if (!actx) return;
+  const t = actx.currentTime, [k, f] = PLAIN_THUD[w] || [0.6, 1];
+  boomAt(t, 115 * f, 40, 0.1 + 0.1 * k, 0.35 + 0.35 * k, sfxGain); noiseAt(t, 1700 * f, 600, 0.06, 0.2 + 0.1 * k, sfxGain);   // the meat of it
+  if (w !== 'club') noiseAt(t + 0.01, 3200, 1400, 0.07, 0.16, sfxGain);   // an edge going in
+}
+function plainBlood(o, h, a, n = 5) {   // dark drops thrown off the far side of the wound, and a spot of it on the ground
+  dayChips(o.x, o.y, h * 0.6, 'blood', n, a, 0.6);
+  if (Math.random() < 0.7) huntBlood(o.x + Math.cos(a) * 4, o.y + Math.sin(a) * 4, 1, 0.7);
 }
 
 ;
@@ -12216,7 +11995,7 @@ function balStep(q, dt) {
 }
 function balStrike(q, o, beast, zone) {   // it went in: a head shot counts for more
   if (beast) { huntStrike(q, o, zone); return; }
-  const k = q.dmg; if (zone === 2) { q.dmg *= BAL.fhead; const F = FOES[o.type]; wpPop('HEADSHOT', o.x, o.y, (F ? F.h : 34) + 12, '255,214,120', 0.8); }
+  const k = q.dmg; if (zone === 2) q.dmg *= BAL.fhead;   // v129: and no word over them for it
   dayShotHit(q, o, false); q.dmg = k;
 }
 
@@ -12356,10 +12135,9 @@ function clanSpikes(D, cl, dt, night) {
     }
   }
 }
-function spikeBite(e, dmg) {   // a point goes in: it jerks, flashes, and the wound tells (the clan's own hurt yelp follows from it)
+function spikeBite(e, dmg) {   // a point goes in: it jerks, and the wound bleeds (the clan's own hurt yelp follows from it)
   e.spkT = SPIKE.every; e.hp -= dmg; e.jit = 1; e.spkHitT = S.t;
-  const h = (FOES[e.type] ? FOES[e.type].h : 40) * 0.35;
-  for (let i = 0; i < 10; i++) { const b = Math.random() * TAU, v = 40 + Math.random() * 90; spark(e.x, h + Math.random() * 10, e.y, Math.cos(b) * v, 30 + Math.random() * 90, Math.sin(b) * v, 0.3 + Math.random() * 0.25, 2.4 + Math.random() * 2, 0.55, 0.05, 0.04, 1, 0, 420, 2); }
+  plainBlood(e, (FOES[e.type] ? FOES[e.type].h : 40) * 0.6, Math.random() * TAU, 6);   // v129: blood, not sparks (62-plain)
   ashBurst(e.x, e.y, 3, 14);
   if (actx && monNear(e, 600) > 0) noiseAt(actx.currentTime, 2600, 900, 0.1, 0.3 * monNear(e, 600), sfxGain);
 }
@@ -12826,7 +12604,7 @@ function guardTake(e, who, cost, perfect) {
   rg.inv = 0.45;   // that blow, not the next frame of it too
   const push = who === 'bear' ? 26 : perfect ? 3 : 10;
   p.x += Math.cos(a) * push * 0.5; p.y += Math.sin(a) * push * 0.5; p.vx += Math.cos(a) * push * 5; p.vy += Math.sin(a) * push * 5;   // a step back from it
-  addShake(who === 'bear' ? 0.5 : perfect ? 0.22 : 0.3); hitStop(perfect ? 0.09 : 0.05);
+  addShake(who === 'bear' ? 0.5 : perfect ? 0.2 : 0.3);
   CFX.recoil = Math.max(CFX.recoil || 0, 1);   // it jars your hand
   dayWear();
   if (perfect && ref && S.rg.enemies.includes(ref)) {   // knocked back, off its stroke, and slow to come again
@@ -12841,7 +12619,7 @@ function guardSnd(k) {
   if (k === 'up') noiseAt(t, 900, 500, 0.07, 0.05, sfxGain);   // the cloth of your sleeve
   else if (k === 'break') { boomAt(t, 95, 45, 0.22, 0.4, sfxGain); noiseAt(t, 600, 300, 0.2, 0.18, sfxGain); }
   else { boomAt(t, 150, 70, 0.08, 0.4, sfxGain); noiseAt(t, 1900, 900, 0.06, 0.32, sfxGain);   // the blow on wood (or your arm)
-    if (k === 'perfect') { toneAt(t, 560, 0.2, 0.035, 'triangle', sfxGain); noiseAt(t + 0.02, 3200, 1500, 0.05, 0.18, sfxGain); } }
+    if (k === 'perfect') noiseAt(t + 0.02, 3200, 1500, 0.05, 0.18, sfxGain); }   // a sharper crack, met square on
 }
 // no swing while your guard's up
 { const at = attack; attack = function () { if (GUARD.on) return; return at.apply(this, arguments); }; }
@@ -13313,18 +13091,6 @@ function swingPose(base, u, side, kind) {   // a blow's arc: wind up, cut throug
   const a = lerp6(base, k0, smooth(w)), b = lerp6(k0, k1, easeOut(s));
   return s <= 0 ? a : r <= 0 ? b : lerp6(k1, base, smooth(r));
 }
-const TRAIL_N = 14, trailPos = new Float32Array(TRAIL_N * 2 * 3), trailA = new Float32Array(TRAIL_N * 2), trailGeo = new THREE.BufferGeometry();
-trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3).setUsage(THREE.DynamicDrawUsage));
-trailGeo.setAttribute('ta', new THREE.BufferAttribute(trailA, 1).setUsage(THREE.DynamicDrawUsage));
-{ const idx = []; for (let i = 0; i < TRAIL_N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } trailGeo.setIndex(idx); }
-const trail = new THREE.Mesh(trailGeo, new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
-  uniforms: { tcol: { value: new V3(1, 0.8, 0.55) } },
-  vertexShader: `attribute float ta; varying float vA; void main() { vA = ta; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `uniform vec3 tcol; varying float vA; void main() { gl_FragColor = vec4(mix(tcol, vec3(1.0, 0.98, 0.94), smoothstep(0.55, 1.0, vA)) * vA * 0.95, 1.0); }`,
-}));
-trail.frustumCulled = false; vmScene.add(trail);
-const trailPts = [];
 let shownId = null, torchK = 0;
 function placeHands(dt, now, bob, lag) {
   const p = S.p, D = S.day, s = heldSlot(), id = s ? s.id : null, T = id ? DIT[id] : null;
@@ -13339,13 +13105,13 @@ function placeHands(dt, now, bob, lag) {
   const G = id ? ITEM.get(id) : null;
   const spearish = T && (T.wpn === 'spear' || T.thr === 'jav'), bow = T && T.tool === 'bow', icon = T && !T.tool && T.k !== 'light';
   let base = !T ? POSE.fist : spearish ? POSE.spearIdle : bow ? POSE.bowIdle : icon ? POSE.icon : POSE.idle;
-  let cur = base.slice(), cutting = false;
+  let cur = base.slice();
   const A = p.atk, act = p.act, wa = p.wact;
   if (A && A.t < A.dur) {
     const u = A.t / A.dur, kind = A.ov ? 'chop' : A.pose === 3 || spearish ? 'thrust' : A.i === 2 ? 'chop' : 'cut';
-    cur = swingPose(base, u, A.side || 1, kind); cutting = u > 0.2 && u < 0.6;
+    cur = swingPose(base, u, A.side || 1, kind);
   } else if (wa && wa.t < (wa.dur || 0.4)) {
-    const u = wa.t / (wa.dur || 0.4); cur = swingPose(base, u, 1, spearish ? 'thrust' : 'chop'); cutting = u > 0.2 && u < 0.6;
+    const u = wa.t / (wa.dur || 0.4); cur = swingPose(base, u, 1, spearish ? 'thrust' : 'chop');
   } else if (act && act.t < act.dur) {
     const u = act.t / act.dur, k = Math.sin(Math.PI * Math.min(1, u * 1.1));
     if (act.pose === 8 || act.pose === 9) cur = lerp6(base, [1.5, -5, -9, 0.6, 0.2, 0.1], k);                 // to your mouth
@@ -13371,8 +13137,8 @@ function placeHands(dt, now, bob, lag) {
   const drink = S.rg.drink ? Math.sin(Math.PI * clamp(1 - S.rg.drink / FLASK_T, 0, 1)) : 0;
   // your guard up: what you hold brought up and across in front of you (68-guard)
   if (GUARD.k > 0.01) cur = lerp6(cur, T ? [4.2, -3.8, -14.5, -0.15, 0.35, 1.2] : [5.2, -4.2, -12, -0.1, 0.25, 0.4], GUARD.k);
-  // the blow lands: the hand jars back and shudders
-  if (CFX.recoil > 0) { const r = CFX.recoil; cur = cur.slice(); cur[2] += 3 * r; cur[0] += (Math.random() - 0.5) * 1.6 * r; cur[1] += (Math.random() - 0.5) * 1.2 * r; cur[3] += 0.18 * r; }
+  // the blow lands: the hand jars back (v129: back, not a shudder)
+  if (CFX.recoil > 0) { const r = smooth(Math.min(1, CFX.recoil)); cur = cur.slice(); cur[2] += 2.2 * r; cur[1] += 0.6 * r; cur[3] += 0.12 * r; }
   // put the right hand where the pose says, swaying against your turning and bobbing with your stride
   const [bx, by] = bob, [ly, lp] = lag;
   handG.position.set((cur[0] + bx - ly * 6) * vmX, cur[1] + by + lp * 5 - VIEW_FX.dip * 0.15 - drink * 6, cur[2]);
@@ -13383,20 +13149,6 @@ function placeHands(dt, now, bob, lag) {
   torchG.position.set((-8.2 + bx - ly * 6) * vmX, -6.3 + by + lp * 5 - VIEW_FX.dip * 0.12 - (1 - torchK) * 14 + drink * 5, -16 + drink * 6);
   torchG.rotation.set(0.1 + lp * 0.9 + drink * 0.9, -0.2 + ly * 0.9, 0.1 + drink * 0.4);
   lensGlow.material.opacity = (0.7 + 0.1 * Math.sin(now * 9)) * S.torchLvl;
-  // the smear behind the edge while it cuts
-  handG.updateMatrixWorld();
-  { const c = CFX.tint.split(','); trail.material.uniforms.tcol.value.set(c[0] / 255, c[1] / 255, c[2] / 255); }
-  const reach = spearish ? 30 : T && (T.wpn === 'sword') ? 17 : 13;
-  const tip = new V3(0, reach, 0).applyMatrix4(handG.matrixWorld), mid = new V3(0, reach * 0.55, 0).applyMatrix4(handG.matrixWorld);
-  if (cutting && T) trailPts.unshift({ tip, mid, a: 1 }); else if (trailPts.length) trailPts.unshift({ tip, mid, a: 0 });
-  if (trailPts.length > TRAIL_N) trailPts.length = TRAIL_N;
-  for (let i = 0; i < TRAIL_N; i++) {
-    const t = trailPts[Math.min(i, trailPts.length - 1)];
-    if (!t) { trailA[i * 2] = trailA[i * 2 + 1] = 0; continue; }
-    trailPos.set([t.tip.x, t.tip.y, t.tip.z], i * 6); trailPos.set([t.mid.x, t.mid.y, t.mid.z], i * 6 + 3);
-    const fa = t.a * Math.pow(1 - i / TRAIL_N, 1.4); trailA[i * 2] = fa; trailA[i * 2 + 1] = fa * 0.3;
-  }
-  trailGeo.attributes.position.needsUpdate = true; trailGeo.attributes.ta.needsUpdate = true;
 }
 
 ;
@@ -13741,7 +13493,7 @@ DIT.rod.b = 'Cast into a pond or the sea · hold Attack to cast further · strik
 const CLAN_ON = true;
 FOES.cannibal = { hp: 3.4, sp: 70, lightSp: 1, h: 40, w: 12 };
 NO_TOUCH.cannibal = 1; MON_PITCH.cannibal = 1.1; STK_PTS.cannibal = 20; STK_COL.cannibal = '214,150,104';
-FOE_TINT.cannibal = [176, 124, 86]; WISP.cannibal = 0; FP_NAME.cannibal = 'ONE OF THEM';
+FOE_TINT.cannibal = [176, 124, 86]; WISP.cannibal = 0;
 const CL_MELEE = { wind: 0.3, trig: 44, hit: 33, lunge: 40, rec: 0.36 };   // quick: the warning came before it, not in the swing
 FOE_AI.cannibal = (e, sp, d, dt) => clanAI(e, d, dt);
 const CL = {
@@ -14699,7 +14451,6 @@ function clanPose(R, e, c, now, dt, dead) {
   if (!dead) { R.rollK = (R.rollK || 0) + (roll - (R.rollK || 0)) * Math.min(1, dt * 6); roll = R.rollK; }
   R.mesh.rotation.set(roll, faceYaw(f), 0, 'YXZ'); R.edge.position.copy(R.mesh.position); R.edge.rotation.copy(R.mesh.rotation);
   R.mesh.visible = R.edge.visible = true;
-  { const ht = Math.max(e.kHitT ?? -9, e.spkHitT ?? -9); R.mat.uniforms.flash.value = S.t - ht < 0.15 ? 0.7 * (1 - (S.t - ht) / 0.15) : 0; }   // your blow, or a spike
   R.mesh.updateMatrixWorld(true);
   // the club in its fist: a crooked branch with a knot of root on the end
   if (c.club) {
@@ -15201,7 +14952,6 @@ let frameDtTP = 1 / 60;
 function thirdFrame(rdt, now, headY) {
   frameDtTP = rdt;
   const on = outsideP() && state === 'play';
-  trail.visible = !on;
   if (!isoP() || !on) isoOff();
   if (!on) { TP.hold.visible = false; TP.boom = 76; return false; }
   handG.visible = torchG.visible = false;
@@ -15222,7 +14972,7 @@ addEventListener('keydown', e => {
 // bends smoothly at every joint, with the game's dark outline round it. Each frame a pose is worked out from what the
 // main game says you're doing, and every joint eases toward it, so one movement flows into the next. Blows are built the
 // way a brawler's are: a wind-up that coils the body, a strike that throws the hips and shoulders through with a step in,
-// a beat of follow-through, then the settle; the blade leaves a smear of light behind it.
+// a beat of follow-through, then the settle.
 // (Joe's character sheet) a red-orange beanie with a white bobble, a cream shirt with the sleeves rolled up, a dark harness and
 // belt, a tan rucksack, taupe cargo trousers turned up at the ankle, brown lace-up boots
 const BODY_COL = { tunic: [234, 224, 202], trou: [132, 118, 100], trouL: [138, 123, 104], boot: [112, 76, 52], sole: [50, 40, 34], lace: [200, 172, 130], skin: [218, 170, 130],
@@ -15393,20 +15143,6 @@ const BODY = (() => {
   const cur = {}; for (const [n] of BONES) cur[n] = [0, 0, 0];
   return { mesh, edge, B, cur, root: [0, 0, 0], face: undefined, deadT: 0, atk: null, lastU: 0 };
 })();
-
-// ---- the smear behind the blade: a ribbon of light from the weapon's tip in the world ----
-const SMEAR_N = 16, smPos = new Float32Array(SMEAR_N * 2 * 3), smA = new Float32Array(SMEAR_N * 2), smGeo = new THREE.BufferGeometry();
-smGeo.setAttribute('position', new THREE.BufferAttribute(smPos, 3).setUsage(THREE.DynamicDrawUsage));
-smGeo.setAttribute('ta', new THREE.BufferAttribute(smA, 1).setUsage(THREE.DynamicDrawUsage));
-{ const ix = []; for (let i = 0; i < SMEAR_N - 1; i++) { const a = i * 2; ix.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } smGeo.setIndex(ix); }
-const smear = new THREE.Mesh(smGeo, new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
-  uniforms: { tcol: { value: new V3(1, 0.8, 0.55) } },
-  vertexShader: `attribute float ta; varying float vA; void main() { vA = ta; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-  fragmentShader: `uniform vec3 tcol; varying float vA; void main() { gl_FragColor = vec4(mix(tcol, vec3(1.0, 0.98, 0.94), smoothstep(0.55, 1.0, vA)) * vA, 1.0); }`,
-}));
-smear.frustumCulled = false; smear.renderOrder = 6; scene.add(smear);
-const smPts = [];
 
 // ---- the pose: worked out fresh each frame, then every joint eases toward it ----
 const ease = {
@@ -15590,7 +15326,6 @@ function posePlayer(now) {
   X.mesh.rotation.set(rollX, faceYaw(X.face), 0, 'YXZ');
   X.edge.position.copy(X.mesh.position); X.edge.rotation.copy(X.mesh.rotation);
   X.mesh.visible = X.edge.visible = true;
-  bodyMat.uniforms.flash.value = Math.max(0, CFX.hurt ? 0.7 * (1 - CFX.hurt.t / 0.15) : 0);
   X.mesh.updateMatrixWorld(true); X.edge.updateMatrixWorld(true);
   // what's in your hand: the same model as in first person, gripped in your fist
   if (id !== TP.holdId) {
@@ -15618,25 +15353,8 @@ function posePlayer(now) {
     between(PT.rod, a.x, a.y, a.z, b.x, b.y, b.z, 1.2, hex('#66655e'), 0);
     stat(b.x, b.y, b.z, 7, 1, 0.92, 0.75, 0.6 * S.torchLvl, 0); stat(b.x, b.y, b.z, 2.4, 1, 1, 0.95, 1, 0);
   }
-  // the smear: tip and middle of the blade while it's cutting
-  const cutting = kind && (() => { const u = (A || Wa).t / ((A || Wa).dur || 0.4); return u > 0.17 && u < 0.6; })();
-  if (TP.hold.visible || kind) {
-    const L = T && (T.wpn === 'spear' || T.thr === 'jav') ? 30 : T && T.wpn === 'sword' ? 17 : TP.hold.visible ? 14 : 4;
-    const m = TP.hold.visible ? TP.hold.matrix : hand.matrixWorld, tip = new V3(0, TP.hold.visible ? L : -3, 0).applyMatrix4(m), mid = new V3(0, TP.hold.visible ? L * 0.6 : -1, 0).applyMatrix4(m);
-    if (!TP.hold.visible) { const ty = terrH(X.mesh.position.x, X.mesh.position.z); tip.y += ty; mid.y += ty; }   // the item's matrix is already lifted onto the ground
-    smPts.unshift({ tip, mid, a: cutting ? 1 : 0 });
-  } else smPts.unshift({ tip: new V3(), mid: new V3(), a: 0 });
-  if (smPts.length > SMEAR_N) smPts.length = SMEAR_N;
-  for (let i = 0; i < SMEAR_N; i++) {
-    const q = smPts[Math.min(i, smPts.length - 1)];
-    smPos.set([q.tip.x, q.tip.y, q.tip.z], i * 6); smPos.set([q.mid.x, q.mid.y, q.mid.z], i * 6 + 3);
-    const fa = 0.8 * q.a * Math.pow(1 - i / SMEAR_N, 1.6); smA[i * 2] = fa; smA[i * 2 + 1] = 0;
-  }
-  smGeo.attributes.position.needsUpdate = true; smGeo.attributes.ta.needsUpdate = true;
-  { const c = CFX.tint.split(','); smear.material.uniforms.tcol.value.set(c[0] / 255, c[1] / 255, c[2] / 255); }
-  smear.visible = true;
 }
-function bodyHide() { BODY.mesh.visible = BODY.edge.visible = false; smear.visible = false; }
+function bodyHide() { BODY.mesh.visible = BODY.edge.visible = false; }
 
 ;
 // ================= isometric: the woods seen from above, as the top-down game sees them =================
@@ -16820,7 +16538,6 @@ function palePose(R, e, c, now, dt, dead) {
   if (!dead) { R.rollK = (R.rollK || 0) + (roll - (R.rollK || 0)) * Math.min(1, dt * 6); roll = R.rollK; }
   R.mesh.rotation.set(roll, faceYaw(f), R.rz, 'YXZ'); R.edge.position.copy(R.mesh.position); R.edge.rotation.copy(R.mesh.rotation);
   R.mesh.visible = R.edge.visible = true;
-  { const ht = Math.max(e.kHitT ?? -9, e.spkHitT ?? -9); R.mat.uniforms.flash.value = S.t - ht < 0.15 ? 0.7 * (1 - (S.t - ht) / 0.15) : 0; }
   R.mesh.updateMatrixWorld(true);
   // the milky eyes catch your light
   if (!dead && slK < 0.5) {
@@ -17805,7 +17522,7 @@ function critSnd(b, k) {
 // ---------------- their bodies ----------------
 // Built the way the woods' animals are (20-figures): soft rounded parts in the animal's own frame (x across, y up, z forward),
 // turned into the woods by one matrix, so a lizard can flip on its back dead or a grouse bank into a turn.
-const critTint = (o, h) => { let c = hexK(h); const f = o.flash > 0 ? o.flash : 0; if (o.skin) c = mixc(c, CUT_RAW, o.skin * 0.85); return f ? c.map(v => lerp(v, 1.5, f)) : c; };
+const critTint = (o, h) => { const c = hexK(h); return o.skin ? mixc(c, CUT_RAW, o.skin * 0.85) : c; };   // v129: no white flash when it's hit
 function critFrame(o, dt, turnK, pitch, roll, lift, sc = 1) {
   const want = o.dir ?? 0;
   if (o.dead) { const k = cutFallK(o.dieT); roll = (roll || 0) * k; lift = (lift || 0) * k; }   // it flips over as it dies (88-meat)
@@ -17813,7 +17530,7 @@ function critFrame(o, dt, turnK, pitch, roll, lift, sc = 1) {
   _B.compose(_aV.set(o.x, (o.z || 0) + (lift || 0), o.y), _aQ.setFromEuler(_e.set(pitch || 0, faceYaw(o.fa), roll || 0, 'YXZ')), _aS.set(sc, sc, sc));
 }
 function lizardPose(o, now, dt) {
-  const em = (o.flash > 0 ? o.flash : 0) * 0.7, col = critTint(o, '#8c8e54'), back = critTint(o, '#5e6238'), belly = critTint(o, '#dcd4ae'), stripe = critTint(o, '#e0cc84'), dark = hexK('#15130f');
+  const em = 0, col = critTint(o, '#8c8e54'), back = critTint(o, '#5e6238'), belly = critTint(o, '#dcd4ae'), stripe = critTint(o, '#e0cc84'), dark = hexK('#15130f');
   AO_H = 3;
   const dead = !!o.dead, mv = !dead && o.sp > 5 ? 1 : 0;
   o.gph = (o.gph || 0) + dt * (o.sp || 0) * 0.32;
@@ -17844,7 +17561,7 @@ function lizardPose(o, now, dt) {
   }
 }
 function grousePose(o, now, dt) {
-  const em = (o.flash > 0 ? o.flash : 0) * 0.7, col = critTint(o, '#9a7650'), back = critTint(o, '#684c34'), belly = critTint(o, '#d6c29e'), bar = critTint(o, '#3e2e20');
+  const em = 0, col = critTint(o, '#9a7650'), back = critTint(o, '#684c34'), belly = critTint(o, '#d6c29e'), bar = critTint(o, '#3e2e20');
   const red = hexK('#c8402c'), beak = hexK('#3a3026'), leg = hexK('#a08a66'), dark = hexK('#120f0c');
   AO_H = 8;
   const dead = !!o.dead, air = !dead && (o.st === 'fly' || o.st === 'glide') && o.z > 0.3, mv = !dead && !air && o.sp > 4;
@@ -17882,7 +17599,7 @@ function grousePose(o, now, dt) {
   }
 }
 function turtlePose(o, now, dt) {
-  const em = (o.flash > 0 ? o.flash : 0) * 0.7, shell = critTint(o, '#66643e'), scute = critTint(o, '#837a48'), rim = critTint(o, '#4a482e'), plast = critTint(o, '#c4b684'), skin = critTint(o, '#8a865a'), dark = hexK('#120f0c'), yel = critTint(o, '#c8b860');
+  const em = 0, shell = critTint(o, '#66643e'), scute = critTint(o, '#837a48'), rim = critTint(o, '#4a482e'), plast = critTint(o, '#c4b684'), skin = critTint(o, '#8a865a'), dark = hexK('#120f0c'), yel = critTint(o, '#c8b860');
   AO_H = 5;
   const dead = !!o.dead, mv = !dead && o.sp > 2;
   o.inK = lerp(o.inK || 0, dead ? 0 : (o.inT || 0), Math.min(1, dt * ((o.inT || 0) > (o.inK || 0) ? 9 : 1.6)));   // snapping in fast, coming out slow
@@ -17962,11 +17679,8 @@ function huntStrike(q, b, zone) {
   try { dayShotHit(q, b, true); } finally { HUNT.by = null; q.dmg = k; }   // the main game's blow: the damage, a sneak shot, its fright
   if (q.kind === 'arrow') { q.noKeep = 1; huntStick(q, b); }
   huntBlood(q.x, q.y, zone === 2 ? 4 : 2, 1.4);
-  CFX.marks.push({ t: 0, kill: b.dead ? 1 : 0, col: '255,120,96' });
-  if (b.dead) { if (zone === 2 && !critOf(b)) wpPop('CLEAN KILL', b.x, b.y, (B.h || 10) + 14, '255,214,120', 0.85); }
-  else {
+  if (!b.dead) {   // v129: no marks or words for a hit; it goes down, or it bolts and bleeds
     b.wound = (b.wound || 0) + 1;
-    if (zone === 2) wpPop('HEAD', b.x, b.y, (B.h || 10) + 14, '255,214,120', 0.7);
     if (!critOf(b)) dayNote('wounded', 'it\'s hit · it won\'t get far · follow the blood', 45);
   }
   if (actx) { const t = actx.currentTime, out = placeOut(b.x, b.y, 1, 800, b, 1.2) || sfxGain;
@@ -18084,7 +17798,6 @@ function cutDrops(b) {   // the main game's own drops (beastDie), and a bone fro
   if (HUNT.by && HUNT.zone === 2) b.clean = 1;
   const p = S.p, d = Math.hypot(b.x - p.x, b.y - p.y), far = d > HUNT.near * 1.6, crit = critOf(b);
   b.dead = true; b.dieT = 0; b.carc = 1; b.carcT = S.t; b.cut = cutDrops(b); b.cutN = b.cut.length; b.skin = 0;
-  if (!far) { addShake(0.2); hitStop(0.06); }
   dayKillLog(b.k);
   huntBlood(b.x, b.y, crit ? 2 : 5, crit ? 1 : 2.2);
   if (actx) { const out = placeOut(b.x, b.y, 1, 1400, b, 1.5); if (out) boomAt(actx.currentTime + (crit ? 0.05 : 0.4), 90, 40, 0.3, crit ? 0.15 : BEAST[b.k].big ? 0.7 : 0.5, out); }   // the thud as it hits the ground

@@ -47,7 +47,6 @@ function cutDrops(b) {   // the main game's own drops (beastDie), and a bone fro
   if (HUNT.by && HUNT.zone === 2) b.clean = 1;
   const p = S.p, d = Math.hypot(b.x - p.x, b.y - p.y), far = d > HUNT.near * 1.6, crit = critOf(b);
   b.dead = true; b.dieT = 0; b.carc = 1; b.carcT = S.t; b.cut = cutDrops(b); b.cutN = b.cut.length; b.skin = 0;
-  if (!far) { addShake(0.2); hitStop(0.06); }
   dayKillLog(b.k);
   huntBlood(b.x, b.y, crit ? 2 : 5, crit ? 1 : 2.2);
   if (actx) { const out = placeOut(b.x, b.y, 1, 1400, b, 1.5); if (out) boomAt(actx.currentTime + (crit ? 0.05 : 0.4), 90, 40, 0.3, crit ? 0.15 : BEAST[b.k].big ? 0.7 : 0.5, out); }   // the thud as it hits the ground

@@ -238,7 +238,7 @@ function ik2(root, end, l1, l2, fwd) {
 const _sm = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
 function poseBeast(o, now, dt) {
   const A = ANAT[o.k], C = BCOL[o.k]; if (!A) return;
-  const fl = o.flash > 0 ? o.flash : 0, em = fl * 0.7, tint = c => { if (o.skin) c = mixc(c, CUT_RAW, o.skin * 0.85); return fl ? c.map(v => lerp(v, 1.5, fl)) : c; };   // skin: raw and red where it's been cut up (88-meat)
+  const em = 0, tint = c => o.skin ? mixc(c, CUT_RAW, o.skin * 0.85) : c;   // skin: raw and red where it's been cut up (88-meat); v129: no white flash when it's hit
   const col = tint(hexK(C[0])), belly = tint(hexK(C[1])), back = tint(hexK(C[2])), hoof = hexK('#1e1814'), dark = hexK('#120f0d');
   // lighter belly and muzzle, darker lower legs and feet, a pale tip to the nose, pink inside the ears
   const legC = col, legLo = mixc(col, back, 0.6).map(v => v * 0.88), joint = mixc(col, legLo, 0.6), pale = mixc(belly, col, 0.15), pink = hexK('#d39a92'), shine = [1, 1, 1];

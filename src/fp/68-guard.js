@@ -49,7 +49,7 @@ function guardTake(e, who, cost, perfect) {
   rg.inv = 0.45;   // that blow, not the next frame of it too
   const push = who === 'bear' ? 26 : perfect ? 3 : 10;
   p.x += Math.cos(a) * push * 0.5; p.y += Math.sin(a) * push * 0.5; p.vx += Math.cos(a) * push * 5; p.vy += Math.sin(a) * push * 5;   // a step back from it
-  addShake(who === 'bear' ? 0.5 : perfect ? 0.22 : 0.3); hitStop(perfect ? 0.09 : 0.05);
+  addShake(who === 'bear' ? 0.5 : perfect ? 0.2 : 0.3);
   CFX.recoil = Math.max(CFX.recoil || 0, 1);   // it jars your hand
   dayWear();
   if (perfect && ref && S.rg.enemies.includes(ref)) {   // knocked back, off its stroke, and slow to come again
@@ -64,7 +64,7 @@ function guardSnd(k) {
   if (k === 'up') noiseAt(t, 900, 500, 0.07, 0.05, sfxGain);   // the cloth of your sleeve
   else if (k === 'break') { boomAt(t, 95, 45, 0.22, 0.4, sfxGain); noiseAt(t, 600, 300, 0.2, 0.18, sfxGain); }
   else { boomAt(t, 150, 70, 0.08, 0.4, sfxGain); noiseAt(t, 1900, 900, 0.06, 0.32, sfxGain);   // the blow on wood (or your arm)
-    if (k === 'perfect') { toneAt(t, 560, 0.2, 0.035, 'triangle', sfxGain); noiseAt(t + 0.02, 3200, 1500, 0.05, 0.18, sfxGain); } }
+    if (k === 'perfect') noiseAt(t + 0.02, 3200, 1500, 0.05, 0.18, sfxGain); }   // a sharper crack, met square on
 }
 // no swing while your guard's up
 { const at = attack; attack = function () { if (GUARD.on) return; return at.apply(this, arguments); }; }

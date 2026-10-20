@@ -215,7 +215,7 @@ function critSnd(b, k) {
 // ---------------- their bodies ----------------
 // Built the way the woods' animals are (20-figures): soft rounded parts in the animal's own frame (x across, y up, z forward),
 // turned into the woods by one matrix, so a lizard can flip on its back dead or a grouse bank into a turn.
-const critTint = (o, h) => { let c = hexK(h); const f = o.flash > 0 ? o.flash : 0; if (o.skin) c = mixc(c, CUT_RAW, o.skin * 0.85); return f ? c.map(v => lerp(v, 1.5, f)) : c; };
+const critTint = (o, h) => { const c = hexK(h); return o.skin ? mixc(c, CUT_RAW, o.skin * 0.85) : c; };   // v129: no white flash when it's hit
 function critFrame(o, dt, turnK, pitch, roll, lift, sc = 1) {
   const want = o.dir ?? 0;
   if (o.dead) { const k = cutFallK(o.dieT); roll = (roll || 0) * k; lift = (lift || 0) * k; }   // it flips over as it dies (88-meat)
@@ -223,7 +223,7 @@ function critFrame(o, dt, turnK, pitch, roll, lift, sc = 1) {
   _B.compose(_aV.set(o.x, (o.z || 0) + (lift || 0), o.y), _aQ.setFromEuler(_e.set(pitch || 0, faceYaw(o.fa), roll || 0, 'YXZ')), _aS.set(sc, sc, sc));
 }
 function lizardPose(o, now, dt) {
-  const em = (o.flash > 0 ? o.flash : 0) * 0.7, col = critTint(o, '#8c8e54'), back = critTint(o, '#5e6238'), belly = critTint(o, '#dcd4ae'), stripe = critTint(o, '#e0cc84'), dark = hexK('#15130f');
+  const em = 0, col = critTint(o, '#8c8e54'), back = critTint(o, '#5e6238'), belly = critTint(o, '#dcd4ae'), stripe = critTint(o, '#e0cc84'), dark = hexK('#15130f');
   AO_H = 3;
   const dead = !!o.dead, mv = !dead && o.sp > 5 ? 1 : 0;
   o.gph = (o.gph || 0) + dt * (o.sp || 0) * 0.32;
@@ -254,7 +254,7 @@ function lizardPose(o, now, dt) {
   }
 }
 function grousePose(o, now, dt) {
-  const em = (o.flash > 0 ? o.flash : 0) * 0.7, col = critTint(o, '#9a7650'), back = critTint(o, '#684c34'), belly = critTint(o, '#d6c29e'), bar = critTint(o, '#3e2e20');
+  const em = 0, col = critTint(o, '#9a7650'), back = critTint(o, '#684c34'), belly = critTint(o, '#d6c29e'), bar = critTint(o, '#3e2e20');
   const red = hexK('#c8402c'), beak = hexK('#3a3026'), leg = hexK('#a08a66'), dark = hexK('#120f0c');
   AO_H = 8;
   const dead = !!o.dead, air = !dead && (o.st === 'fly' || o.st === 'glide') && o.z > 0.3, mv = !dead && !air && o.sp > 4;
@@ -292,7 +292,7 @@ function grousePose(o, now, dt) {
   }
 }
 function turtlePose(o, now, dt) {
-  const em = (o.flash > 0 ? o.flash : 0) * 0.7, shell = critTint(o, '#66643e'), scute = critTint(o, '#837a48'), rim = critTint(o, '#4a482e'), plast = critTint(o, '#c4b684'), skin = critTint(o, '#8a865a'), dark = hexK('#120f0c'), yel = critTint(o, '#c8b860');
+  const em = 0, shell = critTint(o, '#66643e'), scute = critTint(o, '#837a48'), rim = critTint(o, '#4a482e'), plast = critTint(o, '#c4b684'), skin = critTint(o, '#8a865a'), dark = hexK('#120f0c'), yel = critTint(o, '#c8b860');
   AO_H = 5;
   const dead = !!o.dead, mv = !dead && o.sp > 2;
   o.inK = lerp(o.inK || 0, dead ? 0 : (o.inT || 0), Math.min(1, dt * ((o.inT || 0) > (o.inK || 0) ? 9 : 1.6)));   // snapping in fast, coming out slow

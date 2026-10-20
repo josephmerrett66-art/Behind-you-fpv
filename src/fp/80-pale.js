@@ -565,7 +565,6 @@ function palePose(R, e, c, now, dt, dead) {
   if (!dead) { R.rollK = (R.rollK || 0) + (roll - (R.rollK || 0)) * Math.min(1, dt * 6); roll = R.rollK; }
   R.mesh.rotation.set(roll, faceYaw(f), R.rz, 'YXZ'); R.edge.position.copy(R.mesh.position); R.edge.rotation.copy(R.mesh.rotation);
   R.mesh.visible = R.edge.visible = true;
-  { const ht = Math.max(e.kHitT ?? -9, e.spkHitT ?? -9); R.mat.uniforms.flash.value = S.t - ht < 0.15 ? 0.7 * (1 - (S.t - ht) / 0.15) : 0; }
   R.mesh.updateMatrixWorld(true);
   // the milky eyes catch your light
   if (!dead && slK < 0.5) {

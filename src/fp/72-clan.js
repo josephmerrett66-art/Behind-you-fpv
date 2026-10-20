@@ -23,7 +23,7 @@
 const CLAN_ON = true;
 FOES.cannibal = { hp: 3.4, sp: 70, lightSp: 1, h: 40, w: 12 };
 NO_TOUCH.cannibal = 1; MON_PITCH.cannibal = 1.1; STK_PTS.cannibal = 20; STK_COL.cannibal = '214,150,104';
-FOE_TINT.cannibal = [176, 124, 86]; WISP.cannibal = 0; FP_NAME.cannibal = 'ONE OF THEM';
+FOE_TINT.cannibal = [176, 124, 86]; WISP.cannibal = 0;
 const CL_MELEE = { wind: 0.3, trig: 44, hit: 33, lunge: 40, rec: 0.36 };   // quick: the warning came before it, not in the swing
 FOE_AI.cannibal = (e, sp, d, dt) => clanAI(e, d, dt);
 const CL = {
@@ -981,7 +981,6 @@ function clanPose(R, e, c, now, dt, dead) {
   if (!dead) { R.rollK = (R.rollK || 0) + (roll - (R.rollK || 0)) * Math.min(1, dt * 6); roll = R.rollK; }
   R.mesh.rotation.set(roll, faceYaw(f), 0, 'YXZ'); R.edge.position.copy(R.mesh.position); R.edge.rotation.copy(R.mesh.rotation);
   R.mesh.visible = R.edge.visible = true;
-  { const ht = Math.max(e.kHitT ?? -9, e.spkHitT ?? -9); R.mat.uniforms.flash.value = S.t - ht < 0.15 ? 0.7 * (1 - (S.t - ht) / 0.15) : 0; }   // your blow, or a spike
   R.mesh.updateMatrixWorld(true);
   // the club in its fist: a crooked branch with a knot of root on the end
   if (c.club) {

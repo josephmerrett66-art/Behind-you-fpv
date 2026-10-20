@@ -44,11 +44,8 @@ function huntStrike(q, b, zone) {
   try { dayShotHit(q, b, true); } finally { HUNT.by = null; q.dmg = k; }   // the main game's blow: the damage, a sneak shot, its fright
   if (q.kind === 'arrow') { q.noKeep = 1; huntStick(q, b); }
   huntBlood(q.x, q.y, zone === 2 ? 4 : 2, 1.4);
-  CFX.marks.push({ t: 0, kill: b.dead ? 1 : 0, col: '255,120,96' });
-  if (b.dead) { if (zone === 2 && !critOf(b)) wpPop('CLEAN KILL', b.x, b.y, (B.h || 10) + 14, '255,214,120', 0.85); }
-  else {
+  if (!b.dead) {   // v129: no marks or words for a hit; it goes down, or it bolts and bleeds
     b.wound = (b.wound || 0) + 1;
-    if (zone === 2) wpPop('HEAD', b.x, b.y, (B.h || 10) + 14, '255,214,120', 0.7);
     if (!critOf(b)) dayNote('wounded', 'it\'s hit · it won\'t get far · follow the blood', 45);
   }
   if (actx) { const t = actx.currentTime, out = placeOut(b.x, b.y, 1, 800, b, 1.2) || sfxGain;

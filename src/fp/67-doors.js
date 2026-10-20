@@ -88,10 +88,9 @@ function clanSpikes(D, cl, dt, night) {
     }
   }
 }
-function spikeBite(e, dmg) {   // a point goes in: it jerks, flashes, and the wound tells (the clan's own hurt yelp follows from it)
+function spikeBite(e, dmg) {   // a point goes in: it jerks, and the wound bleeds (the clan's own hurt yelp follows from it)
   e.spkT = SPIKE.every; e.hp -= dmg; e.jit = 1; e.spkHitT = S.t;
-  const h = (FOES[e.type] ? FOES[e.type].h : 40) * 0.35;
-  for (let i = 0; i < 10; i++) { const b = Math.random() * TAU, v = 40 + Math.random() * 90; spark(e.x, h + Math.random() * 10, e.y, Math.cos(b) * v, 30 + Math.random() * 90, Math.sin(b) * v, 0.3 + Math.random() * 0.25, 2.4 + Math.random() * 2, 0.55, 0.05, 0.04, 1, 0, 420, 2); }
+  plainBlood(e, (FOES[e.type] ? FOES[e.type].h : 40) * 0.6, Math.random() * TAU, 6);   // v129: blood, not sparks (62-plain)
   ashBurst(e.x, e.y, 3, 14);
   if (actx && monNear(e, 600) > 0) noiseAt(actx.currentTime, 2600, 900, 0.1, 0.3 * monNear(e, 600), sfxGain);
 }

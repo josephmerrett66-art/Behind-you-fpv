@@ -108,8 +108,8 @@ function clanMove(e, tx, ty, v, dt) {   // toward (tx, ty) at v; how far it stil
   c.want = 0; c.mvF = 1; v *= c.spd || 1;
   if (L < 0.5 || v <= 0) { c.v = 0; return L; }
   let ux = dx / L, uy = dy / L;
-  for (const o of propsNear(e.x + ux * 20, e.y + uy * 20, 30)) {
-    if (o.kind !== 'tree' && o.kind !== 'rock') continue;
+  for (const o of propsNear(e.x + ux * 20, e.y + uy * 20, 30).concat(assaultOn() ? daySolidsNear(e.x + ux * 20, e.y + uy * 20, 30) : [])) {   // (coming for you: round your walls and things too, 79-assault)
+    if (o.kind !== 'tree' && o.kind !== 'rock' && o.kind !== 'dbuild' && !o.st) continue;
     const ox = o.x - e.x, oy = o.y - e.y, ahead = ox * ux + oy * uy, R = o.r * o.s + 9;
     if (ahead <= 0 || ahead > 42 || ahead > L + R) continue;
     const side = ox * -uy + oy * ux;
@@ -674,7 +674,7 @@ function clanStep(dt) {
     C.rage -= dt;
     if (C.reinf > 0 && (C.reinfT -= dt) <= 0) { const g = clanBand(Math.min(C.reinf, 3), { d: 520 }); if (g) for (const e of bandOf(g)) { e.cl.hunter = 1; e.cl.fear = 0; clanGo(e, 'hunt'); } C.reinf = 0; }
     const H2 = clanList().filter(e => e.cl.hunter && !e.cl.done);
-    for (const e of H2) if (!['hunt', 'hwarn', 'hdart', 'wait', 'back', 'flee', 'drop', 'hesitate', 'down', 'drag', 'rescue', 'pounce', 'attack'].includes(e.cl.st)) { e.cl.climbing = 0; if (e.cl.z > 0) { e.cl.perched = 0; clanGo(e, 'drop'); } else clanGo(e, 'hunt'); }
+    for (const e of H2) if (!['hunt', 'hwarn', 'hdart', 'wait', 'back', 'flee', 'drop', 'hesitate', 'down', 'drag', 'rescue', 'pounce', 'attack', 'batter', 'loot', 'raid'].includes(e.cl.st)) { e.cl.climbing = 0; if (e.cl.z > 0) { e.cl.perched = 0; clanGo(e, 'drop'); } else clanGo(e, 'hunt'); }
     if (!clanRefugeAt(p.x, p.y) && !C.tok && (C.tokT -= dt * (Math.hypot(p.vx, p.vy) > 80 ? 0.6 : 1)) <= 0) {   // one at a time, its turn to go at you
       const ready = H2.filter(e => e.cl.st === 'hunt' && e.cl.cd <= 0 && e.cl.d < 280);
       if (ready.length) { const behind = e => Math.abs(angDiff(Math.atan2(e.y - p.y, e.x - p.x), S.aimW)); ready.sort((a, b) => behind(b) - behind(a)); C.tok = ready[0]; clanGo(C.tok, 'hwarn'); }

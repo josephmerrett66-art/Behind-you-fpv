@@ -7,16 +7,41 @@
 // and anything stored in it is left on the ground. Grid pieces give back half their materials as before (all, from a blueprint).
 // A pen with animals in it and the sealed caches out in the woods can't be moved or recycled.
 const MV_REACH = 90, MV_PICK = 30;
-const mvT0 = B => B.basket ? 'basket' : B.smoke ? 'smoke' : B.pen ? 'pen' : B.comp ? 'compost' : B.t;   // what it was put down as
+const mvT0 = B => B.basket ? 'basket' : B.smoke ? 'smoke' : B.pen ? 'pen' : B.comp ? 'compost' : B.snare ? 'snare' : B.ftrap ? 'ftrap' : B.t;   // what it was put down as
 const mvItem = B => { const t = mvT0(B); if (DIT[t] && DIT[t].build === t) return t; if (t === 'fire') return 'campfire'; return Object.keys(DIT).find(k => DIT[k].k === 'place' && DIT[k].build === t) || null; };
 const mvFixed = B => B.t === 'cache' || (B.pen && (S.day.beasts || []).some(b => !b.dead && b.pen && Math.hypot(b.pen[0] - B.x, b.pen[1] - B.y) < 2));
 function mvAimPt() { const p = S.p, A = stAimPt(); if (Math.hypot(A.x - p.x, A.y - p.y) > MV_REACH) { const a = S.aimW || 0; return { x: p.x + Math.cos(a) * MV_REACH, y: p.y + Math.sin(a) * MV_REACH }; } return A; }
-function mvAimedBuild() {   // the placed thing you're pointing at
+// What you're looking at, along your view: each placed thing stands as a post about as tall as it is, and each built piece as
+// tall as it's built (a floor lies flat), so looking at a rack's frame or a chest's lid finds it, and a wall in front of a chest
+// is the wall (Joe: "i want to be able to do that with all items ... like drying racks and chests"). It used to go by the spot
+// on the ground under your crosshair, which, looking at the thing itself, falls well behind it, so only what you looked down at
+// the foot of could be moved, and the floor a chest stood on came first.
+const MV_TALL = { plot: 3, snare: 6, ftrap: 6, hearth: 8, fire: 10, chest: 16, basket: 16, compost: 14, spikes: 16, pen: 16, anvil: 18, bench: 22, rainb: 22, tcol: 24, wall: 26, smoke: 30, rack: 32, furnace: 34, effigy: 45, signal: 45, tpost: 50 };
+const mvTop = P => P.H ?? (P.lay === 'floor' || P.lay === 'flat' ? 3 : P.lay === 'mount' ? 34 : 12);
+function mvLook() {   // the nearest thing your view runs into: { B, d } for a placed thing, { o, d } for a built piece
+  const p = S.p, cp = Math.cos(look.pitch), sp = Math.sin(look.pitch), a = S.aimW || 0, ca = Math.cos(a) * cp, sa = Math.sin(a) * cp;
+  if (isoP()) return null;
+  const L = S.day.builds.filter(B => B.t !== 'cache' && Math.abs(B.x - p.x) < MV_REACH + 60 && Math.abs(B.y - p.y) < MV_REACH + 60);
+  const G = stNear(p.x, p.y, MV_REACH + 30).filter(o => PC(o.id).lay !== 'roof');   // (a roof overhead is found as before, by the spot on the ground)
+  if (!L.length && !G.length) return null;
+  for (let d = 4; d <= MV_REACH + 20; d += 3) {
+    const x = p.x + ca * d, y = p.y + sa * d, h = EYE + sp * d; if (h < -1) break;
+    for (const B of L) { if (h > (MV_TALL[mvT0(B)] ?? 24)) continue; for (const q of B.parts) if (Math.hypot(q.x - x, q.y - y) < (q.r || 8) * 0.6 + 4) return { B, d }; }
+    for (const o of G) if (h <= mvTop(PC(o.id)) && stDistTo(o, x, y) < 3) return { o, d };
+  }
+  return null;
+}
+function mvAimedBuild() {   // the placed thing you're pointing at: the one you're looking at, else the one by the spot on the ground
+  const L = mvLook(); if (L && L.B) return L.B;
   const A = mvAimPt(); let best = null, bd = MV_PICK;
   for (const B of S.day.builds) { if (B.t === 'cache') continue; for (const q of B.parts) { const d = Math.hypot(q.x - A.x, q.y - A.y) - (q.r || 8) * 0.5; if (d < bd) { bd = d; best = B; } } }
   return best;
 }
-function mvAimed() { const o = stAimed(); if (o) return { kind: 'st', o }; const B = mvAimedBuild(); return B ? { kind: 'b', B } : null; }
+function mvAimed() {   // whatever you're looking at first; else, as before, what's by the spot on the ground
+  const L = mvLook(); if (L) return L.B ? { kind: 'b', B: L.B } : { kind: 'st', o: L.o };
+  const o = stAimed(); if (o) return { kind: 'st', o };
+  const B = mvAimedBuild(); return B ? { kind: 'b', B } : null;
+}
 const mvName = t => t.kind === 'st' ? PC(t.o.id).n.toLowerCase() : ((DIT[mvItem(t.B)] || {}).n || t.B.t).toLowerCase();
 
 // ---- picking up, carrying, putting down ----
@@ -52,7 +77,7 @@ function mvToggle() {
   const D = S.day; if (!D) return;
   if (D.mv) mvPut(true);
   D.bmove = !D.bmove; if (D.bmove) D.bdel = false;
-  exNote(D.bmove ? 'move · point at something you built' : 'building'); renderBuildBar();
+  exNote(D.bmove ? 'move · point at anything you built or put down' : 'building'); renderBuildBar();
 }
 // recycling a placed thing: it comes back to you whole; what was stored in it is left on the ground
 function mvRecycle(B) {
@@ -74,7 +99,7 @@ function mvRecycle(B) {
     const T = heldIt(), D = S.day;
     if (T && T.tool === 'build' && D) {
       if (D.bmove) return D.mv ? (mvSpot().ok ? 'Put down' : 'No room') : mvAimed() ? 'Pick up' : 'Point at it';
-      if (D.bdel) return stAimed() || mvAimedBuild() ? 'Recycle' : 'Point at it';
+      if (D.bdel) return mvAimed() ? 'Recycle' : 'Point at it';
     }
     return verb();
   }; }
@@ -82,8 +107,8 @@ function mvRecycle(B) {
   dayPrimary = function () {
     const T = heldIt(), D = S.day;
     if (T && T.tool === 'build' && D && !S.p.act) {
-      if (D.bmove) { if (D.mv) mvPut(false); else { const t = mvAimed(); if (t) mvPick(t); else dayNote('mvnone', 'point at something you built', 1.5); } return true; }
-      if (D.bdel && !stAimed()) { const B = mvAimedBuild(); if (B) { dayAct(10, 0.45); mvRecycle(B); } else dayNote('nodel', 'point at something you built to recycle it', 1.5); return true; }
+      if (D.bmove) { if (D.mv) mvPut(false); else { const t = mvAimed(); if (t) mvPick(t); else dayNote('mvnone', 'point at something you built or put down', 1.5); } return true; }
+      if (D.bdel) { const t = mvAimed(); if (t && t.kind === 'b') { dayAct(10, 0.45); mvRecycle(t.B); return true; } if (!t) { dayNote('nodel', 'point at something you built or put down to recycle it', 1.5); return true; } }   // a built piece: the hammer's own recycling
     }
     return prim();
   }; }
@@ -119,8 +144,8 @@ function mvStep() { const D = S && S.day; if (D && D.mv && (dayTool() !== 'build
       if (del) tools.insertBefore(b, del); else tools.append(b);
     }
     const lab = bar.querySelector('.bpname');
-    if (lab && D.bmove) lab.textContent = D.mv ? 'Move · point where it goes and press Attack' : 'Move · point at something you built, or a blueprint, and press Attack';
-    else if (lab && D.bdel) lab.textContent = 'Recycle · point at something you built and press Attack · placed things come back whole, built pieces give back half (all from a blueprint)';
+    if (lab && D.bmove) lab.textContent = D.mv ? 'Move · point where it goes and press Attack' : 'Move · point at anything you built or put down (a chest, a rack, a fire...) and press Attack';
+    else if (lab && D.bdel) lab.textContent = 'Recycle · point at anything you built or put down and press Attack · placed things come back whole, built pieces give back half (all from a blueprint)';
   }; }
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && state === 'play' && S && S.day && dayTool() === 'build' && !menusOpen()) mvToggle(); });
 // saving while you carry something saves it where it came from

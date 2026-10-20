@@ -2092,7 +2092,7 @@ function dayStam(cost) {                       // spend stamina, or say you're s
   if (D.st < cost) { dayNote('tired', 'too tired', 1.5); sfx(0.6, 0.25, 'lowpass', 300, 0.2); return false; }
   D.st -= cost; D.stT = 0; return true;
 }
-const dayMoveK = () => (S.day && S.day.st < 15 ? 0.78 : 1) * (S.day && S.day.crouch ? SNEAK_SPEED : 1) * (S.day && S.day.draw ? 0.55 : 1);
+const dayMoveK = () => (S.day && S.day.st < 15 ? 0.78 : 1) * (S.day && S.day.crouch ? SNEAK_SPEED : 1) * (S.day && S.day.draw ? 0.55 : 1) * (S.day && GUARD.on ? 0.5 : 1);   // v128: half pace with your guard up
 const invSize = (D = S.day) => BASE_SLOTS + (D.gear.back ? DIT[D.gear.back.id].bag : 0);
 const heldSlot = () => S.day && S.day.inv[S.day.hot];
 const heldIt = () => { const s = heldSlot(); return s ? DIT[s.id] : null; };

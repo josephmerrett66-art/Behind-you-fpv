@@ -114,7 +114,7 @@ function placeCamera(dt, rdt, now) {
   const kx = S.kick ? S.kick.x * 0.4 : 0, ky = S.kick ? S.kick.y * 0.4 : 0;
   // fallen: the view drops to the ground and tips over onto its side
   const fallK = rg.phase === 'dead' ? smooth(Math.min(1, (rg.deadT || 0) / 1.1)) : 0;
-  cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, terrH(p.x, p.y) + EYE - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
+  cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, terrH(p.x, p.y) + EYE + (p.jz || 0) - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
   const side = (p.vx * -Math.sin(S.aimW) + p.vy * Math.cos(S.aimW)) / RUN;
   cam.rotation.set(lerp(look.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + nz(6) * sh * 0.06 - side * 0.012 + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
   aimZoomStep(rdt); cam.fov = (baseFov() + VIEW_FX.fov) * (1 - AIM.z); cam.updateProjectionMatrix();   // v124: a drawn bow brings the view in (66-aim) cam.updateMatrixWorld();
@@ -214,8 +214,8 @@ $('sSnd').addEventListener('click', () => { SET.sound = !SET.sound; saveSet(); s
 $('sCol').addEventListener('click', () => { COLOUR = !COLOUR; SET.colour = COLOUR; saveSet(); syncSet(); if (S && S.day) { renderHotbar(); thingsKey = ''; } });
 syncSet();
 $('how').innerHTML = TOUCH
-  ? '<div><b>Left thumb</b> moves · <b>right thumb</b> drags to look · <b>Attack</b> also drags to look</div><div><b>Take</b> picks up, opens, drinks · <b>Pack</b> crafts and equips · tap the hotbar to hold something</div><div>Hold <b>Attack</b> with a bow or sling to draw, let go to loose · <b>Sneak</b> to creep up on animals</div>'
-  : '<div><b>WASD</b> move · <b>mouse</b> look · <b>click</b> attack, chop, mine · <b>right click / Space</b> roll</div><div><b>E</b> take, open, drink · <b>C</b> pack and crafting · <b>1–6</b> or <b>wheel</b> hotbar · <b>Q</b> sneak · <b>K</b> throw your spear</div><div>Building with the hammer: <b>Z X</b> turn · <b>[ ]</b> piece · <b>N</b> kind · <b>V</b> snap · <b>B</b> pull down · <b>Esc</b> menu</div>';
+  ? '<div><b>Left thumb</b> moves · <b>right thumb</b> drags to look · <b>Attack</b> also drags to look</div><div><b>Take</b> picks up, opens, drinks · <b>Pack</b> crafts and equips · tap the hotbar to hold something</div><div>Hold <b>Attack</b> with a bow or sling to draw, let go to loose · <b>Sneak</b> to creep up on animals · hold <b>Block</b> to block</div>'
+  : '<div><b>WASD</b> move · <b>mouse</b> look · <b>click</b> attack, chop, mine · <b>Space</b> jump · hold <b>right click</b> to block</div><div><b>E</b> take, open, drink · <b>C</b> pack and crafting · <b>1–6</b> or <b>wheel</b> hotbar · <b>Q</b> sneak · <b>K</b> throw your spear</div><div>Building with the hammer: <b>Z X</b> turn · <b>[ ]</b> piece · <b>N</b> kind · <b>V</b> snap · <b>B</b> pull down · <b>Esc</b> menu</div>';
 
 // ---------------- the loop, and keeping the frame rate up ----------------
 let fpsAcc = 0, fpsN = 0, fpsShow = 0, slowT = 0, fastT = 0, lastDrop = -99, hurtFx = 0, healFx = 0, lastHp = null;

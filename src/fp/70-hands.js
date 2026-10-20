@@ -348,6 +348,8 @@ function placeHands(dt, now, bob, lag) {
   }
   // eating and drinking: the left hand lifts the flask to your mouth
   const drink = S.rg.drink ? Math.sin(Math.PI * clamp(1 - S.rg.drink / FLASK_T, 0, 1)) : 0;
+  // your guard up: what you hold brought up and across in front of you (68-guard)
+  if (GUARD.k > 0.01) cur = lerp6(cur, T ? [4.2, -3.8, -14.5, -0.15, 0.35, 1.2] : [5.2, -4.2, -12, -0.1, 0.25, 0.4], GUARD.k);
   // the blow lands: the hand jars back and shudders
   if (CFX.recoil > 0) { const r = CFX.recoil; cur = cur.slice(); cur[2] += 3 * r; cur[0] += (Math.random() - 0.5) * 1.6 * r; cur[1] += (Math.random() - 0.5) * 1.2 * r; cur[3] += 0.18 * r; }
   // put the right hand where the pose says, swaying against your turning and bobbing with your stride

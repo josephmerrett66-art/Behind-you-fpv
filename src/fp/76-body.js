@@ -347,6 +347,9 @@ function posePlayer(now) {
     P.legL[0] = -1.05 * k; P.shinL[0] = 0.6; P.legR[0] = 0.9 * k; P.shinR[0] = 1.3 * k; rootY -= 4 * k;
     if (Math.random() < 0.6) { const a = X.face + Math.PI + (Math.random() - 0.5) * 0.8; spark(p.x, 2, p.y, Math.cos(a) * 40, 12 + Math.random() * 20, Math.sin(a) * 40, 0.4, 8 + Math.random() * 6, 0.62, 0.55, 0.45, 0.35, 0, -10, 2); }
   }
+  // in the air: knees up; your guard up: both arms raised across you (68-guard)
+  if (p.jz > 0) { P.legL[0] -= 0.75; P.shinL[0] += 1.1; P.legR[0] -= 0.35; P.shinR[0] += 0.7; P.armL[0] -= 0.3; P.armR[0] -= 0.2; }
+  if (GUARD.k > 0.01) { const g = GUARD.k; P.armR = bmix(P.armR, [-1.55, 0.35, 0.55], g); P.foreR = bmix(P.foreR, [-1.25, 0, 0], g); P.armL = bmix(P.armL, [-1.45, -0.35, -0.6], g); P.foreL = bmix(P.foreL, [-1.35, 0, 0], g); P.spine[0] += 0.08 * g; }
   // hurt: knocked back, chin up; dead: pitched forward onto your face, away from the camera
   const hk = CFX.hurt ? Math.max(0, 1 - CFX.hurt.t / 0.35) : 0;
   if (hk > 0) { P.spine[0] -= 0.45 * hk; P.chest[0] -= 0.25 * hk; P.head[0] -= 0.35 * hk; P.armL[2] -= 0.5 * hk; P.armR[2] += 0.5 * hk; lunge -= 4 * hk; }
@@ -364,7 +367,7 @@ function posePlayer(now) {
   // the pack and cap swing a beat behind you
   X.root[0] += (lunge - X.root[0]) * (1 - Math.exp(-(kind ? 30 : 12) * dt)); X.root[1] += (rootY - X.root[1]) * (1 - Math.exp(-20 * dt));
   const fx = Math.cos(X.face), fy = Math.sin(X.face);
-  X.mesh.position.set(p.x + fx * X.root[0], X.root[1], p.y + fy * X.root[0]);
+  X.mesh.position.set(p.x + fx * X.root[0], X.root[1] + (p.jz || 0), p.y + fy * X.root[0]);
   X.mesh.rotation.set(rollX, faceYaw(X.face), 0, 'YXZ');
   X.edge.position.copy(X.mesh.position); X.edge.rotation.copy(X.mesh.rotation);
   X.mesh.visible = X.edge.visible = true;

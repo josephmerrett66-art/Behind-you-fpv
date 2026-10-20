@@ -24,7 +24,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Escape') { if (!statsEl.hidden) { closeStats(); lockOn(); } else if (!craftEl.hidden) { closeCraft(); lockOn(); } else if (!menusOpen()) IN.pause = true; return; }
   if (k === 'c' || k === 'i' || k === 'tab') { e.preventDefault(); packToggle(); return; }
   if (!playing()) return;
-  if (e.code === 'Space' || e.code === 'ShiftLeft' && false) { e.preventDefault(); dodge(); }
+  if (e.code === 'Space') { e.preventDefault(); jump(); }   // v128: a jump where the roll was (68-guard)
   if (e.code === 'KeyP') IN.pause = true;
   if (k === 'e') useNow();
   if (k === 'q') dayCrouch();
@@ -46,7 +46,7 @@ addEventListener('mousemove', e => { if (document.pointerLockElement && state ==
 addEventListener('mousedown', e => {
   if (state !== 'play' || inputMode === 'touch' || menusOpen() || e.target.closest('button, #hotbar, #buildbar')) return;
   if (!document.pointerLockElement && !isoP()) { lockOn(); return; }
-  if (e.button === 0) attack(); else if (e.button === 2) dodge(); else if (e.button === 1) { e.preventDefault(); wpSpecial(); }
+  if (e.button === 0) attack(); else if (e.button === 2) GUARD.want.m = true; else if (e.button === 1) { e.preventDefault(); wpSpecial(); }   // right: hold to block (68-guard)
 });
 addEventListener('mouseup', e => { if (e.button === 0) rngUp(); });
 addEventListener('wheel', e => {
@@ -99,7 +99,7 @@ const thumb = (el, fn, drag = true) => el.addEventListener('pointerdown', e => {
   el.classList.add('on'); if (el !== attackBtn) setTimeout(() => el.classList.remove('on'), 140);
 });
 thumb(attackBtn, e => { atkPointer = e.pointerId; attack(); });
-thumb(dodgeBtn, () => dodge());
+thumb(dodgeBtn, () => jump());
 thumb(useBtn, () => useNow());
 thumb(sneakBtn, () => { if (playing()) dayCrouch(); }, false);
 thumb($('bSpec'), () => wpSpecial());
@@ -135,10 +135,11 @@ function pollPad(dt) {
       padTurn = mag > 0.85 ? Math.min(1, padTurn + dt * 6) : Math.max(0, padTurn - dt * 8);
       IN.lx += rx * curve * (3.8 + 1.8 * padTurn) * SET.sens * dt; IN.ly += ry * curve * 2.6 * SET.sens * dt;
     }
+    GUARD.want.p = state === 'play' && !menusOpen() && !inMenu && btn(6);   // hold LT to block (68-guard)
     if (state === 'play' && !menusOpen() && !inMenu) {   // a press that just shut a menu (B to back out) isn't also a dodge or a swing
       if (press(7) || press(0)) attack();
       const a = btn(7) || btn(0); if (padAtk && !a) rngUp(); padAtk = a;
-      if (press(1)) dodge();
+      if (press(1)) jump();
       if (press(2)) useNow();
       if (press(3)) { if (dayTool() === 'build') { if (pmBarOk()) PM.bar = true; } else wpSpecial(); }   // with the hammer, Y opens the build bar
       if (press(4)) daySelect((S.day.hot + HOTN - 1) % HOTN);

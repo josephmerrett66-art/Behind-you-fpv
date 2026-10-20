@@ -41,7 +41,7 @@ function sprintStep(dt, ml) {
   const D = S.day, p = S.p;
   if (SPR.on && (ml < 0.2 || D.crouch || D.draw || p.roll > 0 || S.rg.phase === 'dead')) SPR.on = SPR.held = false;
   if (SPR.on && D.st <= 1) { SPR.on = false; dayNote('tired', 'out of breath', 1.5); }
-  const want = SPR.on || SPR.held && ml > 0.2 && !D.crouch && !D.draw && D.st > 1 ? 1 : 0;
+  const want = (SPR.on || SPR.held && ml > 0.2 && !D.crouch && !D.draw && D.st > 1) && !GUARD.on ? 1 : 0;   // no running with your guard up (68-guard)
   SPR.k += (want - SPR.k) * Math.min(1, dt * 6);
   if (want) { D.st = Math.max(0, D.st - SPRINT_COST * dt); D.stT = 0; }
   return 1 + (SPRINT_K - 1) * SPR.k;
@@ -115,7 +115,7 @@ FP.exStep = function (dt) {
   }
   if (NO_CAMP && atHome()) rg.oil = oilMax();   // back at your bed or fire: the torch topped up
   campBtn.hidden = true;
-  craftBtn.hidden = false; useBtn.hidden = !dayUseTarget(); sneakBtn.hidden = inCamp; dodgeBtn.hidden = inCamp; attackBtn.hidden = false;
+  craftBtn.hidden = false; useBtn.hidden = !dayUseTarget(); sneakBtn.hidden = inCamp; dodgeBtn.hidden = inCamp; blockBtn.hidden = inCamp; attackBtn.hidden = false;
   if (inCamp) {
     for (const e of rg.enemies) if ((e.type === 'bomber' || e.type === 'laser') && !e.dead) { e.dead = e.gone = true; ashBurst(e.x, e.y, 12, 24); }
     return;                                  // nothing new comes while you're home

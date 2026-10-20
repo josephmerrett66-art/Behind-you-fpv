@@ -105,6 +105,7 @@ body.touch.playing .rb:not([hidden]) { display: block; }
 #sneakBtn[aria-pressed="true"] { background: rgba(239,239,234,0.88); color: #050505; }
 #craftBtn { left: calc(14px + env(safe-area-inset-left, 0px)); top: auto; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; }
 #campBtn { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(194px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; color: rgb(215,185,255); border-color: rgba(185,130,255,0.75); }
+#bBlock { right: calc(196px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; color: #d8e0e8; border-color: rgba(216,224,232,0.6); }
 #bSpec { right: calc(196px + env(safe-area-inset-right, 0px)); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; color: #ffd9a0; border-color: rgba(255,217,160,0.6); }
 #bSpec.cool { opacity: 0.4; }
 #bMenu { position: fixed; right: calc(14px + env(safe-area-inset-right, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); padding: 0.5rem 0.75rem; font-size: 0.7rem; letter-spacing: 0.12em; color: var(--ash); background: rgba(5,5,5,0.6); border: 1px solid rgba(138,138,138,0.45); display: none; z-index: 4; }
@@ -171,6 +172,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
   #sneakBtn { bottom: calc(190px + env(safe-area-inset-bottom, 0px)); }
   #craftBtn { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
   #campBtn { bottom: calc(256px + env(safe-area-inset-bottom, 0px)); }
+  #bBlock { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); right: auto; left: calc(84px + env(safe-area-inset-left, 0px)); }
   #bSpec { bottom: calc(152px + env(safe-area-inset-bottom, 0px)); }
   #buildbar { bottom: calc(254px + env(safe-area-inset-bottom, 0px)) !important; }
   #notes { top: calc(166px + env(safe-area-inset-top, 0px)); } #banner { top: 38%; }   /* below the hearts and bars, clear of the middle */
@@ -202,7 +204,8 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <div id="banner"><b id="bannerT"></b><span id="bannerS"></span></div>
 <div id="stick"><div id="knob"></div></div>
 <button class="rb" id="bAtk">Attack</button>
-<button class="rb" id="bDodge">Dodge</button>
+<button class="rb" id="bDodge">Jump</button>
+<button class="rb" id="bBlock" hidden>Block</button>
 <button class="rb" id="useBtn" hidden>Take</button>
 <button class="rb" id="sneakBtn" hidden aria-pressed="false">Sneak</button>
 <button class="rb" id="craftBtn" hidden>Pack</button>
@@ -213,7 +216,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <div id="hotbar" hidden></div>
 <div id="buildbar" hidden></div>
 <div id="fps"></div>
-<div id="padHint">RT attack · B dodge · X use · Y throw spear · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause</div>
+<div id="padHint">RT attack · B jump · LT block · X use · Y throw spear · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause</div>
 
 <div id="deathCard" hidden>
   <div class="dc">

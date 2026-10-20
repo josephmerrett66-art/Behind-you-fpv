@@ -1,6 +1,6 @@
 // ================= third person: you, seen from over your shoulder =================
 // The same woods and the same fight with the camera pulled back behind your right shoulder. You're the top-down game's
-// figure in a knitted cap and scarf with a pack on your back (76-body.js).
+// figure in a wide-brimmed fishing hat with a pack on your back (76-body.js).
 // The camera pulls in when a tree trunk gets between it and you. Switch views (first, third, isometric) in the pause menu, or with V.
 const thirdP = () => SET.view === 'third';
 const VIEWS = ['first', 'third', 'iso'], VIEW_NAME = { first: 'First person', third: 'Third person', iso: 'Isometric' };

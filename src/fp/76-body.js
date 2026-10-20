@@ -1,14 +1,15 @@
 // ================= you, in third person: one smooth cartoon body on a skeleton, and how it moves =================
-// The body is a single skinned mesh (tunic, trousers, boots, gloves, a knitted cap and scarf, a pack with a bedroll) that
+// The body is a single skinned mesh (tunic, trousers, boots, gloves, a fishing hat, a pack with a bedroll) that
 // bends smoothly at every joint, with the game's dark outline round it. Each frame a pose is worked out from what the
 // main game says you're doing, and every joint eases toward it, so one movement flows into the next. Blows are built the
 // way a brawler's are: a wind-up that coils the body, a strike that throws the hips and shoulders through with a step in,
 // a beat of follow-through, then the settle.
-// (Joe's character sheet) a red-orange beanie with a white bobble, a cream shirt with the sleeves rolled up, a dark harness and
-// belt, a tan rucksack, taupe cargo trousers turned up at the ankle, brown lace-up boots
+// (Joe's character sheet) a cream shirt with the sleeves rolled up, a dark harness and belt, a tan rucksack, taupe cargo
+// trousers turned up at the ankle, brown lace-up boots; and (Joe, later: "time to remove the beanie") a wide-brimmed fishing hat
+// in faded sage-olive, a leather band with a fly hooked into it
 const BODY_COL = { tunic: [234, 224, 202], trou: [132, 118, 100], trouL: [138, 123, 104], boot: [112, 76, 52], sole: [50, 40, 34], lace: [200, 172, 130], skin: [218, 170, 130],
-  rust: [200, 84, 48], rustD: [164, 64, 38], pack: [150, 122, 86], packD: [120, 94, 64], strap: [68, 48, 34], belt: [60, 44, 32], metal: [88, 80, 72], hair: [96, 64, 42], eye: [30, 26, 22],
-  btn: [214, 202, 178], roll: [222, 210, 186], nose: [214, 154, 120], bob: [240, 232, 214], rib: [178, 70, 40] };
+  hat: [128, 130, 90], hatL: [150, 150, 108], hatD: [106, 108, 74], hatIn: [80, 80, 56], hatB: [92, 68, 46], brass: [184, 156, 88], fly: [232, 104, 38], fly2: [240, 214, 120], pack: [150, 122, 86], packD: [120, 94, 64], strap: [68, 48, 34], belt: [60, 44, 32], metal: [88, 80, 72], hair: [96, 64, 42], eye: [30, 26, 22],
+  btn: [214, 202, 178], roll: [222, 210, 186], nose: [214, 154, 120] };
 const BONES = [   // name, parent, rest position (relative to the parent)
   ['root', null, [0, 0, 0]], ['hips', 'root', [0, 17, 0]], ['spine', 'hips', [0, 3.4, 0]], ['chest', 'spine', [0, 5, 0]], ['neck', 'chest', [0, 5.6, 0]], ['head', 'neck', [0, 2, 0]],
   ['armR', 'chest', [5.6, 3.6, 0]], ['foreR', 'armR', [0.3, -7.2, 0]], ['handR', 'foreR', [0.1, -6.4, 0]],
@@ -21,7 +22,8 @@ const BI = {}; BONES.forEach((b, i) => BI[b[0]] = i);
 const BREST = {}; for (const [n, par, p] of BONES) { const q = par ? BREST[par] : [0, 0, 0]; BREST[n] = [q[0] + p[0], q[1] + p[1], q[2] + p[2]]; }
 
 // ---- building the body: tubes and rounded lumps, each bound to its bones, welded into one mesh ----
-// o: C a palette in place of yours, tint(rgb, x, y, z) to dirty or tear it, cap / pack false to leave them off, extra(kit) for more
+// o: C a palette in place of yours, tint(rgb, x, y, z) to dirty or tear it, cap / pack false to leave them off (cap 'old' for a
+// battered hat), extra(kit) for more
 function buildBody(o = {}) {
   const C = o.C || BODY_COL;
   const pos = [], nor = [], idx = [], skI = [], skW = [], tone = [];
@@ -51,6 +53,21 @@ function buildBody(o = {}) {
   const lump = (c, r, wfn, colfn, ws = 16, hs = 12, cut) => {
     const g = new THREE.SphereGeometry(1, ws, hs, 0, Math.PI * 2, 0, cut || Math.PI); g.scale(r[0], r[1], r[2]); g.translate(c[0], c[1], c[2]); push(g, wfn, colfn);
   };
+  // a solid turned round an upright line through c: prof is [r, y, colour key] from the bottom middle, out and up round the
+  // outside to the top middle; warp(r, a) lifts or drops each point (a the angle round, 0 to the front)
+  const lathe = (c, prof, wfn, colfn, sides = 40, warp) => {
+    const g = new THREE.LatheGeometry(prof.map(q => new THREE.Vector2(q[0], q[1])), sides), p = g.attributes.position, n = prof.length, cs = [];
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i), r = Math.hypot(x, z), a = Math.atan2(x, z);
+      cs.push(colfn(prof[i % n][2], r, a));
+      if (warp) p.setY(i, p.getY(i) + warp(r, a));
+    }
+    if (warp) {   // fresh normals for the new shape, matched across the seam where the turning meets itself
+      g.computeVertexNormals(); const N = g.attributes.normal, v = new V3();
+      for (let i = 0; i < n; i++) { const j = sides * n + i; v.set(N.getX(i) + N.getX(j), N.getY(i) + N.getY(j), N.getZ(i) + N.getZ(j)).normalize(); N.setXYZ(i, v.x, v.y, v.z); N.setXYZ(j, v.x, v.y, v.z); }
+    }
+    g.translate(c[0], c[1], c[2]); let k = 0; push(g, wfn, () => cs[k++]);
+  };
   const one = n => () => [[n, 1]], col = c => () => C[c];
   const blend = (a, b, y0, y1) => (x, y) => { const k = smooth(clamp((y - y0) / (y1 - y0), 0, 1)); return [[a, 1 - k], [b, k]]; };
   const R = BREST;
@@ -66,17 +83,35 @@ function buildBody(o = {}) {
   // neck and an open collar
   tube([0, 34.5, 0.2], [0, 30.5, 0], () => [1.8, 1.7], blend('chest', 'neck', 30.5, 33), () => C.skin, 4, 10);
   tube([0, 31.6, -0.1], [0, 30.4, 0], t => [2.7 + 0.5 * t, 2.2 + 0.4 * t], blend('chest', 'neck', 30.5, 32), col('tunic'), 3, 14);
-  // the head: a round cartoon head, eyes, a nose, ears, brown hair showing below the cap at the back and sides
+  // the head: a round cartoon head, eyes, a nose, ears, brown hair showing below the hat at the back and sides
   lump([0, 36.4, 0.3], [3.9, 4.3, 3.9], one('head'), col('skin'), 18, 14);
   lump([0, 36.9, -0.75], [4.08, 3.9, 3.95], one('head'), col('hair'), 16, 12);
   for (const s of [-1, 1]) { lump([s * 1.45, 36.6, 3.85], [0.62, 0.85, 0.35], one('head'), col('eye'), 8, 6); lump([s * 3.85, 36.2, 0.4], [0.6, 1.1, 0.9], one('head'), col('skin'), 8, 6);
     lump([s * 3.6, 37.4, 1.4], [0.55, 1.2, 0.8], one('head'), col('hair'), 6, 6); }   // sideburns
   lump([0, 35.4, 4.1], [0.75, 0.8, 0.7], one('head'), col('nose'), 8, 6);
-  // the beanie: a knitted crown, a deep ribbed turn-up, and the bobble
+  // the hat: a soft fishing hat, its wide brim drooping all round and gone floppy with wear, more at the back and on one
+  // side than the other. A crown faded paler on top by the sun, a leather band, two brass eyelets each side, and a fly hooked
+  // into the band with its feather standing up. (A cannibal's is the same hat, older: filthy, the brim sagging, the fly gone.)
   if (o.cap !== false) {
-    lump([0, 38.0, -0.1], [4.3, 4.3, 4.35], one('cap'), col('rust'), 18, 10, Math.PI * 0.52);
-    tube([0, 39.2, -0.1], [0, 36.9, -0.1], () => [4.55, 4.55], one('cap'), (x, y, z) => Math.cos(Math.atan2(x, z + 0.1) * 16) > 0.1 ? C.rustD : C.rib, 4, 64);   // ribbed
-    lump([0, 42.6, -0.4], [1.45, 1.4, 1.45], one('cap'), col('bob'), 10, 8);
+    const old = o.cap === 'old', hz = -0.3, Rb = 4.5, Rt = 4.08, R = 7.6, th = 0.28, yB = 38.2, D = old ? 1.05 : 0.85;
+    const ur = u => Rb + u * (R - Rb), top = u => yB - D * u ** 1.35;
+    const prof = [[0, 37.9, 'in'], [Rb - 0.15, 37.9, 'in']];
+    for (const u of [0.08, 0.3, 0.55, 0.8, 1]) prof.push([ur(u), top(u) - th, 'under']);
+    prof.push([R + 0.12, top(1) - th * 0.5, 'brim']);
+    for (const u of [1, 0.8, 0.55, 0.3, 0.1]) prof.push([ur(u), top(u), 'brim']);
+    prof.push([Rb + 0.12, yB + 0.06, 'band'], [Rb + 0.12, 39.1, 'band'], [Rb + 0.02, 39.22, 'crown'], [Rb - 0.12, 40.3, 'crown'],
+      [Rt, 41.5, 'top'], [Rt - 0.22, 41.92, 'top'], [Rt - 0.62, 42.1, 'top'], [Rt * 0.45, 42.2, 'top'], [0, 42.24, 'top']);
+    const HC = { in: C.hatIn, under: C.hatD, brim: C.hat, band: C.hatB, crown: C.hat, top: C.hatL };
+    lathe([0, 0, hz], prof, one('cap'), k => HC[k], 40, (r, a) => {
+      const u = clamp((r - Rb - 0.15) / (R - Rb - 0.15), 0, 1);
+      return -u * u * (0.1 + 0.3 * (1 - Math.cos(a)) / 2 + 0.1 * Math.sin(a * 3 + 0.6) + 0.06 * Math.sin(a * 5 + 1) + (old ? 0.22 * Math.sin(a * 7 + 2) + 0.12 : 0));
+    });
+    for (const s of [-1, 1]) for (const da of [-0.28, 0.28]) { const a = s * Math.PI / 2 + da; lump([Math.sin(a) * 4.36, 40.1, hz + Math.cos(a) * 4.36], [0.16, 0.3, 0.3], one('cap'), col('brass'), 6, 6); }   // eyelets
+    if (!old) {   // the fly, on the band at the front left, and its feather
+      const a = -0.75, r = Rb + 0.3;
+      lump([Math.sin(a) * r, 38.7, hz + Math.cos(a) * r], [0.5, 0.42, 0.5], one('cap'), col('fly'), 8, 6);
+      lump([Math.sin(a) * (r - 0.1), 39.7, hz + Math.cos(a) * (r - 0.1) - 0.15], [0.24, 0.95, 0.22], one('cap'), col('fly2'), 6, 6);
+    }
   }
   // arms: the shirt's sleeve to the elbow, rolled up in a thick band, a bare forearm and a bare hand
   for (const s of [1, -1]) {
@@ -253,7 +288,7 @@ function posePlayer(now) {
     P.hips[1] = sw * 0.22 * k; P.chest[1] = -sw * 0.32 * k; P.hips[2] = -cw * 0.09 * k; P.chest[2] = cw * 0.05 * k; P.head[1] = sw * 0.08 * k; P.head[2] = -cw * 0.03 * k;
     lean(0.12 + 0.35 * gk); P.head[0] -= 0.2 * gk;
     rootY = Math.abs(cw) * (1.5 + 0.8 * (1 - gk)) * k - 0.6 * k;   // a springy bounce: more of it at a walk
-    P.pack[0] = -Math.abs(cw) * 0.12 * k; P.cap[0] = -0.1 * k;
+    P.pack[0] = -Math.abs(cw) * 0.12 * k; P.cap[0] = -0.05 * k;
   } else {   // idle: breathing, weight on one hip, hands loose
     // breathing lifts the chest and shoulders; every so often the weight drifts from one hip to the other and the head looks round
     const br = Math.sin(t * 1.9), shift = Math.sin(t * 0.33) * 0.7 + Math.sin(t * 0.13 + 1) * 0.3, look = Math.sin(t * 0.21) * 0.6 + Math.sin(t * 0.53 + 2) * 0.4;

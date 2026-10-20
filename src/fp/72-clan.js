@@ -1,7 +1,7 @@
 // ================= the clan: the people from the crash, living wild in the woods =================
 // Joe: "This is the heart of the game... The player should feel small and watched, like prey." By day the raiders are gone. In
 // their place is a clan of survivors from the plane crash, gone wild. They eat their weakest, so they are careful and every loss
-// hurts them. They look like you (the same body, gone ragged, muddy and painted, now and then one still in an orange beanie) and
+// hurts them. They look like you (the same body, gone ragged, muddy and painted, now and then one still in the fishing hat it crashed in) and
 // move like people: hunched and watchful when still, running upright like you (Joe), up in the branches.
 // Joe's second brief (after The Forest): they aren't programmed to spot you, chase you and fight to the death. They're curious,
 // territorial, unpredictable and sometimes frightened, and you should never be sure whether an encounter will become a fight.
@@ -794,7 +794,7 @@ function clanSnd(k, x, y, v = 1, vp = 120, who = null) {
 // ---------------- how they look: your body, gone wild ----------------
 // The same skinned body as yours (76-body), with no pack or harness, barefoot, the trousers torn off below the knee and the
 // sleeves gone, everything filthy, mud up the legs, clay or ochre or charcoal on the face, matted hair. One look in four or so
-// still has the orange beanie it crashed in.
+// still has the fishing hat it crashed in, gone filthy, the brim sagging.
 const clanHash = (x, y, z) => { const s = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453; return s - Math.floor(s); };
 const cmix = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
 const smoothK = u => u * u * (3 - 2 * u);
@@ -808,8 +808,8 @@ const CLAN_LOOK = [
   { C: { tunic: [72, 62, 52], trou: [56, 46, 38], trouL: [60, 49, 40], skin: [164, 156, 144], hair: [28, 22, 18] }, bare: 1,
     body: (x, y, z) => y > 19 && y < 31.5 && Math.abs(x + (y - 25) * 0.9) < 3.4 + 0.5 * Math.sin(y * 3 + z) ? CL_RED : (Math.abs(x) > 6 && y < 22.5 + 0.9 * Math.sin(z * 3 + x * 2) ? CL_RED : null),
     paintC: CL_SOOT, paint: (x, y, z) => z > 2.4 && Math.abs(y - 36.7) < 0.95 },
-  // the one in the beanie: pale as ash, white clay round the eyes, red fingers dragged down the chest, red round the mouth
-  { C: { tunic: [92, 80, 64], trou: [62, 52, 42], trouL: [66, 55, 44], skin: [178, 170, 156], hair: [40, 30, 22], rust: [196, 92, 50], rustD: [150, 68, 40], rib: [164, 76, 44], bob: [176, 166, 146] },
+  // the one in the hat: pale as ash, white clay round the eyes, red fingers dragged down the chest, red round the mouth
+  { C: { tunic: [92, 80, 64], trou: [62, 52, 42], trouL: [66, 55, 44], skin: [178, 170, 156], hair: [40, 30, 22], hat: [112, 112, 80], hatL: [126, 124, 90], hatD: [92, 92, 64], hatIn: [66, 64, 46], hatB: [70, 52, 36] },
     cap: 1, bare: 1, body: (x, y, z) => z > 0 && y > 20 && y < 31 - Math.abs(x) * 0.3 && [-2.6, -0.9, 0.8, 2.5].some(o => Math.abs(x - o - Math.sin(y * 0.8) * 0.3) < 0.42) ? CL_RED : null,
     paintC: CL_WHITE, paint: (x, y, z) => z > 2.4 && y > 35.4 && y < 37.8 && Math.abs(x) < 3.6, paint2C: CL_RED, paint2: (x, y, z) => z > 2.4 && y > 32.8 && y < 34.8 && Math.abs(x) < 2.2 },
   // mud-dark, striped all over in white clay, the jaw chalked white like bone
@@ -869,7 +869,7 @@ const CLAN_RIGS = [];
 // every look's body, made as a run starts (startRun): it's a fifth of a second's work, and made the first time one came in
 // sight it froze the game just as a cannibal stepped out of the trees
 function clanGeoInit() {
-  if (!CLAN_GEO) CLAN_GEO = CLAN_LOOK.map(V => buildBody({ C: Object.assign({}, BODY_COL, CL_BASE, V.C), tint: clanTint(Object.assign({}, V, { C: Object.assign({}, BODY_COL, CL_BASE, V.C) })), cap: !!V.cap, pack: false, extra: clanExtra(V) }));
+  if (!CLAN_GEO) CLAN_GEO = CLAN_LOOK.map(V => buildBody({ C: Object.assign({}, BODY_COL, CL_BASE, V.C), tint: clanTint(Object.assign({}, V, { C: Object.assign({}, BODY_COL, CL_BASE, V.C) })), cap: V.cap ? 'old' : false, pack: false, extra: clanExtra(V) }));
 }
 function clanRig(vi) {
   let R = CLAN_RIGS.find(q => !q.owner && q.vi === vi); if (R) return R;

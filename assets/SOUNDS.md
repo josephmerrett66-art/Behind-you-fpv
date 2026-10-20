@@ -33,18 +33,41 @@ page offered several licences, CC0 was taken.
 | bear | Bear Growls | AntumDeluge (U.S. Fish & Wildlife Service recording) | CC0 | [link](https://opengameart.org/content/bear-growls) |
 | bear | Bear Growls | AntumDeluge (U.S. Fish & Wildlife Service recording) | CC0 | [link](https://opengameart.org/content/bear-growls) |
 | bear | Grizzly Bear's Roar | NPS & MSU Acoustic Atlas/Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/grizzlysounds.htm) |
+| bed_cave | Loopable Dungeon Ambience | JaggedStone | CC0 | [link](https://opengameart.org/content/loopable-dungeon-ambience) |
+| bed_day | Dawn Chorus | NPS/Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-dawnchorus.htm) |
+| bed_night | Fen Covert, audio stream April 2021, wet woodland next to the marsh, 7JW7+CM Saxmundham, UK - Deep night - bitterns boom and roe deer bark in the distance | Peter Cusack (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_66869_77371) |
+| bed_pond | Boreal Chorus Frogs | NPS/Neal Herbert (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-chorusfrogs.htm) |
+| bed_wind | Soundscape - Lower Geyser Basin (Strong Wind) | NPS/Peter Comley (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-soundscapes.htm) |
 | bell | BELLHand-Blue Snowball Microphone, CU_Small, Metal, Shake, Short | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Bells) |
 | bell | BELLHand-Blue Snowball Microphone, CU_Cowbell Dings, Medium | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Bells) |
 | bird_crow | Quartier du Biéreau, 1348 Ottignies-Louvain-la-Neuve, Belgique - Lonely crow | Vincent Duseigne (radio aporee) | CC-BY 3.0 | [link](https://archive.org/details/aporee_31527_36221) |
 | bird_crow | Quartier du Biéreau, 1348 Ottignies-Louvain-la-Neuve, Belgique - Lonely crow | Vincent Duseigne (radio aporee) | CC-BY 3.0 | [link](https://archive.org/details/aporee_31527_36221) |
 | bird_crow | Quartier du Biéreau, 1348 Ottignies-Louvain-la-Neuve, Belgique - Lonely crow | Vincent Duseigne (radio aporee) | CC-BY 3.0 | [link](https://archive.org/details/aporee_31527_36221) |
 | bird_crow | Quartier du Biéreau, 1348 Ottignies-Louvain-la-Neuve, Belgique - Lonely crow | Vincent Duseigne (radio aporee) | CC-BY 3.0 | [link](https://archive.org/details/aporee_31527_36221) |
+| bird_hawk | Red-shouldered Hawk 02 Feb 16, 2022 | Tinyel (archive.org uploader) | Public Domain (PDM 1.0) | [link](https://archive.org/details/public-domain-animal-sounds) |
+| bird_hawk | Red-shouldered Hawk 03 Feb 16, 2022 | Tinyel (archive.org uploader) | Public Domain (PDM 1.0) | [link](https://archive.org/details/public-domain-animal-sounds) |
 | bird_owl | Unnamed Road, 42220 Colombier, France - tawny owl singing | jeff42 (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_43984_50047) |
 | bird_owl | Unnamed Road, 42220 Colombier, France - tawny owl singing | jeff42 (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_43984_50047) |
 | bird_owl | Pigs and wildlife midnight to midnight, Chediston, East Suffolk, Suffolk, England, United Kingdom - A lone tawney owl calls nearby, the pigs are silent, there is some traffic but the night is very quiet | Peter Cusack (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_68716_81482) |
 | bird_owl | Pigs and wildlife midnight to midnight, Chediston, East Suffolk, Suffolk, England, United Kingdom - A lone tawney owl calls nearby, the pigs are silent, there is some traffic but the night is very quiet | Peter Cusack (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_68716_81482) |
 | bird_owl | Pilis, Lithuania, tawny owl | alas23/sala (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_54348_62170) |
 | bird_owl | Pilis, Lithuania, tawny owl | alas23/sala (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_54348_62170) |
+| bird_song | Warbling Vireos | NPS/Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-warblingvireo.htm) |
+| bird_song | Warbling Vireos | NPS/Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-warblingvireo.htm) |
+| bird_song | Western Meadow Lark | NPS & MSU Acoustic Atlas/Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-westernmeadowlark.htm) |
+| bird_song | Western Meadow Lark | NPS & MSU Acoustic Atlas/Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-westernmeadowlark.htm) |
+| bird_song | American Robin | NPS & MSU Acoustic Atlas / Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-americanrobins.htm) |
+| bird_song | American Robin | NPS & MSU Acoustic Atlas / Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-americanrobins.htm) |
+| bird_song | Song thrush and woodpecker drumming, Vogelsang, ex Soviet base, Germany - Song thrush and woodpecker drumming | Peter Cusack (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_27852_32098) |
+| bird_song | Song thrush and woodpecker drumming, Vogelsang, ex Soviet base, Germany - Song thrush and woodpecker drumming | Peter Cusack (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_27852_32098) |
+| bird_song | Carolina Wren, Chirping | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Birds) |
+| bird_song | Carolina Wren, Chirping | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Birds) |
+| bird_song | Birdsong Carduelis Carduelis European Goldfinch | robertopicone (packaged by qubodup) | CC-BY 3.0 | [link](https://opengameart.org/content/birdsong-carduelis-carduelis-european-goldfinch) |
+| bird_song | Birdsong Carduelis Carduelis European Goldfinch | robertopicone (packaged by qubodup) | CC-BY 3.0 | [link](https://opengameart.org/content/birdsong-carduelis-carduelis-european-goldfinch) |
+| bird_wings | Flap, Splat, Poo (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/flap-splat-poo-yo-frankie) |
+| bird_wings | Medium size bird flutter | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/animals/) |
+| bird_wings | Bird flying away | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/animals/) |
+| bird_wings | Small bird flutter | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/animals/) |
 | bird_woodpecker | Lone woodpecker drumming, Eintracht Braunschweig Nachwuchsleistungszentrum, Kennelweg 5, 38122 Braunschweig, Germany - Woodpecker drumming in early February on a beautiful day | Peter Cusack (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_59169_67898) |
 | bird_woodpecker | Lone woodpecker drumming, Eintracht Braunschweig Nachwuchsleistungszentrum, Kennelweg 5, 38122 Braunschweig, Germany - Woodpecker drumming in early February on a beautiful day | Peter Cusack (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_59169_67898) |
 | bird_woodpecker | Punnetts Town, UK - Great Spotted Woodpecker Drumming | rubicana@gma... (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_34945_40172) |
@@ -55,6 +78,10 @@ page offered several licences, CC0 was taken.
 | blade_flesh | Horror Sound Effects Library | Little Robot Sound Factory | CC-BY 3.0 | [link](https://opengameart.org/content/horror-sound-effects-library) |
 | blade_flesh | Horror Sound Effects Library | Little Robot Sound Factory | CC-BY 3.0 | [link](https://opengameart.org/content/horror-sound-effects-library) |
 | blade_flesh | Fleshy Fight Sounds | will_leamon | OGA-BY 3.0 | [link](https://opengameart.org/content/fleshy-fight-sounds) |
+| boar | Big pig grunt | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/animals/) |
+| boar | Farm pig short grunt | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/animals/) |
+| boar | Pig herd grunt and cry | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/animals/) |
+| boar | Pig herd grunt and cry | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/animals/) |
 | body_fall | FGHTBf-Samsung Galaxy Smartphone, CU_Bodyfall, On Grass | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Fight) |
 | body_fall | 12 wet towel hitting/falling/punching floor sounds | qubodup | CC0 | [link](https://opengameart.org/content/12-wet-towel-hittingfallingpunching-floor-sounds) |
 | body_fall | 12 wet towel hitting/falling/punching floor sounds | qubodup | CC0 | [link](https://opengameart.org/content/12-wet-towel-hittingfallingpunching-floor-sounds) |
@@ -84,6 +111,12 @@ page offered several licences, CC0 was taken.
 | bush_rustle | 20 Rustles of dry leaves | qubodup | CC0 | [link](https://opengameart.org/content/20-rustles-dry-leaves) |
 | bush_rustle | 20 Rustles of dry leaves | qubodup | CC0 | [link](https://opengameart.org/content/20-rustles-dry-leaves) |
 | bush_rustle | 20 Rustles of dry leaves | qubodup | CC0 | [link](https://opengameart.org/content/20-rustles-dry-leaves) |
+| cave_drip | Ambient Water Drips (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/ambient-water-drips) |
+| cave_drip | Ambient Water Drips (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/ambient-water-drips) |
+| cave_drip | Ambient Water Drips (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/ambient-water-drips) |
+| cave_drip | Dripping Water | spookymodem | CC-BY 3.0 | [link](https://opengameart.org/content/dripping-water) |
+| cave_drip | Dripping water loop | qubodup | CC0 | [link](https://opengameart.org/content/dripping-water-loop) |
+| cave_drip | Dripping water loop | qubodup | CC0 | [link](https://opengameart.org/content/dripping-water-loop) |
 | chest_close | JC Sounds - Pirate Pack Vol 1 | JC Sounds | CC-BY 4.0 | [link](https://opengameart.org/content/jc-sounds-pirate-pack-vol-1) |
 | chest_close | DOORAntq-Samsung Galaxy Smartphone, CU_Wooden Treasure Chest Close | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Doors) |
 | chest_open | JC Sounds - Pirate Pack Vol 1 | JC Sounds | CC-BY 4.0 | [link](https://opengameart.org/content/jc-sounds-pirate-pack-vol-1) |
@@ -130,6 +163,12 @@ page offered several licences, CC0 was taken.
 | drink | 202 More Sound Effects | OwlishMedia | CC0 | [link](https://opengameart.org/content/202-more-sound-effects) |
 | drink | 202 More Sound Effects | OwlishMedia | CC0 | [link](https://opengameart.org/content/202-more-sound-effects) |
 | drink | Liquid Bottle Drink Set | qubodup | CC0 | [link](https://opengameart.org/content/liquid-bottle-drink-set) |
+| drum | Hand tribal drum | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/drum/) |
+| drum | Tribal dry drum | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/drum/) |
+| drum | Drum and percussion | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/drum/) |
+| drum | Tribal drum echoes | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/drum/) |
+| drum | Tribal deep drum echoes | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/drum/) |
+| drum | Tribal ritual drums | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/drum/) |
 | eat | Apple Bite | AntumDeluge | CC0 | [link](https://opengameart.org/content/apple-bite) |
 | eat | 7 Eating Crunches | StarNinjas | CC0 | [link](https://opengameart.org/content/7-eating-crunches) |
 | eat | 7 Eating Crunches | StarNinjas | CC0 | [link](https://opengameart.org/content/7-eating-crunches) |
@@ -148,9 +187,18 @@ page offered several licences, CC0 was taken.
 | fishing_cast | SWSH-Blue Snowball Microphone, CU_Stick, Small, Swishes, X4 | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Swooshes) |
 | fishing_cast | SWSH-Blue Snowball Microphone, CU_Stick, Small, Swishes, X4 | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Swooshes) |
 | fishing_cast | Fisheefects | You're Perfect Studio | CC0 | [link](https://opengameart.org/content/fisheefects) |
+| frog | Asklepieion, Greece, lone frog | alas23/sala (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_32004_36754) |
+| frog | Asklepieion, Greece, lone frog | alas23/sala (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_32004_36754) |
+| frog | Asklepieion, Greece, lone frog | alas23/sala (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_32004_36754) |
+| frog | Asklepieion, Greece, lone frog | alas23/sala (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_32004_36754) |
+| frog | Asklepieion, Greece, lone frog | alas23/sala (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_32004_36754) |
+| frog | Green Frog May 2, 2022 | Tinyel (archive.org uploader) | Public Domain (PDM 1.0) | [link](https://archive.org/details/public-domain-animal-sounds) |
 | grass_pull | leaves cracking and crumbling | Tim Mortimer (Submitted by qubodup ) | CC-BY 3.0 | [link](https://opengameart.org/content/leaves-cracking-and-crumbling) |
 | grass_pull | leaves cracking and crumbling | Tim Mortimer (Submitted by qubodup ) | CC-BY 3.0 | [link](https://opengameart.org/content/leaves-cracking-and-crumbling) |
 | grass_pull | leaves cracking and crumbling | Tim Mortimer (Submitted by qubodup ) | CC-BY 3.0 | [link](https://opengameart.org/content/leaves-cracking-and-crumbling) |
+| gull | St Leonards-On-Sea, Hastings, England, United Kingdom - Hastings Beach: Gull Flock and Evening Shoreline | Tiago CarvE (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_72526_84684) |
+| gull | St Leonards-On-Sea, Hastings, England, United Kingdom - Hastings Beach: Gull Flock and Evening Shoreline | Tiago CarvE (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_72526_84684) |
+| gull | St Leonards-On-Sea, Hastings, England, United Kingdom - Hastings Beach: Gull Flock and Evening Shoreline | Tiago CarvE (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_72526_84684) |
 | hammer_wood | 68 Workshop Sounds | bart | CC0 | [link](https://opengameart.org/content/68-workshop-sounds) |
 | hammer_wood | 68 Workshop Sounds | bart | CC0 | [link](https://opengameart.org/content/68-workshop-sounds) |
 | hammer_wood | 68 Workshop Sounds | bart | CC0 | [link](https://opengameart.org/content/68-workshop-sounds) |
@@ -232,6 +280,14 @@ page offered several licences, CC0 was taken.
 | sizzle | General Household Sound Effects | bretbernhoft | CC0 | [link](https://opengameart.org/content/general-household-sound-effects) |
 | sizzle | General Household Sound Effects | bretbernhoft | CC0 | [link](https://opengameart.org/content/general-household-sound-effects) |
 | sizzle | FOODCook-Samsung Galaxy Smartphone_Meat Frying, Looped | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/designers-choice-collection-food-drink) |
+| splash | Water Splash, Big, Dive Into Water, Person or Animal | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
+| splash | Water Splash (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/water-splash-yo-frankie) |
+| splash | Water Splash (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/water-splash-yo-frankie) |
+| splash | Water splashes | qubodup | CC-BY 3.0 | [link](https://opengameart.org/content/water-splashes) |
+| splash_small | Water, Splash, Small | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
+| splash_small | Object Dropping into Water | angeloyazar | CC0 | [link](https://opengameart.org/content/object-dropping-into-water-0) |
+| splash_small | Water Splash and sand footsteps | Peludo | CC0 | [link](https://opengameart.org/content/water-splash-and-sand-footsteps) |
+| splash_small | Water splashes | qubodup | CC-BY 3.0 | [link](https://opengameart.org/content/water-splashes) |
 | step_dirt | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
 | step_dirt | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
 | step_dirt | Fantasy Sound Effects Library | Little Robot Sound Factory | CC-BY 3.0 | [link](https://opengameart.org/content/fantasy-sound-effects-library) |
@@ -285,6 +341,10 @@ page offered several licences, CC0 was taken.
 | stone_pick | 80 CC0 RPG SFX | rubberduck | CC0 | [link](https://opengameart.org/content/80-cc0-rpg-sfx) |
 | stone_pick | 80 CC0 RPG SFX | rubberduck | CC0 | [link](https://opengameart.org/content/80-cc0-rpg-sfx) |
 | stone_pick | 80 CC0 RPG SFX | rubberduck | CC0 | [link](https://opengameart.org/content/80-cc0-rpg-sfx) |
+| swim | Swimming in calm water | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
+| swim | Swimming in calm water | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
+| swim | Swimming in calm water | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
+| swim | Sea swimming loop | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
 | thunder | Thunder, Sharp, Crackle | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
 | thunder | Lightning, Strike, Booming Thunder Roll | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
 | thunder | Thunder, Distant, Rolling | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
@@ -295,6 +355,11 @@ page offered several licences, CC0 was taken.
 | tree_crack | Tree Creaking | AntumDeluge | CC0 | [link](https://opengameart.org/content/tree-creaking) |
 | tree_crack | 35 wooden cracks/hits/destructions | Independent.nu (Submitted by qubodup ) | CC0 | [link](https://opengameart.org/content/35-wooden-crackshitsdestructions) |
 | tree_crack | Tree Falling (Yo Frankie!) | Blender Foundation (Submitted by Lamoot ) | CC-BY 3.0 | [link](https://opengameart.org/content/tree-falling-yo-frankie) |
+| tree_creak | Tree Creaking | Department64 (cleaned by AntumDeluge) | CC0 | [link](https://opengameart.org/content/tree-creaking) |
+| tree_creak | 6WFQ+PW Wustrow, Deutschland - Two old creaking trees | astrolexx (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_64874_74915) |
+| tree_creak | 6WFQ+PW Wustrow, Deutschland - Two old creaking trees | astrolexx (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_64874_74915) |
+| tree_creak | 6WFQ+PW Wustrow, Deutschland - Two old creaking trees | astrolexx (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_64874_74915) |
+| tree_creak | 6WFQ+PW Wustrow, Deutschland - Two old creaking trees | astrolexx (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_64874_74915) |
 | tree_fall | tree chop fall thud | kheetor | CC0 | [link](https://opengameart.org/content/tree-chop-fall-thud) |
 | tree_fall | 35 wooden cracks/hits/destructions | Independent.nu (Submitted by qubodup ) | CC0 | [link](https://opengameart.org/content/35-wooden-crackshitsdestructions) |
 | tree_fall | 35 wooden cracks/hits/destructions | Independent.nu (Submitted by qubodup ) | CC0 | [link](https://opengameart.org/content/35-wooden-crackshitsdestructions) |
@@ -315,6 +380,10 @@ page offered several licences, CC0 was taken.
 | water_fill | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
 | water_fill | WATRBubl-Samsung Galaxy Smartphone_Bubble, Glugs, Multiple, Short 01 | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
 | water_fill | WATRBubl-Samsung Galaxy Smartphone_Bubble, Glugs, Multiple, Short 01 | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
+| water_wade | Water Step Splashes (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/water-step-splashes-yo-frankie) |
+| water_wade | Water Step Splashes (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/water-step-splashes-yo-frankie) |
+| water_wade | Running out from sea | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
+| water_wade | Running out from sea | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
 | whoosh | Swishes Sound Pack | artisticdude | CC0 | [link](https://opengameart.org/content/swishes-sound-pack) |
 | whoosh | Swishes Sound Pack | artisticdude | CC0 | [link](https://opengameart.org/content/swishes-sound-pack) |
 | whoosh | Medieval sound effects - Weapon Textures | Ben Jaszczak & Brian Nelson (Submitted by MedicineStorm ) | CC0 | [link](https://opengameart.org/content/medieval-sound-effects-weapon-textures) |

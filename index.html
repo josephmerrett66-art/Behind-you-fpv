@@ -2869,7 +2869,7 @@ function dayStep(dt, inCamp) {
   const D = S.day, rg = S.rg, p = S.p;
   D.t += dt;
   D.crK = (D.crK || 0) + ((D.crouch ? 1 : 0) - (D.crK || 0)) * Math.min(1, dt * 10);   // v178: ease down into the crouch and back up
-  if ((D.saveT = (D.saveT || 0) + dt) > DAY_SAVE_T) { D.saveT = 0; daySave(); } D.sick = Math.max(0, D.sick - dt);
+  if ((D.saveT = (D.saveT || 0) + dt) > DAY_SAVE_T) { D.saveT = 0; daySaveIdle(); } D.sick = Math.max(0, D.sick - dt);
   const n = 1 + Math.floor(D.t / DAY_LEN);
   if (n > D.n) { D.n = n; rg.ringMsg = { text: `day ${n}`, sub: 'A new morning', t: 0 }; }
   { const ph = dayNight() ? 'night' : 'day';   // v153: they come with the dark
@@ -3746,6 +3746,15 @@ function daySave() {
   d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, smoke: B.smoke, comp: B.comp, pen: B.pen, bT: B.bT, ck: B.ck, rw: B.rw, open: B.open, cT: B.cT, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit }));
   const out = { v: 2, at: Date.now(), d, p: { x: Math.round(S.p.x), y: Math.round(S.p.y) }, rg: { hp: rg.hp, steel: rg.steel || 0, flask: rg.flask, kills: rg.kills || 0, looted: [...rg.looted], wisp: rg.wispCarry || 0 }, xs: XS };
   try { localStorage.setItem(dayKey(), JSON.stringify(out)); } catch (e) {}
+}
+// the save every few seconds as you play, put off to the gap after a frame is drawn: packing the run up takes several ms, which
+// in the middle of a frame was a stutter every five seconds
+let daySaveCb = 0;
+function daySaveIdle() {
+  if (daySaveCb) return;
+  if (typeof requestIdleCallback !== 'function') { daySave(); return; }
+  const t0 = performance.now(), go = dl => { if (dl.timeRemaining() < 8 && !dl.didTimeout && performance.now() - t0 < 3000) { daySaveCb = requestIdleCallback(go, { timeout: 3000 }); return; } daySaveCb = 0; try { daySave(); } catch (e) {} };
+  daySaveCb = requestIdleCallback(go, { timeout: 3000 });
 }
 function dayFromV1(d) {                         // a run saved before the overhaul: stacks become slots, tools become items
   const inv = Array(BASE_SLOTS + (d.bigPack ? DIT.pack.bag : 0)).fill(null), box = Array(BOX_SLOTS).fill(null), gear = { head: null, body: d.armour ? newSlot('vest', 1) : null, legs: null, back: d.bigPack ? newSlot('pack', 1) : null };
@@ -7189,6 +7198,10 @@ const P_CYL = (n = 8) => prim('cyl' + n, () => { const g = new THREE.CylinderGeo
 const P_CONE = (n = 8) => prim('cone' + n, () => { const g = new THREE.ConeGeometry(0.5, 1, n); g.translate(0, 0.5, 0); return g; });
 const P_ROCK = (k = 0) => prim('rock' + k, () => { const g = new THREE.IcosahedronGeometry(0.5, 0), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const h = 0.85 + 0.3 * hash(Math.round(p.getX(i) * 9) + k * 3.1, Math.round(p.getY(i) * 7 + p.getZ(i) * 5)); p.setXYZ(i, p.getX(i) * h, p.getY(i) * h, p.getZ(i) * h); } g.computeVertexNormals(); return g; });   // a faceted stone, each variant knocked about a little
 const P_BALL = () => prim('ball', () => new THREE.SphereGeometry(0.5, 10, 7));
+// low balls for small things seen by the hundred (petals, florets, the leaves of a herb): a full ball is 360 points, and a
+// flower of them weighed as much as a hut, so a meadow or a pond of lilies took frames to put together
+const P_LEAF = () => prim('ball6', () => new THREE.SphereGeometry(0.5, 6, 4));   // 108 points
+const P_BEAD = () => prim('ball5', () => new THREE.SphereGeometry(0.5, 5, 3));   // 60
 const P_TENT = () => prim('tent', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 3, 1); g.rotateZ(Math.PI / 2); g.rotateX(Math.PI / 6); g.translate(0, 0.25, 0); return g; });   // a triangular prism lying along x, ridge up (0.75 high, 0.87 wide)
 // what a colour is most likely made of, when the shape doesn't say
 function autoMt(col) {
@@ -7423,11 +7436,10 @@ const pondMat = new THREE.ShaderMaterial({
       gl_FragColor = vec4(fogged(grey(lit), vW), a);
     }`,
 });
-const pondMesh = new THREE.Mesh(new THREE.BufferGeometry(), pondMat); pondMesh.frustumCulled = false; pondMesh.renderOrder = 1; scene.add(pondMesh);
-const pondK = new KitMesh(false);   // no ink outline: it would swallow a reed
 const P_PAD = () => prim('pad', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0.45, 6.2832 - 0.45); g.translate(0, 0.5, 0); return g; });   // a lily pad: a disc with its notch
 let pondKey = '';
-const pondPart = new Map();   // (pondsSync) each pond's pieces, by where it lies
+const P_REED = () => prim('cone5o', () => { const g = new THREE.ConeGeometry(0.5, 1, 5, 1, true); g.translate(0, 0.5, 0); return g; });   // a reed's stem: no base, it stands up out of the mud
+const pondPart = new Map();   // (pondsSync) each pond's meshes, by where it lies
 function pondKit(K, P) {
   const R = (a, b) => hash(P.x * 0.31 + a * 7.7, P.y * 0.27 + b * 3.3);
   // reeds: clumps standing in the shallows round the shore, thicker on some sides than others; slim tapering stems that
@@ -7448,7 +7460,7 @@ function pondKit(K, P) {
         const kx = x + lx * 0.5, ky = y + ly * 0.5, kh = h * 0.62;
         K.rod(P_BOX(), x, yb, y, kx, kh, ky, 0.28, blade, 0.22); K.rod(P_CONE(4), kx, kh, ky, kx + lx * 0.9, kh + h * 0.12, ky + ly * 0.9, 0.28, blade, 0.22);
       } else {
-        K.rod(P_CONE(5), x, yb, y, x + lx, h, y + ly, 0.3, reedC[(k + j) % 4], 0.22);   // lifted a little: so thin, the shade would turn them black
+        K.rod(P_REED(), x, yb, y, x + lx, h, y + ly, 0.3, reedC[(k + j) % 4], 0.22);   // lifted a little: so thin, the shade would turn them black
         if (R(j, k + 50) < 0.22) K.rod(P_CYL(6), x + lx * 0.7, h * 0.7, y + ly * 0.7, x + lx * 0.82, h * 0.82, y + ly * 0.82, 0.55, head);   // a bulrush head
       }
       K.mt = null;
@@ -7467,33 +7479,45 @@ function pondKit(K, P) {
       K.mt = 'plant'; K.add(P_PAD(), x, yy, y, s, 0.12, s, padC[j % 3], R(j, g + 95) * 6.2832); K.mt = null;
       if (R(j, g + 99) < 0.22) {   // a flower: a ring of petals round a yellow heart
         const f = flC[R(g, j + 101) < 0.6 ? 0 : 1];
-        for (let p = 0; p < 6; p++) { const t = p / 6 * 6.2832; K.add(P_BALL(), x + Math.cos(t) * 0.7, yy + 0.35, y + Math.sin(t) * 0.7, 1.0, 0.45, 0.6, f, -t); }
-        K.add(P_BALL(), x, yy + 0.55, y, 0.6, 0.45, 0.6, hex('#e8c040'));
+        for (let p = 0; p < 6; p++) { const t = p / 6 * 6.2832; K.add(P_BEAD(), x + Math.cos(t) * 0.7, yy + 0.35, y + Math.sin(t) * 0.7, 1.0, 0.45, 0.6, f, -t); }
+        K.add(P_BEAD(), x, yy + 0.55, y, 0.6, 0.45, 0.6, hex('#e8c040'));
       }
     }
   }
 }
+function pondPiece(P) {   // a pond's own meshes: a sheet at the water's level over the hollow, marked where the pond reaches, and its reeds and lilies
+  const N = 26, pos = [], dat = [];
+  const R = P.rmax * 1.12 + 8, st = 2 * R / N, inG = [];   // where it reaches, once a grid point (each is a corner of six triangles)
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) inG.push(pondIn(P, P.x - R + i * st, P.y - R + j * st, 10) ? 1 : 0);
+  const v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, inG[j * (N + 1) + i]); };
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3)); g.setAttribute('pdat', new THREE.BufferAttribute(new Float32Array(dat), 3));
+  const water = new THREE.Mesh(g, pondMat); water.frustumCulled = false; water.renderOrder = 1; scene.add(water);
+  const T = new Kit(); pondKit(T, P); const km = new KitMesh(false); km.set(T);   // no ink outline: it would swallow a reed
+  return { water, km, used: 0 };
+}
+let pondMore = false, pondUse = 0;
 function pondsSync(px, py) {
   const L = lakesNear(px, py, drawR() + 100), key = L.map(P => P.x | 0).join();
-  if (key === pondKey) return L; pondKey = key;
-  // each pond's water and reeds are built the first time it comes near and kept, so walking on past ponds only puts the
-  // pieces together again (rebuilding every pond in reach each time the set changed was a hitch you could feel)
-  const N = 26, K = new Kit(), parts = [];
-  for (const P of L) {
+  if (key === pondKey) return L;
+  // Each pond is built the first time it comes near and kept as its own meshes, so walking on past ponds only shows and hides
+  // them. Far ones are built one a frame (worldSync calls again while pondMore): they come in out past the haze, and building
+  // a pond's reeds is a few ms, so several at once was a hitch (and before that, putting every pond in reach together again
+  // each time the set changed was one too).
+  let made = 0, more = false; const on = new Set();
+  for (const P of L.slice().sort((a, b) => Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py))) {
     const id = (P.x | 0) + ',' + (P.y | 0); let q = pondPart.get(id);
     if (!q) {
-      const pos = [], dat = [];   // a sheet at the water's level over the hollow, marked where the pond reaches
-      const R = P.rmax * 1.12 + 8, st = 2 * R / N, v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, pondIn(P, x, y, 10) ? 1 : 0); };
-      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
-      const T = new Kit(); pondKit(T, P);
-      q = { pos: new Float32Array(pos), dat: new Float32Array(dat), kit: T.take() };
-      if (pondPart.size > 80) pondPart.clear(); pondPart.set(id, q);
+      if (made && Math.hypot(P.x - px, P.y - py) - P.rmax > drawR() * 0.5) { more = true; continue; }
+      q = pondPiece(P); pondPart.set(id, q); made++;
     }
-    parts.push(q); K.chunk(q.kit);
+    on.add(q);
   }
-  const cat = f => { const A = new Float32Array(parts.reduce((n, q) => n + q[f].length, 0)); let o = 0; for (const q of parts) { A.set(q[f], o); o += q[f].length; } return A; };
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(cat('pos'), 3)); g.setAttribute('pdat', new THREE.BufferAttribute(cat('dat'), 3));
-  pondMesh.geometry.dispose(); pondMesh.geometry = g; pondK.set(K);
+  for (const q of pondPart.values()) { const v = on.has(q); q.water.visible = q.km.visible = v; if (v) q.used = ++pondUse; }
+  if (pondPart.size > 24) for (const [id, q] of [...pondPart].filter(([, q]) => !on.has(q)).sort((a, b) => a[1].used - b[1].used).slice(0, pondPart.size - 16)) {
+    scene.remove(q.water); q.water.geometry.dispose(); scene.remove(q.km.mesh); q.km.mesh.geometry.dispose(); pondPart.delete(id);
+  }
+  pondKey = more ? '' : key; pondMore = more;
   return L;
 }
 
@@ -7524,6 +7548,7 @@ function worldSync(force) {
   const p = S.p, D = S.day;
   if (!staticK) { const K = new Kit(); campKit(K); staticK = new KitMesh(); staticK.set(K); }
   const gen = D.felled.size * 7 + D.nodes.size * 3 + (D.bchunks ? D.bchunks.size : 0);
+  if (pondMore) pondsSync(p.x, p.y);   // ponds still to build, one a frame
   if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < 70 && gen === WORLD.gen && drawR() === WORLD.vr) return;
   WORLD.x = p.x; WORLD.y = p.y; WORLD.gen = gen; WORLD.vr = drawR(); worldDirty = false;
   // trees, rocks, posts
@@ -8208,9 +8233,10 @@ class PropSet {
     const P = PROP_KIND[kind]; if (!P) return (this.k[kind] = null);
     const M = propMat(P.mat); L = [];
     for (let v = 0; v < P.n; v++) {
-      const g = propModel(kind, v), m = new THREE.InstancedMesh(g, M.m, this.cap);
+      const g = propModel(kind, v), m = new THREE.InstancedMesh(g, M.m, 1);   // made for one, then given room for cap: three sets every slot to a matrix as it makes one,
+      m.instanceMatrix = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 16), 16);   // and fifty shapes of rock at 2400 each was a tenth of a second the first time one came in sight
       m.count = 0; m.frustumCulled = false; scene.add(P.shadow ? castsShadow(m) : m);
-      let e = null; if (P.edge) { e = new THREE.InstancedMesh(g, M.e, this.cap); e.count = 0; e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(e); }
+      let e = null; if (P.edge) { e = new THREE.InstancedMesh(g, M.e, 1); e.count = 0; e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(e); }
       L.push({ m, e, n: 0, items: [], shN: 0, shadow: P.shadow });
     }
     return (this.k[kind] = L);
@@ -10698,6 +10724,7 @@ function initAudio() {
   dec(AMB_SRC, b => { const s = actx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(ambG); s.start(); });
   noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
   const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  forestVerb();   // made now, on the tap that starts the sound, not mid-fight on the first cannibal's call (it takes a few frames' worth)
 }
 function setSoundOn(on) { if (sfxGain) sfxGain.gain.setTargetAtTime(on ? 0.9 : 0, actx.currentTime, 0.05); }
 function startBurnLoop() {   // the hiss of a raider burning in your torchlight, looped
@@ -14336,10 +14363,15 @@ function clanExtra(V) {
 }
 let CLAN_GEO = null;
 const CLAN_RIGS = [];
+// every look's body, made as a run starts (startRun): it's a fifth of a second's work, and made the first time one came in
+// sight it froze the game just as a cannibal stepped out of the trees
+function clanGeoInit() {
+  if (!CLAN_GEO) CLAN_GEO = CLAN_LOOK.map(V => buildBody({ C: Object.assign({}, BODY_COL, CL_BASE, V.C), tint: clanTint(Object.assign({}, V, { C: Object.assign({}, BODY_COL, CL_BASE, V.C) })), cap: !!V.cap, pack: false, extra: clanExtra(V) }));
+}
 function clanRig(vi) {
   let R = CLAN_RIGS.find(q => !q.owner && q.vi === vi); if (R) return R;
   if (CLAN_RIGS.length >= 12) return null;
-  if (!CLAN_GEO) CLAN_GEO = CLAN_LOOK.map(V => buildBody({ C: Object.assign({}, BODY_COL, CL_BASE, V.C), tint: clanTint(Object.assign({}, V, { C: Object.assign({}, BODY_COL, CL_BASE, V.C) })), cap: !!V.cap, pack: false, extra: clanExtra(V) }));
+  clanGeoInit();
   const bones = BONES.map(([n, , p]) => { const b = new THREE.Bone(); b.name = n; b.position.set(p[0], p[1], p[2]); return b; });
   BONES.forEach(([n, par], i) => { if (par) bones[BI[par]].add(bones[i]); });
   const mat = new THREE.ShaderMaterial({ uniforms: Object.assign({ flash: { value: 0 } }, LU), vertexShader: bodyMat.vertexShader, fragmentShader: bodyMat.fragmentShader });
@@ -18361,7 +18393,7 @@ function herbChunk(ci, cj) {   // the same patches every run, worked out from wh
     for (let i = 0; i < n; i++) {
       const a = hash(x * 0.01 + i, y * 0.01) * 6.283, r = i ? 6 + hash(x * 0.01, y * 0.01 + i) * 16 : 0, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
       if (!herbSpot(px, py)) continue;
-      L.push({ kind: 'dherb', k: kind, x: px, y: py, id: key + ':' + k + ':' + i, sd: hash(px * 0.37, py * 0.53), r: 0, s: 1 });
+      L.push({ kind: 'dherb', k: kind, x: px, y: py, id: key + ':' + k + ':' + i, pt: key + ':' + k, sd: hash(px * 0.37, py * 0.53), r: 0, s: 1 });
     }
   }
   return L;
@@ -18377,6 +18409,7 @@ function herbsNear(x, y, R) {
 const herbBuilt = o => S.day.builds.some(B => B.parts.some(q => Math.hypot(q.x - o.x, q.y - o.y) < (q.r || 8) + 4)) || stNear(o.x, o.y, 2).some(q => Math.hypot(q.x - o.x, q.y - o.y) < GRID * 0.6);
 
 // ---------------- what they look like ----------------
+// built from the low balls (P_LEAF, P_BEAD): a plant of full ones was as heavy as a hut
 function herbKit(K0, o) {
   let K;
   const x = o.x, y = o.y, sd = o.sd, r0 = sd * 6.283, R = (i, j = 0) => hash(sd * 91 + i * 7.3, j * 3.1 + sd * 17);
@@ -18387,16 +18420,16 @@ function herbKit(K0, o) {
         rod: (g, ax, ah, ay, bx, bh, by, r, col) => K0.rod(g, sx_(ax), ah * sc, sy_(ay), sx_(bx), bh * sc, sy_(by), r * sc, col) };
   const rod = (ax, ah, ay, bx, bh, by, r, col) => K.rod(P_CYL(4), ax, ah, ay, bx, bh, by, r, col);
   const leafC = hex('#5f7a3a'), leafD = hex('#4e6a32'), stemC = hex('#6a8040');
-  const leaf = (a, d, h, len, w, col, droop = 0.25) => { const [lx, ly] = P(a, d); K.add(P_BALL(), lx, h, ly, len, Math.max(0.8, w * 0.35), w, col, -a, 0, -droop); };
+  const leaf = (a, d, h, len, w, col, droop = 0.25) => { const [lx, ly] = P(a, d); K.add(P_LEAF(), lx, h, ly, len, Math.max(0.8, w * 0.35), w, col, -a, 0, -droop); };
   if (o.k === 'yarrow') {
     for (let i = 0; i < 5; i++) leaf(r0 + i * 1.3, 3.2, 1, 7, 1.6, i % 2 ? leafC : leafD, 0.2);   // the feathery leaves at its foot
     const n = 2 + (R(1) < 0.6 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const a = r0 + i * 2.1, [bx, by] = P(a, 1.2), [tx, ty] = P(a, 2.4 + R(i, 2) * 2), h = 11 + R(i, 3) * 4;
       rod(bx, 0, by, tx, h, ty, 0.32, stemC);
-      { const [mx, my] = P(a + 0.5, 1.6); K.add(P_BALL(), mx, h * 0.5, my, 3.4, 0.9, 1.3, leafC, -a - 0.5, 0, -0.5); }
-      K.add(P_BALL(), tx, h + 0.3, ty, 4.4, 1.5, 4.4, hex('#ece6d2'));   // the flat head of little flowers
-      for (let k = 0; k < 6; k++) { const t = k / 6 * 6.283 + sd, px = tx + Math.cos(t) * 1.6, py = ty + Math.sin(t) * 1.6; K.add(P_BALL(), px, h + 0.7 + (k % 2) * 0.25, py, 1.4, 1.1, 1.4, hex(k % 2 ? '#f4efe0' : '#dcd4bc')); }
+      { const [mx, my] = P(a + 0.5, 1.6); K.add(P_LEAF(), mx, h * 0.5, my, 3.4, 0.9, 1.3, leafC, -a - 0.5, 0, -0.5); }
+      K.add(P_LEAF(), tx, h + 0.3, ty, 4.4, 1.5, 4.4, hex('#ece6d2'));   // the flat head of little flowers
+      for (let k = 0; k < 6; k++) { const t = k / 6 * 6.283 + sd, px = tx + Math.cos(t) * 1.6, py = ty + Math.sin(t) * 1.6; K.add(P_BEAD(), px, h + 0.7 + (k % 2) * 0.25, py, 1.4, 1.1, 1.4, hex(k % 2 ? '#f4efe0' : '#dcd4bc')); }
     }
   } else if (o.k === 'aloe') {
     // a rosette of fat spikes: the inner ones near upright, the outer spread low
@@ -18405,7 +18438,7 @@ function herbKit(K0, o) {
       const a = r0 + i / N * 6.283 + (i % 2) * 0.2, ring = i % 3, tilt = [0.95, 0.6, 0.28][ring], len = [7.4, 9, 10][ring], wd = [2.6, 2.4, 2.1][ring];
       const [px, py] = P(a, [1.6, 1, 0.4][ring]); K.add(P_CONE(5), px, 0.2, py, wd, len, wd * 0.62, ring === 2 ? inner : ring ? hex('#7a9a6a') : outer, -a, 0, -tilt);
     }
-    K.add(P_BALL(), x, 1, y, 4, 2.2, 4, outer);
+    K.add(P_LEAF(), x, 1, y, 4, 2.2, 4, outer);
     if (R(5) < 0.45) {   // in flower: a tall stalk hung with orange tubes
       const [tx, ty] = P(r0 + 1, 1.4); rod(x, 1, y, tx, 17, ty, 0.36, hex('#7a8a52'));
       for (let k = 0; k < 6; k++) { const t = k / 6 * 6.283, hh = 13.6 + (k % 3) * 1.2; K.add(P_CONE(4), tx + Math.cos(t) * 0.9, hh + 1.6, ty + Math.sin(t) * 0.9, 0.9, -2.2, 0.9, hex(k % 2 ? '#e0703a' : '#f0a040')); }
@@ -18416,12 +18449,12 @@ function herbKit(K0, o) {
     for (let i = 0; i < n; i++) {
       const a = r0 + i * 2.3 + 0.4, [bx, by] = P(a, 1), [tx, ty] = P(a, 2.2 + R(i, 2) * 2.4), h = 13 + R(i, 3) * 4;
       rod(bx, 0, by, tx, h, ty, 0.34, stemC);
-      { const [mx, my] = P(a - 0.4, 1.8); K.add(P_BALL(), mx, h * 0.45, my, 4.2, 1, 1.6, leafC, -a + 0.4, 0, -0.35); }
+      { const [mx, my] = P(a - 0.4, 1.8); K.add(P_LEAF(), mx, h * 0.45, my, 4.2, 1, 1.6, leafC, -a + 0.4, 0, -0.35); }
       for (let k = 0; k < 11; k++) {   // the petals, drooping back off the cone
         const t = k / 11 * 6.283 + sd * 3, px = tx + Math.cos(t) * 1.6, py = ty + Math.sin(t) * 1.6;
-        K.add(P_BALL(), px, h - 0.4, py, 2.7, 0.6, 1.1, hex(k % 2 ? '#c46aa8' : '#b45a98'), -t, 0, -0.5);
+        K.add(P_BEAD(), px, h - 0.4, py, 2.7, 0.6, 1.1, hex(k % 2 ? '#c46aa8' : '#b45a98'), -t, 0, -0.5);
       }
-      K.add(P_BALL(), tx, h + 0.2, ty, 2.1, 1.4, 2.1, hex('#6a3418'));
+      K.add(P_BEAD(), tx, h + 0.2, ty, 2.1, 1.4, 2.1, hex('#6a3418'));
       K.add(P_CONE(6), tx, h + 0.4, ty, 2, 1.9, 2, hex('#8a4a22'));
     }
   } else {   // chicory: two or three wiry stems, branching, with blue flowers along the top
@@ -18435,21 +18468,52 @@ function herbKit(K0, o) {
       const fl = [[tx, h, ty], [cx, h * 0.86, cy], [(sx + tx) / 2, h * 0.78, (sy + ty) / 2]];
       fl.forEach(([fx, fh, fy], k) => {
         const t = a + k * 1.9 + sd;
-        K.add(P_BALL(), fx, fh + 0.2, fy, 2.5, 1, 2.5, blue[(i + k) % 3], -t, 0, -0.55);
-        K.add(P_BALL(), fx + Math.cos(t) * 0.3, fh + 0.55, fy + Math.sin(t) * 0.3, 0.7, 0.7, 0.7, hex('#3e5a9a'));
+        K.add(P_LEAF(), fx, fh + 0.2, fy, 2.5, 1, 2.5, blue[(i + k) % 3], -t, 0, -0.55);
+        K.add(P_BEAD(), fx + Math.cos(t) * 0.3, fh + 0.55, fy + Math.sin(t) * 0.3, 0.7, 0.7, 0.7, hex('#3e5a9a'));
       });
     }
   }
 }
-const herbK = new KitMesh(true); let herbKey = '', herbAt = { x: 1e9, y: 1e9 };
+// Each patch is its own small batch, shown while it's within HERB.R and hidden past it, so walking only shows and hides them;
+// one is redone (from its plants' packs: each plant is put together once, a couple a frame as it comes near, and kept with
+// Kit.take) only when a plant in it is picked or grows back or something's built. Before, every herb in reach was put together
+// again from scratch every few steps you took, a hitch of a tenth of a second and more in a meadow.
+const HERB_PATCH = new Map(), HERB_SHOWN = new Set(), HERB_MESHED = new Set(), HERB_PACKED = new Set();
+function herbPack(o) { if (!o.pack) { const K = new Kit(); herbKit(K, o); o.pack = K.take(); HERB_PACKED.add(o); } return o.pack; }
+function herbPatches(ci, cj) {   // a chunk's plants by patch: { L, x, y, km, key }
+  const key = ci + ',' + cj; let P = HERB_PATCH.get(key); if (P) return P;
+  const by = new Map(); for (const o of herbChunk(ci, cj)) { let q = by.get(o.pt); if (!q) by.set(o.pt, q = { L: [], x: o.x, y: o.y, km: null, key: '' }); q.L.push(o); }
+  HERB_PATCH.set(key, P = [...by.values()]); return P;
+}
+function herbHide() { for (const q of HERB_SHOWN) q.km.visible = false; HERB_SHOWN.clear(); }
 function herbSync() {
   const D = S && S.day, p = S && S.p;
-  if (!D || !p || ARENA || caveIn()) { if (herbK.visible) herbK.visible = false; return; }
-  herbK.visible = true;
-  const L = herbsNear(p.x, p.y, HERB.R), key = L.length + ':' + Object.keys(D.herbs || {}).length + ':' + D.builds.length + ':' + D.bld.size + ':' + Math.floor(D.t / 60);
-  if (key === herbKey && Math.hypot(p.x - herbAt.x, p.y - herbAt.y) < 120) return;
-  herbKey = key; herbAt = { x: p.x, y: p.y };
-  const K = new Kit(); for (const o of L) if (!herbBuilt(o)) herbKit(K, o); herbK.set(K);
+  if (!D || !p || ARENA || caveIn()) { herbHide(); return; }
+  const R = HERB.R, C = HERB.C, far = R + 320, gen = D.builds.length + ':' + D.bld.size, t0 = performance.now(), on = new Set();
+  let made = 0;
+  for (let ci = Math.floor((p.x - far) / C); ci <= Math.floor((p.x + far) / C); ci++)
+    for (let cj = Math.floor((p.y - far) / C); cj <= Math.floor((p.y + far) / C); cj++)
+      for (const q of herbPatches(ci, cj)) {
+        const d = Math.max(Math.abs(q.x - p.x), Math.abs(q.y - p.y));
+        if (d > far) continue;
+        if (d > R) { for (const o of q.L) if (!o.pack && performance.now() - t0 < 1.5) herbPack(o); continue; }   // coming up: its plants, while there's time this frame
+        let n = 0; for (const o of q.L) if (!herbTaken(o)) n++;
+        const key = n + ':' + gen;
+        if (q.key !== key) {
+          if (made && d > R - 160 && q.L.some(o => !o.pack)) continue;   // out at the edge, still to put together: next frame
+          const K = new Kit(); for (const o of q.L) if (!herbTaken(o) && !herbBuilt(o)) K.chunk(herbPack(o));
+          if (!q.km) { q.km = new KitMesh(true); HERB_MESHED.add(q); }
+          q.km.set(K); q.key = key; made++;
+        }
+        on.add(q);
+      }
+  for (const q of HERB_SHOWN) if (!on.has(q)) q.km.visible = false;
+  for (const q of on) q.km.visible = true;
+  HERB_SHOWN.clear(); for (const q of on) HERB_SHOWN.add(q);
+  if (made) {   // well behind you: let their batches and packs go
+    for (const q of HERB_MESHED) if (Math.max(Math.abs(q.x - p.x), Math.abs(q.y - p.y)) > far + 600) { scene.remove(q.km.mesh); scene.remove(q.km.edge); q.km.mesh.geometry.dispose(); q.km = null; q.key = ''; HERB_MESHED.delete(q); }
+    for (const o of HERB_PACKED) if (Math.max(Math.abs(o.x - p.x), Math.abs(o.y - p.y)) > far + 600) { o.pack = null; HERB_PACKED.delete(o); }
+  }
 }
 { const tf = thingsFrame; thingsFrame = function (now) { const r = tf(now); try { herbSync(); } catch (e) { console.error(e); } return r; }; }
 
@@ -18474,7 +18538,7 @@ function herbPick(o) {
   exNote(`picked ${DIT[o.k].n.toLowerCase()}${n > 1 ? ' ×' + n : ''}`);
   dayChips(o.x, o.y, 8, o.k === 'aloe' ? 'leaf' : 'petal', 6);
   pickSnd(); if (actx) noiseAt(actx.currentTime, 2600, 900, 0.14, 0.12, sfxGain);
-  herbKey = ''; dayChanged();
+  dayChanged();
 }
 { const du = dayUse; dayUse = function () {
     const D = S.day, rg = S.rg;
@@ -19002,6 +19066,7 @@ function startRun(fresh) {
     try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (_) {} }
   else lockOn();
   worldSync(true); thingsSync(true);
+  try { clanGeoInit(); clanRig(0); } catch (e) { console.error(e); }   // the cannibals' bodies, and one rig so its shader is made with the rest just below
   try { for (const k in PT) PT[k].mesh.count = 1; renderer.compile(scene, cam); renderer.compile(vmScene, vmCam); for (const k in PT) PT[k].mesh.count = 0; } catch (_) {}
   last = performance.now(); saveT = 0;
 }
@@ -19057,23 +19122,42 @@ $('how').innerHTML = TOUCH
   : '<div><b>WASD</b> move · <b>mouse</b> look · <b>click</b> attack, chop, mine · <b>Space</b> jump · hold <b>right click</b> to block</div><div><b>E</b> take, open, drink · <b>C</b> pack and crafting · <b>1–6</b> or <b>wheel</b> hotbar · <b>Q</b> sneak · <b>K</b> throw your spear</div><div>Building with the hammer: <b>Z X</b> turn · <b>[ ]</b> piece · <b>N</b> kind · <b>V</b> snap · <b>B</b> pull down · <b>Esc</b> menu</div>';
 
 // ---------------- the loop, and keeping the frame rate up ----------------
-let fpsAcc = 0, fpsN = 0, fpsShow = 0, slowT = 0, fastT = 0, lastDrop = -99, hurtFx = 0, healFx = 0, lastHp = null;
+// The sharpness (pixK) steps down when frames keep being dropped against the screen's own beat, and only tries a step up after
+// a long smooth spell, never past a level that was dropping them until it has been smooth a good while. It used to climb
+// whenever it read over 57 fps and only fall back under 50, so it settled just below the screen's rate, a dropped frame every
+// few (Joe: "frame rate is 58 but it is not running smooth"), and it resized the screen every few seconds as it hunted, a hitch
+// of its own each time. A frame dropped because the game itself took too long that frame (building a pond, a save) isn't the
+// drawing's fault, so it doesn't count against the sharpness.
+let fpsAcc = 0, fpsN = 0, fpsShow = 0, lastDrop = -99, hurtFx = 0, healFx = 0, lastHp = null;
+const AQ = { iv: 1 / 60, dts: [], miss: 0, all: 0, hist: [], good: 0, ceil: 9, tryAt: -99, cpu: 0 };
 function autoQuality(rawDt, now) {
-  fpsAcc += rawDt; fpsN++;
-  if (fpsAcc >= 0.5) {
-    const fps = fpsN / fpsAcc; fpsShow = fps; fpsAcc = 0; fpsN = 0;
-    $('fps').textContent = `${Math.round(fps)} fps · ${pixK.toFixed(2)}x`;
-    if (SET.quality === 'auto' && state === 'play') {
-      if (fps < 50) { slowT++; fastT = 0; } else if (fps > 57) { fastT++; slowT = 0; } else { slowT = 0; fastT = 0; }
-      if (slowT >= 2 && pixK > 0.55) { pixK = Math.max(0.55, pixK * 0.85); resize(); slowT = 0; lastDrop = now; }
-      else if (slowT >= 4 && grassMesh.geometry.drawRange.count > GR_N * 1.2) { grassMesh.geometry.setDrawRange(0, Math.floor(Math.min(GR_N, grassMesh.geometry.drawRange.count / 3) * 0.7) * 3); slowT = 0; }   // still slow at the lowest sharpness: thin the grass
-      if (fastT >= 8 && pixK < QCAP && now - lastDrop > 12) { pixK = Math.min(QCAP, pixK * 1.08); resize(); fastT = 0; }
-    }
+  fpsAcc += rawDt; fpsN++; AQ.dts.push(rawDt);
+  if (rawDt > AQ.iv * 1.6) { AQ.all++; if (AQ.cpu < AQ.iv * 0.75) AQ.miss++; }   // shown twice (or more): the drawing's doing, unless the frame before was long in the game itself
+  if (fpsAcc < 0.5) return;
+  const fps = fpsN / fpsAcc, miss = AQ.miss, H = AQ.hist; fpsShow = fps; fpsAcc = 0; fpsN = 0;
+  const d = AQ.dts.sort((x, y) => x - y), med = d[d.length >> 1]; AQ.dts.length = 0;
+  AQ.iv = Math.min(AQ.iv * 1.01, med);   // the screen's beat: the steadiest a half second has run lately (60, 120, 144 a second...)
+  $('fps').textContent = `${Math.round(fps)} fps · ${pixK.toFixed(2)}x` + (AQ.all ? ` · ${AQ.all} dropped` : '');
+  AQ.miss = AQ.all = 0;
+  if (SET.quality !== 'auto' || state !== 'play') { H.length = 0; AQ.good = 0; return; }
+  H.push(miss); if (H.length > 8) H.shift();
+  if (miss) AQ.good = 0; else AQ.good++;
+  const sum = n => H.slice(-n).reduce((t, v) => t + v, 0);
+  if (sum(2) >= 4 || (H.length >= 8 && sum(8) >= 5)) {   // a burst, or one or two a second for four seconds: a step down
+    H.length = 0;
+    if (pixK > 0.55) { AQ.ceil = pixK * 0.97; pixK = Math.max(0.55, pixK * 0.88); resize(); lastDrop = now; }
+    else if (grassMesh.geometry.drawRange.count > GR_N * 1.2) grassMesh.geometry.setDrawRange(0, Math.floor(Math.min(GR_N, grassMesh.geometry.drawRange.count / 3) * 0.7) * 3);   // still dropping at the lowest sharpness: thin the grass
+  } else if (AQ.good >= 20) {   // ten seconds without one dropped: a step up, toward the ceiling
+    AQ.good = 0;
+    if (pixK >= Math.min(QCAP, AQ.ceil) - 0.01 && AQ.ceil < QCAP && now - lastDrop > 30 && now - AQ.tryAt > 20) { AQ.ceil *= 1.07; AQ.tryAt = now; }   // half a minute smooth at the ceiling: try one higher
+    const to = Math.min(QCAP, AQ.ceil, pixK * 1.07);
+    if (to > pixK + 0.01) { pixK = to; resize(); }
   }
 }
 let titleYaw = 0;
 function frame(t) {
   requestAnimationFrame(frame);
+  const fT0 = performance.now();
   const now = t / 1000, rawDt = Math.min(0.1, Math.max(0, (t - last) / 1000)); last = t;
   const rdt = Math.min(rawDt, 1 / 20);
   pollPad(rdt);
@@ -19096,7 +19180,7 @@ function frame(t) {
     if (S.running) {
       simStep(dt);
       beamStep();
-      saveT += rdt; if (saveT > 30) { saveT = 0; try { daySave(); } catch (e) {} }
+      saveT += rdt; if (saveT > 30) { saveT = 0; daySaveIdle(); }
     }
     if (menusOpen() && document.pointerLockElement) lockOff();
     autoQuality(rawDt, now);
@@ -19132,6 +19216,7 @@ function frame(t) {
   sunShadows();
   inkRender();
   renderer.clearDepth(); renderer.render(vmScene, vmCam);
+  AQ.cpu = (performance.now() - fT0) / 1000;   // (autoQuality) how long the frame took on this side, in seconds
 }
 addEventListener('resize', resize);
 resize();

@@ -231,9 +231,10 @@ class PropSet {
     const P = PROP_KIND[kind]; if (!P) return (this.k[kind] = null);
     const M = propMat(P.mat); L = [];
     for (let v = 0; v < P.n; v++) {
-      const g = propModel(kind, v), m = new THREE.InstancedMesh(g, M.m, this.cap);
+      const g = propModel(kind, v), m = new THREE.InstancedMesh(g, M.m, 1);   // made for one, then given room for cap: three sets every slot to a matrix as it makes one,
+      m.instanceMatrix = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 16), 16);   // and fifty shapes of rock at 2400 each was a tenth of a second the first time one came in sight
       m.count = 0; m.frustumCulled = false; scene.add(P.shadow ? castsShadow(m) : m);
-      let e = null; if (P.edge) { e = new THREE.InstancedMesh(g, M.e, this.cap); e.count = 0; e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(e); }
+      let e = null; if (P.edge) { e = new THREE.InstancedMesh(g, M.e, 1); e.count = 0; e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(e); }
       L.push({ m, e, n: 0, items: [], shN: 0, shadow: P.shadow });
     }
     return (this.k[kind] = L);

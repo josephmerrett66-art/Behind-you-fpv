@@ -866,10 +866,15 @@ function clanExtra(V) {
 }
 let CLAN_GEO = null;
 const CLAN_RIGS = [];
+// every look's body, made as a run starts (startRun): it's a fifth of a second's work, and made the first time one came in
+// sight it froze the game just as a cannibal stepped out of the trees
+function clanGeoInit() {
+  if (!CLAN_GEO) CLAN_GEO = CLAN_LOOK.map(V => buildBody({ C: Object.assign({}, BODY_COL, CL_BASE, V.C), tint: clanTint(Object.assign({}, V, { C: Object.assign({}, BODY_COL, CL_BASE, V.C) })), cap: !!V.cap, pack: false, extra: clanExtra(V) }));
+}
 function clanRig(vi) {
   let R = CLAN_RIGS.find(q => !q.owner && q.vi === vi); if (R) return R;
   if (CLAN_RIGS.length >= 12) return null;
-  if (!CLAN_GEO) CLAN_GEO = CLAN_LOOK.map(V => buildBody({ C: Object.assign({}, BODY_COL, CL_BASE, V.C), tint: clanTint(Object.assign({}, V, { C: Object.assign({}, BODY_COL, CL_BASE, V.C) })), cap: !!V.cap, pack: false, extra: clanExtra(V) }));
+  clanGeoInit();
   const bones = BONES.map(([n, , p]) => { const b = new THREE.Bone(); b.name = n; b.position.set(p[0], p[1], p[2]); return b; });
   BONES.forEach(([n, par], i) => { if (par) bones[BI[par]].add(bones[i]); });
   const mat = new THREE.ShaderMaterial({ uniforms: Object.assign({ flash: { value: 0 } }, LU), vertexShader: bodyMat.vertexShader, fragmentShader: bodyMat.fragmentShader });

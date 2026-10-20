@@ -65,7 +65,7 @@ function herbChunk(ci, cj) {   // the same patches every run, worked out from wh
     for (let i = 0; i < n; i++) {
       const a = hash(x * 0.01 + i, y * 0.01) * 6.283, r = i ? 6 + hash(x * 0.01, y * 0.01 + i) * 16 : 0, px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
       if (!herbSpot(px, py)) continue;
-      L.push({ kind: 'dherb', k: kind, x: px, y: py, id: key + ':' + k + ':' + i, sd: hash(px * 0.37, py * 0.53), r: 0, s: 1 });
+      L.push({ kind: 'dherb', k: kind, x: px, y: py, id: key + ':' + k + ':' + i, pt: key + ':' + k, sd: hash(px * 0.37, py * 0.53), r: 0, s: 1 });
     }
   }
   return L;
@@ -81,6 +81,7 @@ function herbsNear(x, y, R) {
 const herbBuilt = o => S.day.builds.some(B => B.parts.some(q => Math.hypot(q.x - o.x, q.y - o.y) < (q.r || 8) + 4)) || stNear(o.x, o.y, 2).some(q => Math.hypot(q.x - o.x, q.y - o.y) < GRID * 0.6);
 
 // ---------------- what they look like ----------------
+// built from the low balls (P_LEAF, P_BEAD): a plant of full ones was as heavy as a hut
 function herbKit(K0, o) {
   let K;
   const x = o.x, y = o.y, sd = o.sd, r0 = sd * 6.283, R = (i, j = 0) => hash(sd * 91 + i * 7.3, j * 3.1 + sd * 17);
@@ -91,16 +92,16 @@ function herbKit(K0, o) {
         rod: (g, ax, ah, ay, bx, bh, by, r, col) => K0.rod(g, sx_(ax), ah * sc, sy_(ay), sx_(bx), bh * sc, sy_(by), r * sc, col) };
   const rod = (ax, ah, ay, bx, bh, by, r, col) => K.rod(P_CYL(4), ax, ah, ay, bx, bh, by, r, col);
   const leafC = hex('#5f7a3a'), leafD = hex('#4e6a32'), stemC = hex('#6a8040');
-  const leaf = (a, d, h, len, w, col, droop = 0.25) => { const [lx, ly] = P(a, d); K.add(P_BALL(), lx, h, ly, len, Math.max(0.8, w * 0.35), w, col, -a, 0, -droop); };
+  const leaf = (a, d, h, len, w, col, droop = 0.25) => { const [lx, ly] = P(a, d); K.add(P_LEAF(), lx, h, ly, len, Math.max(0.8, w * 0.35), w, col, -a, 0, -droop); };
   if (o.k === 'yarrow') {
     for (let i = 0; i < 5; i++) leaf(r0 + i * 1.3, 3.2, 1, 7, 1.6, i % 2 ? leafC : leafD, 0.2);   // the feathery leaves at its foot
     const n = 2 + (R(1) < 0.6 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const a = r0 + i * 2.1, [bx, by] = P(a, 1.2), [tx, ty] = P(a, 2.4 + R(i, 2) * 2), h = 11 + R(i, 3) * 4;
       rod(bx, 0, by, tx, h, ty, 0.32, stemC);
-      { const [mx, my] = P(a + 0.5, 1.6); K.add(P_BALL(), mx, h * 0.5, my, 3.4, 0.9, 1.3, leafC, -a - 0.5, 0, -0.5); }
-      K.add(P_BALL(), tx, h + 0.3, ty, 4.4, 1.5, 4.4, hex('#ece6d2'));   // the flat head of little flowers
-      for (let k = 0; k < 6; k++) { const t = k / 6 * 6.283 + sd, px = tx + Math.cos(t) * 1.6, py = ty + Math.sin(t) * 1.6; K.add(P_BALL(), px, h + 0.7 + (k % 2) * 0.25, py, 1.4, 1.1, 1.4, hex(k % 2 ? '#f4efe0' : '#dcd4bc')); }
+      { const [mx, my] = P(a + 0.5, 1.6); K.add(P_LEAF(), mx, h * 0.5, my, 3.4, 0.9, 1.3, leafC, -a - 0.5, 0, -0.5); }
+      K.add(P_LEAF(), tx, h + 0.3, ty, 4.4, 1.5, 4.4, hex('#ece6d2'));   // the flat head of little flowers
+      for (let k = 0; k < 6; k++) { const t = k / 6 * 6.283 + sd, px = tx + Math.cos(t) * 1.6, py = ty + Math.sin(t) * 1.6; K.add(P_BEAD(), px, h + 0.7 + (k % 2) * 0.25, py, 1.4, 1.1, 1.4, hex(k % 2 ? '#f4efe0' : '#dcd4bc')); }
     }
   } else if (o.k === 'aloe') {
     // a rosette of fat spikes: the inner ones near upright, the outer spread low
@@ -109,7 +110,7 @@ function herbKit(K0, o) {
       const a = r0 + i / N * 6.283 + (i % 2) * 0.2, ring = i % 3, tilt = [0.95, 0.6, 0.28][ring], len = [7.4, 9, 10][ring], wd = [2.6, 2.4, 2.1][ring];
       const [px, py] = P(a, [1.6, 1, 0.4][ring]); K.add(P_CONE(5), px, 0.2, py, wd, len, wd * 0.62, ring === 2 ? inner : ring ? hex('#7a9a6a') : outer, -a, 0, -tilt);
     }
-    K.add(P_BALL(), x, 1, y, 4, 2.2, 4, outer);
+    K.add(P_LEAF(), x, 1, y, 4, 2.2, 4, outer);
     if (R(5) < 0.45) {   // in flower: a tall stalk hung with orange tubes
       const [tx, ty] = P(r0 + 1, 1.4); rod(x, 1, y, tx, 17, ty, 0.36, hex('#7a8a52'));
       for (let k = 0; k < 6; k++) { const t = k / 6 * 6.283, hh = 13.6 + (k % 3) * 1.2; K.add(P_CONE(4), tx + Math.cos(t) * 0.9, hh + 1.6, ty + Math.sin(t) * 0.9, 0.9, -2.2, 0.9, hex(k % 2 ? '#e0703a' : '#f0a040')); }
@@ -120,12 +121,12 @@ function herbKit(K0, o) {
     for (let i = 0; i < n; i++) {
       const a = r0 + i * 2.3 + 0.4, [bx, by] = P(a, 1), [tx, ty] = P(a, 2.2 + R(i, 2) * 2.4), h = 13 + R(i, 3) * 4;
       rod(bx, 0, by, tx, h, ty, 0.34, stemC);
-      { const [mx, my] = P(a - 0.4, 1.8); K.add(P_BALL(), mx, h * 0.45, my, 4.2, 1, 1.6, leafC, -a + 0.4, 0, -0.35); }
+      { const [mx, my] = P(a - 0.4, 1.8); K.add(P_LEAF(), mx, h * 0.45, my, 4.2, 1, 1.6, leafC, -a + 0.4, 0, -0.35); }
       for (let k = 0; k < 11; k++) {   // the petals, drooping back off the cone
         const t = k / 11 * 6.283 + sd * 3, px = tx + Math.cos(t) * 1.6, py = ty + Math.sin(t) * 1.6;
-        K.add(P_BALL(), px, h - 0.4, py, 2.7, 0.6, 1.1, hex(k % 2 ? '#c46aa8' : '#b45a98'), -t, 0, -0.5);
+        K.add(P_BEAD(), px, h - 0.4, py, 2.7, 0.6, 1.1, hex(k % 2 ? '#c46aa8' : '#b45a98'), -t, 0, -0.5);
       }
-      K.add(P_BALL(), tx, h + 0.2, ty, 2.1, 1.4, 2.1, hex('#6a3418'));
+      K.add(P_BEAD(), tx, h + 0.2, ty, 2.1, 1.4, 2.1, hex('#6a3418'));
       K.add(P_CONE(6), tx, h + 0.4, ty, 2, 1.9, 2, hex('#8a4a22'));
     }
   } else {   // chicory: two or three wiry stems, branching, with blue flowers along the top
@@ -139,21 +140,52 @@ function herbKit(K0, o) {
       const fl = [[tx, h, ty], [cx, h * 0.86, cy], [(sx + tx) / 2, h * 0.78, (sy + ty) / 2]];
       fl.forEach(([fx, fh, fy], k) => {
         const t = a + k * 1.9 + sd;
-        K.add(P_BALL(), fx, fh + 0.2, fy, 2.5, 1, 2.5, blue[(i + k) % 3], -t, 0, -0.55);
-        K.add(P_BALL(), fx + Math.cos(t) * 0.3, fh + 0.55, fy + Math.sin(t) * 0.3, 0.7, 0.7, 0.7, hex('#3e5a9a'));
+        K.add(P_LEAF(), fx, fh + 0.2, fy, 2.5, 1, 2.5, blue[(i + k) % 3], -t, 0, -0.55);
+        K.add(P_BEAD(), fx + Math.cos(t) * 0.3, fh + 0.55, fy + Math.sin(t) * 0.3, 0.7, 0.7, 0.7, hex('#3e5a9a'));
       });
     }
   }
 }
-const herbK = new KitMesh(true); let herbKey = '', herbAt = { x: 1e9, y: 1e9 };
+// Each patch is its own small batch, shown while it's within HERB.R and hidden past it, so walking only shows and hides them;
+// one is redone (from its plants' packs: each plant is put together once, a couple a frame as it comes near, and kept with
+// Kit.take) only when a plant in it is picked or grows back or something's built. Before, every herb in reach was put together
+// again from scratch every few steps you took, a hitch of a tenth of a second and more in a meadow.
+const HERB_PATCH = new Map(), HERB_SHOWN = new Set(), HERB_MESHED = new Set(), HERB_PACKED = new Set();
+function herbPack(o) { if (!o.pack) { const K = new Kit(); herbKit(K, o); o.pack = K.take(); HERB_PACKED.add(o); } return o.pack; }
+function herbPatches(ci, cj) {   // a chunk's plants by patch: { L, x, y, km, key }
+  const key = ci + ',' + cj; let P = HERB_PATCH.get(key); if (P) return P;
+  const by = new Map(); for (const o of herbChunk(ci, cj)) { let q = by.get(o.pt); if (!q) by.set(o.pt, q = { L: [], x: o.x, y: o.y, km: null, key: '' }); q.L.push(o); }
+  HERB_PATCH.set(key, P = [...by.values()]); return P;
+}
+function herbHide() { for (const q of HERB_SHOWN) q.km.visible = false; HERB_SHOWN.clear(); }
 function herbSync() {
   const D = S && S.day, p = S && S.p;
-  if (!D || !p || ARENA || caveIn()) { if (herbK.visible) herbK.visible = false; return; }
-  herbK.visible = true;
-  const L = herbsNear(p.x, p.y, HERB.R), key = L.length + ':' + Object.keys(D.herbs || {}).length + ':' + D.builds.length + ':' + D.bld.size + ':' + Math.floor(D.t / 60);
-  if (key === herbKey && Math.hypot(p.x - herbAt.x, p.y - herbAt.y) < 120) return;
-  herbKey = key; herbAt = { x: p.x, y: p.y };
-  const K = new Kit(); for (const o of L) if (!herbBuilt(o)) herbKit(K, o); herbK.set(K);
+  if (!D || !p || ARENA || caveIn()) { herbHide(); return; }
+  const R = HERB.R, C = HERB.C, far = R + 320, gen = D.builds.length + ':' + D.bld.size, t0 = performance.now(), on = new Set();
+  let made = 0;
+  for (let ci = Math.floor((p.x - far) / C); ci <= Math.floor((p.x + far) / C); ci++)
+    for (let cj = Math.floor((p.y - far) / C); cj <= Math.floor((p.y + far) / C); cj++)
+      for (const q of herbPatches(ci, cj)) {
+        const d = Math.max(Math.abs(q.x - p.x), Math.abs(q.y - p.y));
+        if (d > far) continue;
+        if (d > R) { for (const o of q.L) if (!o.pack && performance.now() - t0 < 1.5) herbPack(o); continue; }   // coming up: its plants, while there's time this frame
+        let n = 0; for (const o of q.L) if (!herbTaken(o)) n++;
+        const key = n + ':' + gen;
+        if (q.key !== key) {
+          if (made && d > R - 160 && q.L.some(o => !o.pack)) continue;   // out at the edge, still to put together: next frame
+          const K = new Kit(); for (const o of q.L) if (!herbTaken(o) && !herbBuilt(o)) K.chunk(herbPack(o));
+          if (!q.km) { q.km = new KitMesh(true); HERB_MESHED.add(q); }
+          q.km.set(K); q.key = key; made++;
+        }
+        on.add(q);
+      }
+  for (const q of HERB_SHOWN) if (!on.has(q)) q.km.visible = false;
+  for (const q of on) q.km.visible = true;
+  HERB_SHOWN.clear(); for (const q of on) HERB_SHOWN.add(q);
+  if (made) {   // well behind you: let their batches and packs go
+    for (const q of HERB_MESHED) if (Math.max(Math.abs(q.x - p.x), Math.abs(q.y - p.y)) > far + 600) { scene.remove(q.km.mesh); scene.remove(q.km.edge); q.km.mesh.geometry.dispose(); q.km = null; q.key = ''; HERB_MESHED.delete(q); }
+    for (const o of HERB_PACKED) if (Math.max(Math.abs(o.x - p.x), Math.abs(o.y - p.y)) > far + 600) { o.pack = null; HERB_PACKED.delete(o); }
+  }
 }
 { const tf = thingsFrame; thingsFrame = function (now) { const r = tf(now); try { herbSync(); } catch (e) { console.error(e); } return r; }; }
 
@@ -178,7 +210,7 @@ function herbPick(o) {
   exNote(`picked ${DIT[o.k].n.toLowerCase()}${n > 1 ? ' ×' + n : ''}`);
   dayChips(o.x, o.y, 8, o.k === 'aloe' ? 'leaf' : 'petal', 6);
   pickSnd(); if (actx) noiseAt(actx.currentTime, 2600, 900, 0.14, 0.12, sfxGain);
-  herbKey = ''; dayChanged();
+  dayChanged();
 }
 { const du = dayUse; dayUse = function () {
     const D = S.day, rg = S.rg;

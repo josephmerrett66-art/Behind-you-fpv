@@ -141,6 +141,10 @@ const P_CYL = (n = 8) => prim('cyl' + n, () => { const g = new THREE.CylinderGeo
 const P_CONE = (n = 8) => prim('cone' + n, () => { const g = new THREE.ConeGeometry(0.5, 1, n); g.translate(0, 0.5, 0); return g; });
 const P_ROCK = (k = 0) => prim('rock' + k, () => { const g = new THREE.IcosahedronGeometry(0.5, 0), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const h = 0.85 + 0.3 * hash(Math.round(p.getX(i) * 9) + k * 3.1, Math.round(p.getY(i) * 7 + p.getZ(i) * 5)); p.setXYZ(i, p.getX(i) * h, p.getY(i) * h, p.getZ(i) * h); } g.computeVertexNormals(); return g; });   // a faceted stone, each variant knocked about a little
 const P_BALL = () => prim('ball', () => new THREE.SphereGeometry(0.5, 10, 7));
+// low balls for small things seen by the hundred (petals, florets, the leaves of a herb): a full ball is 360 points, and a
+// flower of them weighed as much as a hut, so a meadow or a pond of lilies took frames to put together
+const P_LEAF = () => prim('ball6', () => new THREE.SphereGeometry(0.5, 6, 4));   // 108 points
+const P_BEAD = () => prim('ball5', () => new THREE.SphereGeometry(0.5, 5, 3));   // 60
 const P_TENT = () => prim('tent', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 3, 1); g.rotateZ(Math.PI / 2); g.rotateX(Math.PI / 6); g.translate(0, 0.25, 0); return g; });   // a triangular prism lying along x, ridge up (0.75 high, 0.87 wide)
 // what a colour is most likely made of, when the shape doesn't say
 function autoMt(col) {
@@ -375,11 +379,10 @@ const pondMat = new THREE.ShaderMaterial({
       gl_FragColor = vec4(fogged(grey(lit), vW), a);
     }`,
 });
-const pondMesh = new THREE.Mesh(new THREE.BufferGeometry(), pondMat); pondMesh.frustumCulled = false; pondMesh.renderOrder = 1; scene.add(pondMesh);
-const pondK = new KitMesh(false);   // no ink outline: it would swallow a reed
 const P_PAD = () => prim('pad', () => { const g = new THREE.CylinderGeometry(0.5, 0.5, 1, 14, 1, false, 0.45, 6.2832 - 0.45); g.translate(0, 0.5, 0); return g; });   // a lily pad: a disc with its notch
 let pondKey = '';
-const pondPart = new Map();   // (pondsSync) each pond's pieces, by where it lies
+const P_REED = () => prim('cone5o', () => { const g = new THREE.ConeGeometry(0.5, 1, 5, 1, true); g.translate(0, 0.5, 0); return g; });   // a reed's stem: no base, it stands up out of the mud
+const pondPart = new Map();   // (pondsSync) each pond's meshes, by where it lies
 function pondKit(K, P) {
   const R = (a, b) => hash(P.x * 0.31 + a * 7.7, P.y * 0.27 + b * 3.3);
   // reeds: clumps standing in the shallows round the shore, thicker on some sides than others; slim tapering stems that
@@ -400,7 +403,7 @@ function pondKit(K, P) {
         const kx = x + lx * 0.5, ky = y + ly * 0.5, kh = h * 0.62;
         K.rod(P_BOX(), x, yb, y, kx, kh, ky, 0.28, blade, 0.22); K.rod(P_CONE(4), kx, kh, ky, kx + lx * 0.9, kh + h * 0.12, ky + ly * 0.9, 0.28, blade, 0.22);
       } else {
-        K.rod(P_CONE(5), x, yb, y, x + lx, h, y + ly, 0.3, reedC[(k + j) % 4], 0.22);   // lifted a little: so thin, the shade would turn them black
+        K.rod(P_REED(), x, yb, y, x + lx, h, y + ly, 0.3, reedC[(k + j) % 4], 0.22);   // lifted a little: so thin, the shade would turn them black
         if (R(j, k + 50) < 0.22) K.rod(P_CYL(6), x + lx * 0.7, h * 0.7, y + ly * 0.7, x + lx * 0.82, h * 0.82, y + ly * 0.82, 0.55, head);   // a bulrush head
       }
       K.mt = null;
@@ -419,33 +422,45 @@ function pondKit(K, P) {
       K.mt = 'plant'; K.add(P_PAD(), x, yy, y, s, 0.12, s, padC[j % 3], R(j, g + 95) * 6.2832); K.mt = null;
       if (R(j, g + 99) < 0.22) {   // a flower: a ring of petals round a yellow heart
         const f = flC[R(g, j + 101) < 0.6 ? 0 : 1];
-        for (let p = 0; p < 6; p++) { const t = p / 6 * 6.2832; K.add(P_BALL(), x + Math.cos(t) * 0.7, yy + 0.35, y + Math.sin(t) * 0.7, 1.0, 0.45, 0.6, f, -t); }
-        K.add(P_BALL(), x, yy + 0.55, y, 0.6, 0.45, 0.6, hex('#e8c040'));
+        for (let p = 0; p < 6; p++) { const t = p / 6 * 6.2832; K.add(P_BEAD(), x + Math.cos(t) * 0.7, yy + 0.35, y + Math.sin(t) * 0.7, 1.0, 0.45, 0.6, f, -t); }
+        K.add(P_BEAD(), x, yy + 0.55, y, 0.6, 0.45, 0.6, hex('#e8c040'));
       }
     }
   }
 }
+function pondPiece(P) {   // a pond's own meshes: a sheet at the water's level over the hollow, marked where the pond reaches, and its reeds and lilies
+  const N = 26, pos = [], dat = [];
+  const R = P.rmax * 1.12 + 8, st = 2 * R / N, inG = [];   // where it reaches, once a grid point (each is a corner of six triangles)
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) inG.push(pondIn(P, P.x - R + i * st, P.y - R + j * st, 10) ? 1 : 0);
+  const v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, inG[j * (N + 1) + i]); };
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3)); g.setAttribute('pdat', new THREE.BufferAttribute(new Float32Array(dat), 3));
+  const water = new THREE.Mesh(g, pondMat); water.frustumCulled = false; water.renderOrder = 1; scene.add(water);
+  const T = new Kit(); pondKit(T, P); const km = new KitMesh(false); km.set(T);   // no ink outline: it would swallow a reed
+  return { water, km, used: 0 };
+}
+let pondMore = false, pondUse = 0;
 function pondsSync(px, py) {
   const L = lakesNear(px, py, drawR() + 100), key = L.map(P => P.x | 0).join();
-  if (key === pondKey) return L; pondKey = key;
-  // each pond's water and reeds are built the first time it comes near and kept, so walking on past ponds only puts the
-  // pieces together again (rebuilding every pond in reach each time the set changed was a hitch you could feel)
-  const N = 26, K = new Kit(), parts = [];
-  for (const P of L) {
+  if (key === pondKey) return L;
+  // Each pond is built the first time it comes near and kept as its own meshes, so walking on past ponds only shows and hides
+  // them. Far ones are built one a frame (worldSync calls again while pondMore): they come in out past the haze, and building
+  // a pond's reeds is a few ms, so several at once was a hitch (and before that, putting every pond in reach together again
+  // each time the set changed was one too).
+  let made = 0, more = false; const on = new Set();
+  for (const P of L.slice().sort((a, b) => Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py))) {
     const id = (P.x | 0) + ',' + (P.y | 0); let q = pondPart.get(id);
     if (!q) {
-      const pos = [], dat = [];   // a sheet at the water's level over the hollow, marked where the pond reaches
-      const R = P.rmax * 1.12 + 8, st = 2 * R / N, v = (i, j) => { const x = P.x - R + i * st, y = P.y - R + j * st; pos.push(x, P.lvl, y); dat.push(P.x, P.seed, pondIn(P, x, y, 10) ? 1 : 0); };
-      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { v(i, j); v(i + 1, j + 1); v(i + 1, j); v(i, j); v(i, j + 1); v(i + 1, j + 1); }
-      const T = new Kit(); pondKit(T, P);
-      q = { pos: new Float32Array(pos), dat: new Float32Array(dat), kit: T.take() };
-      if (pondPart.size > 80) pondPart.clear(); pondPart.set(id, q);
+      if (made && Math.hypot(P.x - px, P.y - py) - P.rmax > drawR() * 0.5) { more = true; continue; }
+      q = pondPiece(P); pondPart.set(id, q); made++;
     }
-    parts.push(q); K.chunk(q.kit);
+    on.add(q);
   }
-  const cat = f => { const A = new Float32Array(parts.reduce((n, q) => n + q[f].length, 0)); let o = 0; for (const q of parts) { A.set(q[f], o); o += q[f].length; } return A; };
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(cat('pos'), 3)); g.setAttribute('pdat', new THREE.BufferAttribute(cat('dat'), 3));
-  pondMesh.geometry.dispose(); pondMesh.geometry = g; pondK.set(K);
+  for (const q of pondPart.values()) { const v = on.has(q); q.water.visible = q.km.visible = v; if (v) q.used = ++pondUse; }
+  if (pondPart.size > 24) for (const [id, q] of [...pondPart].filter(([, q]) => !on.has(q)).sort((a, b) => a[1].used - b[1].used).slice(0, pondPart.size - 16)) {
+    scene.remove(q.water); q.water.geometry.dispose(); scene.remove(q.km.mesh); q.km.mesh.geometry.dispose(); pondPart.delete(id);
+  }
+  pondKey = more ? '' : key; pondMore = more;
   return L;
 }
 
@@ -476,6 +491,7 @@ function worldSync(force) {
   const p = S.p, D = S.day;
   if (!staticK) { const K = new Kit(); campKit(K); staticK = new KitMesh(); staticK.set(K); }
   const gen = D.felled.size * 7 + D.nodes.size * 3 + (D.bchunks ? D.bchunks.size : 0);
+  if (pondMore) pondsSync(p.x, p.y);   // ponds still to build, one a frame
   if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < 70 && gen === WORLD.gen && drawR() === WORLD.vr) return;
   WORLD.x = p.x; WORLD.y = p.y; WORLD.gen = gen; WORLD.vr = drawR(); worldDirty = false;
   // trees, rocks, posts

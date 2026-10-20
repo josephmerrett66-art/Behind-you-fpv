@@ -2194,7 +2194,7 @@ function dayStep(dt, inCamp) {
   const D = S.day, rg = S.rg, p = S.p;
   D.t += dt;
   D.crK = (D.crK || 0) + ((D.crouch ? 1 : 0) - (D.crK || 0)) * Math.min(1, dt * 10);   // v178: ease down into the crouch and back up
-  if ((D.saveT = (D.saveT || 0) + dt) > DAY_SAVE_T) { D.saveT = 0; daySave(); } D.sick = Math.max(0, D.sick - dt);
+  if ((D.saveT = (D.saveT || 0) + dt) > DAY_SAVE_T) { D.saveT = 0; daySaveIdle(); } D.sick = Math.max(0, D.sick - dt);
   const n = 1 + Math.floor(D.t / DAY_LEN);
   if (n > D.n) { D.n = n; rg.ringMsg = { text: `day ${n}`, sub: 'A new morning', t: 0 }; }
   { const ph = dayNight() ? 'night' : 'day';   // v153: they come with the dark
@@ -3071,6 +3071,15 @@ function daySave() {
   d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, smoke: B.smoke, comp: B.comp, pen: B.pen, bT: B.bT, ck: B.ck, rw: B.rw, open: B.open, cT: B.cT, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit }));
   const out = { v: 2, at: Date.now(), d, p: { x: Math.round(S.p.x), y: Math.round(S.p.y) }, rg: { hp: rg.hp, steel: rg.steel || 0, flask: rg.flask, kills: rg.kills || 0, looted: [...rg.looted], wisp: rg.wispCarry || 0 }, xs: XS };
   try { localStorage.setItem(dayKey(), JSON.stringify(out)); } catch (e) {}
+}
+// the save every few seconds as you play, put off to the gap after a frame is drawn: packing the run up takes several ms, which
+// in the middle of a frame was a stutter every five seconds
+let daySaveCb = 0;
+function daySaveIdle() {
+  if (daySaveCb) return;
+  if (typeof requestIdleCallback !== 'function') { daySave(); return; }
+  const t0 = performance.now(), go = dl => { if (dl.timeRemaining() < 8 && !dl.didTimeout && performance.now() - t0 < 3000) { daySaveCb = requestIdleCallback(go, { timeout: 3000 }); return; } daySaveCb = 0; try { daySave(); } catch (e) {} };
+  daySaveCb = requestIdleCallback(go, { timeout: 3000 });
 }
 function dayFromV1(d) {                         // a run saved before the overhaul: stacks become slots, tools become items
   const inv = Array(BASE_SLOTS + (d.bigPack ? DIT.pack.bag : 0)).fill(null), box = Array(BOX_SLOTS).fill(null), gear = { head: null, body: d.armour ? newSlot('vest', 1) : null, legs: null, back: d.bigPack ? newSlot('pack', 1) : null };

@@ -163,6 +163,7 @@ function startRun(fresh) {
     try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (_) {} }
   else lockOn();
   worldSync(true); thingsSync(true);
+  try { clanGeoInit(); clanRig(0); } catch (e) { console.error(e); }   // the cannibals' bodies, and one rig so its shader is made with the rest just below
   try { for (const k in PT) PT[k].mesh.count = 1; renderer.compile(scene, cam); renderer.compile(vmScene, vmCam); for (const k in PT) PT[k].mesh.count = 0; } catch (_) {}
   last = performance.now(); saveT = 0;
 }
@@ -218,23 +219,42 @@ $('how').innerHTML = TOUCH
   : '<div><b>WASD</b> move · <b>mouse</b> look · <b>click</b> attack, chop, mine · <b>Space</b> jump · hold <b>right click</b> to block</div><div><b>E</b> take, open, drink · <b>C</b> pack and crafting · <b>1–6</b> or <b>wheel</b> hotbar · <b>Q</b> sneak · <b>K</b> throw your spear</div><div>Building with the hammer: <b>Z X</b> turn · <b>[ ]</b> piece · <b>N</b> kind · <b>V</b> snap · <b>B</b> pull down · <b>Esc</b> menu</div>';
 
 // ---------------- the loop, and keeping the frame rate up ----------------
-let fpsAcc = 0, fpsN = 0, fpsShow = 0, slowT = 0, fastT = 0, lastDrop = -99, hurtFx = 0, healFx = 0, lastHp = null;
+// The sharpness (pixK) steps down when frames keep being dropped against the screen's own beat, and only tries a step up after
+// a long smooth spell, never past a level that was dropping them until it has been smooth a good while. It used to climb
+// whenever it read over 57 fps and only fall back under 50, so it settled just below the screen's rate, a dropped frame every
+// few (Joe: "frame rate is 58 but it is not running smooth"), and it resized the screen every few seconds as it hunted, a hitch
+// of its own each time. A frame dropped because the game itself took too long that frame (building a pond, a save) isn't the
+// drawing's fault, so it doesn't count against the sharpness.
+let fpsAcc = 0, fpsN = 0, fpsShow = 0, lastDrop = -99, hurtFx = 0, healFx = 0, lastHp = null;
+const AQ = { iv: 1 / 60, dts: [], miss: 0, all: 0, hist: [], good: 0, ceil: 9, tryAt: -99, cpu: 0 };
 function autoQuality(rawDt, now) {
-  fpsAcc += rawDt; fpsN++;
-  if (fpsAcc >= 0.5) {
-    const fps = fpsN / fpsAcc; fpsShow = fps; fpsAcc = 0; fpsN = 0;
-    $('fps').textContent = `${Math.round(fps)} fps · ${pixK.toFixed(2)}x`;
-    if (SET.quality === 'auto' && state === 'play') {
-      if (fps < 50) { slowT++; fastT = 0; } else if (fps > 57) { fastT++; slowT = 0; } else { slowT = 0; fastT = 0; }
-      if (slowT >= 2 && pixK > 0.55) { pixK = Math.max(0.55, pixK * 0.85); resize(); slowT = 0; lastDrop = now; }
-      else if (slowT >= 4 && grassMesh.geometry.drawRange.count > GR_N * 1.2) { grassMesh.geometry.setDrawRange(0, Math.floor(Math.min(GR_N, grassMesh.geometry.drawRange.count / 3) * 0.7) * 3); slowT = 0; }   // still slow at the lowest sharpness: thin the grass
-      if (fastT >= 8 && pixK < QCAP && now - lastDrop > 12) { pixK = Math.min(QCAP, pixK * 1.08); resize(); fastT = 0; }
-    }
+  fpsAcc += rawDt; fpsN++; AQ.dts.push(rawDt);
+  if (rawDt > AQ.iv * 1.6) { AQ.all++; if (AQ.cpu < AQ.iv * 0.75) AQ.miss++; }   // shown twice (or more): the drawing's doing, unless the frame before was long in the game itself
+  if (fpsAcc < 0.5) return;
+  const fps = fpsN / fpsAcc, miss = AQ.miss, H = AQ.hist; fpsShow = fps; fpsAcc = 0; fpsN = 0;
+  const d = AQ.dts.sort((x, y) => x - y), med = d[d.length >> 1]; AQ.dts.length = 0;
+  AQ.iv = Math.min(AQ.iv * 1.01, med);   // the screen's beat: the steadiest a half second has run lately (60, 120, 144 a second...)
+  $('fps').textContent = `${Math.round(fps)} fps · ${pixK.toFixed(2)}x` + (AQ.all ? ` · ${AQ.all} dropped` : '');
+  AQ.miss = AQ.all = 0;
+  if (SET.quality !== 'auto' || state !== 'play') { H.length = 0; AQ.good = 0; return; }
+  H.push(miss); if (H.length > 8) H.shift();
+  if (miss) AQ.good = 0; else AQ.good++;
+  const sum = n => H.slice(-n).reduce((t, v) => t + v, 0);
+  if (sum(2) >= 4 || (H.length >= 8 && sum(8) >= 5)) {   // a burst, or one or two a second for four seconds: a step down
+    H.length = 0;
+    if (pixK > 0.55) { AQ.ceil = pixK * 0.97; pixK = Math.max(0.55, pixK * 0.88); resize(); lastDrop = now; }
+    else if (grassMesh.geometry.drawRange.count > GR_N * 1.2) grassMesh.geometry.setDrawRange(0, Math.floor(Math.min(GR_N, grassMesh.geometry.drawRange.count / 3) * 0.7) * 3);   // still dropping at the lowest sharpness: thin the grass
+  } else if (AQ.good >= 20) {   // ten seconds without one dropped: a step up, toward the ceiling
+    AQ.good = 0;
+    if (pixK >= Math.min(QCAP, AQ.ceil) - 0.01 && AQ.ceil < QCAP && now - lastDrop > 30 && now - AQ.tryAt > 20) { AQ.ceil *= 1.07; AQ.tryAt = now; }   // half a minute smooth at the ceiling: try one higher
+    const to = Math.min(QCAP, AQ.ceil, pixK * 1.07);
+    if (to > pixK + 0.01) { pixK = to; resize(); }
   }
 }
 let titleYaw = 0;
 function frame(t) {
   requestAnimationFrame(frame);
+  const fT0 = performance.now();
   const now = t / 1000, rawDt = Math.min(0.1, Math.max(0, (t - last) / 1000)); last = t;
   const rdt = Math.min(rawDt, 1 / 20);
   pollPad(rdt);
@@ -257,7 +277,7 @@ function frame(t) {
     if (S.running) {
       simStep(dt);
       beamStep();
-      saveT += rdt; if (saveT > 30) { saveT = 0; try { daySave(); } catch (e) {} }
+      saveT += rdt; if (saveT > 30) { saveT = 0; daySaveIdle(); }
     }
     if (menusOpen() && document.pointerLockElement) lockOff();
     autoQuality(rawDt, now);
@@ -293,6 +313,7 @@ function frame(t) {
   sunShadows();
   inkRender();
   renderer.clearDepth(); renderer.render(vmScene, vmCam);
+  AQ.cpu = (performance.now() - fT0) / 1000;   // (autoQuality) how long the frame took on this side, in seconds
 }
 addEventListener('resize', resize);
 resize();

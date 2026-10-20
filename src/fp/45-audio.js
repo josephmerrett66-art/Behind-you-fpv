@@ -16,6 +16,7 @@ function initAudio() {
   dec(AMB_SRC, b => { const s = actx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(ambG); s.start(); });
   noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
   const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  forestVerb();   // made now, on the tap that starts the sound, not mid-fight on the first cannibal's call (it takes a few frames' worth)
 }
 function setSoundOn(on) { if (sfxGain) sfxGain.gain.setTargetAtTime(on ? 0.9 : 0, actx.currentTime, 0.05); }
 function startBurnLoop() {   // the hiss of a raider burning in your torchlight, looped

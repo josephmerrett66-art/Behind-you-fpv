@@ -42,8 +42,7 @@ function doorTarget() {
     return use();
   }; }
 function doorToggle(o) {
-  o.ajar = o.ajar ? 0 : 1; doorV++;
-  if (actx) noiseAt(actx.currentTime, o.ajar ? 500 : 300, 180, 0.3, 0.2 * Math.max(0.5, monNear(o, 500)), sfxGain);   // the hinge
+  o.ajar = o.ajar ? 0 : 1; doorV++;   // (no hinge hiss: Joe asked for the swinging sound to go)
 }
 
 // ---- the swing: toward however you left it ----
@@ -53,14 +52,17 @@ function doorToggle(o) {
     if (D) for (const o of D.bld.values()) {
       const P = PC(o.id); if (!stDoorish(P)) continue;
       if (!o.done) o.ajar = 0;
-      keep.push([o, o.open]); o.want = o.ajar || 0;   // what the old swing goes by: so it stays quiet
+      // the main game's own swing (below, in st) opens a door for whoever's beside it and hisses each time that changes: told
+      // the same as it will work out, it never sees a change, so it stays quiet (told how you left it, it hissed every frame
+      // you stood by a shut door or walked off from an open one, and the thud below went with it)
+      keep.push([o, o.open]); o.want = o.done && Math.hypot(o.x - S.p.x, o.y - S.p.y) < (P.L || GRID) / 2 + 22 ? 1 : 0;
     }
     // the clan are kept out of the main game's pass (where anything at a door batters it) and get their own below
     const all = rg.enemies, cl = all.filter(e => e.type === 'cannibal' && !e.dead);
     if (cl.length) rg.enemies = all.filter(e => e.type !== 'cannibal');
     try { st(dt); } finally { rg.enemies = all; }
     for (const [o, open0] of keep) {
-      const want = o.ajar || 0, was = o.open;
+      const want = o.ajar || 0, was = open0;
       o.open = open0 + (want - open0) * Math.min(1, dt * (want ? DOOR.open : DOOR.shut));
       if (Math.abs(want - o.open) < 0.004) o.open = want;   // come to rest, so it's drawn at rest
       if (!want && was >= 0.08 && o.open < 0.08 && actx && monNear(o, 500) > 0) boomAt(actx.currentTime, 120, 60, 0.12, 0.3 * monNear(o, 500), sfxGain);   // the thud as it meets the frame

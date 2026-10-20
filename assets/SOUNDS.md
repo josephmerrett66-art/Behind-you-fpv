@@ -28,8 +28,8 @@ page offered several licences, CC0 was taken.
 | bat | Bat Screeches | AntumDeluge (from freesound #104205 by polymorpheva) | CC0 | [link](https://opengameart.org/content/bat-screeches) |
 | bat | Bat Screeches | AntumDeluge (from freesound #104205 by polymorpheva) | CC0 | [link](https://opengameart.org/content/bat-screeches) |
 | bat | Bat Screeches | AntumDeluge (from freesound #104205 by polymorpheva) | CC0 | [link](https://opengameart.org/content/bat-screeches) |
-| bat_wings | Bat Wings, Flapping | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Wings) |
-| bat_wings | Bat Wings, Flapping | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Wings) |
+| bat_wings | Bat Wings, Flapping | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Wings) |
+| bat_wings | Bat Wings, Flapping | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Wings) |
 | bear | Bear Growls | AntumDeluge (U.S. Fish & Wildlife Service recording) | CC0 | [link](https://opengameart.org/content/bear-growls) |
 | bear | Bear Growls | AntumDeluge (U.S. Fish & Wildlife Service recording) | CC0 | [link](https://opengameart.org/content/bear-growls) |
 | bear | Grizzly Bear's Roar | NPS & MSU Acoustic Atlas/Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/grizzlysounds.htm) |
@@ -60,8 +60,8 @@ page offered several licences, CC0 was taken.
 | bird_song | American Robin | NPS & MSU Acoustic Atlas / Jennifer Jerrett (Yellowstone National Park) | Public Domain (NPS Yellowstone sound library) | [link](https://www.nps.gov/yell/learn/photosmultimedia/sounds-americanrobins.htm) |
 | bird_song | Song thrush and woodpecker drumming, Vogelsang, ex Soviet base, Germany - Song thrush and woodpecker drumming | Peter Cusack (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_27852_32098) |
 | bird_song | Song thrush and woodpecker drumming, Vogelsang, ex Soviet base, Germany - Song thrush and woodpecker drumming | Peter Cusack (radio aporee) | Public Domain (PDM 1.0) | [link](https://archive.org/details/aporee_27852_32098) |
-| bird_song | Carolina Wren, Chirping | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Birds) |
-| bird_song | Carolina Wren, Chirping | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Birds) |
+| bird_song | Carolina Wren, Chirping | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Birds) |
+| bird_song | Carolina Wren, Chirping | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Birds) |
 | bird_song | Birdsong Carduelis Carduelis European Goldfinch | robertopicone (packaged by qubodup) | CC-BY 3.0 | [link](https://opengameart.org/content/birdsong-carduelis-carduelis-european-goldfinch) |
 | bird_song | Birdsong Carduelis Carduelis European Goldfinch | robertopicone (packaged by qubodup) | CC-BY 3.0 | [link](https://opengameart.org/content/birdsong-carduelis-carduelis-european-goldfinch) |
 | bird_wings | Flap, Splat, Poo (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/flap-splat-poo-yo-frankie) |
@@ -93,11 +93,11 @@ page offered several licences, CC0 was taken.
 | bow_release | Medieval sound effects - Weapon Textures | Ben Jaszczak & Brian Nelson (Submitted by MedicineStorm ) | CC0 | [link](https://opengameart.org/content/medieval-sound-effects-weapon-textures) |
 | bow_release | Medieval sound effects - Weapon Textures | Ben Jaszczak & Brian Nelson (Submitted by MedicineStorm ) | CC0 | [link](https://opengameart.org/content/medieval-sound-effects-weapon-textures) |
 | bow_release | Medieval sound effects - Weapon Textures | Ben Jaszczak & Brian Nelson (Submitted by MedicineStorm ) | CC0 | [link](https://opengameart.org/content/medieval-sound-effects-weapon-textures) |
-| branch_snap | Twig, Medium, Snaps | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
-| branch_snap | Branch, Snaps, Crackles | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
-| branch_snap | Twig, Small Medium, Breaks | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
-| branch_snap | Twig, Snap | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
-| branch_snap | Crackles, Snaps | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
+| branch_snap | Twig, Medium, Snaps | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
+| branch_snap | Branch, Snaps, Crackles | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
+| branch_snap | Twig, Small Medium, Breaks | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
+| branch_snap | Twig, Snap | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
+| branch_snap | Crackles, Snaps | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Wood) |
 | breath_tired | HMNBrth-Blue Snowball Microphone_Panting, Slow | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Human) |
 | breath_tired | HMNBrth-Blue Snowball Microphone_Panting, Medium | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Human) |
 | breath_tired | Sound Effects Pack | OwlishMedia | CC0 | [link](https://opengameart.org/content/sound-effects-pack) |
@@ -226,7 +226,7 @@ page offered several licences, CC0 was taken.
 | leaves_rustle | 20 Rustles of dry leaves | qubodup | CC0 | [link](https://opengameart.org/content/20-rustles-dry-leaves) |
 | leaves_rustle | Nature Sounds Pack (Foliage) | Antoinemax (Antoine Goumain) | CC-BY 4.0 | [link](https://opengameart.org/content/nature-sounds-pack) |
 | leaves_rustle | Nature Sounds Pack (Foliage) | Antoinemax (Antoine Goumain) | CC-BY 4.0 | [link](https://opengameart.org/content/nature-sounds-pack) |
-| leaves_rustle | Bush, Rustle | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Vegetation) |
+| leaves_rustle | Bush, Rustle | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Vegetation) |
 | match_strike | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
 | match_strike | FIREIgn-Samsung Galaxy Smartphone, CU_Match Strike | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Fire) |
 | meat_cut | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
@@ -280,11 +280,11 @@ page offered several licences, CC0 was taken.
 | sizzle | General Household Sound Effects | bretbernhoft | CC0 | [link](https://opengameart.org/content/general-household-sound-effects) |
 | sizzle | General Household Sound Effects | bretbernhoft | CC0 | [link](https://opengameart.org/content/general-household-sound-effects) |
 | sizzle | FOODCook-Samsung Galaxy Smartphone_Meat Frying, Looped | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/designers-choice-collection-food-drink) |
-| splash | Water Splash, Big, Dive Into Water, Person or Animal | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
+| splash | Water Splash, Big, Dive Into Water, Person or Animal | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
 | splash | Water Splash (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/water-splash-yo-frankie) |
 | splash | Water Splash (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/water-splash-yo-frankie) |
 | splash | Water splashes | qubodup | CC-BY 3.0 | [link](https://opengameart.org/content/water-splashes) |
-| splash_small | Water, Splash, Small | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
+| splash_small | Water, Splash, Small | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
 | splash_small | Object Dropping into Water | angeloyazar | CC0 | [link](https://opengameart.org/content/object-dropping-into-water-0) |
 | splash_small | Water Splash and sand footsteps | Peludo | CC0 | [link](https://opengameart.org/content/water-splash-and-sand-footsteps) |
 | splash_small | Water splashes | qubodup | CC-BY 3.0 | [link](https://opengameart.org/content/water-splashes) |
@@ -345,11 +345,11 @@ page offered several licences, CC0 was taken.
 | swim | Swimming in calm water | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
 | swim | Swimming in calm water | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
 | swim | Sea swimming loop | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
-| thunder | Thunder, Sharp, Crackle | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
-| thunder | Lightning, Strike, Booming Thunder Roll | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
-| thunder | Thunder, Distant, Rolling | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
-| thunder | Short, Distant Boom, Rumble | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
-| thunder | Thunder, Rumble, Short, Bugs | Nicholas A. Judy (The Designer's Choice) | CC0 | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
+| thunder | Thunder, Sharp, Crackle | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
+| thunder | Lightning, Strike, Booming Thunder Roll | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
+| thunder | Thunder, Distant, Rolling | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
+| thunder | Short, Distant Boom, Rumble | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
+| thunder | Thunder, Rumble, Short, Bugs | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Weather) |
 | trap_snap | Fantasy Sound Effects Library | Little Robot Sound Factory | CC-BY 3.0 | [link](https://opengameart.org/content/fantasy-sound-effects-library) |
 | trap_snap | Fantasy Sound Effects Library | Little Robot Sound Factory | CC-BY 3.0 | [link](https://opengameart.org/content/fantasy-sound-effects-library) |
 | tree_crack | Tree Creaking | AntumDeluge | CC0 | [link](https://opengameart.org/content/tree-creaking) |

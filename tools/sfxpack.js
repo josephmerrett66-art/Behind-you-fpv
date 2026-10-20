@@ -54,7 +54,7 @@ const rows = used.map(([k, f]) => {
   const m = meta[f], src = f.split('/')[0];
   if (src.startsWith('k_')) { const P = KENNEY[kPack(src)]; return [k, `Kenney · ${P.title}`, 'Kenney (kenney.nl)', 'CC0 1.0', P.page]; }
   if (!m) return [k, f, '?', '?', ''];
-  const lic = /Designer's Choice/.test(m.license || '') ? "Designer's Choice royalty-free" : (m.license || '').replace(/ \(page (also )?offers.*\)$/, '');
+  const lic = /Designer's Choice/.test(m.license || '') || /Designers-Choice-Collection/.test(m.page_url || '') ? "Designer's Choice royalty-free" : (m.license || '').replace(/ \(page (also )?offers.*\)$/, '');
   return [k, m.title || f, m.author || '', lic, m.page_url || m.file_url || ''];
 });
 const md = ['# Sound effects', '',

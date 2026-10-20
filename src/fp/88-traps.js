@@ -95,7 +95,7 @@ function trapStep(dt) {
       B.got = bird ? 'grouse' : 'rabbit'; B.gotT = 0; B.robbed = 0;
       if (bait >= 0) { const s = B.inv[bait]; s.n--; if (!s.n) B.inv[bait] = null; }
       dayKillLog(B.got);
-      if (d < 900) exNote(`something is caught in your snare`, true);
+      if (d < 900) { exNote(`something is caught in your snare`, true); snd('trap_snap', { x: B.x, y: B.y, far: 900 }); }
       dayChanged();
     } else {
       const fish = countIn(B.inv, 'fish');

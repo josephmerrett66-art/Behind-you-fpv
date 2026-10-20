@@ -54,13 +54,17 @@ const rows = used.map(([k, f]) => {
   const m = meta[f], src = f.split('/')[0];
   if (src.startsWith('k_')) { const P = KENNEY[kPack(src)]; return [k, `Kenney · ${P.title}`, 'Kenney (kenney.nl)', 'CC0 1.0', P.page]; }
   if (!m) return [k, f, '?', '?', ''];
-  return [k, m.title || f, m.author || '', m.license || '', m.page_url || m.file_url || ''];
+  const lic = /Designer's Choice/.test(m.license || '') ? "Designer's Choice royalty-free" : (m.license || '').replace(/ \(page (also )?offers.*\)$/, '');
+  return [k, m.title || f, m.author || '', lic, m.page_url || m.file_url || ''];
 });
 const md = ['# Sound effects', '',
   'Every sound the game plays that was made up out of noise and tones now has real recordings behind it (src/fp/46-sfx.js picks',
-  'one at random each time). They were all found free to use: CC0 or public domain where possible, a few CC-BY (credited',
-  'here, as their licence asks), and some under the Mixkit Free License. Each was cut to the sound itself, made mono and',
-  'levelled. Packed by `node tools/sfxpack.js <lib dir>` into assets/sfx.json.', '',
+  'one at random each time). They were all found free to use: CC0 or public domain where possible, some CC-BY or OGA-BY',
+  '(credited here, as those licences ask). Each was cut to the sound itself, made mono and levelled. Packed by',
+  '`node tools/sfxpack.js <lib dir>` into assets/sfx.json.', '',
+  "\"Designer's Choice royalty-free\" is The Designer's Choice sound collection on archive.org, tagged CC0 there, whose own licence",
+  'file adds a few terms (among them: the sounds are not to be resold as sounds or passed off as your own recordings). Where a',
+  'page offered several licences, CC0 was taken.', '',
   '| Kind | Recording | By | Licence | Source |', '|---|---|---|---|---|',
   ...rows.map(r => `| ${r.slice(0, 4).map(c => String(c).replace(/\|/g, '/')).join(' | ')} | ${r[4] ? `[link](${r[4]})` : ''} |`), ''];
 fs.writeFileSync('assets/SOUNDS.md', md.join('\n'));

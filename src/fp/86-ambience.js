@@ -65,6 +65,7 @@ function ambFrame(dt) {
     const F = out ? [EX_FIRE, ...D.builds.filter(B => B.t === 'fire'), ...clanCamps()].map(o => [o, Math.hypot(o.x - p.x, o.y - p.y)]).filter(q => q[1] < 300).sort((a, b) => a[1] - b[1]).slice(0, 2) : [];
     while (AMB.fires.length < 2) AMB.fires.push(emitter('fire_loop', { far: 280 }));
     AMB.fires.forEach((E, i) => { const q = F[i]; if (q) emitSet(E, 1 - 0.5 * rain, q[0].x, q[0].y); else emitSet(E, 0); });
+    if (F[0] && F[0][1] < 220 && (AMB.t.pop = (AMB.t.pop ?? 1) - dt) <= 0) { AMB.t.pop = 0.8 + Math.random() * 3.5; snd('fire_pop', { x: F[0][0].x, y: F[0][0].y, far: 300, v: 0.5 + 0.5 * Math.random() }); }   // now and then a knot of sap goes off
   }
   if (!out) return;
   // the calls

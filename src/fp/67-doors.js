@@ -78,7 +78,7 @@ function clanSpikes(D, cl, dt, night) {
       if (e.dead || Math.abs(e.x - o.x) > 90 || Math.abs(e.y - o.y) > 90) continue;
       const ed = stDistTo(o, e.x, e.y);
       if (((P.thorn && ed < SPIKE.reach) || (P.trap && ed < SPIKE.strip)) && !(e.cl && e.cl.z > 8) && e.spkT <= 0) {   // close enough to the points
-        spikeBite(e, P.trap ? SPIKE.trap : SPIKE.bite);
+        spikeBite(e, P.trap ? SPIKE.trap : SPIKE.bite); if (P.trap) snd('trap_snap', { x: o.x, y: o.y });
         if (P.trap) o.hp -= 1;
       }
       if (P.mire && ed < 6) { e.mire = S.t + 0.25; if (Math.random() < dt * 2) e.hp -= 0.1; }   // the hedge drags at them

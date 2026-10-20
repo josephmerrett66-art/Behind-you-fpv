@@ -58,8 +58,8 @@ function snd(k, o = {}) {
   const s = actx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate;
   let node = s;
   if (o.lp) { const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; node.connect(f); node = f; }
-  if (o.dur) { const g = actx.createGain(); g.gain.setValueAtTime(1, t); g.gain.setValueAtTime(1, t + Math.max(0, len - 0.06)); g.gain.linearRampToValueAtTime(0.0001, t + len); node.connect(g); node = g; s.stop(t + len + 0.02); }
-  node.connect(out); s.start(t, b.lead);
+  if (o.dur) { const g = actx.createGain(); g.gain.setValueAtTime(1, t); g.gain.setValueAtTime(1, t + Math.max(0, len - 0.06)); g.gain.linearRampToValueAtTime(0.0001, t + len); node.connect(g); node = g; }
+  node.connect(out); s.start(t, b.lead); if (o.dur) s.stop(t + len + 0.02);
   return s;
 }
 // the same, at the player: for what you do with your own hands (a small lean to the side it happens on)

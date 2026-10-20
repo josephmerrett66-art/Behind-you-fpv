@@ -84,7 +84,7 @@ function jumpStep(dt) {
   p.jvz -= JUMP.g * dt; p.jz = Math.max(0, (p.jz || 0) + p.jvz * dt);
   if (p.jz <= 0) {   // down: both feet, and the view gives a little
     const hard = clamp(-p.jvz / JUMP.v, 0, 1.4); p.jvz = 0;
-    VIEW_FX.dip = Math.max(VIEW_FX.dip, 3.2 * hard); FPX.step(true, -1); setTimeout(() => FPX.step(true, 1), 45);
+    VIEW_FX.dip = Math.max(VIEW_FX.dip, 3.2 * hard); FPX.step(true, -1); if (stepKind(p.x, p.y)[0] !== 'water_wade') snd('jump_land', { v: 0.35 + 0.35 * hard }); setTimeout(() => FPX.step(true, 1), 45);
   }
 }
 { const ss = simStep; simStep = function (dt) { if (S && S.day) guardStep(dt); const r = ss.apply(this, arguments); if (S && S.p) jumpStep(dt); return r; }; }

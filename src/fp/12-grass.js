@@ -70,11 +70,12 @@ const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; uniform float rainW; varyi
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('bd', new THREE.BufferAttribute(bd, 4));
   g.boundingSphere = new THREE.Sphere(new V3(), 1e5);
   if (SET.quality === 'fast') g.setDrawRange(0, Math.floor(GR_N * 0.45) * 3);   // a sparser lawn on the fast setting
+  const meshes = [];
   GR_RINGS.forEach((R, i) => {
     const m = new THREE.ShaderMaterial({ uniforms: Object.assign({ ring: { value: i } }, grassU, LU), side: THREE.DoubleSide, vertexShader: GRASS_V, fragmentShader: GRASS_F, depthWrite: false });   // no depth, so the outline pass reads the ground under it, not every blade
-    const o = new THREE.Mesh(g, m); o.frustumCulled = false; o.renderOrder = 1; scene.add(o);
+    const o = new THREE.Mesh(g, m); o.frustumCulled = false; o.renderOrder = 1; o.visible = SET.grass; scene.add(o); meshes.push(o);
   });
-  var grassMesh = { geometry: g };   // what the quality governor thins
+  var grassMesh = { geometry: g, meshes };   // what the quality governor thins, and the Grass setting hides
 }
 
 // the mask: re-drawn when you've walked a way or something on the ground has changed

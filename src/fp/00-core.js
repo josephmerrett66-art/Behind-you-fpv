@@ -13,7 +13,7 @@ const hex = (h, k = 1) => { const c = new THREE.Color(h); return [c.r * k, c.g *
 function rng(seed) { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 // ---------------- settings ----------------
-const SET = { sens: 1, invert: false, fps: false, quality: 'auto', sound: true, colour: true, fov: 104, view: 'first', isoZoom: 1.7, ink: true };
+const SET = { sens: 1, invert: false, fps: false, quality: 'auto', sound: true, colour: true, fov: 104, view: 'first', isoZoom: 1.7, ink: true, grass: true };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('behind-you-fp') || '{}')); } catch (e) {}
 const saveSet = () => { try { localStorage.setItem('behind-you-fp', JSON.stringify(SET)); } catch (e) {} };
 COLOUR = SET.colour !== false;

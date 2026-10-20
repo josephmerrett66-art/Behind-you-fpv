@@ -191,6 +191,7 @@ function syncSet() {
   for (const b of document.querySelectorAll('#sQual .tab')) b.setAttribute('aria-pressed', b.dataset.q === SET.quality ? 'true' : 'false');
   $('sInv').setAttribute('aria-pressed', SET.invert ? 'true' : 'false');
   $('sInk').setAttribute('aria-pressed', SET.ink ? 'true' : 'false');
+  $('sGrass').setAttribute('aria-pressed', SET.grass ? 'true' : 'false'); for (const o of grassMesh.meshes) o.visible = SET.grass;
   $('sFps').setAttribute('aria-pressed', SET.fps ? 'true' : 'false');
   $('sSnd').setAttribute('aria-pressed', SET.sound ? 'true' : 'false');
   $('sCol').setAttribute('aria-pressed', COLOUR ? 'true' : 'false');
@@ -209,6 +210,7 @@ for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('cl
 });
 $('sView').addEventListener('click', () => { SET.view = nextView(); saveSet(); syncSet(); });
 $('sInk').addEventListener('click', () => { SET.ink = !SET.ink; saveSet(); syncSet(); });
+$('sGrass').addEventListener('click', () => { SET.grass = !SET.grass; saveSet(); syncSet(); });
 $('sInv').addEventListener('click', () => { SET.invert = !SET.invert; saveSet(); syncSet(); });
 $('sFps').addEventListener('click', () => { SET.fps = !SET.fps; saveSet(); syncSet(); });
 $('sSnd').addEventListener('click', () => { SET.sound = !SET.sound; saveSet(); syncSet(); if (sfxGain) setSoundOn(SET.sound); });
@@ -288,7 +290,7 @@ function frame(t) {
   worldSync(false); thingsSync(false);
   for (const b of [tallB, coverB, plantB, bushB, nodeB, dropB]) b.m.uniforms.now.value = S.t;
   tallB.m.uniforms.cull.value = drawR();
-  grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);
+  if (SET.grass) grassMask(S.p.x, S.p.y, WORLD.lakes, S.day.bld.size * 31 + S.day.builds.length);
   flagStep(now);
   const fdt = state === 'play' && S.running ? (S.hitstop > 0 ? 0 : rdt) : 0;
   lightsFrame(now, fdt); tpTorchTongue(); tonguesEnd();

@@ -145,7 +145,7 @@ function clanNightStep(dt, C) {
   const beat = 0.36 + Math.random() * 0.12, n = 10 + Math.floor(Math.random() * 14), out = placeOut(k.x, k.y, 0.55 + 0.3 * clanAngK(), 6000, null, n * beat * 1.6 + 2); if (!out) return;
   const t0 = actx.currentTime + 0.05, pat = pick([[1, 0.5, 0.7, 0], [1, 0, 0.6, 0.6], [1, 0.4, 0.4, 0.8, 0, 0.6]]);
   for (let i = 0; i < n; i++) { const acc = pat[i % pat.length]; if (!acc) continue; const t = t0 + i * beat + (Math.random() - 0.5) * 0.025;
-    boomAt(t, 92 + 18 * acc, 46, 0.42, 0.9 * acc, out); noiseAt(t, 700, 160, 0.14, 0.28 * acc, out); }
+    if (!snd('drum', { out, at: t - actx.currentTime, v: 0.5 + 0.7 * acc, rate: 0.94 + 0.08 * acc, j: 0.02 })) { boomAt(t, 92 + 18 * acc, 46, 0.42, 0.9 * acc, out); noiseAt(t, 700, 160, 0.14, 0.28 * acc, out); } }
   if (Math.random() < 0.45) { const a = Math.atan2(k.y - p.y, k.x - p.x) + (Math.random() - 0.5) * 0.3; clanLater(n * beat * 0.6, pick(['wail', 'yell', 'chatter']), { x: p.x + Math.cos(a) * 1600, y: p.y + Math.sin(a) * 1600, vp: 100 + Math.random() * 60 }, 0.7); }   // and voices with it
 }
 // their fire, far off: a glow low between the trunks the way their camp lies (a soft light the fog doesn't swallow, but trees hide)

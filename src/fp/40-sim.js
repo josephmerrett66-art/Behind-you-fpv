@@ -63,7 +63,7 @@ function simStep(dt) {
     const u = 1 - p.roll / ROLL_T, v = ROLL_DIST / ROLL_T * 2 * (1 - u);
     p.vx = Math.cos(p.rollA) * v; p.vy = Math.sin(p.rollA) * v;
     p.roll -= dt; p.rollSafe -= dt;
-    if (!p.rollThud && p.roll < ROLL_T * 0.55) { p.rollThud = 1; if (actx && noiseBuf) noiseAt(actx.currentTime, 300, 120, 0.09, 0.2, sfxGain); FPX.thud(); }
+    if (!p.rollThud && p.roll < ROLL_T * 0.55) { p.rollThud = 1; if (actx && noiseBuf && !snd('body_fall', { v: 0.4, rate: 1.15 })) noiseAt(actx.currentTime, 300, 120, 0.09, 0.2, sfxGain); FPX.thud(); }
     if (p.roll <= 0) { p.vx *= 0.3; p.vy *= 0.3; p.rollEnd = 0.16; }
   }
   if (p.ghosts) p.ghosts.length = 0;
@@ -111,7 +111,7 @@ FP.exStep = function (dt) {
   if (inCamp !== rg.inCamp) {
     rg.inCamp = inCamp;
     if (inCamp) rg.oil = oilMax();
-    else { rg.ringMax = 0; rg.outT = 0; if (actx) noiseAt(actx.currentTime, 900, 200, 0.5, 0.25, sfxGain); }   // the gate creaks shut behind you
+    else { rg.ringMax = 0; rg.outT = 0; if (actx && !snd('creak')) noiseAt(actx.currentTime, 900, 200, 0.5, 0.25, sfxGain); }   // the gate creaks shut behind you
   }
   if (NO_CAMP && atHome()) rg.oil = oilMax();   // back at your bed or fire: the torch topped up
   campBtn.hidden = true;

@@ -265,7 +265,7 @@ function dodge() {
   } else p.rollCool = ROLL_COOL * (1 - 0.18 * lv('feet')) * (1 - 0.08 * sr('nimble'));
   if (lv('nova') && S.rg.nova >= 12) { S.rg.nova = 0; lightBurst(p.x, p.y, 230, 0.85, 'white'); hitStop(0.06); }
   for (let i = 0; i < 6; i++) S.rg.ash.push({ x: p.x, y: p.y, z: 1, vx: -Math.cos(a) * (30 + Math.random() * 40) + (Math.random() - 0.5) * 40, vy: -Math.sin(a) * (30 + Math.random() * 40) + (Math.random() - 0.5) * 40, vz: 20 + Math.random() * 30, life: 0.4 + Math.random() * 0.3 });
-  if (actx && noiseBuf) { const t = actx.currentTime; noiseAt(t, 3500, 500, 0.28, 0.4, sfxGain); }
+  if (actx && noiseBuf && !snd('cloth', { v: 1.2, rate: 0.85 })) { const t = actx.currentTime; noiseAt(t, 3500, 500, 0.28, 0.4, sfxGain); }
   if (wpOn() && curW() === 'lance') wpDecoy();   // v143: the Mirror Lance leaves a copy of you where you rolled from
   dodgeBtn.dataset.cool = '1';
 }
@@ -311,7 +311,7 @@ function startSwing() {
   rg.slashes = rg.slashes || [];
   if (!D.slam && !tov) rg.slashes.push({ i, a, side, t: 0, life: 0.28, r: D.reach, arc: D.arc });
   if (!S.day) { addShake(D.slam ? 0.12 : 0.07); camKick(a, D.kick * 0.5); dustKick(p.x, p.y, a, D.slam ? 14 : 6, D.slam ? 110 : 70); }   // v129: in Daylight a swing doesn't jolt the view or kick up the ground
-  if (actx && noiseBuf) { const t = actx.currentTime; noiseAt(t, D.slam ? 1400 : 3000, D.slam ? 250 : 700, D.slam ? 0.3 : 0.14, D.slam ? 0.45 : 0.32, sfxGain); if (D.slam) boomAt(t, 90, 60, 0.15, 0.3, sfxGain); }
+  if (actx && noiseBuf && !snd('whoosh', { v: D.slam ? 1.1 : tov ? 0.6 : 0.8, rate: D.slam ? 0.8 : 1, at: Math.max(0, (D.hitAt || (tov && tov.hitAt) || 0.12) - 0.1) })) { const t = actx.currentTime; noiseAt(t, D.slam ? 1400 : 3000, D.slam ? 250 : 700, D.slam ? 0.3 : 0.14, D.slam ? 0.45 : 0.32, sfxGain); if (D.slam) boomAt(t, 90, 60, 0.15, 0.3, sfxGain); }
 }
 function atkHit(D, a) {                          // everything in reach takes the blow, once per swing
   const rg = S.rg, p = S.p, A = p.atk; let hits = 0;
@@ -382,7 +382,7 @@ function atkHit(D, a) {                          // everything in reach takes th
     addShake(D.shake); hitStop(hits ? D.stop : 0.05); camKick(a + Math.PI / 2, 4);
     if (actx) { const t = actx.currentTime; boomAt(t, 70, 28, 0.5, 0.9, sfxGain); noiseAt(t, 900, 120, 0.35, 0.45, sfxGain); }
   } else if (hits) { addShake(D.shake); hitStop(D.stop); camKick(a, D.kick); }
-  if (hits && actx && !D.wpn) { const t = actx.currentTime; boomAt(t, 160, 50, 0.13, 0.5, sfxGain); noiseAt(t, 5200, 1400, 0.07, 0.35, sfxGain); }
+  if (hits && actx && !D.wpn && !(S.day && (!rg.enemies.some(o => A.hit.has(o)) || snd(dayTool() === 'hand' ? 'punch' : 'hit_flesh')))) { const t = actx.currentTime; boomAt(t, 160, 50, 0.13, 0.5, sfxGain); noiseAt(t, 5200, 1400, 0.07, 0.35, sfxGain); }
   return hits;
 }
 function atkStep(dt) {                           // called from update, before you move: the leap carries you into the swing
@@ -427,7 +427,7 @@ function weatherStep(dt) {
   w.k += (want - w.k) * Math.min(1, dt * 0.35); if (w.k < 0.003) { w.k = 0; if (w.st === 'clear') w.kind = null; }
   if (w.kind === 'storm' && w.k > 0.5 && (w.boltT -= dt) <= 0) {   // lightning: a double flash, the thunder a moment later
     w.boltT = 6 + Math.random() * 9; w.flash = 1; w.flash2 = S.t + 0.16 + Math.random() * 0.1; addShake(0.12);
-    const delay = 0.3 + Math.random() * 1.4; if (actx && !wxThunder(delay)) { const t = actx.currentTime + delay; boomAt(t, 70, 26, 2.4, 0.7, sfxGain); noiseAt(t, 900, 80, 2.8, 0.55, sfxGain); noiseAt(t + 0.05, 3000, 300, 0.5, 0.25, sfxGain); }
+    const delay = 0.3 + Math.random() * 1.4; if (actx && !wxThunder(delay) && !snd('thunder', { at: delay, j: 0.12, v: delay > 1 ? 0.7 : 1, lp: delay > 1 ? 1400 : 0 })) { const t = actx.currentTime + delay; boomAt(t, 70, 26, 2.4, 0.7, sfxGain); noiseAt(t, 900, 80, 2.8, 0.55, sfxGain); noiseAt(t + 0.05, 3000, 300, 0.5, 0.25, sfxGain); }
   }
   if (w.flash2 && S.t >= w.flash2) { w.flash2 = 0; w.flash = Math.max(w.flash, 0.8); }
   rainSound(inWoods() ? wxK('rain') * (w.kind === 'storm' ? 1.3 : 1) : 0);
@@ -717,7 +717,7 @@ function hurt(e) {
   if (S.mode === 'expedition' && rg.recall) { rg.recall = null; exNote('the flare went out'); }   // a hit snuffs a recall flare
   if (S.p.rollSafe > 0) {                  // rolled right through it
     rg.inv = 0.35; hitStop(0.05); addShake(0.1);
-    rg.dodged = { t: 0 }; sfx(2.2, 0.35, 'highpass', 3000, 0.15); lifeAdd('dodged'); stkNear();
+    rg.dodged = { t: 0 }; snd('whoosh', { v: 0.9, rate: 1.2 }) || sfx(2.2, 0.35, 'highpass', 3000, 0.15); lifeAdd('dodged'); stkNear();
     if (lv('close')) { S.p.rollCool = 0; if (isEx()) S.p.dch = dodgeMax(); dodgeBtn.dataset.cool = '0'; rg.rushT = 1.5 + 1.5 * lv('close'); if (isEx() && lv('close') > 1) rg.adren = 2; }   // Close Call 2: a burst of speed too
     return;
   }
@@ -750,7 +750,7 @@ function hurt(e) {
   if (lv('adrenaline')) rg.adren = 1.5 + 0.8 * lv('adrenaline');
   shove(e, 90);
   if (lv('salt')) { const R = 110 + 40 * lv('salt'); for (const o of rg.enemies) if (dist2(o, S.p) < R) shove(o, 150); rg.echoes.push({ r: 0, salt: true }); }
-  sfx(0.45, 0.9, 'lowpass', 500, 0.35);
+  snd('player_hurt') || sfx(0.45, 0.9, 'lowpass', 500, 0.35);
   if (rg.hp <= 0 && !(e && e.type === 'cannibal' && clanCapture())) nightOver();   // the clan: the first time, you wake in their camp (74-clan2)
 }
 function splitApart(e) {
@@ -2089,7 +2089,7 @@ function dayBegin() {
 function dayNote(k, text, gap = 4) { const D = S.day; if ((D.told[k] || -99) > D.t - gap) return; D.told[k] = D.t; exNote(text, true); }
 function dayStam(cost) {                       // spend stamina, or say you're spent
   const D = S.day; if (!D) return true;
-  if (D.st < cost) { dayNote('tired', 'too tired', 1.5); sfx(0.6, 0.25, 'lowpass', 300, 0.2); return false; }
+  if (D.st < cost) { dayNote('tired', 'too tired', 1.5); snd('breath_tired', { v: 0.8 }) || sfx(0.6, 0.25, 'lowpass', 300, 0.2); return false; }
   D.st -= cost; D.stT = 0; return true;
 }
 const dayMoveK = () => (S.day && S.day.st < 15 ? 0.78 : 1) * (S.day && S.day.crouch ? SNEAK_SPEED : 1) * (S.day && S.day.draw ? 0.55 : 1) * (S.day && GUARD.on ? 0.5 : 1);   // v128: half pace with your guard up
@@ -2136,7 +2136,7 @@ function daySee(id, quiet) {                   // the first time you hold someth
   for (const r of found) { D.known.add(r.id); D.fresh.add(r.id); }
   if (quiet) return;
   S.rg.ringMsg = { text: found.length > 1 ? `${found.length} new recipes` : 'new recipe', sub: found.slice(0, 3).map(recName).join(' · ') + (COARSE() ? ' · open your Pack' : ' · press C'), t: 0 };
-  if (actx) { const t = actx.currentTime; boomAt(t, 520, 760, 0.18, 0.18, sfxGain); setTimeout(() => sfx(2.2, 0.25, 'bandpass', 2600, 0.3), 120); }
+  if (actx && !snd('ui_confirm')) { const t = actx.currentTime; boomAt(t, 520, 760, 0.18, 0.18, sfxGain); setTimeout(() => sfx(2.2, 0.25, 'bandpass', 2600, 0.3), 120); }
 }
 function dayGive(k, n, x, y, quiet, extra) {   // into the pack; what doesn't fit is left lying there
   const D = S.day, left = addTo(D.inv, k, n, extra, slotOrder(D, k)), take = n - left;
@@ -2175,7 +2175,7 @@ function dayWear(n = 1) {                      // the tool in your hand loses a 
   if (s.d <= 0) {
     D.inv[D.hot] = null; exNote(`your ${DIT[s.id].n.toLowerCase()} broke`, true); addShake(0.25); hitStop(0.06);
     dayChips(S.p.x + Math.cos(S.aimW || 0) * 16, S.p.y + Math.sin(S.aimW || 0) * 16, 14, DIT[s.id].tool === 'weapon' && s.id !== 'spear1' && s.id !== 'spear2' ? 'wood' : 'stone', 10);
-    if (actx) { const t = actx.currentTime; noiseAt(t, 2200, 500, 0.25, 0.5, sfxGain); boomAt(t, 300, 90, 0.18, 0.4, sfxGain); }
+    if (actx && !snd('wood_break', { v: 0.8 })) { const t = actx.currentTime; noiseAt(t, 2200, 500, 0.25, 0.5, sfxGain); boomAt(t, 300, 90, 0.18, 0.4, sfxGain); }
   }
   dayChanged();
 }
@@ -2211,7 +2211,7 @@ function dayStep(dt, inCamp) {
   if ((D.stT += dt) > STA_WAIT) D.st = Math.min(STA_MAX, D.st + STA_REGEN * (1 + 0.1 * sr('endure')) * dt * (D.food < 25 || D.water < 25 ? 0.5 : 1) * (D.sick > 0 ? 0.5 : 1));
   // armour mends: once nothing has hit you for a while, one piece at a time
   if ((rg.steel || 0) < D.steelSeen) D.armT = 0;
-  if ((rg.steel || 0) < steelMax() && (D.armT += dt) > 10) { D.armT = 4; rg.steel++; rg.pop = { t: 0, refill: rg.hp }; sfx(1.6, 0.25, 'bandpass', 1800, 0.2); }
+  if ((rg.steel || 0) < steelMax() && (D.armT += dt) > 10) { D.armT = 4; rg.steel++; rg.pop = { t: 0, refill: rg.hp }; snd('leather') || sfx(1.6, 0.25, 'bandpass', 1800, 0.2); }
   D.steelSeen = rg.steel || 0;
   // food and water run down
   const stom = 1 - 0.06 * sr('stomach');   // v164: Iron Stomach
@@ -2226,7 +2226,7 @@ function dayStep(dt, inCamp) {
     if ((D.starve += dt) >= STARVE_T) {   // half a heart every few seconds, fence or no fence
       D.starve = 0; rg.hp = Math.max(0, rg.hp - 0.5); rg.hurtFx = 0.6; addShake(0.3);
       rg.pop = rg.hp % 1 ? { t: 0, halved: Math.floor(rg.hp) } : { t: 0, lost: rg.hp };
-      sfx(0.45, 0.5, 'lowpass', 400, 0.3);
+      snd('player_hurt', { v: 0.7, rate: 0.92 }) || sfx(0.45, 0.5, 'lowpass', 400, 0.3);
       if (rg.hp <= 0) { D.cause = D.food <= 0 ? 'starved' : 'thirst'; nightOver(); return; }
     }
   } else D.starve = 0;
@@ -2237,12 +2237,12 @@ function dayStep(dt, inCamp) {
   // trees going over, then the logs
   for (const g of D.logs) {
     if (g.kind === 'poof') { if ((g.t += dt) >= (g.T || POOF_T)) g.done = true; continue; }
-    if (g.fall < 1) { g.fall = Math.min(1, g.fall + dt * (0.5 + g.fall * 2.6)); if (g.fall >= 1) { addShake(0.35 * monNear(g, 500)); if (actx) boomAt(actx.currentTime, 70, 40, 0.5, 0.5 * monNear(g, 600), sfxGain); for (let i = 0; i < 5; i++) { ashBurst(g.bx + g.ux * g.len * i / 5, g.by + g.uy * g.len * i / 5, 4, 6); if (i > 1) dayChips(g.bx + g.ux * g.len * i / 5, g.by + g.uy * g.len * i / 5, 8, g.type === 'cherry' ? 'leaf' : 'wood', 4); } } }
+    if (g.fall < 1) { g.fall = Math.min(1, g.fall + dt * (0.5 + g.fall * 2.6)); if (g.fall >= 1) { addShake(0.35 * monNear(g, 500)); if (actx && !snd('wood_h', { x: g.bx + g.ux * g.len * 0.5, y: g.by + g.uy * g.len * 0.5, far: 900 })) boomAt(actx.currentTime, 70, 40, 0.5, 0.5 * monNear(g, 600), sfxGain); for (let i = 0; i < 5; i++) { ashBurst(g.bx + g.ux * g.len * i / 5, g.by + g.uy * g.len * i / 5, 4, 6); if (i > 1) dayChips(g.bx + g.ux * g.len * i / 5, g.by + g.uy * g.len * i / 5, 8, g.type === 'cherry' ? 'leaf' : 'wood', 4); } } }
     else if ((g.lie += dt) > 0.7 && (g.gone = (g.gone || 0) + dt * 2) >= 1) {
       g.done = true;
       if (g.give.logs) dayGive('logs', g.give.logs, g.bx + g.ux * g.len * 0.5, g.by + g.uy * g.len * 0.5);   // v169: straight into the pack
       if (g.give.sticks) dayGive('sticks', g.give.sticks, g.bx + g.ux * g.len * 0.85, g.by + g.uy * g.len * 0.85);
-      pickSnd();
+      pickSnd('logs');
     }
   }
   D.logs = D.logs.filter(g => !g.done);
@@ -2256,7 +2256,8 @@ function dayStep(dt, inCamp) {
   { const on = dayTool() === 'build'; if (on !== !!D.barOn) { D.barOn = on; renderBuildBar(); layoutBtns(); if (on) dayNote('bhint', 'point and press Attack to lay a piece · it snaps to what you built · Use (E) builds it', 999); } }
   if (!D.told.packHint && D.known.size >= 2) { D.told.packHint = 1; }
 }
-function pickSnd() { sfx(1.5, 0.15, 'bandpass', 1600, 0.15); }
+const PICK_SND = { sticks: 'stick_pick', logs: 'stick_pick', bark: 'stick_pick', stones: 'stone_pick', flint: 'stone_pick', ironore: 'stone_pick', iron: 'stone_pick', fibre: 'grass_pull', herb: 'grass_pull', berries: 'bush_rustle', mushroom: 'grass_pull', meat: 'leather', hide: 'leather', fish: 'leather', feather: 'cloth', bone: 'stick_pick' };
+function pickSnd(it, v = 1) { (it && PICK_SND[it] && snd(PICK_SND[it], { v })) || snd('pick', { v }) || sfx(1.5, 0.15, 'bandpass', 1600, 0.15); }   // (fp: the recording for what it is, 46-sfx)
 function dayEat(arr, i) {
   const D = S.day, rg = S.rg, s = arr[i]; if (!s || !DIT[s.id].eat) return;
   const E = DIT[s.id].eat;
@@ -2264,7 +2265,7 @@ function dayEat(arr, i) {
   s.n--; if (!s.n) arr[i] = null;
   D.food = Math.min(FOOD_MAX, D.food + E.food); if (E.water) D.water = Math.min(FOOD_MAX, D.water + E.water);
   if (E.heal && rg.hp < rg.maxHp) { rg.hp = Math.min(rg.maxHp, rg.hp + E.heal); rg.pop = { t: 0, gained: Math.ceil(rg.hp) - 1 }; }
-  exNote(`ate ${DIT[s.id].n.toLowerCase()} · +${E.food}`); sfx(1.2, 0.25, 'bandpass', 900, 0.25); if (actx) setTimeout(() => sfx(1.6, 0.2, 'bandpass', 1400, 0.2), 90);
+  exNote(`ate ${DIT[s.id].n.toLowerCase()} · +${E.food}`); if (!snd('eat')) { sfx(1.2, 0.25, 'bandpass', 900, 0.25); if (actx) setTimeout(() => sfx(1.6, 0.2, 'bandpass', 1400, 0.2), 90); } else snd('eat', { at: 0.45, v: 0.8 });
   if (E.cure && D.sick > 0) { D.sick = 0; exNote('the sickness passes', true); }
   if (E.sick && Math.random() < E.sick) { D.sick = 30; exNote(`sick from ${DIT[s.id].n.toLowerCase()}`, true); }
   dayChanged();
@@ -2275,12 +2276,12 @@ function dayDrink(arr, i) {                      // a waterskin in a slot, or (n
   if (arr) { const s = arr[i]; if (!s || !(s.w > 0)) { dayNote('dry', 'your waterskin is empty', 2); return; } s.w--; dayAct(9, 1.1, '#6b4a2a', 'skin'); D.water = Math.min(FOOD_MAX, D.water + 30);
     if (s.dirty) { if (Math.random() < 0.3) { D.sick = 30; exNote('that water was bad', true); } if (!s.w) s.dirty = 0; } }
   else { if (!dayWaterHere()) return; D.water = Math.min(FOOD_MAX, D.water + 40); dayAct(9, 1.1, '#8ab8e0', 'cup'); }
-  exNote('a drink'); sfx(0.8, 0.3, 'lowpass', 900, 0.25); dayChanged();
+  exNote('a drink'); snd('drink') || sfx(0.8, 0.3, 'lowpass', 900, 0.25); dayChanged();
 }
 function dayFill() {                             // every waterskin you carry, filled
   const D = S.day; if (!dayWaterHere()) return;
   let n = 0; for (const s of D.inv) if (s && s.id === 'skin' && s.w < SKIN_SIPS) { s.w = SKIN_SIPS; n++; }
-  if (n) { exNote(n > 1 ? `${n} waterskins filled` : 'waterskin filled'); sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
+  if (n) { exNote(n > 1 ? `${n} waterskins filled` : 'waterskin filled'); snd('water_fill') || sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
   dayChanged();
 }
 function dayVerb() {
@@ -2324,7 +2325,7 @@ function dayEquip(arr, i) {                      // wear it; whatever was in tha
   if (T.slot === 'back' && old && DIT[old.id].bag > T.bag && !D.inv.slice(BASE_SLOTS + T.bag).every(x => !x)) { exNote('empty your bag first', true); return false; }
   D.gear[T.slot] = s; arr[i] = old;
   if (T.slot === 'back') { const want = BASE_SLOTS + T.bag; while (D.inv.length < want) D.inv.push(null); if (D.inv.length > want) D.inv.length = want; }
-  dayGearFx(); dayAct(10, 0.6); exNote(`wearing · ${T.n.toLowerCase()}`); sfx(0.9, 0.35, 'bandpass', 500, 0.3);
+  dayGearFx(); dayAct(10, 0.6); exNote(`wearing · ${T.n.toLowerCase()}`); snd('cloth', { v: 1.2 }) || sfx(0.9, 0.35, 'bandpass', 500, 0.3);
   dayChanged(); return true;
 }
 function dayUnequip(slot) {
@@ -2377,8 +2378,8 @@ function dayUse() {
   if (o.kind === 'dst') { if (!S.p.act && dayStam(STA_CHOP)) { dayAct(10, 0.5); S.p.vx *= 0.4; S.p.vy *= 0.4; if (stHammer(o)) dayWear(); } return; }   // v186
   if (o === EX_FIRE) { openStation('fire'); return; }   // first person (Joe): the camp fire cooks; the wisp upgrades are in the pause menu
   dayAct(7, 0.42); S.p.vx *= 0.3; S.p.vy *= 0.3;
-  if (o.kind === 'dday') { const got = dayGive(o.it, o.n, o.x, o.y, true, o.ex); if (got) { exNote(`+${got} ${DIT[o.it].n.toLowerCase()}`); pickSnd(); } o.n -= got; if (o.n <= 0) o.gone = true; D.drops = D.drops.filter(f => !f.gone); }
-  else if (o.kind === 'dnode') { const it = o.t === 'shroom' ? 'mushroom' : o.t; if (dayRoom(it) <= 0) return dayNote('full', 'pack full', 1); o.gone = true; dayGive(it, o.n); pickSnd(); }
+  if (o.kind === 'dday') { const got = dayGive(o.it, o.n, o.x, o.y, true, o.ex); if (got) { exNote(`+${got} ${DIT[o.it].n.toLowerCase()}`); pickSnd(o.it); } o.n -= got; if (o.n <= 0) o.gone = true; D.drops = D.drops.filter(f => !f.gone); }
+  else if (o.kind === 'dnode') { const it = o.t === 'shroom' ? 'mushroom' : o.t; if (dayRoom(it) <= 0) return dayNote('full', 'pack full', 1); o.gone = true; dayGive(it, o.n); pickSnd(it); }
   else exOpen(o);
 }
 const NC = 420;
@@ -2422,28 +2423,28 @@ function dayHarvest(Dk, a, inReach, spark) {
   best.shakeT = S.t;
   const owns = job => D.inv.some(s => s && DIT[s.id].tool === job);
   if (best.kind === 'tree') {
-    if (tool !== 'axe') { dayNote('axe', owns('axe') ? 'hold your axe to chop' : 'you need an axe · craft one', 3); if (actx) noiseAt(actx.currentTime, 500, 200, 0.12, 0.3, sfxGain); return hits; }
+    if (tool !== 'axe') { dayNote('axe', owns('axe') ? 'hold your axe to chop' : 'you need an axe · craft one', 3); if (actx && !snd('wood_l', { x: best.x, y: best.y })) noiseAt(actx.currentTime, 500, 200, 0.12, 0.3, sfxGain); return hits; }
     if (!dayStam(STA_CHOP)) return hits;
     const c = (D.cut.get(best.key) || 0) + 1, need = T.tier > 3 ? 1 : T.tier > 1 ? 3 : 5; D.cut.set(best.key, c); chips('wood');
-    if (actx) { const t = actx.currentTime; boomAt(t, 180, 90, 0.12, 0.45, sfxGain); noiseAt(t, 1500, 500, 0.1, 0.35, sfxGain); }
+    if (actx && !snd('chop_wood', { x: best.x, y: best.y })) { const t = actx.currentTime; boomAt(t, 180, 90, 0.12, 0.45, sfxGain); noiseAt(t, 1500, 500, 0.1, 0.35, sfxGain); }
     if (c >= need) dayFell(best);
     else exNote(`chop · ${need - c} more`);
   } else if (best.kind === 'rock') {
-    if (tool !== 'pick') { dayNote('pick', owns('pick') ? 'hold your pick to break rock' : 'you need a pick · craft one', 3); if (actx) noiseAt(actx.currentTime, 3500, 1500, 0.08, 0.3, sfxGain); return hits; }
+    if (tool !== 'pick') { dayNote('pick', owns('pick') ? 'hold your pick to break rock' : 'you need a pick · craft one', 3); if (actx && !snd('stone_pick', { x: best.x, y: best.y, v: 0.8 })) noiseAt(actx.currentTime, 3500, 1500, 0.08, 0.3, sfxGain); return hits; }
     if (!dayStam(STA_CHOP)) return hits;
     const key = 'r' + best.key, c = (D.cut.get(key) || 0) + 1, need = T.tier > 3 ? 1 : T.tier > 1 ? 2 : 4; D.cut.set(key, c); chips('stone');
-    if (actx) { const t = actx.currentTime; noiseAt(t, 4200, 1800, 0.12, 0.5, sfxGain); boomAt(t, 260, 140, 0.08, 0.3, sfxGain); }
+    if (actx && !snd('mining', { x: best.x, y: best.y })) { const t = actx.currentTime; noiseAt(t, 4200, 1800, 0.12, 0.5, sfxGain); boomAt(t, 260, 140, 0.08, 0.3, sfxGain); }
     if (c >= need) {
       D.felled.add(best.key); ashBurst(best.x, best.y, 14, 14); addShake(0.25);
-      dayGive('stones', 3, best.x, best.y); dayGive('flint', T.tier > 1 ? 3 : 2, best.x, best.y); pickSnd();   // v169: straight into the pack
+      dayGive('stones', 3, best.x, best.y); dayGive('flint', T.tier > 1 ? 3 : 2, best.x, best.y); snd('stone_break', { x: best.x, y: best.y, at: 0.05 }); pickSnd('stones');   // v169: straight into the pack
       if (Math.hypot(best.x, best.y) > IRON_FROM && T.tier < 2) dayNote('iron', 'there was iron in that rock · a flint pick gets it out', 4);   // v195
       if (Math.hypot(best.x, best.y) > IRON_FROM && T.tier > 1) { const n = (T.tier > 3 ? 3 : T.tier > 2 ? 2 : 1) + (Math.random() < 0.4 ? 1 : 0); dayGive('ironore', n, best.x, best.y, true); exNote(`iron in the rock · ${n}`, true); }
     } else exNote(`crack · ${need - c} more`);
   } else if (best.t === 'grass') {
     best.gone = true; dayGive('fibre', tool === 'hand' ? 2 : 3, best.x, best.y); chips('leaf');
-    if (actx) noiseAt(actx.currentTime, 5000, 2000, 0.15, 0.25, sfxGain);
+    if (actx && !snd('grass_pull', { x: best.x, y: best.y })) noiseAt(actx.currentTime, 5000, 2000, 0.15, 0.25, sfxGain);
   } else if (best.t === 'bush') {
-    chips('leaf'); if (actx) noiseAt(actx.currentTime, 3000, 1500, 0.15, 0.3, sfxGain);
+    chips('leaf'); if (actx && !snd('bush_rustle', { x: best.x, y: best.y })) noiseAt(actx.currentTime, 3000, 1500, 0.15, 0.3, sfxGain);
     if (best.ber) { best.ber = false; best.berT = 90; dayGive('berries', 2 + (Math.random() < 0.5 ? 1 : 0), best.x, best.y); dayGive('fibre', 1, best.x, best.y); }
     else { best.gone = true; dayGive('fibre', 2, best.x, best.y); dayGive('sticks', 1, best.x, best.y); }
   }
@@ -2459,9 +2460,10 @@ function dayFell(t) {                          // v199 (Joe: the falling looked 
   dayLeaves(t.x, t.y, h * 0.3, h * 0.95, crownR, leaf, t.type === 'dead' ? 22 : 80);   // the crown comes down as a shower
   ashBurst(t.x, t.y, 10, 10); ashBurst(t.x + Math.cos(a) * 12, t.y + Math.sin(a) * 12, 6, 6);
   addShake(0.32); hitStop(0.06); padRumble(0.55, 160);
-  if (actx) { const t0 = actx.currentTime; noiseAt(t0, 900, 300, 0.35, 0.45, sfxGain); boomAt(t0 + 0.02, 90, 45, 0.35, 0.45, sfxGain); noiseAt(t0 + 0.05, 4500, 1800, 0.9, 0.18, sfxGain); }   // crack, thump, the rustle of leaves
+  if (actx && !snd('tree_crack', { x: t.x, y: t.y, far: 1200 })) { const t0 = actx.currentTime; noiseAt(t0, 900, 300, 0.35, 0.45, sfxGain); boomAt(t0 + 0.02, 90, 45, 0.35, 0.45, sfxGain); noiseAt(t0 + 0.05, 4500, 1800, 0.9, 0.18, sfxGain); }   // crack, thump, the rustle of leaves
+  snd('tree_fall', { x: t.x + Math.cos(a) * 30, y: t.y + Math.sin(a) * 30, far: 1400, at: 0.25 });   // and it comes down through the others
   const give = t.type === 'dead' ? { logs: 1, sticks: 3 } : { logs: 2 + (sc > 1.1 ? 1 : 0), sticks: 2 };
-  dayGive('logs', give.logs, t.x, t.y); dayGive('sticks', give.sticks, t.x, t.y); pickSnd();   // v169: straight into the pack
+  dayGive('logs', give.logs, t.x, t.y); dayGive('sticks', give.sticks, t.x, t.y); pickSnd('logs', 0.9);   // v169: straight into the pack
   exNote('timber', true);
 }
 const BC = 900;
@@ -2478,7 +2480,7 @@ function sneakHit(b) {                           // an unaware animal, struck wh
   if (!S.day || !S.day.crouch || b.st !== 'graze' || b.tame) return 1;
   const B = BEAST[b.k], prey = !B.angry && !B.pack;
   addShake(0.3); hitStop(0.09); padRumble(0.6, 160);
-  if (actx) { const t = actx.currentTime; boomAt(t, 120, 50, 0.18, 0.5, sfxGain); noiseAt(t, 2600, 600, 0.12, 0.35, sfxGain); }
+  if (actx && !snd('blade_flesh', { v: 1.1 })) { const t = actx.currentTime; boomAt(t, 120, 50, 0.18, 0.5, sfxGain); noiseAt(t, 2600, 600, 0.12, 0.35, sfxGain); }
   exNote('sneak kill', true);
   if (prey) { b.hp = Math.min(b.hp, 0.0001); return 1e6; }
   return 3;
@@ -2487,7 +2489,7 @@ function dayCrouch(on) {
   const D = S.day; if (!D || !S.running || !S.rg || S.rg.phase !== 'fight') return;
   D.crouch = on ?? !D.crouch;
   sneakBtn.setAttribute('aria-pressed', D.crouch ? 'true' : 'false');
-  sfx(D.crouch ? 1.2 : 1.6, 0.08, 'bandpass', 900, 0.1);
+  snd('cloth', { v: 0.55, rate: D.crouch ? 0.9 : 1.1 }) || sfx(D.crouch ? 1.2 : 1.6, 0.08, 'bandpass', 900, 0.1);
 }
 function beastStep(dt) {
   const D = S.day, p = S.p, Rr = viewR() + 300;
@@ -2521,7 +2523,7 @@ function beastStep(dt) {
       if (b.t <= 0) { b.st = d > B.scare ? 'graze' : 'flee'; b.t = d > B.scare ? 2 : 1.5; }
     } else if (b.st === 'wind') {                 // a boar scrapes the ground, then comes
       b.sp = 0; b.dir = Math.atan2(-dy, -dx);
-      if (b.t <= 0) { b.st = 'charge'; b.t = 0.75; b.cd = Math.atan2(-dy, -dx); if (actx && monNear(b, 600) > 0) noiseAt(actx.currentTime, 700, 200, 0.4, 0.4 * monNear(b, 600), sfxGain); }
+      if (b.t <= 0) { b.st = 'charge'; b.t = 0.75; b.cd = Math.atan2(-dy, -dx); if (actx && monNear(b, 600) > 0 && !snd(beastVoice(b, 'charge'), { x: b.x, y: b.y, who: b })) noiseAt(actx.currentTime, 700, 200, 0.4, 0.4 * monNear(b, 600), sfxGain); }
     } else if (b.st === 'charge') {
       b.dir = b.cd; b.sp = B.sp;
       if (d < 22 && S.rg.inv <= 0 && S.rg.phase === 'fight') { hurt({ x: b.x, y: b.y, type: 'half' }); b.st = 'rest'; b.t = 1.4; }
@@ -2542,8 +2544,8 @@ function beastScare(b) {
     return;
   }
   if (BEAST[b.k].pack) { beastCall(b); return; }
-  if (BEAST[b.k].angry) { if (b.st === 'graze' || b.st === 'flee') { b.st = 'wind'; b.t = 0.6; if (actx && monNear(b, 600) > 0) noiseAt(actx.currentTime, 300, 120, 0.35, 0.45 * monNear(b, 600), sfxGain); } return; }
-  if (b.st !== 'flee') { b.st = 'flee'; b.t = 3 + Math.random() * 2; if (actx && monNear(b, 600) > 0) noiseAt(actx.currentTime, b.k === 'deer' ? 1800 : 3500, 900, 0.18, 0.3 * monNear(b, 600), sfxGain); }
+  if (BEAST[b.k].angry) { if (b.st === 'graze' || b.st === 'flee') { b.st = 'wind'; b.t = 0.6; if (actx && monNear(b, 600) > 0 && !snd(beastVoice(b, 'angry'), { x: b.x, y: b.y, who: b })) noiseAt(actx.currentTime, 300, 120, 0.35, 0.45 * monNear(b, 600), sfxGain); } return; }
+  if (b.st !== 'flee') { b.st = 'flee'; b.t = 3 + Math.random() * 2; if (actx && monNear(b, 600) > 0 && !snd(beastVoice(b, 'bolt'), { x: b.x, y: b.y, who: b })) noiseAt(actx.currentTime, b.k === 'deer' ? 1800 : 3500, 900, 0.18, 0.3 * monNear(b, 600), sfxGain); }
   for (const o of S.day.beasts) if (o !== b && o.chunk === b.chunk && o.k === b.k && !o.dead && o.st === 'graze' && dist2(o, b) < 260) { o.st = 'flee'; o.t = 3 + Math.random() * 2; }   // the herd goes with it
 }
 function beastDie(b) {
@@ -2725,10 +2727,10 @@ function dayPlaceSpot(t) {                     // where it would go, and whether
 function dayPlaceHeld() {
   const D = S.day, s = heldSlot(), T = s && DIT[s.id]; if (!T || T.k !== 'place') return;
   const sp = dayPlaceSpot(T.build);
-  if (!sp.ok) { dayNote('noroom', 'no room there', 1.2); if (actx) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; }
+  if (!sp.ok) { dayNote('noroom', 'no room there', 1.2); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; }
   dayMakeBuild(T.build, sp.x, sp.y, sp.a); s.n--; if (!s.n) D.inv[D.hot] = null;
   addShake(0.15); ashBurst(sp.x, sp.y, 8, 6); dayAct(10, 0.9); dayChips(sp.x, sp.y, 4, T.build === 'fire' ? 'stone' : 'wood', 8);
-  if (actx) { const t0 = actx.currentTime; boomAt(t0, 160, 80, 0.15, 0.4, sfxGain); noiseAt(t0 + 0.05, 1200, 400, 0.12, 0.3, sfxGain); }
+  if (actx && !snd(T.build === 'fire' ? 'stone_pick' : 'build_thud', { x: sp.x, y: sp.y })) { const t0 = actx.currentTime; boomAt(t0, 160, 80, 0.15, 0.4, sfxGain); noiseAt(t0 + 0.05, 1200, 400, 0.12, 0.3, sfxGain); }
   exNote(`built · ${T.n.toLowerCase()}`, true);
   dayChanged();
 }
@@ -2780,12 +2782,12 @@ function buildStep(dt) {
     if (B.openT > 0) B.openT -= dt;
     if (B.t === 'wall') {                        // whatever pushes against it batters it down
       for (const e of rg.enemies) if (!e.dead && Math.abs(e.x - B.x) < 70 && Math.abs(e.y - B.y) < 70 && B.parts.some(o => dist2(o, e) < 26)) { B.hp -= dt * (e.type === 'brute' || e.type === 'tall' ? 3 : 1); B.hitT = 0.15; }
-      if ((B.hitT = Math.max(0, (B.hitT || 0) - dt)) > 0 && Math.random() < dt * 6 && actx && monNear(B, 600) > 0) boomAt(actx.currentTime, 140, 70, 0.08, 0.25 * monNear(B, 600), sfxGain);
-      if (B.hp <= 0) { B.gone = true; for (const o of B.parts) ashBurst(o.x, o.y, 6, 20); addShake(0.25 * monNear(B, 600)); exNote('a wall came down', true); if (actx) boomAt(actx.currentTime, 90, 40, 0.4, 0.5 * monNear(B, 600), sfxGain); }
+      if ((B.hitT = Math.max(0, (B.hitT || 0) - dt)) > 0 && Math.random() < dt * 6 && actx && monNear(B, 600) > 0 && !snd('wood_m', { x: B.x, y: B.y })) boomAt(actx.currentTime, 140, 70, 0.08, 0.25 * monNear(B, 600), sfxGain);
+      if (B.hp <= 0) { B.gone = true; for (const o of B.parts) ashBurst(o.x, o.y, 6, 20); addShake(0.25 * monNear(B, 600)); exNote('a wall came down', true); if (actx && !snd('wood_break', { x: B.x, y: B.y, far: 900 })) boomAt(actx.currentTime, 90, 40, 0.4, 0.5 * monNear(B, 600), sfxGain); }
     } else if (B.t === 'spikes') {
       for (const e of rg.enemies.concat(D.beasts)) if (!e.dead && B.parts.some(o => dist2(o, e) < 18) && (e.spikeT = (e.spikeT || 0) - dt) <= 0) {
         e.spikeT = 0.7; e.hp -= 1; e.jit = 1; e.flash = 1; B.uses--; ashBurst(e.x, e.y, 4, 14);
-        if (actx && monNear(e, 600) > 0) noiseAt(actx.currentTime, 2600, 900, 0.1, 0.3 * monNear(e, 600), sfxGain);
+        if (actx && monNear(e, 600) > 0 && !snd('blade_flesh', { x: e.x, y: e.y, v: 0.7 })) noiseAt(actx.currentTime, 2600, 900, 0.1, 0.3 * monNear(e, 600), sfxGain);
         if (e.kind === 'beast' && e.hp <= 0) beastDie(e);
       }
       if (B.uses <= 0) { B.gone = true; for (const o of B.parts) ashBurst(o.x, o.y, 5, 12); }
@@ -2795,7 +2797,7 @@ function buildStep(dt) {
 }
 function daySelect(i) {
   const D = S && S.day; if (!D || i < 0 || i >= HOTN || D.hot === i) return;
-  D.hot = i; const T = heldIt(); exNote(T ? T.n.toLowerCase() : 'bare hands'); sfx(1.6, 0.12, 'bandpass', 2200, 0.12);
+  D.hot = i; const T = heldIt(); exNote(T ? T.n.toLowerCase() : 'bare hands'); snd(T && T.tool ? 'leather' : 'cloth', { v: 0.7 }) || sfx(1.6, 0.12, 'bandpass', 2200, 0.12);
   if (S.p.atk && S.p.atk.ov) S.p.atk = null;     // a new tool in hand starts its own swing
   dayChanged();
 }
@@ -2840,12 +2842,12 @@ function openCraft(target) {
   const rg = S && S.rg; if (!S || !S.day || !rg || rg.phase !== 'fight' || !S.running) return;
   const conts = dayConts(70);
   PK.cont = target ? conts.find(c => c.box ? target === CAMP_BOX : c.B === target) || null : conts[0] || null;
-  if (PK.cont && PK.cont.B) { PK.cont.B.openT = 9e9; if (actx) { const t = actx.currentTime; noiseAt(t, 700, 300, 0.25, 0.3, sfxGain); } }
+  if (PK.cont && PK.cont.B) { PK.cont.B.openT = 9e9; if (actx && !snd('chest_open', { x: PK.cont.B.x, y: PK.cont.B.y })) { const t = actx.currentTime; noiseAt(t, 700, 300, 0.25, 0.3, sfxGain); } }
   PK.sel = null; if (target) PK.tab = 'pack';
   if (!target && PK.tab === 'craft' && !PK.atLock) PK.at = craftPlaceNow();   // v171: the Craft tab opens on where you're standing
   PK.atLock = false; PK_ONE = {}; document.body.classList.add('pkopen');
   S.running = false; menuBtn.hidden = true; craftBtn.hidden = true; craftEl.hidden = false; renderPack();
-  sfx(0.9, 0.3, 'bandpass', 520, 0.3);
+  snd('bag') || sfx(0.9, 0.3, 'bandpass', 520, 0.3);
 }
 function closeCraft() {
   if (PK.cont && PK.cont.B) PK.cont.B.openT = 0.25;
@@ -2856,7 +2858,7 @@ const pkGet = (w, i) => w === 'gear' ? S.day.gear[i] : pkArr(w)[i];
 function pkSay(t) { PK.flash = { t, at: performance.now() }; }
 function pkTap(w, i) {
   const D = S.day;
-  if (!PK.sel) { if (pkGet(w, i)) { PK.sel = { w, i }; sfx(1.8, 0.1, 'bandpass', 2400, 0.08); } renderPack(); return; }
+  if (!PK.sel) { if (pkGet(w, i)) { PK.sel = { w, i }; snd('ui_click') || sfx(1.8, 0.1, 'bandpass', 2400, 0.08); } renderPack(); return; }
   const a = PK.sel; PK.sel = null;
   if (a.w === w && a.i === i) { renderPack(); return; }
   pkMove(a, { w, i }); dayChanged(); renderPack();
@@ -2896,7 +2898,7 @@ function pkQuick(w, i) {                         // the whole stack across to th
   if (left === s.n) { pkSay(w === 'inv' ? 'it\'s full' : 'your pack is full'); return; }
   if (w === 'cont') daySee(s.id);
   if (left) s.n = left; else from[i] = null;
-  sfx(0.9, 0.25, 'bandpass', 600, 0.25); PK.sel = null; dayChanged();
+  snd('leather', { v: 0.8 }) || sfx(0.9, 0.25, 'bandpass', 600, 0.25); PK.sel = null; dayChanged();
 }
 function pkSplit(w, i) {
   const arr = pkArr(w), s = arr[i]; if (!s || s.n < 2) return;
@@ -2909,7 +2911,7 @@ function pkDrop(w, i) {
   else { const arr = pkArr(w); s = arr[i]; arr[i] = null; }
   if (!s) return;
   dayDrop(S.p.x + Math.cos(S.aimW || 0) * 14, S.p.y + Math.sin(S.aimW || 0) * 14, s.id, s.n, s.d ?? s.w);
-  PK.sel = null; sfx(0.7, 0.2, 'lowpass', 600, 0.2); dayChanged();
+  PK.sel = null; snd('leather', { v: 0.7, rate: 0.85 }) || sfx(0.7, 0.2, 'lowpass', 600, 0.2); dayChanged();
 }
 function pkHold(w, i) {                          // into your hand: onto the hotbar in place of what you're holding
   const D = S.day;
@@ -2985,7 +2987,7 @@ function dayCraft(id, times = 1) {
   PK.flash = { t: `made ${recName(r).toLowerCase()}${made > 1 ? ' ×' + made : ''}${dropped ? ' · no room, it\'s at your feet' : ''}`, at: performance.now(), rid: id };
   exNote(`made · ${recName(r).toLowerCase()}${made > 1 ? ' ×' + made : ''}`, true);
   dayAct(10, 0.7);
-  sfx(1.3, 0.45, 'bandpass', 1200, 0.3); if (actx) setTimeout(() => sfx(1.8, 0.3, 'bandpass', 2400, 0.25), 110);
+  if (!snd('craft')) { sfx(1.3, 0.45, 'bandpass', 1200, 0.3); if (actx) setTimeout(() => sfx(1.8, 0.3, 'bandpass', 2400, 0.25), 110); }
   dayChanged();
 }
 function needsHtml() {
@@ -3411,13 +3413,13 @@ function stSolids(o) {
 function stPlace() {
   const D = S.day, P = PC(D.piece), sp = stSnap(P, stAimPt()), why = stFree(P, sp);
   if (!stKnown(P)) return;
-  if (why !== true) { dayNote('nost', why, 1.2); if (actx) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; }
+  if (why !== true) { dayNote('nost', why, 1.2); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; }
   const o = { kind: 'dst', key: 'b' + (stUid++), id: P.id, k: P.k, x: sp.x, y: sp.y, a: sp.a, r: 10, need: Object.assign({}, P.cost), hp: P.hp, max: P.hp, done: false, open: 0, put: 0, seed: Math.random() * 9 };
   o.clip = stClipOf(P, sp); if (o.clip) o.clipV = 1;   // a floor across the palisade keeps only your side of it
   D.bld.set(o.key, o); stGen++;
   dayAct(10, 0.45); ashBurst(sp.x, sp.y, 6, 6); o.dropT = S.t;
   exNote(`blueprint · ${P.n.toLowerCase()}`, true); dayNote('bphint', 'Use (E) on a blueprint to build it', 30);
-  if (actx) { const t = actx.currentTime; noiseAt(t, 900, 400, 0.12, 0.25, sfxGain); if (sp.snap) setTimeout(() => sfx(2.4, 0.08, 'bandpass', 3200, 0.12), 40); }
+  if (actx && !snd('plank', { v: 0.6 })) { const t = actx.currentTime; noiseAt(t, 900, 400, 0.12, 0.25, sfxGain); if (sp.snap) setTimeout(() => sfx(2.4, 0.08, 'bandpass', 3200, 0.12), 40); }
   dayChanged();
 }
 const stNeedLeft = o => Object.values(o.need).reduce((a, n) => a + n, 0);
@@ -3433,7 +3435,7 @@ function stHammer(o) {                           // one swing: a material worked
     }
     o.need[k]--;
     o.put++; o.shakeT = S.t; dayChips(o.x, o.y, 14, chip, 6);
-    if (actx) { const t = actx.currentTime; boomAt(t, 220, 110, 0.1, 0.4, sfxGain); noiseAt(t, 1800, 600, 0.09, 0.3, sfxGain); }
+    if (actx && !snd(PC(o.id).m === 'stone' ? 'mining' : PC(o.id).m === 'iron' ? 'metal_m' : 'hammer_wood', { x: o.x, y: o.y })) { const t = actx.currentTime; boomAt(t, 220, 110, 0.1, 0.4, sfxGain); noiseAt(t, 1800, 600, 0.09, 0.3, sfxGain); }
     addShake(0.1);
     if (stNeedLeft(o) <= 0) stFinish(o); else exNote(`${stNeedLeft(o)} more`);
     dayChanged(); return true;
@@ -3442,7 +3444,7 @@ function stHammer(o) {                           // one swing: a material worked
     const k = Object.keys(P.cost)[0];
     if (!takeFrom(D.inv, k, 1, [...Array(D.inv.length).keys()].reverse())) { dayNote('needmat', `you need ${DIT[k].n.toLowerCase()}`, 2); return false; }
     o.hp = Math.min(o.max, o.hp + o.max / 3); o.shakeT = S.t; dayChips(o.x, o.y, 14, chip, 5);
-    exNote(o.hp >= o.max ? 'mended' : 'mending'); sfx(1.1, 0.3, 'bandpass', 900, 0.25); dayChanged(); return true;
+    exNote(o.hp >= o.max ? 'mended' : 'mending'); snd('hammer_wood', { x: o.x, y: o.y, v: 0.8 }) || sfx(1.1, 0.3, 'bandpass', 900, 0.25); dayChanged(); return true;
   }
   dayNote('whole', 'it\'s sound', 1.5); return false;
 }
@@ -3451,7 +3453,7 @@ function stFinish(o) {
   addShake(0.3); hitStop(0.05); ashBurst(o.x, o.y, 10, 22);
   if (o.k === 'bed') { S.day.bed = { x: o.x, y: o.y }; exNote('a bed · this place is yours now', true); }
   else exNote(`built · ${PC(o.id).n.toLowerCase()}`, true);
-  if (actx) { const t = actx.currentTime; boomAt(t, 150, 70, 0.3, 0.5, sfxGain); setTimeout(() => sfx(1.6, 0.35, 'bandpass', 1600, 0.3), 90); }
+  if (actx && !snd('build_thud', { x: o.x, y: o.y, v: 1.1 })) { const t = actx.currentTime; boomAt(t, 150, 70, 0.3, 0.5, sfxGain); setTimeout(() => sfx(1.6, 0.35, 'bandpass', 1600, 0.3), 90); }
 }
 function stGone(o) { const D = S.day; D.bld.delete(o.key); stGen++; if (o.k === 'bed' && D.bed && Math.abs(D.bed.x - o.x) < 1 && Math.abs(D.bed.y - o.y) < 1) D.bed = null; for (const q of D.bld.values()) if (q.on === o.key) stGone(q); }
 function stRemove(o) {                           // pull it down: half the materials come back (all of them from a blueprint)
@@ -3459,7 +3461,7 @@ function stRemove(o) {                           // pull it down: half the mater
   for (const [k, n] of Object.entries(P.cost)) { const back = o.done ? Math.floor(n / 2) : n - (o.need[k] || 0); if (back > 0) dayGive(k, back, o.x, o.y, true); }
   stGone(o);
   ashBurst(o.x, o.y, 8, 20); addShake(0.2); dayChips(o.x, o.y, 14, P.m === 'stone' ? 'stone' : P.m === 'thatch' ? 'leaf' : 'wood', 8); exNote('pulled down');
-  if (actx) { const t = actx.currentTime; noiseAt(t, 700, 200, 0.3, 0.35, sfxGain); }
+  if (actx && !snd('wood_break', { x: o.x, y: o.y, v: 0.7 })) { const t = actx.currentTime; noiseAt(t, 700, 200, 0.3, 0.35, sfxGain); }
   dayChanged();
 }
 function stMake(sv) {                            // a piece read back out of a saved run (v152 grid saves carry over)
@@ -3496,7 +3498,7 @@ function stStep(dt) {
     if (o.rise !== undefined && o.rise < 1) o.rise = Math.min(1, o.rise + dt * 3);
     if (stDoorish(P)) {                          // the door swings for you, and for nothing else
       const want = o.done && Math.hypot(o.x - p.x, o.y - p.y) < (P.L || GRID) / 2 + 22 ? 1 : 0;
-      if (want !== (o.want || 0)) { o.want = want; if (actx && monNear(o, 500) > 0) noiseAt(actx.currentTime, want ? 500 : 300, 180, 0.3, 0.2 * monNear(o, 500), sfxGain); }
+      if (want !== (o.want || 0)) { o.want = want; if (actx && monNear(o, 500) > 0 && !snd(want ? 'door_open' : 'creak', { x: o.x, y: o.y })) noiseAt(actx.currentTime, want ? 500 : 300, 180, 0.3, 0.2 * monNear(o, 500), sfxGain); }
       o.open += ((o.want || 0) - o.open) * Math.min(1, dt * 7);
     }
     if (!o.done) continue;
@@ -3509,13 +3511,13 @@ function stStep(dt) {
       if (P.blk && ed < 18 && (stDistTo(o, p.x, p.y) < Math.hypot(p.x - e.x, p.y - e.y) - 8 || stDoorish(P))) {   // raiders batter whatever stands between them and you
         o.hp -= dt * (e.type === 'brute' || e.type === 'tall' ? 3.5 : 1.3) * (P.m === 'thatch' ? 2 : 1);
         o.hitT = 0.15; e.wallT = 0.3;
-        if (Math.random() < dt * 5) { dayChips(o.x, o.y, 16, P.m === 'stone' || P.m === 'iron' ? 'stone' : P.m === 'thatch' ? 'leaf' : 'wood', 2); if (actx && monNear(o, 600) > 0) boomAt(actx.currentTime, 140, 70, 0.08, 0.25 * monNear(o, 600), sfxGain); }
+        if (Math.random() < dt * 5) { dayChips(o.x, o.y, 16, P.m === 'stone' || P.m === 'iron' ? 'stone' : P.m === 'thatch' ? 'leaf' : 'wood', 2); if (actx && monNear(o, 600) > 0 && !snd(P.m === 'stone' ? 'mining' : P.m === 'iron' ? 'metal_m' : P.m === 'thatch' ? 'bush_rustle' : 'wood_m', { x: o.x, y: o.y })) boomAt(actx.currentTime, 140, 70, 0.08, 0.25 * monNear(o, 600), sfxGain); }
       }
       if ((P.thorn && ed < 20) || (P.trap && ed < 4)) {   // stakes and spikes bite back
-        if ((e.thornT = (e.thornT || 0) - dt) <= 0) { e.thornT = 0.8; e.hp -= P.trap ? 1 : 0.6; e.jit = 1; ashBurst(e.x, e.y, 3, 14); if (P.trap) o.hp -= 1; if (actx && monNear(e, 600) > 0) noiseAt(actx.currentTime, 2600, 900, 0.1, 0.25 * monNear(e, 600), sfxGain); }
+        if ((e.thornT = (e.thornT || 0) - dt) <= 0) { e.thornT = 0.8; e.hp -= P.trap ? 1 : 0.6; e.jit = 1; ashBurst(e.x, e.y, 3, 14); if (P.trap) o.hp -= 1; if (actx && monNear(e, 600) > 0 && !snd('blade_flesh', { x: e.x, y: e.y, v: 0.6 })) noiseAt(actx.currentTime, 2600, 900, 0.1, 0.25 * monNear(e, 600), sfxGain); }
       }
       if (P.mire && ed < 6) { e.mire = S.t + 0.25; if (Math.random() < dt * 2) e.hp -= 0.1; }   // the hedge drags at them
-      if (P.k === 'chimes' && ed < 220 && !(o.ring > 0)) { o.ring = 6; exNote('the chimes are ringing', true); if (actx) { const t = actx.currentTime; for (let i = 0; i < 4; i++) setTimeout(() => sfx(2.2 + Math.random() * 1.2, 0.5, 'bandpass', 2600 + Math.random() * 1800, 0.18), i * 120); } }
+      if (P.k === 'chimes' && ed < 220 && !(o.ring > 0)) { o.ring = 6; exNote('the chimes are ringing', true); if (actx && !snd('chimes', { x: o.x, y: o.y, far: 900 })) { const t = actx.currentTime; for (let i = 0; i < 4; i++) setTimeout(() => sfx(2.2 + Math.random() * 1.2, 0.5, 'bandpass', 2600 + Math.random() * 1800, 0.18), i * 120); } }
     }
     if (o.hp <= 0) {
       stGone(o);
@@ -3532,9 +3534,9 @@ function stHoles(hole) {                         // the lamps you've built, cut 
   for (const o of stNear(S.cam.x, S.cam.y, viewR() + 200)) { const P = PC(o.id); if (P.light && o.done) hole(o.x, o.y, P.light * (1 + 0.04 * Math.sin(S.t * 7 + o.seed * 3)), P.k === 'candles' ? 0.5 : 0.75); }
 }
 const stKnown = P => { const D = S.day; return Object.keys(P.cost).every(k => D.seen.has(k)); };
-function stPick(id) { const D = S.day; if (!D || D.piece === id) return; D.piece = id; D.bdel = false; const P = PC(id); D.bcat = P.cat; exNote(P.n.toLowerCase()); sfx(1.6, 0.12, 'bandpass', 2200, 0.12); renderBuildBar(); }
-function stCat(c) { const D = S.day; if (!D) return; D.bcat = c; const L = PIECES.filter(p => p.cat === c), k = L.find(stKnown) || L[0]; D.piece = k.id; D.bdel = false; sfx(1.4, 0.12, 'bandpass', 1900, 0.12); renderBuildBar(); }
-function stRot(dir) { const D = S.day; if (!D) return; D.brot = ((D.brot || 0) + dir * ROT_STEP) % TAU; sfx(2, 0.06, 'bandpass', 2600, 0.1); }
+function stPick(id) { const D = S.day; if (!D || D.piece === id) return; D.piece = id; D.bdel = false; const P = PC(id); D.bcat = P.cat; exNote(P.n.toLowerCase()); snd('ui_click') || sfx(1.6, 0.12, 'bandpass', 2200, 0.12); renderBuildBar(); }
+function stCat(c) { const D = S.day; if (!D) return; D.bcat = c; const L = PIECES.filter(p => p.cat === c), k = L.find(stKnown) || L[0]; D.piece = k.id; D.bdel = false; snd('ui_tick') || sfx(1.4, 0.12, 'bandpass', 1900, 0.12); renderBuildBar(); }
+function stRot(dir) { const D = S.day; if (!D) return; D.brot = ((D.brot || 0) + dir * ROT_STEP) % TAU; snd('ui_tick', { v: 0.7 }) || sfx(2, 0.06, 'bandpass', 2600, 0.1); }
 function stSnapToggle() { const D = S.day; if (!D) return; D.bsnap = D.bsnap === false; exNote(D.bsnap === false ? 'snapping off · place freely' : 'snapping on'); renderBuildBar(); }
 function stDelToggle() { const D = S.day; if (!D) return; D.bdel = !D.bdel; exNote(D.bdel ? 'pull down · point at a piece' : 'building'); renderBuildBar(); }
 function stCycle(dir) { const D = S.day; if (!D) return; const L = PIECES.filter(p => p.cat === (D.bcat || PC(D.piece).cat) && stKnown(p)); if (!L.length) return; const i = L.findIndex(p => p.id === D.piece); stPick(L[(i + dir + L.length) % L.length].id); }
@@ -3670,7 +3672,7 @@ function dayWarmStep(dt) {
     if ((D.froze = (D.froze || 0) + dt) >= WARM_BITE) {
       D.froze = 0; rg.hp = Math.max(0, rg.hp - 0.5); rg.hurtFx = 0.5; addShake(0.25);
       rg.pop = rg.hp % 1 ? { t: 0, halved: Math.floor(rg.hp) } : { t: 0, lost: rg.hp };
-      exNote('the cold bites', true); sfx(0.4, 0.6, 'lowpass', 300, 0.3);
+      exNote('the cold bites', true); snd('breath_tired', { v: 0.8, rate: 0.9 }) || sfx(0.4, 0.6, 'lowpass', 300, 0.3);
       if (rg.hp <= 0) { D.cause = 'cold'; nightOver(); }
     }
     if (Math.random() < dt * 3) addShake(0.035);  // shivering
@@ -3678,7 +3680,7 @@ function dayWarmStep(dt) {
 }
 function dayBleedChance(e) {                     // some wounds keep on bleeding
   const D = S.day; if (!D || D.bleed > 0 || Math.random() > 0.22) return;
-  D.bleed = 26; exNote('you\'re bleeding · bind it', true); sfx(0.5, 0.5, 'lowpass', 500, 0.25);
+  D.bleed = 26; exNote('you\'re bleeding · bind it', true); snd('heartbeat', { v: 0.6 }) || sfx(0.5, 0.5, 'lowpass', 500, 0.25);
 }
 function dayBleedStep(dt) {
   const D = S.day, rg = S.rg; if (D.bleed <= 0) return;
@@ -3696,7 +3698,7 @@ function dayBind(arr, i) {                       // a bandage: it stops the blee
   s.n--; if (!s.n) arr[i] = null;
   dayAct(10, 0.9); D.bleed = 0; D.bleedT = 0;
   if (rg.hp < rg.maxHp) { rg.hp = Math.min(rg.maxHp, rg.hp + 0.5); rg.pop = { t: 0, gained: Math.ceil(rg.hp) - 1 }; }
-  exNote('bound up'); sfx(1.1, 0.35, 'bandpass', 700, 0.25);
+  exNote('bound up'); snd('cloth_tear') || sfx(1.1, 0.35, 'bandpass', 700, 0.25);
   dayChanged();
 }
 function lakesNear(x, y, R) {
@@ -3719,12 +3721,12 @@ function dayCast() {
   if (F && F.st === 'bite') {                     // pulled on the bite: it's yours
     D.fish = null; dayAct(4, 0.5); addShake(0.25); hitStop(0.04);
     const r = Math.random();
-    if (r < 0.74) { const n = 1 + (Math.random() < 0.18 ? 1 : 0); dayGive('fish', n); exNote(`caught · ${n > 1 ? n + ' fish' : 'a fish'}`, true); sfx(1.8, 0.3, 'bandpass', 1400, 0.3); }
-    else if (r < 0.9) { dayGive('fibre', 2); exNote('a knot of weed'); sfx(0.6, 0.3, 'lowpass', 500, 0.2); }
-    else { dayGive('bone', 1); exNote('something old came up'); sfx(0.7, 0.35, 'lowpass', 400, 0.22); }
+    if (r < 0.74) { const n = 1 + (Math.random() < 0.18 ? 1 : 0); dayGive('fish', n); exNote(`caught · ${n > 1 ? n + ' fish' : 'a fish'}`, true); snd('splash_small') || sfx(1.8, 0.3, 'bandpass', 1400, 0.3); }
+    else if (r < 0.9) { dayGive('fibre', 2); exNote('a knot of weed'); snd('splash_small', { v: 0.6 }) || sfx(0.6, 0.3, 'lowpass', 500, 0.2); }
+    else { dayGive('bone', 1); exNote('something old came up'); snd('splash_small', { v: 0.6 }) || sfx(0.7, 0.35, 'lowpass', 400, 0.22); }
     dayWear(); dayChanged(); return;
   }
-  if (F) { D.fish = null; exNote('you pulled too early'); sfx(0.5, 0.25, 'lowpass', 400, 0.2); return; }
+  if (F) { D.fish = null; exNote('you pulled too early'); snd('splash_small', { v: 0.5 }) || sfx(0.5, 0.25, 'lowpass', 400, 0.2); return; }
   const P = lakeAt(p.x, p.y, 64); if (!P) { dayNote('nopond', 'stand by water to fish', 2); return; }
   const d = Math.hypot(P.x - p.x, P.y - p.y) || 1, k = Math.min(1, (P.rad * 0.55) / d);
   let fx = p.x + Math.cos(a) * 60, fy = p.y + Math.sin(a) * 60;
@@ -3736,8 +3738,8 @@ function dayFishStep(dt) {
   const D = S.day, F = D.fish; if (!F) return;
   F.t += dt;
   if (Math.hypot(S.p.x - F.x, S.p.y - F.y) > 150 || dayTool() !== 'rod') { D.fish = null; exNote('the line went slack'); return; }
-  if (F.st === 'wait' && F.t >= F.at) { F.st = 'bite'; F.t = 0; addShake(0.12); sfx(2.2, 0.15, 'bandpass', 1900, 0.22); ashBurst(F.x, F.y, 4, 4); }
-  if (F.st === 'bite' && F.t > 1.15) { D.fish = null; exNote('it got away'); sfx(0.5, 0.25, 'lowpass', 350, 0.18); }
+  if (F.st === 'wait' && F.t >= F.at) { F.st = 'bite'; F.t = 0; addShake(0.12); snd('splash_small', { x: F.x, y: F.y, v: 0.6 }) || sfx(2.2, 0.15, 'bandpass', 1900, 0.22); ashBurst(F.x, F.y, 4, 4); }
+  if (F.st === 'bite' && F.t > 1.15) { D.fish = null; exNote('it got away'); snd('splash_small', { v: 0.4 }) || sfx(0.5, 0.25, 'lowpass', 350, 0.18); }
 }
 const dayTorch = () => { const s = heldSlot(); return s && DIT[s.id].k === 'light' && s.d > 0 ? s : null; };
 function dayTorchStep(dt) {
@@ -3749,15 +3751,15 @@ function dayTorchStep(dt) {
 function dayBoil(arr, i) {
   const s = arr[i]; if (!s || !s.dirty) return;
   if (!dayFireHere()) { dayNote('nofire', 'you need a fire', 2); return; }
-  s.dirty = 0; dayAct(10, 1.1); exNote('boiled clean'); sfx(0.9, 0.5, 'lowpass', 800, 0.3);
+  s.dirty = 0; dayAct(10, 1.1); exNote('boiled clean'); snd('pour') || sfx(0.9, 0.5, 'lowpass', 800, 0.3);
   dayChanged();
 }
 function dayPondFill() {                         // the pond fills your skins, but what comes out of it isn't clean
   const D = S.day; let n = 0;
   for (const s of D.inv) if (s && s.id === 'skin' && s.w < SKIN_SIPS) { s.w = SKIN_SIPS; s.dirty = 1; n++; }
   dayAct(7, 0.7);
-  if (n) { exNote(n > 1 ? `${n} skins filled · murky` : 'filled · murky water'); sfx(0.7, 0.45, 'lowpass', 600, 0.3); }
-  else { D.water = Math.min(FOOD_MAX, D.water + 35); exNote('drank from the pond'); sfx(0.8, 0.3, 'lowpass', 900, 0.25); if (Math.random() < 0.35) { D.sick = 30; exNote('the water was bad', true); } }
+  if (n) { exNote(n > 1 ? `${n} skins filled · murky` : 'filled · murky water'); snd('water_fill') || sfx(0.7, 0.45, 'lowpass', 600, 0.3); }
+  else { D.water = Math.min(FOOD_MAX, D.water + 35); exNote('drank from the pond'); snd('drink') || sfx(0.8, 0.3, 'lowpass', 900, 0.25); if (Math.random() < 0.35) { D.sick = 30; exNote('the water was bad', true); } }
   dayChanged();
 }
 const IRON_FROM = 1500, FURN_R = 90, RACK_R = 90, GROW_T = 150;
@@ -3775,7 +3777,7 @@ function wolfPack(b, dt, d, dx, dy) {            // wolves circle, dart in, and 
     b.bite = Math.max(0, (b.bite || 0) - dt);
     if (d < 40 && S.rg.phase === 'fight' && b.bite <= 0) {   // v183: it drops low and bares its teeth before it snaps (WOLF_SNAP s to get clear)
       b.st = 'snap'; b.t = WOLF_SNAP; b.sp = 0;
-      if (actx && monNear(b, 600) > 0) { const t = actx.currentTime; boomAt(t, 140, 90, 0.35, 0.35 * monNear(b, 600), sfxGain); noiseAt(t, 500, 250, 0.35, 0.2 * monNear(b, 600), sfxGain); }   // a growl
+      if (actx && monNear(b, 600) > 0 && !snd('wolf_growl', { x: b.x, y: b.y, who: b })) { const t = actx.currentTime; boomAt(t, 140, 90, 0.35, 0.35 * monNear(b, 600), sfxGain); noiseAt(t, 500, 250, 0.35, 0.2 * monNear(b, 600), sfxGain); }   // a growl
     }
     if (d > 760) { b.st = 'graze'; b.t = 2; }
   } else if (b.st === 'snap') {
@@ -3785,7 +3787,7 @@ function wolfPack(b, dt, d, dx, dy) {            // wolves circle, dart in, and 
       const nd = Math.hypot(b.x - p.x, b.y - p.y), off = Math.abs(angDiff(Math.atan2(p.y - b.y, p.x - b.x), b.dir));
       b.bite = 1.6; b.atkT = 0.3; b.st = 'back'; b.t = 1.1;
       if (nd < 30 && (nd < 12 || off < 1.1) && S.rg.inv <= 0 && S.rg.phase === 'fight') hurt({ x: b.x, y: b.y, type: 'half' });
-      if (actx && monNear(b, 600) > 0) noiseAt(actx.currentTime, 900, 300, 0.2, 0.4 * monNear(b, 600), sfxGain);
+      if (actx && monNear(b, 600) > 0 && !snd(Math.random() < 0.5 ? 'wolf_bark' : 'wolf_growl', { x: b.x, y: b.y, who: b })) noiseAt(actx.currentTime, 900, 300, 0.2, 0.4 * monNear(b, 600), sfxGain);
     }
   } else if (b.st === 'back') {                  // off again before you can swing
     b.dir = Math.atan2(dy, dx); b.sp = B.sp * 0.8;
@@ -3795,7 +3797,7 @@ function wolfPack(b, dt, d, dx, dy) {            // wolves circle, dart in, and 
 function beastCall(b) {                          // one wolf opens up and the pack answers
   const D = S.day; if (b.st === 'hunt' || b.tame) return;
   b.st = 'hunt'; b.t = 4; b.circ = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random());
-  if (actx && monNear(b, 700) > 0) { const t = actx.currentTime; boomAt(t, 500, 220, 0.7, 0.3 * monNear(b, 700), sfxGain); noiseAt(t, 1200, 500, 0.5, 0.18 * monNear(b, 700), sfxGain); }
+  if (actx && monNear(b, 700) > 0 && !snd(beastVoice(b, 'call'), { x: b.x, y: b.y, who: b, far: 1200 })) { const t = actx.currentTime; boomAt(t, 500, 220, 0.7, 0.3 * monNear(b, 700), sfxGain); noiseAt(t, 1200, 500, 0.5, 0.18 * monNear(b, 700), sfxGain); }
   for (const o of D.beasts) if (o !== b && o.k === b.k && !o.dead && !o.tame && o.st !== 'hunt' && dist2(o, b) < 420) { o.st = 'hunt'; o.t = 4; o.circ = (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random()); }
 }
 function tameStep(b, dt) {                       // your wolf: it goes for whatever is coming for you, and otherwise keeps close
@@ -3806,7 +3808,7 @@ function tameStep(b, dt) {                       // your wolf: it goes for whate
     const d = dist2(b, tgt), fg = tgt === b.fangTgt; b.dir = Math.atan2(tgt.y - b.y, tgt.x - b.x); b.sp = B.sp * (fg ? 1.5 : 0.95);
     if (d < 24 && (b.bite = (b.bite || 0) - dt) <= 0) {
       b.bite = 0.9; tgt.hp -= fg ? 1.8 : 1.1; if (fg) { b.fangTgt = null; wpEmbers(tgt.x, tgt.y, 16, 6, '240,232,214'); addShake(0.05); } tgt.flash = 1; tgt.jit = 1; ashBurst(tgt.x, tgt.y, 4, 14);
-      if (actx && monNear(b, 500) > 0) noiseAt(actx.currentTime, 1400, 500, 0.12, 0.3 * monNear(b, 500), sfxGain);
+      if (actx && monNear(b, 500) > 0 && !snd('leaves_rustle', { x: b.x, y: b.y, v: 0.6 })) noiseAt(actx.currentTime, 1400, 500, 0.12, 0.3 * monNear(b, 500), sfxGain);
       if (tgt.hp <= 0 && !tgt.dead) { tgt.dead = true; tgt.dieT = 0; S.rg.kills = (S.rg.kills || 0) + 1; }
     }
     return;
@@ -3824,10 +3826,10 @@ function dayTameTry() {                          // hold cooked meat and walk up
   if (!b) return false;
   s.n--; if (!s.n) D.inv[D.hot] = null;
   b.fed = (b.fed || 0) + 1; b.st = 'graze'; b.t = 2.5; dayAct(7, 0.5);
-  ashBurst(b.x, b.y, 5, 16); sfx(1.5, 0.25, 'bandpass', 1200, 0.22);
+  ashBurst(b.x, b.y, 5, 16); snd('leaves_rustle', { x: b.x, y: b.y }) || sfx(1.5, 0.25, 'bandpass', 1200, 0.22);
   if (b.fed >= 3) {
     b.tame = true; b.hp = BEAST.wolf.hp; exNote('the wolf stays with you', true);
-    addShake(0.2); if (actx) { const t = actx.currentTime; boomAt(t, 400, 180, 0.5, 0.3, sfxGain); }
+    addShake(0.2); if (actx && !snd(beastVoice(b, 'angry'), { x: b.x, y: b.y, who: b })) { const t = actx.currentTime; boomAt(t, 400, 180, 0.5, 0.3, sfxGain); }
     lifeAdd('tamed');
   } else exNote(`it takes the meat · ${3 - b.fed} more`);
   dayChanged(); return true;
@@ -3837,13 +3839,13 @@ function dayPlotPlant(B) {
   if (B.grown) {                                 // ripe: take the crop and it starts again
     const n = (B.crop === 'mushroom' ? 4 : B.crop === 'fibre' ? 8 : B.crop === 'sweetroot' ? 5 : 6) + Math.floor(Math.random() * 3);   // the cozy pass: a plot is worth tending
     dayGive(B.crop, n, B.x, B.y); if (B.crop !== 'fibre') dayGive('fibre', 1, B.x, B.y);
-    exNote(`picked · ${n} ${DIT[B.crop].n.toLowerCase()}`); B.crop = null; B.grown = false; B.sown = 0; dayAct(7, 0.6); pickSnd(); dayChanged(); return;
+    exNote(`picked · ${n} ${DIT[B.crop].n.toLowerCase()}`); B.crop = null; B.grown = false; B.sown = 0; dayAct(7, 0.6); pickSnd('herb'); dayChanged(); return;
   }
   if (B.crop) { exNote(`it's still growing · ${Math.max(1, Math.ceil((B.sown + GROW_T - D.t) / 10) * 10)}s`); return; }
   if (!s || (s.id !== 'berries' && s.id !== 'mushroom' && s.id !== 'fibre' && s.id !== 'sweetroot')) { dayNote('seed', 'hold berries, a mushroom or fibre to sow it', 2); return; }   // Joe: fibre grows too, a bed of tall grass
   s.n--; if (!s.n) D.inv[D.hot] = null;
   B.crop = s.id; B.sown = D.t; B.grown = false;
-  dayAct(10, 0.9); ashBurst(B.x, B.y, 5, 5); exNote('sown'); sfx(0.8, 0.3, 'lowpass', 700, 0.22);
+  dayAct(10, 0.9); ashBurst(B.x, B.y, 5, 5); exNote('sown'); snd('grass_pull', { v: 0.7, rate: 0.85 }) || sfx(0.8, 0.3, 'lowpass', 700, 0.22);
   dayChanged();
 }
 function dayPlotStep(dt) {
@@ -3880,7 +3882,7 @@ function dayPostFeed(B) {                          // feed it sticks and it burn
   if (!s || s.id !== 'sticks') { dayNote('fuel', 'sticks in your hand to feed it', 1.6); return; }
   s.n--; if (!s.n) D.inv[D.hot] = null;
   B.fuel = Math.min(NIGHT_LEN * 3, (B.fuel || 0) + NIGHT_LEN); dayAct(7, 0.5);
-  ashBurst(B.x, B.y, 6, 40); sfx(1.1, 0.3, 'bandpass', 700, 0.25); exNote('the post burns brighter'); dayChanged();
+  ashBurst(B.x, B.y, 6, 40); snd('fire_ignite', { x: B.x, y: B.y }) || sfx(1.1, 0.3, 'bandpass', 700, 0.25); exNote('the post burns brighter'); dayChanged();
 }
 function dayJLog(text) { const D = S.day; if (!D.jlog) D.jlog = []; D.jlog.push({ d: D.n, t: Math.round(D.t % DAY_LEN), text }); if (D.jlog.length > 40) D.jlog.shift(); }
 function dayKillLog(k) { const D = S && S.day; if (!D) return; D.bag = D.bag || {}; D.bag[k] = (D.bag[k] || 0) + 1; }
@@ -4221,7 +4223,7 @@ function daySpecial() {
   else if (w === 'knife') p.wact = { pose: WPP.vanish, t: 0, dur: 0.3, rel: 0.1, a, fn: () => { wpVanish(); rg.wspT = sp.cool; } };
   else if (w === 'sword') {
     p.wact = { pose: WPP.sparry, t: 0, dur: 0.42, rel: 0.01, a, fn: () => { rg.dparry = { t: 0, win: 0.4 }; } }; rg.wspT = sp.cool;
-    if (actx) { const t = actx.currentTime; toneAt(t, 900, 0.08, 0.02, 'square', sfxGain); noiseAt(t, 4000, 2000, 0.05, 0.15, sfxGain); }
+    if (actx && !snd('blade_draw', { v: 0.7 })) { const t = actx.currentTime; toneAt(t, 900, 0.08, 0.02, 'square', sfxGain); noiseAt(t, 4000, 2000, 0.05, 0.15, sfxGain); }
   }
   wpUi(true);
 }
@@ -4230,7 +4232,7 @@ function dayParry(e) {   // the blow meets your blade: nothing gets through, and
   hitStop(0.16); addShake(0.4); wjFlash('230,240,255', 0.18);
   const o = e && (e.ref || (rg.enemies.includes(e) ? e : null));
   if (o) { const dx = o.x - p.x, dy = o.y - p.y, d = Math.hypot(dx, dy) || 1; if (o.type !== 'tall') { o.x += dx / d * 30; o.y += dy / d * 30; } o.frozen = Math.max(o.frozen || 0, 0.9); }
-  if (actx) { const t = actx.currentTime; toneAt(t, 2400, 0.25, 0.05, 'triangle', sfxGain); toneAt(t + 0.01, 3600, 0.3, 0.03, 'sine', sfxGain); noiseAt(t, 6000, 1500, 0.08, 0.4, sfxGain); }
+  if (actx && !snd('metal_clang')) { const t = actx.currentTime; toneAt(t, 2400, 0.25, 0.05, 'triangle', sfxGain); toneAt(t + 0.01, 3600, 0.3, 0.03, 'sine', sfxGain); noiseAt(t, 6000, 1500, 0.08, 0.4, sfxGain); }
   wpPop('PARRY', p.x, p.y, 70, '220,230,255', 1.1);
   wpSwing(-3, DSP_RIPOSTE, false, 1, 'swordR');
 }
@@ -4241,7 +4243,7 @@ function dayThrowSpear() {   // the spear leaves your hand: it goes through what
   const a = p.wact ? p.wact.a : S.aimW || 0;
   (rg.dspears = rg.dspears || []).push({ x: p.x + Math.cos(a) * 12, y: p.y + Math.sin(a) * 12, a, d: 0, max: 430, v: 820, s, slot: i, hit: new Set(), z: 20 });
   addShake(0.12); camKick(a, 8);
-  if (actx) { const t = actx.currentTime; noiseAt(t, 2600, 900, 0.18, 0.4, sfxGain); }
+  if (actx && !snd('whoosh', { rate: 0.85 })) { const t = actx.currentTime; noiseAt(t, 2600, 900, 0.18, 0.4, sfxGain); }
 }
 function daySpearStep(dt) {
   const rg = S.rg, p = S.p, D = S.day; if (!rg.dspears) return;
@@ -4256,7 +4258,7 @@ function daySpearStep(dt) {
         if (o.type !== 'tall') { o.x += Math.cos(q.a) * 22; o.y += Math.sin(q.a) * 22; }
         plainBlood(o, FOES[o.type] ? FOES[o.type].h : 30, q.a, 7);   // v129: blood, not a slash of light
         q.s.d = Math.max(1, (q.s.d ?? T.dur) - 1);
-        if (actx) { const t = actx.currentTime; boomAt(t, 150, 50, 0.12, 0.5, sfxGain); noiseAt(t, 4200, 1400, 0.06, 0.3, sfxGain); }
+        if (actx && !snd('arrow_hit_flesh', { x: o.x, y: o.y, v: 1.1 })) { const t = actx.currentTime; boomAt(t, 150, 50, 0.12, 0.5, sfxGain); noiseAt(t, 4200, 1400, 0.06, 0.3, sfxGain); }
       }
       for (const b of D.beasts) if (!b.dead && !q.hit.has(b) && Math.hypot(b.x - q.x, b.y - q.y) < BEAST[b.k].w + 6) {
         q.hit.add(b); b.hp -= dmg * 1.4 * sneakHit(b); b.flash = 1; plainBlood(b, BEAST[b.k].h || 20, q.a, 7); if (b.hp <= 0) beastDie(b); else beastScare(b);
@@ -4265,7 +4267,7 @@ function daySpearStep(dt) {
     }
     if (q.done) {   // it lands, point down, quivering
       q.land = { t: 0 };
-      if (actx) { const t = actx.currentTime; boomAt(t, 220, 120, 0.08, 0.3, sfxGain); }
+      if (actx && !snd('arrow_hit_wood', { x: q.x, y: q.y })) { const t = actx.currentTime; boomAt(t, 220, 120, 0.08, 0.3, sfxGain); }
       const f = dayDrop(q.x, q.y, q.s.id, 1, q.s.d); f.x = q.x; f.y = q.y; f.thrown = 1; q.f = f;
     }
   }
@@ -4304,11 +4306,11 @@ function dayAmmoUse(s) { s.n--; if (s.n <= 0) { const i = S.day.inv.indexOf(s); 
 function dayDrawStart() {                         // press: nock an arrow, or start the sling turning
   const D = S.day, p = S.p, kind = dayRngId(); if (!kind || D.draw || p.act) return true;
   if ((S.rg.rngCd || 0) > 0) return true;
-  if (!dayAmmo(kind)) { dayNote('noammo', kind === 'bow' ? 'no arrows · make some at a fire or a bench' : 'nothing to throw · stones or sling shot', 2); if (actx) toneAt(actx.currentTime, 300, 0.08, 0.04, 'square', sfxGain); return true; }
+  if (!dayAmmo(kind)) { dayNote('noammo', kind === 'bow' ? 'no arrows · make some at a fire or a bench' : 'nothing to throw · stones or sling shot', 2); if (actx && !snd('ui_error')) toneAt(actx.currentTime, 300, 0.08, 0.04, 'square', sfxGain); return true; }
   if (D.st < RNG[kind].st) { dayStam(RNG[kind].st); return true; }
   D.draw = { kind, t: 0, full: false, a: S.aimW || 0 };
   p.wact = { pose: kind === 'bow' ? WPP.bow0 : WPP.lnS, t: 0, dur: 1, a: D.draw.a, hold: 1 };
-  if (actx) { const t = actx.currentTime; if (kind === 'bow') { noiseAt(t, 900, 400, 0.25, 0.12, sfxGain); toneAt(t, 140, 0.25, 0.02, 'triangle', sfxGain); } else noiseAt(t, 500, 300, 0.12, 0.1, sfxGain); }
+  if (actx && !snd(kind === 'bow' ? 'bow_draw' : 'leather', { v: kind === 'bow' ? 1 : 0.7 })) { const t = actx.currentTime; if (kind === 'bow') { noiseAt(t, 900, 400, 0.25, 0.12, sfxGain); toneAt(t, 140, 0.25, 0.02, 'triangle', sfxGain); } else noiseAt(t, 500, 300, 0.12, 0.1, sfxGain); }
   return true;
 }
 function dayDrawTick(dt) {                        // held: the draw builds; the bow creaks, the sling hums faster and faster
@@ -4317,8 +4319,8 @@ function dayDrawTick(dt) {                        // held: the draw builds; the 
   const R = RNG[W.kind]; W.t += dt * dayFgSp(); W.a = S.aimW || 0;
   const c = Math.min(1, W.t / R.full); W.spin = (W.spin || 0) + dt * (9 + 15 * c);
   if (p.wact && p.wact.hold) { p.wact.a = W.a; p.wact.t = W.kind === 'bow' ? 0.04 + 0.36 * c : 0.1 + 0.08 * Math.sin(W.t * (10 + 16 * c)); }
-  if (W.kind === 'sling' && actx && (W.hum = (W.hum || 0) - dt) <= 0) { W.hum = 0.42 - 0.26 * c; noiseAt(actx.currentTime, 600 + 900 * c, 300, 0.1, 0.06 + 0.08 * c, sfxGain); }
-  if (c >= 1 && !W.full) { W.full = true; padRumble(0.25, 60); if (actx) { const t = actx.currentTime; toneAt(t, 1320, 0.07, 0.035, 'square', sfxGain); toneAt(t + 0.05, 1760, 0.1, 0.03, 'square', sfxGain); } }
+  if (W.kind === 'sling' && actx && (W.hum = (W.hum || 0) - dt) <= 0) { W.hum = 0.42 - 0.26 * c; if (!snd('whoosh', { v: 0.3 + 0.4 * c, rate: 1.3 + 0.4 * c, dur: 0.25 })) noiseAt(actx.currentTime, 600 + 900 * c, 300, 0.1, 0.06 + 0.08 * c, sfxGain); }
+  if (c >= 1 && !W.full) { W.full = true; padRumble(0.25, 60); if (actx && !snd(W.kind === 'bow' ? 'creak' : 'ui_tick', { v: 0.5, rate: 1.3 })) { const t = actx.currentTime; toneAt(t, 1320, 0.07, 0.035, 'square', sfxGain); toneAt(t + 0.05, 1760, 0.1, 0.03, 'square', sfxGain); } }
 }
 function dayDrawRelease() {                       // let go: it flies
   const D = S.day; if (!D || !D.draw) return;
@@ -4339,7 +4341,7 @@ function dayLoose(kind, s, c, a, spread, kk, L) {   // one arrow or one stone, f
     inf: dayInf(), named: T === DIT.nbow, pierce: T === DIT.nbow && c >= 0.95 ? 99 : A.pierce ? 1 : 0, fire: !!A.fire, bleed: !!A.bleed, stun: kind === 'sling' ? (0.25 + 0.4 * c) * kk : 0, knock: kind === 'sling' ? 10 + 22 * c * kk : 6 + 8 * c, hit: new Set(), t: 0, tr: [], arc: 1 });
   dayAmmoUse(s);
   camKick(a, kind === 'bow' ? -2 - 3 * c : -2); addShake(0.04 + 0.08 * c);
-  if (actx) { const t = actx.currentTime;
+  if (actx && !snd(kind === 'bow' ? 'bow_release' : 'whoosh', { v: 0.6 + 0.5 * c, rate: kind === 'bow' ? 1 : 1.25 })) { const t = actx.currentTime;
     if (kind === 'bow') { toneAt(t, 150 + 60 * c, 0.16, 0.05 + 0.04 * c, 'triangle', sfxGain); noiseAt(t, 3200, 1200, 0.1, 0.22 + 0.14 * c, sfxGain); }
     else { noiseAt(t, 1400, 600, 0.12, 0.3, sfxGain); toneAt(t, 220, 0.06, 0.03, 'square', sfxGain); } }
 }
@@ -4359,7 +4361,7 @@ function dayThrowGo(s, T, A, a) {
   (S.rg.dshots = S.rg.dshots || []).push({ kind: T.thr, id: s.id, x: p.x + Math.cos(a) * 12, y: p.y + Math.sin(a) * 12, z: 24, a, d: 0, max: lob ? dist : T.thr === 'jav' ? 470 : 330, sp: lob ? 380 : T.thr === 'jav' ? 760 : 560,
     dmg: T.dmg * 1.15 * (1 + 0.12 * sr('might')), pierce: T.thr === 'jav' ? 1 : 0, knock: T.thr === 'taxe' ? 34 : 18, hit: new Set(), t: 0, lob, tr: [], spin: 0 });
   addShake(0.1); camKick(a, 6);
-  if (actx) { const t = actx.currentTime; noiseAt(t, lob ? 900 : 2400, 700, 0.18, 0.34, sfxGain); }
+  if (actx && !snd('whoosh', { rate: lob ? 0.75 : 1 })) { const t = actx.currentTime; noiseAt(t, lob ? 900 : 2400, 700, 0.18, 0.34, sfxGain); }
 }
 function dayShotHit(q, o, beast) {               // a shot lands on something alive
   const f = beast ? null : FOES[o.type], h = beast ? BEAST[o.k].h || 20 : f ? f.h : 30;
@@ -4375,7 +4377,7 @@ function dayShotHit(q, o, beast) {               // a shot lands on something al
   }
   if (q.kind !== 'stone') plainBlood(o, h, q.a, q.kind === 'arrow' ? 3 : 6);   // v129: blood where it went in, not sparks, and no word over it
   addShake(q.kind === 'taxe' ? 0.28 : 0.08 + 0.1 * (q.c || 0)); padRumble(0.3, 70);
-  if (actx) { const t = actx.currentTime;
+  if (actx && !snd(q.kind === 'stone' ? 'punch' : q.kind === 'taxe' ? 'blade_flesh' : 'arrow_hit_flesh', { x: o.x, y: o.y })) { const t = actx.currentTime;
     if (q.kind === 'stone') { boomAt(t, 180, 70, 0.08, 0.45, sfxGain); noiseAt(t, 2000, 700, 0.05, 0.3, sfxGain); }
     else if (q.kind === 'taxe') { boomAt(t, 130, 45, 0.18, 0.6, sfxGain); noiseAt(t, 3600, 1000, 0.08, 0.4, sfxGain); }
     else { noiseAt(t, 4200, 1600, 0.05, 0.3, sfxGain); boomAt(t, 220, 90, 0.05, 0.3, sfxGain); } }
@@ -4386,7 +4388,7 @@ function dayBurst(q) {                            // a lobbed pot breaks where i
     for (let k = 0; k < 7; k++) { const b = k / 7 * Math.PI * 2, r = k ? 26 : 0; rg.fires.push({ x: q.x + Math.cos(b) * r, y: q.y + Math.sin(b) * r, r: 26, life: 6, max: 6, seed: Math.random() * 9 }); }
     for (const o of rg.enemies) if (!o.dead && Math.hypot(o.x - q.x, o.y - q.y) < 64) { o.hp -= 0.8; o.wburn = Math.max(o.wburn || 0, 3.5); o.wburnK = 1; o.jit = 1; o.kHit = 'bomb'; o.kHitT = S.t; }
     wpEmbers(q.x, q.y, 20, 30, '255,150,60'); ashBurst(q.x, q.y, 14, 30); addShake(0.35); hitStop(0.05); wpRing(q.x, q.y, 70, '255,160,80', 0.5);
-    if (actx) { const t = actx.currentTime; boomAt(t, 110, 40, 0.4, 0.7, sfxGain); noiseAt(t, 1200, 300, 0.6, 0.5, sfxGain); noiseAt(t + 0.05, 5200, 2000, 0.1, 0.25, sfxGain); }
+    if (actx && !(snd('fire_ignite', { x: q.x, y: q.y, v: 1.4 }) && snd('wood_break', { x: q.x, y: q.y, v: 0.6 }))) { const t = actx.currentTime; boomAt(t, 110, 40, 0.4, 0.7, sfxGain); noiseAt(t, 1200, 300, 0.6, 0.5, sfxGain); noiseAt(t + 0.05, 5200, 2000, 0.1, 0.25, sfxGain); }
   } else {
     for (const o of rg.enemies) if (!o.dead && Math.hypot(o.x - q.x, o.y - q.y) < 130) { o.hp -= q.dmg; o.frozen = Math.max(o.frozen || 0, 1.4); o.wburn = Math.max(o.wburn || 0, 1.2); o.wburnK = 1; o.jit = 1; o.kHit = 'flash'; o.kHitT = S.t; }
     for (const b of D.beasts) if (!b.dead && Math.hypot(b.x - q.x, b.y - q.y) < 150) beastScare(b);
@@ -4420,7 +4422,7 @@ function dayShotStep(dt) {
       if (q.lob) { dayBurst(q); q.gone = true; continue; }
       const keep = q.noKeep ? false : q.kind === 'jav' || q.kind === 'taxe' ? true : q.kind === 'arrow' ? Math.random() < (q.stop ? 0.3 : 0.65) : q.id === 'shot' && Math.random() < 0.5;
       if (keep) { const f = dayDrop(q.x, q.y, q.id, 1); f.x = q.x; f.y = q.y; f.thrown = 1; q.f = f; }
-      if (!q.stop && actx) { const t = actx.currentTime; if (q.kind === 'stone') noiseAt(t, 1400, 500, 0.06, 0.18, sfxGain); else boomAt(t, 260, 120, 0.06, 0.25, sfxGain); }
+      if (!q.stop && actx && !snd(q.kind === 'stone' ? 'stone_pick' : q.kind === 'arrow' ? 'arrow_hit_wood' : 'wood_l', { x: q.x, y: q.y, v: 0.7 })) { const t = actx.currentTime; if (q.kind === 'stone') noiseAt(t, 1400, 500, 0.06, 0.18, sfxGain); else boomAt(t, 260, 120, 0.06, 0.25, sfxGain); }
     }
   }
   for (const q of rg.dshots) if (q.f && !q.f.gone && Math.hypot(q.f.x - p.x, q.f.y - p.y) < 22) {   // walk over what you threw and it's back
@@ -4441,7 +4443,7 @@ function daySpecialRng(kind) {                    // the bow's volley, the sling
       wpPop('VOLLEY', S.p.x, S.p.y, 66, '220,240,170', 0.9); dayWear(); } };
   } else {
     S.p.wact = { pose: WPP.lnS, t: 0, dur: 0.5, rel: 0.3, a, fn: () => { const st = dayAmmo('sling'); if (st) dayLoose('sling', st, 1, a, 0, 2.2); wpPop('HEAVY SHOT', S.p.x, S.p.y, 66, '230,230,220', 0.9); addShake(0.25); dayWear(); } };
-    if (actx) { const t = actx.currentTime; for (let i = 0; i < 4; i++) noiseAt(t + i * 0.07, 900 + i * 300, 400, 0.08, 0.15, sfxGain); }
+    if (actx && !snd('leather')) { const t = actx.currentTime; for (let i = 0; i < 4; i++) noiseAt(t + i * 0.07, 900 + i * 300, 400, 0.08, 0.15, sfxGain); }
   }
   wpUi(true);
 }
@@ -4492,9 +4494,9 @@ function fgSpend(cost) { const c = Object.assign({}, cost); if (c.wisps) { const
 function fgAnvil() { let best = null, bd = 1e9; for (const B of S.day.builds) if (B.t === 'anvil') { const d = Math.hypot(B.x - S.p.x, B.y - S.p.y); if (d < bd) { bd = d; best = B; } } return best || S.p; }
 function fgFx(k, col) {                          // the work itself: the grindstone's hiss, or three rings of the hammer, and sparks off the anvil
   const B = fgAnvil(); dayAct(10, 0.8); padRumble(0.35, 90);
-  if (k === 'sh') { wpEmbers(B.x, B.y, 22, 22, '255,220,150'); if (actx) { const t = actx.currentTime; noiseAt(t, 5200, 2600, 0.55, 0.3, sfxGain); noiseAt(t + 0.3, 6400, 3000, 0.35, 0.22, sfxGain); } }
+  if (k === 'sh') { wpEmbers(B.x, B.y, 22, 22, '255,220,150'); if (actx && !(snd('blade_draw', { x: B.x, y: B.y }) && snd('blade_draw', { x: B.x, y: B.y, at: 0.3, rate: 0.9 }))) { const t = actx.currentTime; noiseAt(t, 5200, 2600, 0.55, 0.3, sfxGain); noiseAt(t + 0.3, 6400, 3000, 0.35, 0.22, sfxGain); } }
   else for (let i = 0; i < 3; i++) setTimeout(() => { if (!S.day) return; wpEmbers(B.x, B.y, 20, 9, col || '255,200,120'); addShake(0.06);
-    if (actx) { const t = actx.currentTime; toneAt(t, 1180 + i * 90, 0.35, 0.05, 'triangle', sfxGain); toneAt(t, 2740 + i * 140, 0.22, 0.025, 'sine', sfxGain); noiseAt(t, 4000, 1500, 0.04, 0.35, sfxGain); } }, i * 170);
+    if (actx && !snd('metal_m', { x: B.x, y: B.y, rate: 1 + 0.06 * i })) { const t = actx.currentTime; toneAt(t, 1180 + i * 90, 0.35, 0.05, 'triangle', sfxGain); toneAt(t, 2740 + i * 140, 0.22, 0.025, 'sine', sfxGain); noiseAt(t, 4000, 1500, 0.04, 0.35, sfxGain); } }, i * 170);
   if (col) { wpRing(B.x, B.y, 60, col, 0.6); if (actx) toneAt(actx.currentTime + 0.5, 660, 0.9, 0.04, 'sine', sfxGain); }
 }
 function fgDo(s, k) {                             // one upgrade, on one thing you carry
@@ -4633,6 +4635,7 @@ function dayMat(T) {                              // what the business end is ma
 }
 function dayMatSnd(n, D) {                        // the blow lands: the sound of the material, under the family's own impact
   const T = heldIt(); if (!T || !actx || !n) return;
+  if (sndHas('hit_flesh')) { const m = dayMat(T); snd(m === 'iron' ? 'metal_l' : m === 'stone' || m === 'flint' ? 'stone_pick' : 'wood_l', { v: 0.45 * Math.min(1.3, 0.8 + 0.12 * n) }); return; }
   const t = actx.currentTime, m = dayMat(T), g = Math.min(1.3, 0.8 + 0.12 * n) * (D && D.fin ? 1.25 : 1), r = Math.random();
   if (m === 'iron') { toneAt(t, 1900 + r * 400, 0.3, 0.032 * g, 'sine', sfxGain); toneAt(t, 2950 + r * 500, 0.18, 0.018 * g, 'sine', sfxGain); noiseAt(t, 6200, 2600, 0.05, 0.28 * g, sfxGain); }
   else if (m === 'bone') { noiseAt(t, 2700, 900, 0.045, 0.38 * g, sfxGain); toneAt(t, 760 + r * 120, 0.05, 0.03 * g, 'square', sfxGain); }
@@ -4807,7 +4810,7 @@ function wpSwing(i, D, dash, k = 1, key) {
   p.atk = { i, t: 0, dur: D.dur, a, side: D.side || (i % 2 ? -1 : 1), hit: new Set(), done: false, queued: false, pose: D.pose, wd: D, hi: 0, w, key: key || w, k, sp };
   rg.atkHist = (rg.atkHist || []).filter(h => S.t - h.t < 1.6).concat([{ i: dash ? 3 : Math.min(2, i), side: p.atk.side, t: S.t }]);
   if (!S.day) { camKick(a, D.charge ? 6 : D.thrust ? 2 : -3); addShake(D.charge ? 0.12 : 0.04); }   // heavy: the wind-up pulls you back before it throws you forward (v129: not in Daylight)
-  (WSND[w] || WSND.axe)(D);
+  if (!(S.day && sndSwing(w, D))) (WSND[w] || WSND.axe)(D);
   if (w === 'lance' && !dash) wpEcho(D, a);       // the decoys copy your thrusts
 }
 const WSND = {                                    // each weapon's swing: its own whoosh, timed to land just before the blow

@@ -129,7 +129,7 @@ const mapHave = id => { const D = S && S.day; return !!(D && D.inv.some(s => s &
 function mapToggle(on = !MAP.open) {
   if (on && !(S && S.day && mapHave('map'))) return;
   MAP.open = on; mapEl.hidden = !on;
-  if (on) { MAP.drawT = 0; if (MAP.zoomSet === undefined) { MAP.zi = 1; MAP.zoomSet = 1; } sfx(1.6, 0.2, 'bandpass', 2400, 0.12); if (actx) noiseAt(actx.currentTime, 3000, 1200, 0.25, 0.1, sfxGain); }
+  if (on) { MAP.drawT = 0; if (MAP.zoomSet === undefined) { MAP.zi = 1; MAP.zoomSet = 1; } if (!snd('paper')) { sfx(1.6, 0.2, 'bandpass', 2400, 0.12); if (actx) noiseAt(actx.currentTime, 3000, 1200, 0.25, 0.1, sfxGain); } }
 }
 const mapZoom = dz => { MAP.zi = clamp((MAP.zi ?? 1) + dz, 0, ZOOMS.length - 1); MAP.drawT = 0; };
 mapClose.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); mapToggle(false); });

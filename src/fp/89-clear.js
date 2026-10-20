@@ -31,13 +31,13 @@ function clearHit(c) {
   const hitA = Math.atan2(p.y - c.q.y, p.x - c.q.x), hx = c.q.x + Math.cos(hitA) * C.r * d.s, hy = c.q.y + Math.sin(hitA) * C.r * d.s;
   if (C.axe && tool !== 'axe') {
     dayNote('axe', D.inv.some(s => s && DIT[s.id].tool === 'axe') ? 'hold your axe to chop' : 'you need an axe · craft one', 3);
-    if (actx) noiseAt(actx.currentTime, 500, 200, 0.12, 0.3, sfxGain); return;
+    if (actx && !snd('wood_l', { x: hx, y: hy })) noiseAt(actx.currentTime, 500, 200, 0.12, 0.3, sfxGain); return;
   }
   if (C.axe && !dayStam(STA_CHOP)) return;
   const tier = T && T.tier || 0, need = d.dk === 'log' ? (tier > 3 ? 1 : tier > 1 ? 2 : 3) : d.dk === 'sapling' ? (tier > 1 ? 1 : 2) : d.dk === 'bush' && tool === 'hand' ? 2 : 1;
   const n = (D.cut.get(key) || 0) + 1;
-  if (C.axe) { dayChips(hx, hy, d.dk === 'log' ? 6 : 9, 'wood', 8, hitA); if (actx) { const t = actx.currentTime; boomAt(t, 200, 100, 0.1, 0.4, sfxGain); noiseAt(t, 1700, 600, 0.09, 0.32, sfxGain); } }
-  else { dayChips(hx, hy, 8, 'leaf', 9, hitA); if (actx) noiseAt(actx.currentTime, 3000, 1500, 0.15, 0.3, sfxGain); }
+  if (C.axe) { dayChips(hx, hy, d.dk === 'log' ? 6 : 9, 'wood', 8, hitA); if (actx && !snd('chop_wood', { x: hx, y: hy })) { const t = actx.currentTime; boomAt(t, 200, 100, 0.1, 0.4, sfxGain); noiseAt(t, 1700, 600, 0.09, 0.32, sfxGain); } }
+  else { dayChips(hx, hy, 8, 'leaf', 9, hitA); if (actx && !snd('bush_rustle', { x: hx, y: hy })) noiseAt(actx.currentTime, 3000, 1500, 0.15, 0.3, sfxGain); }
   if (n < need) { D.cut.set(key, n); exNote(`chop · ${need - n} more`); return; }
   D.cut.delete(key); (D.cleared || (D.cleared = {}))[d.ck] = 1; worldDirty = true;
   if (d.dk === 'log') {   // it splits apart along its length

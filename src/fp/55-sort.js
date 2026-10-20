@@ -22,7 +22,7 @@ function sortSlots(arr, from) {
 function pkSort() {
   const D = S.day; sortSlots(D.inv, HOTN); if (PK.cont) sortSlots(PK.cont.inv, 0);
   PK.sel = null; pkSay(PK.cont ? 'sorted your pockets and the ' + (PK.cont.box ? 'box' : 'chest') : 'sorted your pockets');
-  sfx(1.2, 0.25, 'bandpass', 900, 0.22); dayChanged(); renderPack();
+  snd('bag') || sfx(1.2, 0.25, 'bandpass', 900, 0.22); dayChanged(); renderPack();
 }
 function pkStackIn() {   // into the chest: whatever it already has some of
   const D = S.day; if (!PK.cont) { pkSay('open a chest first'); renderPack(); return; }
@@ -47,7 +47,7 @@ function pkShiftMove(w, i) {
   if (T.st > 1 && plainSlot(s)) for (let k = a; k < b; k++) { const o = D.inv[k]; if (o && o.id === s.id && plainSlot(o) && o.n < T.st) { j = k; break; } }
   if (j < 0) for (let k = a; k < b; k++) if (!D.inv[k]) { j = k; break; }
   if (j < 0) { pkSay(i < HOTN ? 'your pockets are full' : 'the hotbar is full'); renderPack(); return; }
-  pkMove({ w: 'inv', i }, { w: 'inv', i: j }); PK.sel = null; sfx(0.9, 0.2, 'bandpass', 600, 0.2); dayChanged(); renderPack();
+  pkMove({ w: 'inv', i }, { w: 'inv', i: j }); PK.sel = null; snd('leather', { v: 0.6 }) || sfx(0.9, 0.2, 'bandpass', 600, 0.2); dayChanged(); renderPack();
 }
 // shift-click on a slot: the slot says where it is
 { const ps = pkSlot; pkSlot = function (s, w, i, extra) { const b = ps(s, w, i, extra); b.dataset.w = w; b.dataset.i = i; return b; }; }

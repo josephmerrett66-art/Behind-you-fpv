@@ -13,7 +13,7 @@ function daySleep(bed) {
   D.sleeping = true; S.p.vx = S.p.vy = 0;
   if (!sleepEl) { sleepEl = document.createElement('div'); sleepEl.style.cssText = 'position:fixed;inset:0;background:#05040a;opacity:0;pointer-events:none;transition:opacity 0.9s ease;z-index:40;'; document.body.appendChild(sleepEl); }
   requestAnimationFrame(() => { sleepEl.style.opacity = '1'; });
-  if (actx) noiseAt(actx.currentTime, 400, 200, 1.2, 0.12, sfxGain);
+  if (actx && !snd('cloth', { v: 0.9, rate: 0.8 })) noiseAt(actx.currentTime, 400, 200, 1.2, 0.12, sfxGain);
   setTimeout(() => {
     const D2 = S.day; if (D2 !== D) { sleepEl.style.opacity = '0'; return; }
     const to = (Math.floor(D.t / DAY_LEN) + (f > 0.5 ? 1 : 0)) * DAY_LEN + 3, gap = Math.max(0, to - D.t);
@@ -101,9 +101,9 @@ function rainbStep(dt) {
 function rainbUse(R) {   // the barrel's water is clean, so skins filled from it are too
   const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS);
   if ((R.w || 0) < 1) { dayNote('dry', 'the barrel is nearly dry · it fills in the rain', 2); return; }
-  if (skins.length) { let n = 0; for (const s of skins) if (R.w >= 1) { R.w -= 1; s.w = SKIN_SIPS; s.dirty = 0; n++; } exNote(n > 1 ? `${n} waterskins filled` : 'waterskin filled'); sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
+  if (skins.length) { let n = 0; for (const s of skins) if (R.w >= 1) { R.w -= 1; s.w = SKIN_SIPS; s.dirty = 0; n++; } exNote(n > 1 ? `${n} waterskins filled` : 'waterskin filled'); snd('water_fill') || sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
   else if (D.water >= FOOD_MAX - 2) { dayNote('full', 'you\'re not thirsty', 1.5); return; }
-  else { R.w -= 1; D.water = Math.min(FOOD_MAX, D.water + 40); dayAct(9, 1.1, '#8ab8e0', 'cup'); exNote('a drink'); sfx(0.8, 0.3, 'lowpass', 900, 0.25); }
+  else { R.w -= 1; D.water = Math.min(FOOD_MAX, D.water + 40); dayAct(9, 1.1, '#8ab8e0', 'cup'); exNote('a drink'); snd('drink') || sfx(0.8, 0.3, 'lowpass', 900, 0.25); }
   dayChanged();
 }
 
@@ -118,10 +118,10 @@ function tcolStep(dt) {
 function tcolUse(T) {
   const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS), boil = Math.hypot(EX_FIRE.x - T.x, EX_FIRE.y - T.y) < TC_BOIL_R || D.builds.some(B => B.t === 'fire' && Math.hypot(B.x - T.x, B.y - T.y) < TC_BOIL_R);
   if ((T.w || 0) < 1) { dayNote('dry', 'only a puddle in it · it fills slowly, faster in the rain', 2); return; }
-  if (skins.length) { let n = 0; for (const s of skins) if (T.w >= 1) { T.w -= 1; s.w = SKIN_SIPS; s.dirty = boil ? 0 : 1; n++; } exNote((n > 1 ? `${n} waterskins filled` : 'waterskin filled') + (boil ? ' · boiled over the fire' : ' · murky, boil it')); sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
+  if (skins.length) { let n = 0; for (const s of skins) if (T.w >= 1) { T.w -= 1; s.w = SKIN_SIPS; s.dirty = boil ? 0 : 1; n++; } exNote((n > 1 ? `${n} waterskins filled` : 'waterskin filled') + (boil ? ' · boiled over the fire' : ' · murky, boil it')); snd('water_fill') || sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
   else if (D.water >= FOOD_MAX - 2) { dayNote('full', 'you\'re not thirsty', 1.5); return; }
   else {
-    T.w -= 1; D.water = Math.min(FOOD_MAX, D.water + 35); dayAct(9, 1.1, '#8ab8e0', 'cup'); sfx(0.8, 0.3, 'lowpass', 900, 0.25);
+    T.w -= 1; D.water = Math.min(FOOD_MAX, D.water + 35); dayAct(9, 1.1, '#8ab8e0', 'cup'); snd('drink') || sfx(0.8, 0.3, 'lowpass', 900, 0.25);
     if (boil) exNote('boiled over the fire · a clean drink');
     else { exNote('a drink'); if (Math.random() < 0.35) { D.sick = 30; exNote('the water was bad', true); } }
   }

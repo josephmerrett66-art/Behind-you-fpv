@@ -31,6 +31,7 @@ function plainHit(w, D, n, a, hit) {
   if (!n) return;
   if (w === 'knife') for (const o of hit) { o.wbleed = Math.min(4, (o.wbleed || 0) + 1); o.wbleedT = 2.2; o.wbleedK = 1; }
   if (!actx) return;
+  if (snd(w === 'club' ? 'hit_flesh' : 'blade_flesh', { v: 0.8 + 0.25 * (PLAIN_THUD[w] || [0.6])[0] })) { if (w === 'club' || w === 'axe') snd('punch', { v: 0.6, rate: 0.85 }); return; }
   const t = actx.currentTime, [k, f] = PLAIN_THUD[w] || [0.6, 1];
   boomAt(t, 115 * f, 40, 0.1 + 0.1 * k, 0.35 + 0.35 * k, sfxGain); noiseAt(t, 1700 * f, 600, 0.06, 0.2 + 0.1 * k, sfxGain);   // the meat of it
   if (w !== 'club') noiseAt(t + 0.01, 3200, 1400, 0.07, 0.16, sfxGain);   // an edge going in

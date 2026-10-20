@@ -48,7 +48,8 @@ function huntStrike(q, b, zone) {
     b.wound = (b.wound || 0) + 1;
     if (!critOf(b)) dayNote('wounded', 'it\'s hit · it won\'t get far · follow the blood', 45);
   }
-  if (actx) { const t = actx.currentTime, out = placeOut(b.x, b.y, 1, 800, b, 1.2) || sfxGain;
+  if (actx && snd('arrow_hit_flesh', { x: b.x, y: b.y, who: b })) { if (!b.dead) snd(beastVoice(b, 'bolt'), { x: b.x, y: b.y, who: b, at: 0.05 }); }
+  else if (actx) { const t = actx.currentTime, out = placeOut(b.x, b.y, 1, 800, b, 1.2) || sfxGain;
     boomAt(t, 170, 70, 0.07, 0.45, out); noiseAt(t, 2600, 900, 0.05, 0.25, out);   // the thunk of it going in
     if (!b.dead) noiseAt(t + 0.05, b.k === 'deer' ? 1300 : b.k === 'rabbit' || B.crit ? 3200 : 420, 500, 0.28, 0.32, out); }   // and its cry
 }

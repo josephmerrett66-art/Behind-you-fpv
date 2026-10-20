@@ -49,7 +49,7 @@ function cutDrops(b) {   // the main game's own drops (beastDie), and a bone fro
   b.dead = true; b.dieT = 0; b.carc = 1; b.carcT = S.t; b.cut = cutDrops(b); b.cutN = b.cut.length; b.skin = 0;
   dayKillLog(b.k);
   huntBlood(b.x, b.y, crit ? 2 : 5, crit ? 1 : 2.2);
-  if (actx) { const out = placeOut(b.x, b.y, 1, 1400, b, 1.5); if (out) boomAt(actx.currentTime + (crit ? 0.05 : 0.4), 90, 40, 0.3, crit ? 0.15 : BEAST[b.k].big ? 0.7 : 0.5, out); }   // the thud as it hits the ground
+  if (actx && !snd('body_fall', { x: b.x, y: b.y, far: 1400, at: crit ? 0.05 : 0.4, v: crit ? 0.35 : BEAST[b.k].big ? 1.3 : 1 })) { const out = placeOut(b.x, b.y, 1, 1400, b, 1.5); if (out) boomAt(actx.currentTime + (crit ? 0.05 : 0.4), 90, 40, 0.3, crit ? 0.15 : BEAST[b.k].big ? 0.7 : 0.5, out); }   // the thud as it hits the ground
   if (b.wound && !HUNT.by && far) exNote(`you hear the ${b.k} go down · follow the blood`, true);
   else cutTell(b, far);
 }; }
@@ -122,7 +122,7 @@ function cutFx(P, r, k) {
   const p = S.p, toYou = Math.atan2(p.y - P.y, p.x - P.x);
   huntBlood(P.x + (Math.random() - 0.5) * P.s, P.y + (Math.random() - 0.5) * P.s, 1, 0.8 + k);
   dayChips(P.x, P.y, P.h, 'blood', Math.round(2 + 4 * k), toYou, 0.6);
-  if (actx) { const t = actx.currentTime, out = placeOut(P.x, P.y, 1, 500, r, 1) || sfxGain;
+  if (actx && !snd('meat_cut', { x: P.x, y: P.y, v: 0.7 + 0.3 * k })) { const t = actx.currentTime, out = placeOut(P.x, P.y, 1, 500, r, 1) || sfxGain;
     noiseAt(t, 1300 + Math.random() * 700, 700, 0.12 + 0.1 * k, 0.16 + 0.08 * k, out);   // the slice, wet
     if (k >= 1) { noiseAt(t + 0.06, 520 + Math.random() * 200, 300, 0.24, 0.2, out); boomAt(t, 150, 70, 0.06, 0.14, out); } }   // and the tear as it comes away
 }

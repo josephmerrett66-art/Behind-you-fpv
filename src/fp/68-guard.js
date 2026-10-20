@@ -61,6 +61,7 @@ function guardTake(e, who, cost, perfect) {
 }
 function guardSnd(k) {
   if (!actx) return; const t = actx.currentTime;
+  if (k === 'up' ? snd('cloth', { v: 0.5 }) : k === 'break' ? snd('wood_break', { v: 0.6 }) && (snd('punch', { v: 0.7 }) || 1) : snd('wood_m', { v: k === 'perfect' ? 1.1 : 0.9 }) && (k !== 'perfect' || snd('wood_h', { v: 0.6, rate: 1.2 }) || 1)) return;
   if (k === 'up') noiseAt(t, 900, 500, 0.07, 0.05, sfxGain);   // the cloth of your sleeve
   else if (k === 'break') { boomAt(t, 95, 45, 0.22, 0.4, sfxGain); noiseAt(t, 600, 300, 0.2, 0.18, sfxGain); }
   else { boomAt(t, 150, 70, 0.08, 0.4, sfxGain); noiseAt(t, 1900, 900, 0.06, 0.32, sfxGain);   // the blow on wood (or your arm)
@@ -76,7 +77,7 @@ function jump() {
   if (!dayStam(JUMP.st)) return;
   if (D.crouch) dayCrouch(false);
   p.jvz = JUMP.v; p.jz = 0.001;
-  if (actx) noiseAt(actx.currentTime, 700, 400, 0.1, 0.07, sfxGain);
+  if (actx && !snd('cloth', { v: 0.6 })) noiseAt(actx.currentTime, 700, 400, 0.1, 0.07, sfxGain);
 }
 function jumpStep(dt) {
   const p = S.p; if (!(p.jz > 0) && !(p.jvz > 0)) return;

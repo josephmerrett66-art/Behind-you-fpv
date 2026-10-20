@@ -83,7 +83,7 @@ function rdHitBy(e, kind) {   // something got you: remember where from, and tak
   // your head goes with it, away from where it came from, and the view drops a little
   VIEW_FX.roll -= side * (kind === 'heart' ? 0.035 : 0.02); VIEW_FX.dip += kind === 'heart' ? 3 : 2;
   camKick(Math.atan2(p.y - y, p.x - x), kind === 'heart' ? 3 : 2);
-  if (actx && sfxGain) { const t = actx.currentTime; boomAt(t, 120, 38, 0.3, kind === 'heart' ? 0.55 : 0.3, sfxGain); noiseAt(t, 2200, 260, 0.16, kind === 'heart' ? 0.4 : 0.25, sfxGain); }
+  if (actx && sfxGain && !snd(kind === 'heart' ? 'hit_flesh' : 'punch', { v: kind === 'heart' ? 1.1 : 0.8, pan: side * -0.5 })) { const t = actx.currentTime; boomAt(t, 120, 38, 0.3, kind === 'heart' ? 0.55 : 0.3, sfxGain); noiseAt(t, 2200, 260, 0.16, kind === 'heart' ? 0.4 : 0.25, sfxGain); }
 }
 function foeWinding(e) { return (e.sw && e.sw.ph === 'wind') || e.ai === 'wind' || e.ai === 'draw' || e.ai === 'aim' || (e.type === 'kamikaze' && e.lit); }
 function threatScan(dt) {   // what's close and out of sight, nearest first

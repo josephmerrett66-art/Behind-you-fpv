@@ -30,15 +30,16 @@ function cookStart(r, times) {
   const nm = recName(r).toLowerCase(), verb = r.at === 'rack' ? 'drying' : 'cooking';
   PK.flash = { t: `${verb} ${nm}${made > 1 ? ' ×' + made : ''} · ready in ${dayClockS(T)}`, at: performance.now(), rid: r.id };
   exNote(`${verb} · ${nm} · ready in ${dayClockS(T)}`, true);
-  dayAct(8, 0.6); sfx(0.6, 0.35, 'lowpass', 900, 0.4);
-  if (actx && r.at === 'fire') noiseAt(actx.currentTime, 5200, 2600, 0.9, 0.12, sfxGain);   // a sizzle
+  dayAct(8, 0.6);
+  if (!snd(r.at === 'fire' ? 'sizzle' : 'leather')) { sfx(0.6, 0.35, 'lowpass', 900, 0.4);
+  if (actx && r.at === 'fire') noiseAt(actx.currentTime, 5200, 2600, 0.9, 0.12, sfxGain); }   // a sizzle
   dayChanged();
 }
 const dayClockS = s => s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
 function cookStep(dt) {
   const D = S.day, p = S.p; if (!D || !D.pots || !D.pots.length) return;
   for (const q of D.pots) {
-    if (!q.ready) { q.t += dt; if (q.t >= q.T) { q.ready = 1; if (Math.hypot(p.x - q.x, p.y - q.y) < 900) { exNote(`${DIT[q.id].n.toLowerCase()} is ready`, true); if (actx) toneAt(actx.currentTime, 880, 0.5, 0.05, 'triangle', sfxGain); } } }
+    if (!q.ready) { q.t += dt; if (q.t >= q.T) { q.ready = 1; if (Math.hypot(p.x - q.x, p.y - q.y) < 900) { exNote(`${DIT[q.id].n.toLowerCase()} is ready`, true); if (actx && !snd('pot', { x: q.x, y: q.y, far: 900 })) toneAt(actx.currentTime, 880, 0.5, 0.05, 'triangle', sfxGain); } } }
     else if (Math.hypot(p.x - q.x, p.y - q.y) < POT_GRAB && S.rg.phase === 'fight') {   // walk up and take it
       q.done = 1; dayGive(q.id, q.n, q.x, q.y); pickSnd(); exNote(`took · ${DIT[q.id].n.toLowerCase()}${q.n > 1 ? ' ×' + q.n : ''}`);
     }

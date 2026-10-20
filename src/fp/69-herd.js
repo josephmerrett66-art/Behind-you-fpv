@@ -66,9 +66,9 @@ const cacheLabel = B => B.open ? 'Empty' : cacheTool() ? 'Open' : 'Sealed';
 function cacheUse(B) {
   if (B.open) { dayNote('cacheE', 'empty now', 2); return; }
   const T = cacheTool();
-  if (!T) { dayNote('cacheS', B.ck === 'chest' ? 'locked fast · a pry bar or a heavy hammer would open it · try the outer woods' : 'the lid won\'t shift · a pry bar or a heavy hammer would do it · try the outer woods', 3); sfx(0.5, 0.2, 'lowpass', 300, 0.2); return; }
+  if (!T) { dayNote('cacheS', B.ck === 'chest' ? 'locked fast · a pry bar or a heavy hammer would open it · try the outer woods' : 'the lid won\'t shift · a pry bar or a heavy hammer would do it · try the outer woods', 3); snd('latch') || sfx(0.5, 0.2, 'lowpass', 300, 0.2); return; }
   B.open = 1; dayAct(14, 0.9); addShake(0.25);
-  if (actx) { const t = actx.currentTime; noiseAt(t, 700, 200, 0.4, 0.4, sfxGain); [392, 523, 659, 784].forEach((f, i) => toneAt(t + 0.25 + i * 0.09, f, 0.7, 0.04, 'triangle', sfxGain)); }
+  if (actx) { const t = actx.currentTime; if (!snd('chest_open', { x: B.x, y: B.y, v: 1.2 })) noiseAt(t, 700, 200, 0.4, 0.4, sfxGain); [392, 523, 659, 784].forEach((f, i) => toneAt(t + 0.25 + i * 0.09, f, 0.7, 0.04, 'triangle', sfxGain)); }
   const n = B.rw === 'sweetroot' ? 4 : 1; dayGive(B.rw, n, B.x, B.y, true);
   if (B.rw === 'hbell') S.day.herd = 1;
   S.rg.ringMsg = { text: DIT[B.rw].n.toLowerCase(), sub: DIT[B.rw].b.replace(/^An old warm stone · /, ''), t: 0 }; playRingSting();
@@ -84,7 +84,7 @@ const HERD_R = 320, LEAD_T = 90, PEN_R = 62, PEN_CAP = 6, PEN_BREED = 240, PEN_M
 const penOf = b => b.pen && S.day.builds.find(B => B.pen && Math.abs(B.x - b.pen[0]) < 1 && Math.abs(B.y - b.pen[1]) < 1);
 function herdRing() {
   const D = S.day, p = S.p; dayAct(8, 0.6);
-  if (actx) { const t = actx.currentTime; [1318, 1568, 1318].forEach((f, i) => toneAt(t + i * 0.16, f, 0.9, 0.05, 'triangle', sfxGain)); }
+  if (actx && !snd('bell', { far: 1400 })) { const t = actx.currentTime; [1318, 1568, 1318].forEach((f, i) => toneAt(t + i * 0.16, f, 0.9, 0.05, 'triangle', sfxGain)); }
   wpRing(p.x, p.y, HERD_R, '240,215,150', 0.5);
   let n = 0;
   for (const b of D.beasts) if (!b.dead && b.k === 'deer' && !b.pen && Math.hypot(b.x - p.x, b.y - p.y) < HERD_R) { b.lead = LEAD_T; b.st = 'graze'; n++; }

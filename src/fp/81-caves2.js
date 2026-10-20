@@ -407,7 +407,7 @@ function caveAudio() {
   if ((CA.drip -= dt) <= 0) {
     CA.drip = 0.35 + Math.random() * 1.8;
     const a = Math.random() * 6.283, d = 40 + Math.random() * 260, o = placeOut(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 0.32 + Math.random() * 0.25, 420);
-    if (o) { const f = 900 + Math.random() * 1700, g = actx.createGain(), os = actx.createOscillator(); os.type = 'sine'; os.frequency.setValueAtTime(f * 1.6, t); os.frequency.exponentialRampToValueAtTime(f, t + 0.05);
+    if (o && !snd('cave_drip', { out: o, rate: 0.8 + Math.random() * 0.5, j: 0 })) { const f = 900 + Math.random() * 1700, g = actx.createGain(), os = actx.createOscillator(); os.type = 'sine'; os.frequency.setValueAtTime(f * 1.6, t); os.frequency.exponentialRampToValueAtTime(f, t + 0.05);
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12); os.connect(g); g.connect(o); os.start(t); os.stop(t + 0.14); }
   }
   // now and then the rock settles: a far-off grinding thud and a patter of grit
@@ -417,10 +417,12 @@ function caveAudio() {
 function caveWhoosh(inward) {   // stepping through: a rush of air and the light (or the dark) closing round you
   if (!actx || !noiseBuf) return;
   const t = actx.currentTime;
+  if (sndAny(['wind_gust', 'whoosh'], { v: inward ? 0.9 : 0.6, rate: inward ? 0.6 : 0.8 })) return;
   noiseAt(t, inward ? 900 : 1600, inward ? 200 : 600, 0.9, 0.22, sfxGain); boomAt(t + 0.1, inward ? 90 : 120, 50, 0.7, inward ? 0.25 : 0.12, sfxGain);
 }
 function batSnd(x, y, k) {
   if (!actx || !noiseBuf) return;
+  if (snd(k > 0.8 ? 'bat_wings' : 'bat', { x, y, v: 0.6 + 0.6 * k, far: 500 })) { if (k > 0.8) snd('bat', { x, y, v: 0.8, at: 0.1 }); return; }
   const o = placeOut(x, y, 0.5 * k, 500); if (!o) return;
   const t = actx.currentTime, n = k > 0.8 ? 14 : 2;
   for (let i = 0; i < n; i++) {   // high squeaks, and the leathery clatter of wings

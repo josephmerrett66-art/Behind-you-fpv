@@ -40,7 +40,7 @@ const trapWet = (x, y) => { const W = fishWater(x, y); return W && W.depth < 16 
   }; }
 { const ph = dayPlaceHeld; dayPlaceHeld = function () {
     const s = heldSlot(), T = s && DIT[s.id];
-    if (T && T.build === 'ftrap') { const sp = dayPlaceSpot('ftrap'); if (!sp.ok && !trapWet(sp.x, sp.y)) { dayNote('noroom', 'set it down in shallow water', 1.4); if (actx) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; } }
+    if (T && T.build === 'ftrap') { const sp = dayPlaceSpot('ftrap'); if (!sp.ok && !trapWet(sp.x, sp.y)) { dayNote('noroom', 'set it down in shallow water', 1.4); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; } }
     return ph();
   }; }
 // moving one keeps it what it is, and its ghost shows it; recycling one gives you the trap back, not a chest
@@ -59,7 +59,7 @@ const trapWet = (x, y) => { const W = fishWater(x, y); return W && W.depth < 16 
     for (const s of B.inv) if (s) dayDrop(B.x, B.y, s.id, s.n || 1, s);
     D.builds = D.builds.filter(q => q !== B); dayGive(id, 1, B.x, B.y, true);
     ashBurst(B.x, B.y, 6, 10); addShake(0.12); exNote(`recycled · ${DIT[id].n.toLowerCase()} back in your pack`);
-    if (actx) noiseAt(actx.currentTime, 700, 200, 0.3, 0.35, sfxGain);
+    if (actx && !snd('wood_break', { x: B.x, y: B.y, v: 0.6 })) noiseAt(actx.currentTime, 700, 200, 0.3, 0.35, sfxGain);
     try { thingsSync(true); } catch (e) {}
     dayChanged();
   }; }

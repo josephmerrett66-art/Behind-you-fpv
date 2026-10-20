@@ -65,7 +65,7 @@ function doorToggle(o) {
       const want = o.ajar || 0, was = open0;
       o.open = open0 + (want - open0) * Math.min(1, dt * (want ? DOOR.open : DOOR.shut));
       if (Math.abs(want - o.open) < 0.004) o.open = want;   // come to rest, so it's drawn at rest
-      if (!want && was >= 0.08 && o.open < 0.08 && actx && monNear(o, 500) > 0) boomAt(actx.currentTime, 120, 60, 0.12, 0.3 * monNear(o, 500), sfxGain);   // the thud as it meets the frame
+      if (!want && was >= 0.08 && o.open < 0.08 && actx && monNear(o, 500) > 0 && !snd('door_close', { x: o.x, y: o.y })) boomAt(actx.currentTime, 120, 60, 0.12, 0.3 * monNear(o, 500), sfxGain);   // the thud as it meets the frame
     }
     if (D && cl.length) clanSpikes(D, cl, dt, dayNight());
   }; }
@@ -82,7 +82,7 @@ function clanSpikes(D, cl, dt, night) {
         if (P.trap) o.hp -= 1;
       }
       if (P.mire && ed < 6) { e.mire = S.t + 0.25; if (Math.random() < dt * 2) e.hp -= 0.1; }   // the hedge drags at them
-      if (P.k === 'chimes' && ed < 220 && !(o.ring > 0)) { o.ring = 6; exNote('the chimes are ringing', true); if (actx) for (let i = 0; i < 4; i++) setTimeout(() => sfx(2.2 + Math.random() * 1.2, 0.5, 'bandpass', 2600 + Math.random() * 1800, 0.18), i * 120); }
+      if (P.k === 'chimes' && ed < 220 && !(o.ring > 0)) { o.ring = 6; exNote('the chimes are ringing', true); if (actx && !snd('chimes', { x: o.x, y: o.y, far: 900 })) for (let i = 0; i < 4; i++) setTimeout(() => sfx(2.2 + Math.random() * 1.2, 0.5, 'bandpass', 2600 + Math.random() * 1800, 0.18), i * 120); }
     }
     if (o.hp <= 0 && D.bld.has(o.key)) {
       stGone(o); for (let i = 0; i < 3; i++) ashBurst(o.x + (Math.random() - 0.5) * 40, o.y + (Math.random() - 0.5) * 40, 6, 22);
@@ -94,7 +94,7 @@ function spikeBite(e, dmg) {   // a point goes in: it jerks, and the wound bleed
   e.spkT = SPIKE.every; e.hp -= dmg; e.jit = 1; e.spkHitT = S.t;
   plainBlood(e, (FOES[e.type] ? FOES[e.type].h : 40) * 0.6, Math.random() * TAU, 6);   // v129: blood, not sparks (62-plain)
   ashBurst(e.x, e.y, 3, 14);
-  if (actx && monNear(e, 600) > 0) noiseAt(actx.currentTime, 2600, 900, 0.1, 0.3 * monNear(e, 600), sfxGain);
+  if (actx && monNear(e, 600) > 0 && !snd('blade_flesh', { x: e.x, y: e.y, v: 0.7 })) noiseAt(actx.currentTime, 2600, 900, 0.1, 0.3 * monNear(e, 600), sfxGain);
 }
 { const bs = buildStep;
   buildStep = function (dt) {

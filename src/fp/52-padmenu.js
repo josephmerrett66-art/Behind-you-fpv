@@ -113,7 +113,7 @@ function padMenu(dt, btn, press, ax, ay, ry) {
   }
   return true;
 }
-const pmTick = () => { try { sfx(2.2, 0.03, 'bandpass', 2400, 0.06); } catch (e) {} };
+const pmTick = () => { try { snd('ui_tick', { v: 0.5 }) || sfx(2.2, 0.03, 'bandpass', 2400, 0.06); } catch (e) {} };
 
 // the line of controller help along the bottom: what each button does right now, in a menu, in the build bar or out in the world
 function padHintText() {

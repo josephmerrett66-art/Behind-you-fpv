@@ -50,7 +50,7 @@ function mvPick(t) {
   if (t.kind === 'b' && mvFixed(t.B)) { dayNote('mvfix', t.B.pen ? 'not with animals in it' : 'it won\'t shift', 1.5); return; }
   if (t.kind === 'st') { const o = t.o; D.mv = { kind: 'st', o, x: o.x, y: o.y, a: o.a, clip: o.clip, bed: o.k === 'bed' && D.bed && Math.abs(D.bed.x - o.x) < 1 && Math.abs(D.bed.y - o.y) < 1 }; D.bld.delete(o.key); stGen++; D.brot = o.a; }
   else { const B = t.B; D.mv = { kind: 'b', B, x: B.x, y: B.y, a: B.a }; D.builds = D.builds.filter(q => q !== B); }
-  exNote(`moving · ${mvName(t)} · Attack to put it down`); dayAct(10, 0.45); sfx(1.4, 0.15, 'bandpass', 1500, 0.2); dayChanged();
+  exNote(`moving · ${mvName(t)} · Attack to put it down`); dayAct(10, 0.45); snd('wood_l') || sfx(1.4, 0.15, 'bandpass', 1500, 0.2); dayChanged();
 }
 function mvSpot() {   // where the thing you're carrying would go, and whether it fits
   const D = S.day, M = D.mv; if (!M) return null;
@@ -60,7 +60,7 @@ function mvSpot() {   // where the thing you're carrying would go, and whether i
 function mvPut(back) {   // down where you're pointing (or, back, where it came from)
   const D = S.day, M = D.mv; if (!M) return;
   let x = M.x, y = M.y, a = M.a, clip = M.clip;
-  if (!back) { const s = mvSpot(); if (!s.ok) { dayNote('mvno', s.why || 'no room there', 1.2); if (actx) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; } x = s.sp.x; y = s.sp.y; a = s.sp.a; if (M.kind === 'st') clip = stClipOf(PC(M.o.id), s.sp); }
+  if (!back) { const s = mvSpot(); if (!s.ok) { dayNote('mvno', s.why || 'no room there', 1.2); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; } x = s.sp.x; y = s.sp.y; a = s.sp.a; if (M.kind === 'st') clip = stClipOf(PC(M.o.id), s.sp); }
   if (M.kind === 'st') {
     const o = M.o; o.x = x; o.y = y; o.a = a; o.clip = clip; if (clip) o.clipV = 1; D.bld.set(o.key, o); stGen++;
     if (M.bed) D.bed = { x, y };
@@ -69,7 +69,7 @@ function mvPut(back) {   // down where you're pointing (or, back, where it came 
     B.x = x; B.y = y; B.a = a; B.parts = fake.parts.map(q => Object.assign(q, { build: B })); D.builds.push(B);
   }
   D.mv = null;
-  if (!back) { addShake(0.12); ashBurst(x, y, 6, 6); dayAct(10, 0.6); exNote('moved'); if (actx) { const t = actx.currentTime; boomAt(t, 160, 80, 0.12, 0.35, sfxGain); } }
+  if (!back) { addShake(0.12); ashBurst(x, y, 6, 6); dayAct(10, 0.6); exNote('moved'); if (actx && !snd('build_thud', { x, y, v: 0.8 })) { const t = actx.currentTime; boomAt(t, 160, 80, 0.12, 0.35, sfxGain); } }
   try { thingsSync(true); } catch (e) {}
   dayChanged();
 }
@@ -88,7 +88,7 @@ function mvRecycle(B) {
   if (id) dayGive(id, 1, B.x, B.y, true);
   ashBurst(B.x, B.y, 8, 16); addShake(0.18); dayChips(B.x, B.y, 10, B.t === 'fire' ? 'stone' : 'wood', 8);
   exNote(`recycled · ${((DIT[id] || {}).n || B.t).toLowerCase()} back in your pack`);
-  if (actx) noiseAt(actx.currentTime, 700, 200, 0.3, 0.35, sfxGain);
+  if (actx && !snd('wood_break', { x: B.x, y: B.y, v: 0.7 })) noiseAt(actx.currentTime, 700, 200, 0.3, 0.35, sfxGain);
   try { thingsSync(true); } catch (e) {}
   dayChanged();
 }

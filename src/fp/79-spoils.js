@@ -35,7 +35,7 @@ function clanSpoils(e, g) {   // g, its body: the bone, hide and teeth are in it
     exNote(`${lead ? 'their leader is dead' : 'a cannibal dead'} · ${left ? `${left} of them left in the woods` : 'the last of them'}${got.length ? ` · it dropped ${got.join(', ')}` : ''}`, true);
     if (g) cutTell(g);
     dayJLog(lead ? `killed the clan's leader (${D.clanKills} of them dead)` : `killed a cannibal (${D.clanKills} of them dead)`);
-    if (actx) { const t = actx.currentTime; boomAt(t + 0.15, 110, 55, 0.4, 0.35, sfxGain); toneAt(t + 0.2, 196, 0.9, 0.05, 'triangle', sfxGain); }
+    if (actx && !snd('drum', { at: 0.15, v: 0.5, rate: 0.8 })) { const t = actx.currentTime; boomAt(t + 0.15, 110, 55, 0.4, 0.35, sfxGain); toneAt(t + 0.2, 196, 0.9, 0.05, 'triangle', sfxGain); }
     dayChanged();
   }; }
 // the necklace: they know what you've done

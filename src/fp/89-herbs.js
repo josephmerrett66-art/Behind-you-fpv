@@ -209,7 +209,7 @@ function herbPick(o) {
   const n = 1 + (o.sd < 0.35 ? 1 : 0); dayGive(o.k, n, o.x, o.y, true);
   exNote(`picked ${DIT[o.k].n.toLowerCase()}${n > 1 ? ' ×' + n : ''}`);
   dayChips(o.x, o.y, 8, o.k === 'aloe' ? 'leaf' : 'petal', 6);
-  pickSnd(); if (actx) noiseAt(actx.currentTime, 2600, 900, 0.14, 0.12, sfxGain);
+  pickSnd('herb'); if (actx && !sndHas('grass_pull')) noiseAt(actx.currentTime, 2600, 900, 0.14, 0.12, sfxGain);
   dayChanged();
 }
 { const du = dayUse; dayUse = function () {

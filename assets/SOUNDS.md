@@ -288,49 +288,6 @@ page offered several licences, CC0 was taken.
 | splash_small | Object Dropping into Water | angeloyazar | CC0 | [link](https://opengameart.org/content/object-dropping-into-water-0) |
 | splash_small | Water Splash and sand footsteps | Peludo | CC0 | [link](https://opengameart.org/content/water-splash-and-sand-footsteps) |
 | splash_small | Water splashes | qubodup | CC-BY 3.0 | [link](https://opengameart.org/content/water-splashes) |
-| step_dirt | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
-| step_dirt | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
-| step_dirt | Fantasy Sound Effects Library | Little Robot Sound Factory | CC-BY 3.0 | [link](https://opengameart.org/content/fantasy-sound-effects-library) |
-| step_dirt | Fantasy Sound Effects Library | Little Robot Sound Factory | CC-BY 3.0 | [link](https://opengameart.org/content/fantasy-sound-effects-library) |
-| step_dirt | Fantasy Sound Effects Library | Little Robot Sound Factory | CC-BY 3.0 | [link](https://opengameart.org/content/fantasy-sound-effects-library) |
-| step_dirt | Walking SFX Dust - Grass V1 | Ayetherah | CC0 | [link](https://archive.org/details/ayetherah-dust-grass-v1) |
-| step_dirt | Kenney · RPG Audio | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/rpg-audio) |
-| step_dirt | Kenney · RPG Audio | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/rpg-audio) |
-| step_grass | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_grass | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_grass | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_grass | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_grass | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_leaves | Strada Comunale per Sorgnano, 2BIS, 54033 Sorgnano MS, Italia - The sound of footsteps crushing fallen leaves | isyizhou | Public Domain Mark 1.0 | [link](https://archive.org/details/aporee_63152_72660) |
-| step_leaves | Strada Comunale per Sorgnano, 2BIS, 54033 Sorgnano MS, Italia - The sound of footsteps crushing fallen leaves | isyizhou | Public Domain Mark 1.0 | [link](https://archive.org/details/aporee_63152_72660) |
-| step_leaves | Strada Comunale per Sorgnano, 2BIS, 54033 Sorgnano MS, Italia - The sound of footsteps crushing fallen leaves | isyizhou | Public Domain Mark 1.0 | [link](https://archive.org/details/aporee_63152_72660) |
-| step_leaves | Strada Comunale per Sorgnano, 2BIS, 54033 Sorgnano MS, Italia - The sound of footsteps crushing fallen leaves | isyizhou | Public Domain Mark 1.0 | [link](https://archive.org/details/aporee_63152_72660) |
-| step_leaves | Strada Comunale per Sorgnano, 2BIS, 54033 Sorgnano MS, Italia - The sound of footsteps crushing fallen leaves | isyizhou | Public Domain Mark 1.0 | [link](https://archive.org/details/aporee_63152_72660) |
-| step_leaves | Strada Comunale per Sorgnano, 2BIS, 54033 Sorgnano MS, Italia - The sound of footsteps crushing fallen leaves | isyizhou | Public Domain Mark 1.0 | [link](https://archive.org/details/aporee_63152_72660) |
-| step_leaves | FEETHmn-Samsung Galaxy Smartphone, CU_Footsteps, Leaves | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Footsteps) |
-| step_leaves | FEETHmn-Samsung Galaxy Smartphone, CU_Footsteps, Leaves | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Footsteps) |
-| step_mud | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
-| step_mud | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
-| step_mud | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
-| step_mud | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
-| step_mud | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
-| step_sand | Fantozzi's Footsteps (Grass/Sand & Stone) | Fantozzi (Submitted by qubodup ) | CC0 | [link](https://opengameart.org/content/fantozzis-footsteps-grasssand-stone) |
-| step_sand | Fantozzi's Footsteps (Grass/Sand & Stone) | Fantozzi (Submitted by qubodup ) | CC0 | [link](https://opengameart.org/content/fantozzis-footsteps-grasssand-stone) |
-| step_sand | JC Sounds - Pirate Pack Vol 1 | JC Sounds | CC-BY 4.0 | [link](https://opengameart.org/content/jc-sounds-pirate-pack-vol-1) |
-| step_sand | JC Sounds - Pirate Pack Vol 1 | JC Sounds | CC-BY 4.0 | [link](https://opengameart.org/content/jc-sounds-pirate-pack-vol-1) |
-| step_sand | JC Sounds - Pirate Pack Vol 1 | JC Sounds | CC-BY 4.0 | [link](https://opengameart.org/content/jc-sounds-pirate-pack-vol-1) |
-| step_sand | Sand Step Movement Sounds (Yo Frankie!) | Blender Foundation (Submitted by Lamoot ) | CC-BY 3.0 | [link](https://opengameart.org/content/sand-step-movement-sounds-yo-frankie) |
-| step_sand | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_stone | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_stone | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_stone | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_stone | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_stone | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_wood | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_wood | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_wood | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_wood | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
-| step_wood | Kenney · Impact Sounds | Kenney (kenney.nl) | CC0 1.0 | [link](https://kenney.nl/assets/impact-sounds) |
 | stick_pick | 80 CC0 RPG SFX | rubberduck | CC0 | [link](https://opengameart.org/content/80-cc0-rpg-sfx) |
 | stick_pick | 80 CC0 RPG SFX | rubberduck | CC0 | [link](https://opengameart.org/content/80-cc0-rpg-sfx) |
 | stick_pick | 80 CC0 RPG SFX | rubberduck | CC0 | [link](https://opengameart.org/content/80-cc0-rpg-sfx) |
@@ -380,10 +337,6 @@ page offered several licences, CC0 was taken.
 | water_fill | Fantasy Sound Effects (Tinysized SFX) | Vehicle | CC0 | [link](https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx) |
 | water_fill | WATRBubl-Samsung Galaxy Smartphone_Bubble, Glugs, Multiple, Short 01 | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
 | water_fill | WATRBubl-Samsung Galaxy Smartphone_Bubble, Glugs, Multiple, Short 01 | Nicholas A. Judy (The Designer's Choice) | Designer's Choice royalty-free | [link](https://archive.org/details/Designers-Choice-Collection-Water) |
-| water_wade | Water Step Splashes (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/water-step-splashes-yo-frankie) |
-| water_wade | Water Step Splashes (Yo Frankie!) | Lamoot (Yo Frankie!) | CC-BY 3.0 | [link](https://opengameart.org/content/water-step-splashes-yo-frankie) |
-| water_wade | Running out from sea | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
-| water_wade | Running out from sea | Mixkit | Mixkit Free License | [link](https://mixkit.co/free-sound-effects/water/) |
 | whoosh | Swishes Sound Pack | artisticdude | CC0 | [link](https://opengameart.org/content/swishes-sound-pack) |
 | whoosh | Swishes Sound Pack | artisticdude | CC0 | [link](https://opengameart.org/content/swishes-sound-pack) |
 | whoosh | Medieval sound effects - Weapon Textures | Ben Jaszczak & Brian Nelson (Submitted by MedicineStorm ) | CC0 | [link](https://opengameart.org/content/medieval-sound-effects-weapon-textures) |

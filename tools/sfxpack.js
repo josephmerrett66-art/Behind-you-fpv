@@ -14,9 +14,6 @@ const KENNEY = {
 const kPack = k => /^k_(door|creak|cloth|knife|chop|metal_click|latch|pot|leather|belt|book|coins|step_rpg)/.test(k) ? 'rpg' : 'impact';
 // the game's kind: [source keys, best first], how many clips at most
 const MAP = {
-  step_grass: [['k_step_grass', 'footstep_grass'], 8], step_leaves: [['footstep_leaves', 'k_step_grass'], 8], step_dirt: [['footstep_dirt', 'k_step_rpg'], 8],
-  step_sand: [['footstep_sand', 'k_step_snow'], 7], step_wood: [['k_step_wood', 'footstep_wood'], 7], step_stone: [['k_step_stone', 'footstep_stone'], 7],
-  step_mud: [['footstep_mud'], 6], water_wade: [['water_wade'], 6],
   wood_l: [['k_wood_l'], 4], wood_m: [['k_wood_m'], 4], wood_h: [['k_wood_h'], 4], plank: [['k_plank'], 4], metal_l: [['k_metal_l'], 4], metal_m: [['k_metal_m'], 4],
   mining: [['k_mining'], 5], punch: [['k_punch_m', 'k_punch_h'], 5], body_fall: [['body_fall', 'k_soft_h'], 4], hit_flesh: [['hit_flesh', 'k_punch_h'], 6],
   blade_flesh: [['blade_flesh', 'k_knife_slice'], 4], meat_cut: [['meat_cut', 'k_knife_slice'], 4], blade_draw: [['k_knife_draw'], 2],
@@ -39,7 +36,9 @@ for (const d of fs.readdirSync(lib)) {
 }
 const meta = {};
 for (const m of fs.readdirSync(lib).filter(n => /^manifest-.*\.json$/.test(n))) for (const e of JSON.parse(fs.readFileSync(path.join(lib, m), 'utf8'))) meta[e.file] = e;
-const kinds = new Set([...Object.keys(MAP), ...Object.keys(have).filter(k => !k.startsWith('k_') && !k.startsWith('footstep_'))]);
+// your footsteps stay the game's one recording (Joe), so the ground-by-ground steps and wading aren't packed
+const SKIP = new Set(['water_wade']);
+const kinds = new Set([...Object.keys(MAP), ...Object.keys(have).filter(k => !k.startsWith('k_') && !k.startsWith('footstep_') && !SKIP.has(k))]);
 const out = {}, used = [];
 for (const k of [...kinds].sort()) {
   const [src, cap] = MAP[k] || [[k], CAP], files = [];

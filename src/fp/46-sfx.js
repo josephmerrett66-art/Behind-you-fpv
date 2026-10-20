@@ -113,10 +113,10 @@ function beastVoice(b, kind) {
   return 'leaves_rustle';
 }
 
-// ---- your footsteps, on whatever is underfoot ----
-// The one footstep recording used to play for everything, pitched about. Now it's what you're walking on: leaf litter under
-// the trees, grass in the open, dry dirt and stone where the ground is bare, sand on the beach, the boards or flags of a floor
-// you've laid, rock in the caves, and water when you wade.
+// ---- what's underfoot ----
+// Your footsteps are the one recording, pitched about, whatever you walk on (Joe: "the footsteps should stay one noise instead
+// of changing for different textures"; for a while they changed with the ground). What's underfoot is still worked out here,
+// for the thump of a landing, which you don't hear in water.
 function floorUnder(x, y) {
   const D = S && S.day; if (!D || !D.bld || !D.bld.size) return null;
   for (const o of D.bld.values()) { if (!o.done || Math.abs(o.x - x) > GRID || Math.abs(o.y - y) > GRID) continue; const P = PC(o.id); if (P.k === 'floor' && stDistTo(o, x, y) < 3) return P.m; }
@@ -135,13 +135,6 @@ function stepKind(x, y) {
   if (L[2] > 0.5) return ['step_dirt', 'step_grass'];   // dry, bare
   return cover > 0.35 || L[0] > 0.4 ? ['step_leaves', 'step_grass'] : ['step_grass', 'step_leaves'];
 }
-{ const st = FPX.step; FPX.step = function (running, side) {
-  if (actx && S && S.p) {
-    const K = stepKind(S.p.x, S.p.y), crouch = S.day && S.day.crouch, o = { v: crouch ? 0.5 : running ? 1.15 : 0.82, rate: running ? 1.05 : 0.96, j: 0.07, pan: side * 0.12 };
-    if (sndAny(K, o)) { if (K[0] === 'water_wade' && Math.random() < 0.5) snd('splash_small', { v: 0.35, rate: 1.2 }); return; }
-  }
-  return st.apply(this, arguments);
-}; }
 
 // ---- the old built sounds that were whole functions of their own ----
 { const f = playClang; playClang = function () { if (S && S.day ? snd('punch', { v: 0.9 }) && (snd('leather', { v: 0.7 }) || 1) : snd('metal_clang')) return; return f.apply(this, arguments); }; }   // a blow your armour takes

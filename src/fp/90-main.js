@@ -215,7 +215,7 @@ $('sCol').addEventListener('click', () => { COLOUR = !COLOUR; SET.colour = COLOU
 syncSet();
 $('how').innerHTML = TOUCH
   ? '<div><b>Left thumb</b> moves · <b>right thumb</b> drags to look · <b>Attack</b> also drags to look</div><div><b>Take</b> picks up, opens, drinks · <b>Pack</b> crafts and equips · tap the hotbar to hold something</div><div>Hold <b>Attack</b> with a bow or sling to draw, let go to loose · <b>Sneak</b> to creep up on animals</div>'
-  : '<div><b>WASD</b> move · <b>mouse</b> look · <b>click</b> attack, chop, mine · <b>right click / Space</b> roll</div><div><b>E</b> take, open, drink · <b>C</b> pack and crafting · <b>1–6</b> or <b>wheel</b> hotbar · <b>Q</b> sneak · <b>H</b> flask · <b>Shift</b> special</div><div>Building with the hammer: <b>Z X</b> turn · <b>[ ]</b> piece · <b>N</b> kind · <b>V</b> snap · <b>B</b> pull down · <b>Esc</b> menu</div>';
+  : '<div><b>WASD</b> move · <b>mouse</b> look · <b>click</b> attack, chop, mine · <b>right click / Space</b> roll</div><div><b>E</b> take, open, drink · <b>C</b> pack and crafting · <b>1–6</b> or <b>wheel</b> hotbar · <b>Q</b> sneak · <b>K</b> throw your spear</div><div>Building with the hammer: <b>Z X</b> turn · <b>[ ]</b> piece · <b>N</b> kind · <b>V</b> snap · <b>B</b> pull down · <b>Esc</b> menu</div>';
 
 // ---------------- the loop, and keeping the frame rate up ----------------
 let fpsAcc = 0, fpsN = 0, fpsShow = 0, slowT = 0, fastT = 0, lastDrop = -99, hurtFx = 0, healFx = 0, lastHp = null;

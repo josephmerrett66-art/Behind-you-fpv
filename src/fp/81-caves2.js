@@ -202,7 +202,7 @@ const CAVE_NOTE = ['a journal, swollen with damp Â· the last pages:', '"day 31 Â
     const T = CAVE_LOOT[(c.tier || 1) - 1], k = 2 + Math.floor(R() * 2);
     const pool = T.slice(); for (let i = 0; i < k && pool.length; i++) n(pool.splice(Math.floor(R() * pool.length), 1)[0]);
     if ((c.tier || 1) >= 2 && R() < (c.tier === 3 ? 0.9 : 0.35)) { const t = CAVE_RARE[Math.floor(R() * CAVE_RARE.length)]; dayDrop(c.x, c.y, t, 1, DIT[t].dur ? Math.round(DIT[t].dur * (0.6 + R() * 0.3)) : undefined); }
-    if (rg.flask < FLASK_MAX && R() < 0.4) { rg.flask++; exNote('+1 flask', true); }
+    if (R() < 0.4) dayDrop(c.x, c.y, 'bandage', 1 + (R() < 0.4 ? 1 : 0));   // v127: a bandage or two where a flask was
   }; }
 
 // ---------------- every frame: in or out ----------------

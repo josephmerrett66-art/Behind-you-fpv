@@ -2027,7 +2027,6 @@ const DREC = [
   { id: 'cook', g: 'food', out: 'cooked', at: 'fire', cost: { meat: 1 } },
   { id: 'roast', g: 'food', out: 'roast', at: 'fire', cost: { mushroom: 1 } },
   { id: 'stew', g: 'food', out: 'stew', at: 'fire', cost: { cooked: 2, berries: 2 } },
-  { id: 'tonic', g: 'use', name: 'Healing tonic', sh: 'One more flask', icon: 'tonic', at: 'fire', cost: { berries: 4, fibre: 2 }, ok: () => S.rg.flask < FLASK_MAX, make: () => { S.rg.flask++; } },
   { id: 'tcol', g: 'stn', out: 'tcol', at: 'hand', cost: { tarp: 1, sticks: 4 } },
   { id: 'campfire', g: 'stn', out: 'campfire', at: 'hand', cost: { sticks: 6, stones: 5 } },
   { id: 'bench', g: 'stn', out: 'bench', at: 'hand', cost: { logs: 4, stones: 4, rope: 2 } },
@@ -2563,7 +2562,7 @@ function dayChest(c) {                         // a cache: food and a few useful
   if (Math.random() < 0.3) dayDrop(c.x, c.y, 'cooked', 1);
   if (Math.random() < 0.2 + 0.1 * ring) dayDrop(c.x, c.y, 'hide', 1);
   if (Math.random() < 0.12 + 0.05 * ring) { const t = ['axe1', 'pick1', 'spear1', 'club'][Math.floor(Math.random() * 4)]; dayDrop(c.x, c.y, t, 1, Math.round(DIT[t].dur * (0.3 + Math.random() * 0.4))); }   // an old tool, half worn
-  if (rg.flask < FLASK_MAX && Math.random() < 0.25) { rg.flask++; exNote('+1 flask', true); }
+  if (Math.random() < 0.25) dayDrop(c.x, c.y, 'bandage', 1);   // v127: a bandage where a flask was (no flasks in the woods)
 }
 function dayWake() {                             // v152 (Joe's plan): with a bed built, death is a setback, not the end:
   const D = S.day, rg = S.rg, p = S.p;          // you come round on your bed, and every last thing you carried lies where you fell
@@ -4198,8 +4197,9 @@ const DSP_QUAKE = { dur: 0.72, lunge: 40, moveT: [0.04, 0.3], hopT: [0.04, 0.33]
 const DSP_RIPOSTE = { dur: 0.42, lunge: 20, moveT: [0.02, 0.14], hitAt: 0.1, reach: 96, arc: 7, round: 1, dmg: 2.2, boss: 3.2, knock: 60, shake: 0.55, stop: 0.14, kick: 10, kh: 'riposte', fin: 'RIPOSTE' };
 function daySpecial() {
   dArmInit();
-  { const rk = dayRngId(); if (rk) return daySpecialRng(rk); }   // v189
+  if (dayRngId()) return;   // v127 (Joe: the action game's leftovers): no volley or heavy shot
   const rg = S.rg, p = S.p, w = dayArmId(), D = S.day;
+  if (w !== 'twin') return;   // and no whirl, quake, vanish or parry: only a spear's throw is left
   if (!w || !S.running || rg.phase !== 'fight' || rg.drink) return;
   if ((rg.wspT || 0) > 0 || p.wact) return wpDenied();
   const sp = DSP[w]; if (D.st < sp.st) { dayStam(sp.st); return wpDenied(); }

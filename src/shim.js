@@ -12,7 +12,7 @@ const COARSE = () => document.body.classList.contains('touch');
 const byId = id => document.getElementById(id);
 const craftEl = byId('craft'), craftBtn = byId('craftBtn'), useBtn = byId('useBtn'), sneakBtn = byId('sneakBtn'), menuBtn = byId('bMenu'),
   hotbarEl = byId('hotbar'), buildbarEl = byId('buildbar'), dodgeBtn = byId('bDodge'), attackBtn = byId('bAtk'), campBtn = byId('campBtn'),
-  campEl = byId('camp'), statsEl = byId('stats'), deathCard = byId('deathCard'), flaskBtn = byId('flaskBtn');
+  campEl = byId('camp'), statsEl = byId('stats'), deathCard = byId('deathCard');
 const SPRITE_KINDS = { pine: [6, 70, 118, 35, 112], oak: [5, 84, 96, 42, 90], cherry: [5, 100, 104, 50, 92], dead: [4, 76, 72, 38, 66],   // the heights of a felled tree's crown, and how many of each kind of ground cover there are
   grass: [5], fern: [4], pebbles: [4], bush: [4], shrooms: [3], log: [3], rock: [5], post: [3] };
 // the first-person view fills these in (src/fp)

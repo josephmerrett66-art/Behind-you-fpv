@@ -1,5 +1,5 @@
 // ================= your hands on the controls: keys and mouse, thumbs, or a controller =================
-// Each press calls the main game's own action (attack, dodge, dayUse, dayCrouch, daySelect, openCraft, exDrink, daySpecial...).
+// Each press calls the main game's own action (attack, dodge, dayUse, dayCrouch, daySelect, openCraft, daySpecial...).
 const IN = { lx: 0, ly: 0, mx: 0, my: 0, pause: false };
 const held = new Set();
 let inputMode = TOUCH ? 'touch' : 'kb', state = 'title';
@@ -28,7 +28,6 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyP') IN.pause = true;
   if (k === 'e') useNow();
   if (k === 'q') dayCrouch();
-  if (k === 'h' || k === 'f') exDrink();
   if (k === 'j') attack();
   if (k === 'k' || e.code === 'ShiftRight') wpSpecial();
   if (e.code === 'ShiftLeft') SPR.held = true;   // hold left shift to sprint
@@ -103,7 +102,6 @@ thumb(attackBtn, e => { atkPointer = e.pointerId; attack(); });
 thumb(dodgeBtn, () => dodge());
 thumb(useBtn, () => useNow());
 thumb(sneakBtn, () => { if (playing()) dayCrouch(); }, false);
-thumb(flaskBtn, () => { if (playing()) exDrink(); }, false);
 thumb($('bSpec'), () => wpSpecial());
 craftBtn.addEventListener('click', () => packToggle());
 $('bPack2').addEventListener('click', () => packToggle());
@@ -145,7 +143,6 @@ function pollPad(dt) {
       if (press(3)) { if (dayTool() === 'build') { if (pmBarOk()) PM.bar = true; } else wpSpecial(); }   // with the hammer, Y opens the build bar
       if (press(4)) daySelect((S.day.hot + HOTN - 1) % HOTN);
       if (press(5)) daySelect((S.day.hot + 1) % HOTN);
-      if (press(6)) exDrink();
       if (press(10)) sprintToggle();   // click the left stick to sprint
       if (press(11)) { if (SPR.on) SPR.on = false; dayCrouch(); }   // click the right stick to sneak
       if (press(12) && dayTool() === 'build') stCycle(-1); if (press(13) && dayTool() === 'build') stCycle(1);

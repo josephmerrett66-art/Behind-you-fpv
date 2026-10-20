@@ -103,8 +103,6 @@ body.touch.playing .rb:not([hidden]) { display: block; }
 #useBtn { right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(94px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; color: #050505; background: rgba(239,239,234,0.85); }
 #sneakBtn { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(128px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; }
 #sneakBtn[aria-pressed="true"] { background: rgba(239,239,234,0.88); color: #050505; }
-#flaskBtn { right: calc(196px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; color: #f1b77a; border-color: rgba(241,183,122,0.75); }
-#flaskBtn.empty { opacity: 0.35; }
 #craftBtn { left: calc(14px + env(safe-area-inset-left, 0px)); top: auto; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; }
 #campBtn { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(194px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; color: rgb(215,185,255); border-color: rgba(185,130,255,0.75); }
 #bSpec { right: calc(196px + env(safe-area-inset-right, 0px)); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; color: #ffd9a0; border-color: rgba(255,217,160,0.6); }
@@ -171,7 +169,6 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
   #bDodge { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
   #useBtn { bottom: calc(156px + env(safe-area-inset-bottom, 0px)); }
   #sneakBtn { bottom: calc(190px + env(safe-area-inset-bottom, 0px)); }
-  #flaskBtn { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); right: auto; left: calc(84px + env(safe-area-inset-left, 0px)); }
   #craftBtn { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
   #campBtn { bottom: calc(256px + env(safe-area-inset-bottom, 0px)); }
   #bSpec { bottom: calc(152px + env(safe-area-inset-bottom, 0px)); }
@@ -208,7 +205,6 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <button class="rb" id="bDodge">Dodge</button>
 <button class="rb" id="useBtn" hidden>Take</button>
 <button class="rb" id="sneakBtn" hidden aria-pressed="false">Sneak</button>
-<button class="rb" id="flaskBtn" hidden>Flask</button>
 <button class="rb" id="craftBtn" hidden>Pack</button>
 <button class="rb" id="campBtn" hidden>Wisps</button>
 <button class="rb" id="bSpec" hidden>Special</button>
@@ -217,7 +213,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <div id="hotbar" hidden></div>
 <div id="buildbar" hidden></div>
 <div id="fps"></div>
-<div id="padHint">RT attack · B dodge · X use · Y special · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause</div>
+<div id="padHint">RT attack · B dodge · X use · Y throw spear · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause</div>
 
 <div id="deathCard" hidden>
   <div class="dc">

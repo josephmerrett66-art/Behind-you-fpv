@@ -123,7 +123,7 @@ function padHintText() {
   if (box) return 'A select · B back';
   if (state !== 'play') return '';
   if (dayTool() === 'build') return 'Y build menu · RT place · X build it · D-pad ↑↓ piece ←→ turn · LB RB hotbar · View pack';
-  return 'RT attack · B dodge · X use · Y special · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause';
+  return 'RT attack · B dodge · X use · Y throw spear · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause';
 }
 function padHintStep() {
   const el = $('padHint'); if (!el) return;

@@ -115,7 +115,7 @@ FP.exStep = function (dt) {
   }
   if (NO_CAMP && atHome()) rg.oil = oilMax();   // back at your bed or fire: the torch topped up
   campBtn.hidden = true;
-  craftBtn.hidden = false; useBtn.hidden = !dayUseTarget(); sneakBtn.hidden = inCamp; dodgeBtn.hidden = inCamp; attackBtn.hidden = false; flaskBtn.hidden = inCamp;
+  craftBtn.hidden = false; useBtn.hidden = !dayUseTarget(); sneakBtn.hidden = inCamp; dodgeBtn.hidden = inCamp; attackBtn.hidden = false;
   if (inCamp) {
     for (const e of rg.enemies) if ((e.type === 'bomber' || e.type === 'laser') && !e.dead) { e.dead = e.gone = true; ashBurst(e.x, e.y, 12, 24); }
     return;                                  // nothing new comes while you're home

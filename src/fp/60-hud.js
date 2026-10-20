@@ -43,9 +43,8 @@ function drawHud() {
   if (hudEl.say.textContent !== say) hudEl.say.textContent = say;
   const used = D.inv.filter(Boolean).length, T = heldIt(), s = heldSlot();
   let wear = ''; if (s && s.d !== undefined) { const f = s.d / slotDur(s); if (f < 0.25) wear = ' · worn'; }
-  const info = `${rg.kills || 0} killed · pack ${used}/${invSize()} · ${(T ? T.n : 'bare hands').toLowerCase()}${wear} · flasks ${rg.flask ?? FLASK_MAX}/${FLASK_MAX}`;
+  const info = `pack ${used}/${invSize()} · ${(T ? T.n : 'bare hands').toLowerCase()}${wear}`;   // v127: no kill count or flasks (the action game's)
   if (hudEl.info.textContent !== info) hudEl.info.textContent = info;
-  flaskBtn.textContent = `Flask ${rg.flask ?? FLASK_MAX}`; flaskBtn.classList.toggle('empty', (rg.flask ?? FLASK_MAX) <= 0);
   // under the crosshair: what you'd use, or an animal you could take unawares
   let pr = '', sneak = false, hit = false;
   const o = dayUseTarget();
@@ -67,8 +66,8 @@ function drawHud() {
   if (bk !== bannerKey) { bannerKey = bk; if (m) { hudEl.bT.textContent = m.text; hudEl.bS.textContent = m.sub || ''; } }
   hudEl.banner.style.opacity = !deathCard.hidden || !m ? 0 : clamp(Math.min(m.t * 3, 3.2 - m.t), 0, 1);
   hudEl.notes.style.visibility = mid ? 'hidden' : '';
-  // the weapon's special, when what you hold has one
-  const rk = dayRngId(), w = rk || (dArmOn() ? curW() : null), SPC = w ? DSP[w] : null;
+  // a spear in your hand: you can throw it (v127: the action game's other specials are gone)
+  const w = dArmOn() ? curW() : null, SPC = w === 'twin' ? DSP.twin : null;
   hudEl.spec.hidden = !SPC || rg.inCamp;
   if (SPC) { const cool = Math.max(0, rg.wspT || 0); hudEl.spec.textContent = SPC.n; hudEl.spec.classList.toggle('cool', cool > 0); }
 }

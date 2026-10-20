@@ -103,8 +103,6 @@ body.touch.playing .rb:not([hidden]) { display: block; }
 #useBtn { right: calc(124px + env(safe-area-inset-right, 0px)); bottom: calc(94px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; color: #050505; background: rgba(239,239,234,0.85); }
 #sneakBtn { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(128px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; }
 #sneakBtn[aria-pressed="true"] { background: rgba(239,239,234,0.88); color: #050505; }
-#flaskBtn { right: calc(196px + env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; color: #f1b77a; border-color: rgba(241,183,122,0.75); }
-#flaskBtn.empty { opacity: 0.35; }
 #craftBtn { left: calc(14px + env(safe-area-inset-left, 0px)); top: auto; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; }
 #campBtn { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(194px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; color: rgb(215,185,255); border-color: rgba(185,130,255,0.75); }
 #bSpec { right: calc(196px + env(safe-area-inset-right, 0px)); bottom: calc(90px + env(safe-area-inset-bottom, 0px)); width: 54px; height: 54px; color: #ffd9a0; border-color: rgba(255,217,160,0.6); }
@@ -486,7 +484,6 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
   #bDodge { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
   #useBtn { bottom: calc(156px + env(safe-area-inset-bottom, 0px)); }
   #sneakBtn { bottom: calc(190px + env(safe-area-inset-bottom, 0px)); }
-  #flaskBtn { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); right: auto; left: calc(84px + env(safe-area-inset-left, 0px)); }
   #craftBtn { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
   #campBtn { bottom: calc(256px + env(safe-area-inset-bottom, 0px)); }
   #bSpec { bottom: calc(152px + env(safe-area-inset-bottom, 0px)); }
@@ -523,7 +520,6 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <button class="rb" id="bDodge">Dodge</button>
 <button class="rb" id="useBtn" hidden>Take</button>
 <button class="rb" id="sneakBtn" hidden aria-pressed="false">Sneak</button>
-<button class="rb" id="flaskBtn" hidden>Flask</button>
 <button class="rb" id="craftBtn" hidden>Pack</button>
 <button class="rb" id="campBtn" hidden>Wisps</button>
 <button class="rb" id="bSpec" hidden>Special</button>
@@ -532,7 +528,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <div id="hotbar" hidden></div>
 <div id="buildbar" hidden></div>
 <div id="fps"></div>
-<div id="padHint">RT attack · B dodge · X use · Y special · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause</div>
+<div id="padHint">RT attack · B dodge · X use · Y throw spear · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause</div>
 
 <div id="deathCard" hidden>
   <div class="dc">
@@ -630,7 +626,7 @@ const COARSE = () => document.body.classList.contains('touch');
 const byId = id => document.getElementById(id);
 const craftEl = byId('craft'), craftBtn = byId('craftBtn'), useBtn = byId('useBtn'), sneakBtn = byId('sneakBtn'), menuBtn = byId('bMenu'),
   hotbarEl = byId('hotbar'), buildbarEl = byId('buildbar'), dodgeBtn = byId('bDodge'), attackBtn = byId('bAtk'), campBtn = byId('campBtn'),
-  campEl = byId('camp'), statsEl = byId('stats'), deathCard = byId('deathCard'), flaskBtn = byId('flaskBtn');
+  campEl = byId('camp'), statsEl = byId('stats'), deathCard = byId('deathCard');
 const SPRITE_KINDS = { pine: [6, 70, 118, 35, 112], oak: [5, 84, 96, 42, 90], cherry: [5, 100, 104, 50, 92], dead: [4, 76, 72, 38, 66],   // the heights of a felled tree's crown, and how many of each kind of ground cover there are
   grass: [5], fern: [4], pebbles: [4], bush: [4], shrooms: [3], log: [3], rock: [5], post: [3] };
 // the first-person view fills these in (src/fp)
@@ -2703,7 +2699,6 @@ const DREC = [
   { id: 'cook', g: 'food', out: 'cooked', at: 'fire', cost: { meat: 1 } },
   { id: 'roast', g: 'food', out: 'roast', at: 'fire', cost: { mushroom: 1 } },
   { id: 'stew', g: 'food', out: 'stew', at: 'fire', cost: { cooked: 2, berries: 2 } },
-  { id: 'tonic', g: 'use', name: 'Healing tonic', sh: 'One more flask', icon: 'tonic', at: 'fire', cost: { berries: 4, fibre: 2 }, ok: () => S.rg.flask < FLASK_MAX, make: () => { S.rg.flask++; } },
   { id: 'tcol', g: 'stn', out: 'tcol', at: 'hand', cost: { tarp: 1, sticks: 4 } },
   { id: 'campfire', g: 'stn', out: 'campfire', at: 'hand', cost: { sticks: 6, stones: 5 } },
   { id: 'bench', g: 'stn', out: 'bench', at: 'hand', cost: { logs: 4, stones: 4, rope: 2 } },
@@ -3239,7 +3234,7 @@ function dayChest(c) {                         // a cache: food and a few useful
   if (Math.random() < 0.3) dayDrop(c.x, c.y, 'cooked', 1);
   if (Math.random() < 0.2 + 0.1 * ring) dayDrop(c.x, c.y, 'hide', 1);
   if (Math.random() < 0.12 + 0.05 * ring) { const t = ['axe1', 'pick1', 'spear1', 'club'][Math.floor(Math.random() * 4)]; dayDrop(c.x, c.y, t, 1, Math.round(DIT[t].dur * (0.3 + Math.random() * 0.4))); }   // an old tool, half worn
-  if (rg.flask < FLASK_MAX && Math.random() < 0.25) { rg.flask++; exNote('+1 flask', true); }
+  if (Math.random() < 0.25) dayDrop(c.x, c.y, 'bandage', 1);   // v127: a bandage where a flask was (no flasks in the woods)
 }
 function dayWake() {                             // v152 (Joe's plan): with a bed built, death is a setback, not the end:
   const D = S.day, rg = S.rg, p = S.p;          // you come round on your bed, and every last thing you carried lies where you fell
@@ -4874,8 +4869,9 @@ const DSP_QUAKE = { dur: 0.72, lunge: 40, moveT: [0.04, 0.3], hopT: [0.04, 0.33]
 const DSP_RIPOSTE = { dur: 0.42, lunge: 20, moveT: [0.02, 0.14], hitAt: 0.1, reach: 96, arc: 7, round: 1, dmg: 2.2, boss: 3.2, knock: 60, shake: 0.55, stop: 0.14, kick: 10, kh: 'riposte', fin: 'RIPOSTE' };
 function daySpecial() {
   dArmInit();
-  { const rk = dayRngId(); if (rk) return daySpecialRng(rk); }   // v189
+  if (dayRngId()) return;   // v127 (Joe: the action game's leftovers): no volley or heavy shot
   const rg = S.rg, p = S.p, w = dayArmId(), D = S.day;
+  if (w !== 'twin') return;   // and no whirl, quake, vanish or parry: only a spear's throw is left
   if (!w || !S.running || rg.phase !== 'fight' || rg.drink) return;
   if ((rg.wspT || 0) > 0 || p.wact) return wpDenied();
   const sp = DSP[w]; if (D.st < sp.st) { dayStam(sp.st); return wpDenied(); }
@@ -10583,7 +10579,7 @@ FP.exStep = function (dt) {
   }
   if (NO_CAMP && atHome()) rg.oil = oilMax();   // back at your bed or fire: the torch topped up
   campBtn.hidden = true;
-  craftBtn.hidden = false; useBtn.hidden = !dayUseTarget(); sneakBtn.hidden = inCamp; dodgeBtn.hidden = inCamp; attackBtn.hidden = false; flaskBtn.hidden = inCamp;
+  craftBtn.hidden = false; useBtn.hidden = !dayUseTarget(); sneakBtn.hidden = inCamp; dodgeBtn.hidden = inCamp; attackBtn.hidden = false;
   if (inCamp) {
     for (const e of rg.enemies) if ((e.type === 'bomber' || e.type === 'laser') && !e.dead) { e.dead = e.gone = true; ashBurst(e.x, e.y, 12, 24); }
     return;                                  // nothing new comes while you're home
@@ -10804,7 +10800,7 @@ function vocLead(buf) { const d = buf.getChannelData(0); let pk = 0; for (let i 
 
 ;
 // ================= your hands on the controls: keys and mouse, thumbs, or a controller =================
-// Each press calls the main game's own action (attack, dodge, dayUse, dayCrouch, daySelect, openCraft, exDrink, daySpecial...).
+// Each press calls the main game's own action (attack, dodge, dayUse, dayCrouch, daySelect, openCraft, daySpecial...).
 const IN = { lx: 0, ly: 0, mx: 0, my: 0, pause: false };
 const held = new Set();
 let inputMode = TOUCH ? 'touch' : 'kb', state = 'title';
@@ -10833,7 +10829,6 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyP') IN.pause = true;
   if (k === 'e') useNow();
   if (k === 'q') dayCrouch();
-  if (k === 'h' || k === 'f') exDrink();
   if (k === 'j') attack();
   if (k === 'k' || e.code === 'ShiftRight') wpSpecial();
   if (e.code === 'ShiftLeft') SPR.held = true;   // hold left shift to sprint
@@ -10908,7 +10903,6 @@ thumb(attackBtn, e => { atkPointer = e.pointerId; attack(); });
 thumb(dodgeBtn, () => dodge());
 thumb(useBtn, () => useNow());
 thumb(sneakBtn, () => { if (playing()) dayCrouch(); }, false);
-thumb(flaskBtn, () => { if (playing()) exDrink(); }, false);
 thumb($('bSpec'), () => wpSpecial());
 craftBtn.addEventListener('click', () => packToggle());
 $('bPack2').addEventListener('click', () => packToggle());
@@ -10950,7 +10944,6 @@ function pollPad(dt) {
       if (press(3)) { if (dayTool() === 'build') { if (pmBarOk()) PM.bar = true; } else wpSpecial(); }   // with the hammer, Y opens the build bar
       if (press(4)) daySelect((S.day.hot + HOTN - 1) % HOTN);
       if (press(5)) daySelect((S.day.hot + 1) % HOTN);
-      if (press(6)) exDrink();
       if (press(10)) sprintToggle();   // click the left stick to sprint
       if (press(11)) { if (SPR.on) SPR.on = false; dayCrouch(); }   // click the right stick to sneak
       if (press(12) && dayTool() === 'build') stCycle(-1); if (press(13) && dayTool() === 'build') stCycle(1);
@@ -11098,7 +11091,7 @@ function padHintText() {
   if (box) return 'A select · B back';
   if (state !== 'play') return '';
   if (dayTool() === 'build') return 'Y build menu · RT place · X build it · D-pad ↑↓ piece ←→ turn · LB RB hotbar · View pack';
-  return 'RT attack · B dodge · X use · Y special · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause';
+  return 'RT attack · B dodge · X use · Y throw spear · LB RB hotbar · L3 sprint · R3 sneak · View pack · Menu pause';
 }
 function padHintStep() {
   const el = $('padHint'); if (!el) return;
@@ -11407,9 +11400,8 @@ function drawHud() {
   if (hudEl.say.textContent !== say) hudEl.say.textContent = say;
   const used = D.inv.filter(Boolean).length, T = heldIt(), s = heldSlot();
   let wear = ''; if (s && s.d !== undefined) { const f = s.d / slotDur(s); if (f < 0.25) wear = ' · worn'; }
-  const info = `${rg.kills || 0} killed · pack ${used}/${invSize()} · ${(T ? T.n : 'bare hands').toLowerCase()}${wear} · flasks ${rg.flask ?? FLASK_MAX}/${FLASK_MAX}`;
+  const info = `pack ${used}/${invSize()} · ${(T ? T.n : 'bare hands').toLowerCase()}${wear}`;   // v127: no kill count or flasks (the action game's)
   if (hudEl.info.textContent !== info) hudEl.info.textContent = info;
-  flaskBtn.textContent = `Flask ${rg.flask ?? FLASK_MAX}`; flaskBtn.classList.toggle('empty', (rg.flask ?? FLASK_MAX) <= 0);
   // under the crosshair: what you'd use, or an animal you could take unawares
   let pr = '', sneak = false, hit = false;
   const o = dayUseTarget();
@@ -11431,8 +11423,8 @@ function drawHud() {
   if (bk !== bannerKey) { bannerKey = bk; if (m) { hudEl.bT.textContent = m.text; hudEl.bS.textContent = m.sub || ''; } }
   hudEl.banner.style.opacity = !deathCard.hidden || !m ? 0 : clamp(Math.min(m.t * 3, 3.2 - m.t), 0, 1);
   hudEl.notes.style.visibility = mid ? 'hidden' : '';
-  // the weapon's special, when what you hold has one
-  const rk = dayRngId(), w = rk || (dArmOn() ? curW() : null), SPC = w ? DSP[w] : null;
+  // a spear in your hand: you can throw it (v127: the action game's other specials are gone)
+  const w = dArmOn() ? curW() : null, SPC = w === 'twin' ? DSP.twin : null;
   hudEl.spec.hidden = !SPC || rg.inCamp;
   if (SPC) { const cool = Math.max(0, rg.wspT || 0); hudEl.spec.textContent = SPC.n; hudEl.spec.classList.toggle('cool', cool > 0); }
 }
@@ -16936,7 +16928,7 @@ const CAVE_NOTE = ['a journal, swollen with damp · the last pages:', '"day 31 �
     const T = CAVE_LOOT[(c.tier || 1) - 1], k = 2 + Math.floor(R() * 2);
     const pool = T.slice(); for (let i = 0; i < k && pool.length; i++) n(pool.splice(Math.floor(R() * pool.length), 1)[0]);
     if ((c.tier || 1) >= 2 && R() < (c.tier === 3 ? 0.9 : 0.35)) { const t = CAVE_RARE[Math.floor(R() * CAVE_RARE.length)]; dayDrop(c.x, c.y, t, 1, DIT[t].dur ? Math.round(DIT[t].dur * (0.6 + R() * 0.3)) : undefined); }
-    if (rg.flask < FLASK_MAX && R() < 0.4) { rg.flask++; exNote('+1 flask', true); }
+    if (R() < 0.4) dayDrop(c.x, c.y, 'bandage', 1 + (R() < 0.4 ? 1 : 0));   // v127: a bandage or two where a flask was
   }; }
 
 // ---------------- every frame: in or out ----------------
@@ -19242,7 +19234,7 @@ $('sCol').addEventListener('click', () => { COLOUR = !COLOUR; SET.colour = COLOU
 syncSet();
 $('how').innerHTML = TOUCH
   ? '<div><b>Left thumb</b> moves · <b>right thumb</b> drags to look · <b>Attack</b> also drags to look</div><div><b>Take</b> picks up, opens, drinks · <b>Pack</b> crafts and equips · tap the hotbar to hold something</div><div>Hold <b>Attack</b> with a bow or sling to draw, let go to loose · <b>Sneak</b> to creep up on animals</div>'
-  : '<div><b>WASD</b> move · <b>mouse</b> look · <b>click</b> attack, chop, mine · <b>right click / Space</b> roll</div><div><b>E</b> take, open, drink · <b>C</b> pack and crafting · <b>1–6</b> or <b>wheel</b> hotbar · <b>Q</b> sneak · <b>H</b> flask · <b>Shift</b> special</div><div>Building with the hammer: <b>Z X</b> turn · <b>[ ]</b> piece · <b>N</b> kind · <b>V</b> snap · <b>B</b> pull down · <b>Esc</b> menu</div>';
+  : '<div><b>WASD</b> move · <b>mouse</b> look · <b>click</b> attack, chop, mine · <b>right click / Space</b> roll</div><div><b>E</b> take, open, drink · <b>C</b> pack and crafting · <b>1–6</b> or <b>wheel</b> hotbar · <b>Q</b> sneak · <b>K</b> throw your spear</div><div>Building with the hammer: <b>Z X</b> turn · <b>[ ]</b> piece · <b>N</b> kind · <b>V</b> snap · <b>B</b> pull down · <b>Esc</b> menu</div>';
 
 // ---------------- the loop, and keeping the frame rate up ----------------
 let fpsAcc = 0, fpsN = 0, fpsShow = 0, slowT = 0, fastT = 0, lastDrop = -99, hurtFx = 0, healFx = 0, lastHp = null;

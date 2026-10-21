@@ -1,5 +1,7 @@
 // ================= doors you open and shut yourself; shut doors and spikes keep the clan out (Joe) =================
-// A door or gate stays as you left it: E (X on a pad) opens it and E shuts it again, when you're at it and looking its way.
+// A door stays as you left it: E (X on a pad) opens it and E shuts it again, when you're at it and looking its way. A gate
+// (Joe: "the gates and only the gates auto opening and closing when you walk through pretty much instantly") swings open,
+// away from you, as you come up to it and shuts again once you're through and a few steps on.
 // Shut, it's part of the wall. Nothing walks through it, the clan don't batter it down, and a blow can't come through a
 // standing wall or a shut door. A cannibal moving fast enough to have gone clean through one in a step is put back on its own
 // side. Shut yourself in (walls all round, every door closed) and they won't come at you: they prowl round outside, calling,
@@ -7,8 +9,10 @@
 // Spikes bite the clan whenever one comes close: a stake barricade or a palisade when it's in reach of the points, a spike
 // strip or a spike trap when it steps in among them. Each bite is a real wound against their thicker hides.
 const DOOR = { open: 7, shut: 14, reach: 34, look: 1.25 };
+const GATE = { near: 30, far: 38, open: 30, shut: 18 };   // how close it opens and how far off it shuts (from its line), and how fast
 const SPIKE = { reach: 24, strip: 8, trapR: 24, bite: 1.5, trap: 2.5, every: 0.7 };
 PC('door').b = 'You open and shut it · shut, it keeps them out';
+PC('gate').b = 'Two leaves, two walls wide · opens as you come to it';
 PC('stakes').b = 'Crossed stakes · the points bite whatever comes close';
 PC('palis').b = 'Sharpened logs · the points bite whatever comes close';
 let doorV = 0;   // bumped whenever a door is opened or shut, so the shut-in test looks again
@@ -20,7 +24,7 @@ function doorTarget() {
   const D = S.day, p = S.p; if (!D || !D.bld.size) return null;
   let best = null, bs = 1e9;
   for (const o of stNear(p.x, p.y, 70)) {
-    if (!isDoor(o)) continue;
+    if (!isDoor(o) || PC(o.id).k === 'gate') continue;   // (a gate sees to itself)
     const d = stDistTo(o, p.x, p.y); if (d > DOOR.reach) continue;
     const off = Math.abs(angDiff(Math.atan2(o.y - p.y, o.x - p.x), S.aimW || 0));
     if (d > 10 && off > DOOR.look) continue;
@@ -52,6 +56,11 @@ function doorToggle(o) {
     if (D) for (const o of D.bld.values()) {
       const P = PC(o.id); if (!stDoorish(P)) continue;
       if (!o.done) o.ajar = 0;
+      else if (P.k === 'gate') {   // open as you come up to it, shut once you're off it; the leaves swing away from your side
+        const d = stDistTo(o, S.p.x, S.p.y), want = o.ajar ? d < GATE.far : d < GATE.near;
+        if (want && !o.ajar && !((o.open || 0) > 0.05)) o.gsd = Math.sign(-(S.p.x - o.x) * Math.sin(o.a || 0) + (S.p.y - o.y) * Math.cos(o.a || 0)) || 1;
+        if (want !== !!o.ajar) { o.ajar = want ? 1 : 0; doorV++; }
+      }
       // the main game's own swing (below, in st) opens a door for whoever's beside it and hisses each time that changes: told
       // the same as it will work out, it never sees a change, so it stays quiet (told how you left it, it hissed every frame
       // you stood by a shut door or walked off from an open one, and the thud below went with it)
@@ -63,7 +72,8 @@ function doorToggle(o) {
     try { st(dt); } finally { rg.enemies = all; }
     for (const [o, open0] of keep) {
       const want = o.ajar || 0, was = open0;
-      o.open = open0 + (want - open0) * Math.min(1, dt * (want ? DOOR.open : DOOR.shut));
+      const R = PC(o.id).k === 'gate' ? GATE : DOOR;
+      o.open = open0 + (want - open0) * Math.min(1, dt * (want ? R.open : R.shut));
       if (Math.abs(want - o.open) < 0.004) o.open = want;   // come to rest, so it's drawn at rest
       if (!want && was >= 0.08 && o.open < 0.08 && actx && monNear(o, 500) > 0 && !snd('door_close', { x: o.x, y: o.y })) boomAt(actx.currentTime, 120, 60, 0.12, 0.3 * monNear(o, 500), sfxGain);   // the thud as it meets the frame
     }

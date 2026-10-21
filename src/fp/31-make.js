@@ -226,11 +226,12 @@ function doorKit(K, M, o, P) {
     for (const f of [-h2 + 3, h2 - 3]) { M.cyl(f, 0, 0, 3.2, H + 5, MAKE.bark[0], 'bark', 8); M.cone(f, 0, H + 5, 3.2, 5, MAKE.cut, 'wood', 8); M.lash(f, 0, H - 6, 3.2); M.lash(f, 0, 8, 3.2); }
     M.log([-h2 + 3, 0, H + 1], [h2 - 3, 0, H + 1], 2.2, MAKE.bark[2]);
     for (const sd of [-1, 1]) {
-      const [hx, hy] = M.at(sd * (h2 - 6.5), 0), dir = sd < 0 ? M.a + open * 1.3 : M.a + Math.PI - open * 1.3, w = h2 - 7, G = maker(K, hx, hy, dir), n = 5;
+      // each leaf swings away from whoever came up to it (67-doors), and both have their rails and brace on the same side, +s
+      const sw = -(o.gsd || -1) * open * 1.3, [hx, hy] = M.at(sd * (h2 - 6.5), 0), dir = sd < 0 ? M.a + sw : M.a + Math.PI - sw, w = h2 - 7, G = maker(K, hx, hy, dir), n = 5, fs = -sd;
       for (let i = 0; i < n; i++) { const f = (i + 0.5) * w / n, h = H - 6 + (i % 2) * 1.5, rf = w / n / 2 + 0.1; G.cyl(f, 0, 1, rf, h, MAKE.bark[(i + (sd > 0 ? 1 : 0)) % 3], 'bark', 8, 0, 2.2); G.cyl(f, 0, h + 1, rf * 0.84, 0.3, MAKE.cut, 'wood', 8, 0, 1.85); }
-      for (const z of [7, H - 14]) G.box(w / 2, 2.9, z, w, 2.6, 1.4, MAKE.plank[1]);
-      G.slab([1.5, 2.75, 9], [w - 1.5, 2.75, H - 15], 2.4, 1.2, MAKE.plank[2]);
-      for (const z of [7.6, H - 13.4]) G.box(2.4, 3.75, z, 5, 1.4, 0.4, MAKE.ironD, 'metal');
+      for (const z of [7, H - 14]) G.box(w / 2, fs * 2.9, z, w, 2.6, 1.4, MAKE.plank[1]);
+      G.slab([1.5, fs * 2.75, 9], [w - 1.5, fs * 2.75, H - 15], 2.4, 1.2, MAKE.plank[2]);
+      for (const z of [7.6, H - 13.4]) G.box(2.4, fs * 3.75, z, 5, 1.4, 0.4, MAKE.ironD, 'metal');
     }
     return;
   }

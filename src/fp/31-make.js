@@ -18,6 +18,27 @@ const MAKE = {
 for (const k in MAKE) MAKE[k] = Array.isArray(MAKE[k]) ? MAKE[k].map(h => hex(h)) : hex(MAKE[k]);
 const lit3 = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 
+// a split stone for walling: a block with its corners knocked off, every face a little out of true, each of the eight kinds
+// broken differently (Joe: the stone wall "looks to perfect ... they would not be perfect bricks they would be odd shapes")
+const P_STONE = (k = 0) => prim('stone' + k, () => {
+  let r = 0; const R = () => hash(k * 13.7 + (r++) * 3.1, k * 5.3 - r * 1.7);
+  const C = []; for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) C.push([x, y, z]);
+  // each corner cut back along its three edges, some deep, some barely, and every point nudged off true
+  const Q = C.map(c => { const deep = R() < 0.35 ? 0.04 : 0.12 + 0.26 * R(); return [0, 1, 2].map(ax => { const p = c.map(v => v * 0.5); p[ax] -= c[ax] * deep * (0.6 + 0.8 * R()); return p.map(v => v + (R() - 0.5) * 0.09); }); });
+  const pos = [], push = (...P) => { const cx = (P[0][0] + P[1][0] + P[2][0]) / 3, cy = (P[0][1] + P[1][1] + P[2][1]) / 3, cz = (P[0][2] + P[1][2] + P[2][2]) / 3;
+    const u = P[1].map((v, i) => v - P[0][i]), w = P[2].map((v, i) => v - P[0][i]), n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
+    if (n[0] * cx + n[1] * cy + n[2] * cz < 0) [P[1], P[2]] = [P[2], P[1]];   // wound outward
+    for (const p of P) pos.push(...p); };
+  Q.forEach(q => push(q[0], q[1], q[2]));   // the knocked-off corners
+  for (let ax = 0; ax < 3; ax++) for (const sg of [-1, 1]) {   // each face: the eight points round it, in order, fanned
+    const b = (ax + 1) % 3, c = (ax + 2) % 3, ring = [];
+    C.forEach((cn, i) => { if (cn[ax] === sg) ring.push(Q[i][b], Q[i][c]); });
+    ring.sort((p, q) => Math.atan2(p[c], p[b]) - Math.atan2(q[c], q[b]));
+    for (let i = 1; i < ring.length - 1; i++) push(ring[0], ring[i], ring[i + 1]);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+});
+
 // ---------------- the hand that makes them: shapes placed along (f) and across (s) a thing that faces a ----------------
 const _mb = new M4(), _mq = new THREE.Quaternion(), _me = new THREE.Euler(), _mx = new V3(), _my = new V3(), _mz = new V3();
 function maker(K, x, y, a, z0 = 0) {   // z0: how far off the ground it all starts (a rug laid on a floor)
@@ -41,6 +62,7 @@ function maker(K, x, y, a, z0 = 0) {   // z0: how far off the ground it all star
     cone(f, s, z, r, h, col, mt = 'wood', n = 6, em = 0, turn = 0) { put(P_CONE(n), f, s, z, r * 2, h, r * 2, col, mt, turn, 0, 0, em); },
     ball(f, s, z, l, h, w, col, mt = 'plain', em = 0, turn = 0) { put(P_BALL(), f, s, z, l, h, w, col, mt, turn, 0, 0, em); },   // its middle at z
     rock(f, s, z, l, h, w, col, k = 0, turn = 0, em = 0, mt = 'stone') { put(P_ROCK(((k % 4) + 4) % 4), f, s, z, l, h, w, col, mt, turn, 0, 0, em); },   // its middle at z
+    stone(f, s, z, l, h, w, col, k = 0, turn = 0, lean = 0, tip = 0) { put(P_STONE(((k % 8) + 8) % 8), f, s, z, l, h, w, col, 'stone', turn, lean, tip); },   // a split walling stone, its middle at z
     prism(f, s, z, l, h, w, col, mt = 'wood', turn = 0) { put(P_TENT(), f, s, z, l, h / 0.75, w / 0.866, col, mt, turn); },   // a ridge running along l, standing on z
     sag(f, s, z, l, d, w, col, tip = 0) { put(P_SAG(), f, s, z, l, d, w, col, 'cloth', 0, 0, tip); },   // a cloth tied at its corners at z, d deep in the middle
     // a log in its bark, the pale cut wood showing at each end
@@ -195,16 +217,8 @@ function wallKit(M, o, P, z0, z1, f0, f1) {
       M.rock(f, (q - 0.5) * 0.8, z0 + hz * (row + 0.5) + 0.4, w * (row && (i === 0 || i === n) ? 0.7 : 1.18), hz * 1.25, 6.6 + q, MAKE.stone[(i + row * 2 + Math.floor(q * 4)) % 4], i + row, q * 0.6 - 0.3);
     }
     for (let i = 0; i < n; i++) { const q = pcRnd(o, 90 + i); M.rock(f0 + (i + 0.5) * w, 0, z1 - 1.6, w * 1.12, 3.4, 7.6 + q * 0.6, MAKE.stone[(i + 2) % 4], i + 2, (q - 0.5) * 0.3); }
-  } else if (P.m === 'stone') {
-    M.box(fm, 0, z0, Ln, Hh, 6.2, MAKE.mortar, 'stone');
-    const n = Math.max(1, Math.round(Hh / 9)), ch = Hh / n, bl = 14;
-    for (let i = 0; i < n; i++) {
-      const zc = z0 + i * ch, off = (i + Math.round((o.x + o.y) * 0.01)) % 2 ? bl / 2 : 0, cuts = [f0];
-      for (let f = f0 + (off || bl); f < f1 - 2; f += bl) cuts.push(f);
-      cuts.push(f1);
-      for (let j = 0; j < cuts.length - 1; j++) { const u = cuts[j], v = cuts[j + 1], q = pcRnd(o, i * 7 + j); M.box((u + v) / 2, (q - 0.5) * 0.4, zc + 0.3, v - u - 0.8, ch - 0.7, 6.9 + q * 0.5, MAKE.stone[(i + j + Math.floor(q * 4)) % 4], 'stone'); }
-    }
-  } else if (P.m === 'iron') {
+  } else if (P.m === 'stone') roughStones(M, o, z0, z1, f0, f1);
+  else if (P.m === 'iron') {
     for (let i = 0; i < 7; i++) { const w = Ln / 7; M.box(f0 + (i + 0.5) * w, 0, z0, w - 0.35, Hh, 5.2, MAKE.plank[(i + 1) % 3]); }
     for (const z of [z0 + 5, z1 - 9]) {
       M.box(fm, 0, z, Ln - 0.4, 4, 6, MAKE.iron, 'metal');
@@ -216,6 +230,28 @@ function wallKit(M, o, P, z0, z1, f0, f1) {
     const n = Math.max(2, Math.round(Ln / 7));
     for (let i = 0; i < n; i++) { const w = (Ln - 3) / n, f = f0 + 1.5 + (i + 0.5) * w, h = Hh - 1.5 + 1.8 * pcRnd(o, i); M.box(f, 0, z0, w + 0.25, h, 4.4, i % 2 ? MAKE.straw : lit3(MAKE.straw, 0.9), 'wood'); }
     for (const z of [z0 + Hh * 0.22, z0 + Hh * 0.55, z0 + Hh * 0.85]) for (const sd of [-1, 1]) M.box(fm, sd * 2.35, z, Ln - 2.6, 1, 0.5, MAKE.strawD, 'cloth');
+  }
+}
+
+// dry walling: split stones of every size laid in rough courses, each sat a little proud of or back from the next and a little
+// out of level, through the whole thickness so both faces show stone; the dark heart of the wall shows in the gaps
+function roughStones(M, o, z0, z1, f0, f1, T = 7.4, seed = 0) {
+  const Hh = z1 - z0, Ln = f1 - f0, R = i => pcRnd(o, seed + i);
+  M.box((f0 + f1) / 2, 0, z0, Ln - 0.8, Hh - 0.5, T - 2.4, lit3(MAKE.mortar, 0.38), 'stone');
+  const n = Math.max(1, Math.round(Hh / 7.4)); let z = z0;
+  for (let row = 0; row < n; row++) {
+    const top = row === n - 1, hc = top ? z1 - z : (z1 - z) / (n - row) * (0.82 + 0.36 * R(200 + row));
+    let f = f0, j = 0;
+    while (f < f1 - 0.6) {
+      const id = row * 23 + j, q = R(id), q2 = R(400 + id), q3 = R(800 + id);
+      let len = Math.min(Ln, (top ? 10 : 6) + q * (top ? 7 : 10) * Math.min(1, Ln / 14));
+      if (j === 0 && row % 2) len *= 0.6;   // break the joints from course to course
+      if (f1 - (f + len) < 4) len = f1 - f;   // the last one takes up the rest
+      const h = hc * (0.84 + 0.22 * q2), zc = z + hc / 2 + (q3 - 0.5) * 0.8 - (top ? 0 : (hc - h) * 0.3);
+      M.stone(f + len / 2, (q3 - 0.5) * 1.4, zc, len - 0.7 - q2 * 0.6, h, T + q * 1.4, lit3(MAKE.stone[(row + j + Math.floor(q2 * 4)) % 4], 0.78 + 0.32 * q3), id, (q2 - 0.5) * 0.14, (q - 0.5) * 0.12, (q3 - 0.5) * 0.16);
+      f += len; j++;
+    }
+    z += hc;
   }
 }
 
@@ -237,8 +273,11 @@ function doorKit(K, M, o, P) {
   }
   // the frame: two posts and a lintel, a sill at the foot; stone is laid in blocks, alternately long and short
   if (stone) {
-    for (const sd of [-1, 1]) for (let i = 0; i < 4; i++) { const w = i % 2 ? 6 : 8.4, hb = (H - 5) / 4; M.box(sd * (h2 - w / 2), 0, i * hb, w, hb - 0.5, 7.4, MAKE.stone[(i + (sd > 0 ? 2 : 0)) % 4], 'stone'); }
-    M.box(0, 0, H - 5, L, 5, 7.8, MAKE.stone[2], 'stone');
+    for (const sd of [-1, 1]) for (let i = 0; i < 4; i++) {   // the jambs: big rough stones, alternately long and short into the wall
+      const w = i % 2 ? 6.4 : 8.8, hb = (H - 5) / 4, q = pcRnd(o, 70 + i + (sd > 0 ? 4 : 0));
+      M.stone(sd * (h2 - w / 2 + 0.2), (q - 0.5) * 0.8, i * hb + hb / 2, w, hb - 0.2, 7.8 + q, lit3(MAKE.stone[(i + (sd > 0 ? 2 : 0)) % 4], 0.9 + 0.16 * q), i + (sd > 0 ? 4 : 0), (q - 0.5) * 0.08, 0, (q - 0.5) * 0.06);
+    }
+    M.stone(0, 0, H - 2.5, L + 0.4, 5.2, 8.4, MAKE.stone[2], 6, 0, 0, (pcRnd(o, 79) - 0.5) * 0.03);   // the lintel: one long stone
   } else {
     for (const sd of [-1, 1]) M.box(sd * (h2 - 2.2), 0, 0, 4.4, H - 4, 5.6, MAKE.trim);
     M.box(0, 0, H - 4.4, L, 4.4, 6.2, MAKE.trim);
@@ -270,9 +309,9 @@ function windowKit(M, o, P) {
   const L = P.L || GRID, h2 = L / 2, H = WALL_TOP, z0 = (P.H || 42) * 0.42, z1 = (P.H || 42) * 0.78;
   if (P.m === 'stone') {
     wallKit(M, o, P, 0, z0, -h2, h2); wallKit(M, o, P, z1 + 1.6, H, -h2, h2);
-    M.box(0, 0, z0, L, 1.6, 8, MAKE.stone[2], 'stone'); M.box(0, 0, z1, L, 1.8, 8, MAKE.stone[2], 'stone');   // the sill and lintel
+    for (const [z, h, i] of [[z0 + 0.8, 1.8, 0], [z1 + 0.9, 2, 1]]) for (const [a, b, j] of [[-h2, -3, 0], [-3, h2, 1]]) M.stone((a + b) / 2, 0, z, b - a - 0.3, h, 8.2, lit3(MAKE.stone[(2 + i + j) % 4], 0.92 + 0.12 * pcRnd(o, 40 + i * 2 + j)), 3 + i * 2 + j, 0, 0, (pcRnd(o, 44 + i * 2 + j) - 0.5) * 0.03);   // the sill and the lintel, two long stones each
     const n = 3, ws = 5.6, gap = (L - (n + 1) * ws) / n;
-    for (let i = 0; i <= n; i++) { const f = -h2 + ws / 2 + i * (ws + gap); M.box(f, 0, z0 + 1.6, ws, z1 - z0 - 1.6, 7.2, MAKE.stone[i % 4], 'stone'); }
+    for (let i = 0; i <= n; i++) roughStones(M, o, z0 + 1.6, z1, -h2 + i * (ws + gap), -h2 + i * (ws + gap) + ws, 7.4, 60 + i * 20);   // the piers between the slits
     return;
   }
   wallKit(M, o, P, 0, z0, -h2, h2); wallKit(M, o, P, z1 + 2, H, -h2, h2);
@@ -294,7 +333,7 @@ function furnKit(M, o, P) {
     case 'pillar': {
       const w = r * 1.6, H = WALL_TOP;
       M.box(0, 0, 0, w + 2, 3, w + 2, MAKE.stone[1], 'stone');
-      for (let i = 0; i < 4; i++) { const q = pcRnd(o, i); M.box((q - 0.5) * 0.6, (0.5 - q) * 0.6, 3 + i * (H - 6) / 4, w - q * 0.6, (H - 6) / 4 - 0.5, w - (1 - q) * 0.6, MAKE.stone[i % 4], 'stone'); }
+      for (let i = 0; i < 4; i++) { const q = pcRnd(o, i), hb = (H - 6) / 4; M.stone((q - 0.5) * 0.8, (0.5 - q) * 0.8, 3 + (i + 0.5) * hb, w + 0.6 - q * 0.8, hb - 0.1, w + 0.6 - (1 - q) * 0.8, lit3(MAKE.stone[i % 4], 0.9 + 0.16 * q), i * 2 + 1, (q - 0.5) * 0.5, (q - 0.5) * 0.06, (0.5 - q) * 0.06); }
       M.box(0, 0, H - 3, w + 2.4, 3, w + 2.4, MAKE.stone[2], 'stone');
       break;
     }

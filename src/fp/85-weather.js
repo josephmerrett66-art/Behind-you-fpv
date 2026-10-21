@@ -17,7 +17,7 @@ function weatherFrame(now) {
   if (!rainMesh.visible) return;
   // drops wrap round a box that follows you, so the rain never runs out; a storm slants them on the wind
   const cx = cam.position.x, cz = cam.position.z, n = Math.floor(RAIN_N * Math.min(1, rain * (1 + storm * 0.6)));
-  const fall = 560, len = 22 + storm * 10, sx = 60 * storm, sz = 25 * storm;
+  const fall = 560, len = 22 + storm * 10, sx = 60 * storm, sz = 25 * storm, RF = rainRoofs(cx, cz, now);
   for (let i = 0; i < RAIN_N; i++) {
     const o = i * 6;
     if (i >= n) { rainPos.fill(0, o, o + 6); continue; }
@@ -25,11 +25,33 @@ function weatherFrame(now) {
     const y = cam.position.y - EYE + 220 - ((now * fall * (0.85 + c * 0.3) + c * 2200) % 240);
     const x = cx + (((a * RAIN_BOX + now * sx - cx) % RAIN_BOX + RAIN_BOX) % RAIN_BOX) - RAIN_BOX / 2;
     const z = cz + (((b * RAIN_BOX + now * sz - cz) % RAIN_BOX + RAIN_BOX) % RAIN_BOX) - RAIN_BOX / 2;
+    let y1 = y - len;
+    if (RF.length) { const top = rainRoofAt(RF, x, z); if (top !== null) { if (y <= top) { rainPos.fill(0, o, o + 6); continue; } y1 = Math.max(y1, top); } }   // over a roof: it lands on the roof
     rainPos[o] = x; rainPos[o + 1] = y; rainPos[o + 2] = z;
-    rainPos[o + 3] = x - sx * 0.03; rainPos[o + 4] = y - len; rainPos[o + 5] = z - sz * 0.03;
+    rainPos[o + 3] = x - sx * 0.03; rainPos[o + 4] = y1; rainPos[o + 5] = z - sz * 0.03;
   }
   rainGeo.attributes.position.needsUpdate = true;
   rainMat.opacity = 0.5 * rain * (0.45 + 0.55 * ENV.lt) + 0.5 * WXV.flash;
+}
+// Joe: "the rain goes through the roof tiles". The roofs you've built round you, looked up a few times a second, and for a
+// drop over one, how high its top is there: the drop stops on the roof, so under it you stay dry
+const RAIN_RF = { L: [], t: -9, x: 1e9, y: 1e9 };
+function rainRoofs(cx, cz, now) {
+  const R = RAIN_RF; if (!S || !S.day) return R.L;
+  if (now - R.t < 0.4 && Math.hypot(cx - R.x, cz - R.y) < 30) return R.L;
+  R.t = now; R.x = cx; R.y = cz; R.L = [];
+  for (const o of stNear(cx, cz, RAIN_BOX * 0.75)) { const P = PC(o.id); if (P.lay === 'roof' && o.done) R.L.push({ x: o.x, y: o.y, a: o.a || 0, tri: P.sh === 'tri' }); }
+  return R.L;
+}
+function rainRoofAt(L, x, z) {
+  for (const r of L) {
+    const dx = x - r.x, dy = z - r.y; if (Math.abs(dx) > GRID * 0.75 || Math.abs(dy) > GRID * 0.75) continue;
+    let inside;
+    if (r.tri) { inside = true; for (let k = 0; k < 3; k++) { const t = r.a + k * 2.0944; if (-(dx * Math.cos(t) + dy * Math.sin(t)) > TRI_R / 2 + 1) { inside = false; break; } } }
+    else { const c = Math.cos(r.a), s = Math.sin(r.a); inside = Math.abs(dx * c + dy * s) < GRID / 2 + 1 && Math.abs(dy * c - dx * s) < GRID / 2 + 1; }
+    if (inside) return terrH(x, z) + ROOF_H + 3;
+  }
+  return null;
 }
 // what the weather does to the light: greyer and dimmer in the rain, the haze much nearer in fog, white in a lightning flash
 function weatherLight() {

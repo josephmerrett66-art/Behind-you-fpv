@@ -101,8 +101,10 @@ function pieceKit(K, o) {
       const pal = P.m === 'stone' ? (i, j) => MAKE.stone[(i * 3 + j * 5) % 4] : P.m === 'thatch' ? (i, j) => (i + j) % 2 ? MAKE.straw : lit3(MAKE.straw, 0.86) : (i, j) => MAKE.plank[Math.floor(j * 5 / CLIP_N) % 3];
       K.mt = P.m === 'stone' ? 'stone' : 'wood'; floorClipKit(K, o, pal, z - 0.5, 2); K.mt = null; return;
     }
-    if (P.sh === 'tri') { triKit(K, o, P, z, roof); return; }
-    if (roof) roofKit(M, o, P); else floorKit(M, o, P);
+    const c0 = K.col.length;
+    if (P.sh === 'tri') triKit(K, o, P, z, roof);
+    else if (roof) roofKit(M, o, P); else floorKit(M, o, P);
+    if (roof && o.burn) for (let i = c0; i < K.col.length; i++) K.col[i] *= 1 - 0.16 * o.burn;   // scorched by a fire under it (89-roofs)
     return;
   }
   if (P.sh === 'edge') {
@@ -562,6 +564,8 @@ function buildKit(K, o) {
   const B = o.build || o, a = B.a || 0, x = o.x, y = o.y;
   if (o.camp === 'wall' || o.camp === 'stakes') { campKit1(K, o); return; }
   const M = maker(K, x, y, a);
+  if (B.fp) { fplaceKit(M, B); return; }   // the stone fireplace (89-roofs)
+  if (B.t === 'pit') { pitKit(K, x, y); return; }   // the fire pit, as a ghost while you move it (67-move)
   if (o.kind === 'fire' || B.t === 'fire') {   // stones round a bed of ash, sticks leant together over the embers
     M.cyl(0, 0, 0, 8, 0.5, hex('#3a3430'), 'plain', 10);
     for (let k = 0; k < 9; k++) { const t = k / 9 * TAU; M.rock(Math.cos(t) * 10.4, Math.sin(t) * 10.4, 1.8, 7, 5, 6.4, MAKE.stone[k % 4], k, t); }
@@ -906,7 +910,7 @@ const SWING = { skip: new Set(), next: null, k: null, had: false }, PCACHE = new
     if (!SWING.next || !o.done || o.del) return pk.apply(this, arguments);
     const P = PC(o.id);
     if (stDoorish(P) && (o.open || 0) !== (o.ajar || 0)) { SWING.next.add(o); return; }
-    const key = o.id + '|' + o.x + '|' + o.y + '|' + (o.a || 0) + '|' + (o.open || 0) + '|' + (o.clip || 0) + '|' + (P.lay === 'flat' && floorBelow(o) ? 'f' : '') + (P.light && dayLight() < 0.85 ? 'n' : '');
+    const key = o.id + '|' + o.x + '|' + o.y + '|' + (o.a || 0) + '|' + (o.open || 0) + '|' + (o.clip || 0) + '|' + (P.lay === 'flat' && floorBelow(o) ? 'f' : '') + (P.light && dayLight() < 0.85 ? 'n' : '') + (o.burn ? 'b' + o.burn : '');
     let e = PCACHE.get(o);
     if (!e || e.k !== key) { const T = new Kit(); pk(T, o); e = { k: key, c: T.take() }; PCACHE.set(o, e); }
     K.chunk(e.c);
@@ -925,7 +929,7 @@ const GHOST_D = [ghostMesh, planMesh].map(m => {
     const r = tf.apply(this, arguments);
     for (const [m, d] of GHOST_D) { d.geometry = m.geometry; d.visible = m.visible; }
     if (SWING.skip.size || SWING.had) {
-      if (!SWING.k) SWING.k = new KitMesh(true);
+      if (!SWING.k) { SWING.k = new KitMesh(true); castsShadow(SWING.k.mesh); }
       const K = new Kit(); for (const o of SWING.skip) if (S.day && S.day.bld.get(o.key) === o) pieceKit(K, o);
       SWING.k.set(K); SWING.had = K.pos.length > 0;
     }

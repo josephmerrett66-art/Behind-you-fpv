@@ -7,7 +7,11 @@
 // and anything stored in it is left on the ground. Grid pieces give back half their materials as before (all, from a blueprint).
 // A pen with animals in it and the sealed caches out in the woods can't be moved or recycled.
 const MV_REACH = 90, MV_PICK = 30;
-const mvT0 = B => B.basket ? 'basket' : B.smoke ? 'smoke' : B.pen ? 'pen' : B.comp ? 'compost' : B.snare ? 'snare' : B.ftrap ? 'ftrap' : B.t;   // what it was put down as
+const mvT0 = B => B.basket ? 'basket' : B.smoke ? 'smoke' : B.pen ? 'pen' : B.comp ? 'compost' : B.snare ? 'snare' : B.ftrap ? 'ftrap' : B.fp ? 'fplace' : B.t;   // what it was put down as
+// Joe: the fire pit on the hill can be moved or taken down too. It isn't one of your builds, so it stands in as one here
+const PIT_B = { t: 'pit', pit: 1, x: 0, y: 0, a: 0, parts: [] };
+const pitB = () => { if (EX_FIRE.gone) return null; PIT_B.x = EX_FIRE.x; PIT_B.y = EX_FIRE.y; PIT_B.parts = [{ x: EX_FIRE.x, y: EX_FIRE.y, r: 16 }]; return PIT_B; };
+const mvBuilds = () => { const b = pitB(); return b ? [...S.day.builds, b] : S.day.builds; };
 const mvItem = B => { const t = mvT0(B); if (DIT[t] && DIT[t].build === t) return t; if (t === 'fire') return 'campfire'; return Object.keys(DIT).find(k => DIT[k].k === 'place' && DIT[k].build === t) || null; };
 const mvFixed = B => B.t === 'cache' || (B.pen && (S.day.beasts || []).some(b => !b.dead && b.pen && Math.hypot(b.pen[0] - B.x, b.pen[1] - B.y) < 2));
 function mvAimPt() { const p = S.p, A = stAimPt(); if (Math.hypot(A.x - p.x, A.y - p.y) > MV_REACH) { const a = S.aimW || 0; return { x: p.x + Math.cos(a) * MV_REACH, y: p.y + Math.sin(a) * MV_REACH }; } return A; }
@@ -16,12 +20,12 @@ function mvAimPt() { const p = S.p, A = stAimPt(); if (Math.hypot(A.x - p.x, A.y
 // is the wall (Joe: "i want to be able to do that with all items ... like drying racks and chests"). It used to go by the spot
 // on the ground under your crosshair, which, looking at the thing itself, falls well behind it, so only what you looked down at
 // the foot of could be moved, and the floor a chest stood on came first.
-const MV_TALL = { plot: 3, snare: 6, ftrap: 6, hearth: 8, fire: 10, chest: 16, basket: 16, compost: 14, spikes: 16, pen: 16, anvil: 18, bench: 22, rainb: 22, tcol: 24, wall: 26, smoke: 30, rack: 32, furnace: 34, effigy: 45, signal: 45, tpost: 50 };
+const MV_TALL = { pit: 10, fplace: 60, plot: 3, snare: 6, ftrap: 6, hearth: 8, fire: 10, chest: 16, basket: 16, compost: 14, spikes: 16, pen: 16, anvil: 18, bench: 22, rainb: 22, tcol: 24, wall: 26, smoke: 30, rack: 32, furnace: 34, effigy: 45, signal: 45, tpost: 50 };
 const mvTop = P => P.H ?? (P.lay === 'floor' || P.lay === 'flat' ? 3 : P.lay === 'mount' ? 34 : 12);
 function mvLook() {   // the nearest thing your view runs into: { B, d } for a placed thing, { o, d } for a built piece
   const p = S.p, cp = Math.cos(look.pitch), sp = Math.sin(look.pitch), a = S.aimW || 0, ca = Math.cos(a) * cp, sa = Math.sin(a) * cp;
   if (isoP()) return null;
-  const L = S.day.builds.filter(B => B.t !== 'cache' && Math.abs(B.x - p.x) < MV_REACH + 60 && Math.abs(B.y - p.y) < MV_REACH + 60);
+  const L = mvBuilds().filter(B => B.t !== 'cache' && Math.abs(B.x - p.x) < MV_REACH + 60 && Math.abs(B.y - p.y) < MV_REACH + 60);
   const G = stNear(p.x, p.y, MV_REACH + 30).filter(o => PC(o.id).lay !== 'roof');   // (a roof overhead is found as before, by the spot on the ground)
   if (!L.length && !G.length) return null;
   for (let d = 4; d <= MV_REACH + 20; d += 3) {
@@ -34,7 +38,7 @@ function mvLook() {   // the nearest thing your view runs into: { B, d } for a p
 function mvAimedBuild() {   // the placed thing you're pointing at: the one you're looking at, else the one by the spot on the ground
   const L = mvLook(); if (L && L.B) return L.B;
   const A = mvAimPt(); let best = null, bd = MV_PICK;
-  for (const B of S.day.builds) { if (B.t === 'cache') continue; for (const q of B.parts) { const d = Math.hypot(q.x - A.x, q.y - A.y) - (q.r || 8) * 0.5; if (d < bd) { bd = d; best = B; } } }
+  for (const B of mvBuilds()) { if (B.t === 'cache') continue; for (const q of B.parts) { const d = Math.hypot(q.x - A.x, q.y - A.y) - (q.r || 8) * 0.5; if (d < bd) { bd = d; best = B; } } }
   return best;
 }
 function mvAimed() {   // whatever you're looking at first; else, as before, what's by the spot on the ground
@@ -42,14 +46,14 @@ function mvAimed() {   // whatever you're looking at first; else, as before, wha
   const o = stAimed(); if (o) return { kind: 'st', o };
   const B = mvAimedBuild(); return B ? { kind: 'b', B } : null;
 }
-const mvName = t => t.kind === 'st' ? PC(t.o.id).n.toLowerCase() : ((DIT[mvItem(t.B)] || {}).n || t.B.t).toLowerCase();
+const mvName = t => t.kind === 'st' ? PC(t.o.id).n.toLowerCase() : t.B.pit ? 'the fire pit' : ((DIT[mvItem(t.B)] || {}).n || t.B.t).toLowerCase();
 
 // ---- picking up, carrying, putting down ----
 function mvPick(t) {
   const D = S.day;
   if (t.kind === 'b' && mvFixed(t.B)) { dayNote('mvfix', t.B.pen ? 'not with animals in it' : 'it won\'t shift', 1.5); return; }
   if (t.kind === 'st') { const o = t.o; D.mv = { kind: 'st', o, x: o.x, y: o.y, a: o.a, clip: o.clip, bed: o.k === 'bed' && D.bed && Math.abs(D.bed.x - o.x) < 1 && Math.abs(D.bed.y - o.y) < 1 }; D.bld.delete(o.key); stGen++; D.brot = o.a; }
-  else { const B = t.B; D.mv = { kind: 'b', B, x: B.x, y: B.y, a: B.a }; D.builds = D.builds.filter(q => q !== B); }
+  else { const B = t.B; D.mv = { kind: 'b', B, x: B.x, y: B.y, a: B.a }; if (B.pit) EX_FIRE.gone = true; else D.builds = D.builds.filter(q => q !== B); }   // the pit goes out while you carry it
   exNote(`moving · ${mvName(t)} · Attack to put it down`); dayAct(10, 0.45); snd('wood_l') || sfx(1.4, 0.15, 'bandpass', 1500, 0.2); dayChanged();
 }
 function mvSpot() {   // where the thing you're carrying would go, and whether it fits
@@ -64,6 +68,7 @@ function mvPut(back) {   // down where you're pointing (or, back, where it came 
   if (M.kind === 'st') {
     const o = M.o; o.x = x; o.y = y; o.a = a; o.clip = clip; if (clip) o.clipV = 1; D.bld.set(o.key, o); stGen++;
     if (M.bed) D.bed = { x, y };
+  } else if (M.B.pit) { pitSet(x, y, false);
   } else {
     const B = M.B, fake = dayMakeBuild(mvT0(B), x, y, a, true);
     B.x = x; B.y = y; B.a = a; B.parts = fake.parts.map(q => Object.assign(q, { build: B })); D.builds.push(B);
@@ -82,6 +87,14 @@ function mvToggle() {
 // recycling a placed thing: it comes back to you whole; what was stored in it is left on the ground
 function mvRecycle(B) {
   const D = S.day; if (mvFixed(B)) { dayNote('mvfix', B.pen ? 'not with animals in it' : 'it won\'t shift', 1.5); return; }
+  if (B.pit) {   // the fire pit: its stones and a campfire's worth come back as a campfire, and its safe ring goes with it
+    pitSet(B.x, B.y, true); dayGive('campfire', 1, B.x, B.y, true);
+    ashBurst(B.x, B.y, 10, 20); addShake(0.18); dayChips(B.x, B.y, 10, 'stone', 10);
+    exNote('recycled · the fire pit · a campfire back in your pack');
+    if (actx && !snd('mining', { x: B.x, y: B.y, v: 0.7 })) noiseAt(actx.currentTime, 700, 200, 0.3, 0.35, sfxGain);
+    try { thingsSync(true); } catch (e) {}
+    return dayChanged();
+  }
   const id = mvItem(B);
   if (Array.isArray(B.inv)) for (const s of B.inv) if (s) dayDrop(B.x, B.y, s.id, s.n || 1, s);
   D.builds = D.builds.filter(q => q !== B);
@@ -150,5 +163,5 @@ function mvStep() { const D = S && S.day; if (D && D.mv && (dayTool() !== 'build
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && state === 'play' && S && S.day && dayTool() === 'build' && !menusOpen()) mvToggle(); });
 // saving while you carry something saves it where it came from
 { const sv = daySave; daySave = function () { const D = S && S.day, M = D && D.mv; if (!M) return sv.apply(this, arguments);
-  if (M.kind === 'st') D.bld.set(M.o.key, M.o); else D.builds.push(M.B);
+  if (M.kind === 'st') D.bld.set(M.o.key, M.o); else if (!M.B.pit) D.builds.push(M.B);   // (the pit carried is still saved where it stood: S.day.pit only changes when it's put down)
   try { return sv.apply(this, arguments); } finally { if (M.kind === 'st') D.bld.delete(M.o.key); else D.builds = D.builds.filter(q => q !== M.B); } }; }

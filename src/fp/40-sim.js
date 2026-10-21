@@ -200,6 +200,6 @@ function dayPlaceSpot(t) {
 const COOK_R = 60;
 function stationHere(at) {
   const p = S.p;
-  if (at === 'fire') return Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
+  if (at === 'fire') return (!EX_FIRE.gone && Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R) || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
   return at === 'hand' || (at === 'bench' && dayBenchNear(p.x, p.y)) || (at === 'furnace' && dayFurnNear(p.x, p.y)) || (at === 'rack' && dayRackNear(p.x, p.y)) || (at === 'anvil' && dayAnvilNear(p.x, p.y));
 }

@@ -76,8 +76,9 @@ function smokeFrame(rdt) {
   // the clan's camps: a column you can see over the treetops (rain beats it down)
   for (const k of clanCamps()) { const d = Math.hypot(k.x - p.x, k.y - p.y); if (d < 2600) smokeFrom(k.x, k.y, terrH(k.x, k.y) + 14, 0, 18, k.seed * 9 + 1, 0.85 * (1 - 0.6 * rain), 300, 26); }
   // your fires and the pit
-  const fires = [EX_FIRE, ...D.builds.filter(B => B.t === 'fire')].filter(f => Math.hypot(f.x - p.x, f.y - p.y) < 900).slice(0, 8);
-  for (const f of fires) smokeFrom(f.x, f.y, terrH(f.x, f.y) + 10, 1, 7, hash(f.x * 0.1, f.y * 0.1) * 9, 0.75 * (1 - 0.5 * rain), f === EX_FIRE ? 110 : 80, 9);
+  const fires = [...pitL(), ...D.builds.filter(B => B.t === 'fire')].filter(f => Math.hypot(f.x - p.x, f.y - p.y) < 900).slice(0, 8);
+  for (const f of fires) if (f.fp) { const [cx, cy] = fpFlue(f); smokeFrom(cx, cy, terrH(f.x, f.y) + FPL.top, 1, 5, hash(f.x * 0.1, f.y * 0.1) * 9, 0.75 * (1 - 0.5 * rain), 90, 7); } else smokeFrom(f.x, f.y, terrH(f.x, f.y) + 10, 1, 7, hash(f.x * 0.1, f.y * 0.1) * 9, 0.75 * (1 - 0.5 * rain), f === EX_FIRE ? 110 : 80, 9);
+  roofSmoke(smokeFrom);   // a roof scorching over a fire (89-roofs)
   // mist: in the first hour of light, and while the ground is still wet after rain
   const f = dayT(), dawn = f > NIGHT_OUT - 0.02 ? clamp(1 - (f - NIGHT_OUT) / 0.09, 0, 1) * sstep(NIGHT_OUT - 0.02, NIGHT_OUT + 0.01, f) : 0;
   const want = Math.max(dawn, (LU.rainW ? LU.rainW.value : 0) * (1 - rain) * 0.7);
@@ -146,7 +147,7 @@ function glowFrame() {
   mothPts.visible = false;
   if (!on || night < 0.01) return;
   // moths: shared out among the fires near you (up to four of them)
-  const fires = [EX_FIRE, ...D.builds.filter(B => B.t === 'fire' || (B.t === 'tpost' && B.fuel > 0)), ...clanCamps()].filter(f => Math.hypot(f.x - p.x, f.y - p.y) < 420).slice(0, 4);
+  const fires = [...pitL(), ...D.builds.filter(B => B.t === 'fire' || (B.t === 'tpost' && B.fuel > 0)), ...clanCamps()].filter(f => Math.hypot(f.x - p.x, f.y - p.y) < 420).slice(0, 4);
   if (!fires.length) return;
   const at = mothPts.geometry.attributes.at, A = at.array, per = Math.floor(GLOW.moth / fires.length);
   for (let i = 0; i < GLOW.moth; i++) { const f = fires[Math.min(fires.length - 1, Math.floor(i / per))], h = f.t === 'tpost' ? 34 : 0; A[i * 4] = f.x; A[i * 4 + 1] = terrH(f.x, f.y) + h; A[i * 4 + 2] = f.y; A[i * 4 + 3] = i < per * fires.length ? 1 : 0; }

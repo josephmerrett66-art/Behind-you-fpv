@@ -67,6 +67,7 @@ const nodeB = new Board(900, 560, 0, true);   // the grass and berry bushes you 
 
 // ---------------- the kits ----------------
 const thingsK = new KitMesh(true), dynK = new KitMesh(true);
+castsShadow(thingsK.mesh); castsShadow(dynK.mesh);   // what you build stands in the sun's light too: a roof shades the room under it (Joe: "the sun goes through")
 // a ghost: what you'd build, green where it fits and red where it won't; a blueprint glows like a plan
 const ghostMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ tint: { value: new V3(0.6, 0.92, 0.55) }, alpha: { value: 0.5 } }, LU), transparent: true, depthWrite: false,
@@ -98,11 +99,12 @@ function thingsSync(force) {
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size;
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.open ? 'O' : '') + (B.pen && B.inv.some(s => s && s.id === 'meat') ? 'm' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
-  for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + ((o.open || 0) !== (o.ajar || 0) ? 'm' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');   // m: a door on the swing (31-make draws it)
-  key += dayLight() < 0.85 ? 'N' : 'D';
+  for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.burn || '') + (o.open ? 'o' : '') + ((o.open || 0) !== (o.ajar || 0) ? 'm' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');   // m: a door on the swing (31-make draws it)
+  key += dayLight() < 0.85 ? 'N' : 'D'; key += EX_FIRE.gone ? 'P' : '@' + EX_FIRE.x + ',' + EX_FIRE.y;
   if (!force && key === thingsKey && Math.hypot(p.x - thingsAt.x, p.y - thingsAt.y) < 120) return;
   thingsKey = key; thingsAt = { x: p.x, y: p.y };
   const K = new Kit(), PK = new Kit();
+  if (!EX_FIRE.gone && Math.abs(EX_FIRE.x - p.x) < R + 60 && Math.abs(EX_FIRE.y - p.y) < R + 60) pitKit(K, EX_FIRE.x, EX_FIRE.y);   // the fire pit on the hill, wherever you've moved it (89-roofs)
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R + 60 && Math.abs(B.y - p.y) < R + 60) { if (B.t === 'fire') buildKit(K, { kind: 'fire', x: B.x, y: B.y, build: B }); else for (const o of B.parts) buildKit(K, o); }
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) pieceKit(o.done && !o.del ? K : PK, o);
   thingsK.set(K); setGeo(planMesh, PK);

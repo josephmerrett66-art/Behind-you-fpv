@@ -29,6 +29,10 @@ body { background: var(--void); color: var(--bone); font-family: var(--mono); ov
 #touch { position: fixed; inset: 0; touch-action: none; }
 #grain { position: fixed; inset: -64px; pointer-events: none; opacity: 0.06; will-change: transform; }
 #vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.5) 100%); }
+body.film #vig { background: radial-gradient(circle farthest-corner at center, rgba(0,0,0,0) 35%, rgba(0,0,0,0.35) 70%, rgba(0,0,0,0.75) 100%); }
+#flick { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: #000; display: none; }
+.dust { position: fixed; left: 0; top: 0; width: 48px; height: 48px; margin: -24px 0 0 -24px; pointer-events: none; opacity: 0; display: none; }
+body.film #flick, body.film .dust { display: block; }
 #hurt { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(120,0,0,0) 35%, rgba(150,10,10,0.75) 100%); }
 #heal { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,190,120,0) 40%, rgba(255,170,90,0.45) 100%); }
 #cold { position: fixed; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at center, rgba(160,200,230,0) 45%, rgba(170,210,240,0.5) 100%); }
@@ -499,6 +503,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
 <div id="touch"></div>
 <canvas id="grain" width="256" height="256"></canvas>
 <div id="vig"></div>
+<div id="flick"></div>
 <div id="cold"></div>
 <div id="hurt"></div>
 <div id="heal"></div>
@@ -598,6 +603,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
         <button class="tab" id="sView">Third person</button>
         <button class="tab" id="sInk">Outlines</button>
         <button class="tab" id="sGrass">Grass</button>
+        <button class="tab" id="sFilm">Film grain</button>
         <button class="tab" id="sInv">Invert look</button>
         <button class="tab" id="sFps">Show FPS</button>
         <button class="tab" id="sSnd">Sound</button>
@@ -2227,7 +2233,8 @@ const TELE2 = { kind: 'tele', x: Math.cos(PORTAL_A[1]) * PRING, y: Math.sin(PORT
 const PLINTHS = PORTAL_A.slice(2).map((a, k) => ({ kind: 'plinth', x: Math.cos(a) * PRING, y: Math.sin(a) * PRING, s: 1, r: 24, seed: k * 1.7 + 0.3 }));
 const nearPortal = (x, y, d) => [TELE, TELE2, ...PLINTHS].some(o => Math.hypot(x - o.x, y - o.y) < d);
 const inPlaza = (x, y) => Math.hypot(x, y) < PRING + 110;
-const EX_FIRE = { kind: 'fire', x: 0, y: 0, r: 14, s: 1, seed: 3.7 };
+const EX_FIRE = { kind: 'fire', x: 0, y: 0, r: 14, s: 1, seed: 3.7 };   // the fire pit on the hill: you can move it or take it down now (89-roofs), so x, y and gone follow S.day.pit
+const pitL = () => EX_FIRE.gone ? [] : [EX_FIRE];
 const OUT_R = 100, LAMP_GAP = 170, LAMP_MAX = 40, RECALL_T = 2;
 const ITEMS = { s: { name: 'scrap', slots: 1, val: 1 }, c: { name: 'cache', slots: 1, val: 5 }, r: { name: 'relic', slots: 2, val: 22 } };
 const exRing = d => d < RINGS[0] ? 0 : d < RINGS[1] ? 1 : d < RINGS[2] ? 2 : 3;
@@ -2266,14 +2273,14 @@ function exWeight() {                       // heavy loot slows you; a burning r
   return Math.max(0.6, 1 - 0.04 * exLoad() * (1 - 0.2 * (XS.frame || 0)));
 }
 function exSafeAt(x, y, pad = 0) {           // inside the camp fence or an outpost's light?
-  if (NO_CAMP) { if (Math.hypot(x, y) < PIT_R + pad) return { x: 0, y: 0, r: PIT_R }; const h = hearthAt(x, y, pad); if (h) return h; }   // Joe: just the fire pit's light now
+  if (NO_CAMP) { if (!EX_FIRE.gone && Math.hypot(x - EX_FIRE.x, y - EX_FIRE.y) < PIT_R + pad) return { x: EX_FIRE.x, y: EX_FIRE.y, r: PIT_R }; const h = hearthAt(x, y, pad); if (h) return h; }   // Joe: just the fire pit's light now
   else if (Math.hypot(x, y) < CAMP_R + pad) return { x: 0, y: 0, r: CAMP_R };
   if (XS) for (const o of XS.outposts) if (Math.hypot(x - o.x, y - o.y) < OUT_R + pad) return { x: o.x, y: o.y, r: OUT_R };
   if (XS && XS.dgrace && S.rg && S.rg.beyond && !S.rg.next && Math.hypot(x - XS.dgrace.x, y - XS.dgrace.y) < OUT_R + pad) return { x: XS.dgrace.x, y: XS.dgrace.y, r: OUT_R };   // the lantern by a keeper's ground
   return null;
 }
 function exLightsIn(ci, cj) {
-  const out = ci === 0 && cj === 0 ? [EX_FIRE] : [];
+  const out = !EX_FIRE.gone && Math.floor(EX_FIRE.x / C) === ci && Math.floor(EX_FIRE.y / C) === cj ? [EX_FIRE] : [];
   if (XS) for (const o of XS.outposts) if (Math.floor(o.x / C) === ci && Math.floor(o.y / C) === cj)
     out.push(o.light || (o.light = { kind: 'lamp', x: o.x, y: o.y, r: 4, s: 1, seed: o.x % 7 }));
   return out;
@@ -2640,6 +2647,7 @@ const DIT = {
   vest: { n: 'Hide vest', c: '#a07850', st: 1, k: 'gear', slot: 'body', heart: 1, b: 'One more heart' },
   legs: { n: 'Hide leggings', c: '#8a6440', st: 1, k: 'gear', slot: 'legs', arm: 1, b: 'Armour · soaks one hit, then mends' },
   campfire: { n: 'Campfire', c: '#ff9a3c', st: 4, k: 'place', build: 'fire', b: 'Cook, and rest by it' },
+  fplace: { n: 'Stone fireplace', c: '#8d8b85', st: 1, k: 'place', build: 'fplace', b: 'A stone hearth with a chimney · cook and keep warm by it · safe under a roof, where an open fire burns it' },   // 89-roofs
   bench: { n: 'Workbench', c: '#b08a58', st: 2, k: 'place', build: 'bench', b: 'Better tools, gear and planks' },
   rainb: { n: 'Rain barrel', c: '#7a5a3a', st: 2, k: 'place', build: 'rainb', b: 'Clean rainwater, up to 10 drinks · keeps plots nearby watered so they grow faster' },
   tarp: { n: 'Tarp', c: '#6a8a76', st: 2, k: 'mat', b: 'Oiled cloth · stretch it over sticks to catch the rain' },
@@ -2707,6 +2715,7 @@ const DREC = [
   { id: 'stew', g: 'food', out: 'stew', at: 'fire', cost: { cooked: 2, berries: 2 } },
   { id: 'tcol', g: 'stn', out: 'tcol', at: 'hand', cost: { tarp: 1, sticks: 4 } },
   { id: 'campfire', g: 'stn', out: 'campfire', at: 'hand', cost: { sticks: 6, stones: 5 } },
+  { id: 'fplace', g: 'stn', out: 'fplace', at: 'hand', cost: { stones: 14, sticks: 4 } },
   { id: 'bench', g: 'stn', out: 'bench', at: 'hand', cost: { logs: 4, stones: 4, rope: 2 } },
   { id: 'chest', g: 'stn', out: 'chest', at: 'bench', cost: { planks: 6, rope: 1 } },
   { id: 'furnace', g: 'stn', out: 'furnace', at: 'bench', cost: { stones: 14, planks: 4 } },
@@ -3025,7 +3034,7 @@ function dayUseTarget() {                        // the nearest thing in reach y
     { const d = dist2(CAMP_BOX, p) - 14; if (d < bd) { bd = d; best = CAMP_BOX; } }
     { const d = dist2(CAMP_BARREL, p) - 10; if (d < bd && D.water < FOOD_MAX - 2) { bd = d; best = CAMP_BARREL; } }
   }
-  { const d = dist2(EX_FIRE, p) - 24; if (d < bd) { bd = d; best = EX_FIRE; } }   // the fire pit: cook, boil
+  if (!EX_FIRE.gone) { const d = dist2(EX_FIRE, p) - 24; if (d < bd) { bd = d; best = EX_FIRE; } }   // the fire pit: cook, boil
   for (const o of stNear(p.x, p.y, 60)) if (o.k === 'bed' && o.done) { const d = Math.hypot(o.x - p.x, o.y - p.y) - 14; if (d < bd) { bd = d; best = o; } }   // lie down in your bed
   if (dayTool() === 'build') for (const o of stNear(p.x, p.y, 60)) if (stNeedsWork(o)) { const d = stDistTo(o, p.x, p.y) - 4; if (d < bd) { bd = d; best = o; } }   // v186: Use works your blueprints up
   return best;
@@ -3343,6 +3352,7 @@ const ICON = (() => {
     hood: '<path d="M4.5 19c0-8.5 3.2-14 7.5-14s7.5 5.5 7.5 14l-3.2 1c0-4.3-2-7.3-4.3-7.3s-4.3 3-4.3 7.3z" fill="#a07850"/><path d="M8 9c2-2 6-2 8 0" stroke="#7a5a3a" stroke-width="1" fill="none"/>',
     vest: '<path d="M8 3.5l-4.2 3.2v13.8h6.4V9.5h3.6v11h6.4V6.7L16 3.5c0 2-1.6 3.2-4 3.2S8 5.5 8 3.5z" fill="#a07850"/><path d="M6 12h2.5M15.5 12H18" stroke="#7a5a3a" stroke-width="1.2"/>',
     legs: '<path d="M5.8 3.5h12.4l1.2 17h-5.2l-2.2-10.5-2.2 10.5H4.6z" fill="#8a6440"/><path d="M6 7h12" stroke="#6a4628" stroke-width="1.4"/>',
+    fplace: '<path d="M4 21V11h3V3.5h6V11h7v10z" fill="#8d8b85"/><path d="M4 14h16M4 17.5h16M7 7h6M10 3.5V7M8.5 11v3M15 14v3.5M11 17.5V21M7 7.3V11" stroke="#5a5852" stroke-width=".8"/><path d="M8 21v-4.5a4 3.5 0 0 1 8 0V21z" fill="#1c1916"/><path d="M12 15c1.6 1.6 2.2 2.6 2.2 4.1a2.2 2.2 0 0 1-4.4 0c0-1.1.6-1.9 2.2-4.1z" fill="#ff9a3c"/><path d="M6.5 3.5h7v1.4h-7z" fill="#6e6c67"/>',
     campfire: '<path d="M3.5 19.5l17-4.5M3.5 15l17 4.5" stroke="#7a5232" stroke-width="2.6" stroke-linecap="round"/><path d="M12 3.5c3.2 3.2 4.3 5.3 4.3 8.6a4.3 4.3 0 0 1-8.6 0c0-2.2 1-3.2 2.1-4.3 0 2.1 1 2.1 2.1 2.1-1-2.1-1-4.3.1-6.4z" fill="#ff9a3c"/><path d="M12 9.5c1.2 1.2 1.8 2.2 1.8 3.4a1.8 1.8 0 0 1-3.6 0c0-.9.6-1.6 1.8-3.4z" fill="#ffe08a"/>',
     bench: '<path d="M2.5 8h19v3.5h-19z" fill="#b08a58"/><path d="M5 11.5v9M19 11.5v9M5 16.5h14" stroke="#7a5232" stroke-width="2.2"/><path d="M13.5 8V4.8l3.2-1.3" stroke="#9a9a94" stroke-width="1.7" fill="none" stroke-linecap="round"/><rect x="5" y="6" width="5" height="2" fill="#8d8b85"/>',
     chest: '<rect x="3" y="9.5" width="18" height="11" rx="1.2" fill="#8a6440"/><path d="M3 9.5c0-3.2 2.2-5.4 9-5.4s9 2.2 9 5.4z" fill="#a07850"/><path d="M3 14.5h18" stroke="#5a3e28" stroke-width="1"/><rect x="10.5" y="9" width="3" height="4.2" rx=".5" fill="#d8c070"/><path d="M6.5 9.5v11M17.5 9.5v11" stroke="#5a3e28" stroke-width="1.2"/>',
@@ -3447,12 +3457,13 @@ function dayMakeBuild(t, cx, cy, a, fake) {
     B.crop = null; B.sown = 0; B.grown = false;
     B.parts.push({ kind: 'dbuild', sub: 'plot', x: cx, y: cy, r: 0, s: 1, build: B, flat: true });
   } else {
-    B.parts.push({ kind: 'fire', x: cx, y: cy, r: 10, s: 1, build: B, dfire: true });
+    if (t === 'fplace') { B.t = 'fire'; B.fp = 1; }   // the stone fireplace: a fire in every way, its chimney taking the heat up through a roof (89-roofs)
+    B.parts.push({ kind: 'fire', x: cx, y: cy, r: B.fp ? 14 : 10, s: 1, build: B, dfire: true });
   }
   if (!fake) D.builds.push(B);
   return B;
 }
-const dayFireNear = (x, y) => S.day && (Math.hypot(EX_FIRE.x - x, EX_FIRE.y - y) < FIRE_R || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - x, B.y - y) < FIRE_R));
+const dayFireNear = (x, y) => S.day && ((!EX_FIRE.gone && Math.hypot(EX_FIRE.x - x, EX_FIRE.y - y) < FIRE_R) || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - x, B.y - y) < FIRE_R));
 const dayBenchNear = (x, y) => S.day && S.day.builds.some(B => B.t === 'bench' && Math.hypot(B.x - x, B.y - y) < BENCH_R);
 function daySolidsNear(x, y, R) { const out = []; if (!S.day) return out; for (const B of S.day.builds) if (B.t !== 'spikes' && Math.abs(B.x - x) < R + 50 && Math.abs(B.y - y) < R + 50) for (const o of B.parts) out.push(o); for (const o of stNear(x, y, R)) for (const q of stSolids(o)) out.push(q); return out; }
 function buildStep(dt) {
@@ -3739,7 +3750,7 @@ function dayClearSave() { try { localStorage.removeItem(dayKey()); } catch (e) {
 function daySave() {
   const D = S && S.day, rg = S && S.rg; if (ARENA || !D || !rg || rg.phase !== 'fight' || S.mode !== 'expedition') return;
   const keep = ['t', 'n', 'food', 'water', 'st', 'sick', 'warn', 'raidDue', 'hot', 'inv', 'box', 'gear', 'told', 'baseHp', 'bed', 'piece', 'died', 'deaths', 'warm', 'bleed', 'ph',
-    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp', 'cacheV', 'herd', 'clanN', 'clanAng', 'clanCamps', 'clanCaught', 'clanDay', 'cleared'];   // v155
+    'heat', 'raids', 'caught', 'away', 'jlog', 'bag', 'siege', 'won', 'raidSeen', 'scoutT', 'named', 'pots', 'noCamp', 'cacheV', 'herd', 'clanN', 'clanAng', 'clanCamps', 'clanCaught', 'clanDay', 'cleared', 'pit'];   // v155
   const d = {}; for (const k of keep) d[k] = D[k];
   d.seen = [...D.seen]; d.known = [...D.known]; d.fresh = [...D.fresh];
   d.felled = [...D.felled]; d.cut = [...D.cut]; d.bchunks = [...D.bchunks];
@@ -3749,7 +3760,7 @@ function daySave() {
   d.bld = [...D.bld.values()].map(stOut); d.brot = D.brot || 0; d.bsnap = D.bsnap !== false;
   d.logs = D.logs.flatMap(g => [['logs', g.give.logs], ['sticks', g.give.sticks]].filter(([, n]) => n).map(([it, n]) => ({ it, n, x: Math.round(g.bx + g.ux * g.len / 2), y: Math.round(g.by + g.uy * g.len / 2), t: 0 })));   // a tree still falling is saved as its logs
   d.beasts = D.beasts.filter(b => !b.dead).map(b => ({ k: b.k, x: Math.round(b.x), y: Math.round(b.y), hp: b.hp, stag: b.stag, chunk: b.chunk, tame: b.tame, fed: b.fed, pen: b.pen || undefined }));
-  d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, smoke: B.smoke, comp: B.comp, pen: B.pen, bT: B.bT, ck: B.ck, rw: B.rw, open: B.open, cT: B.cT, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit }));
+  d.builds = D.builds.map(B => ({ t: B.t, x: B.x, y: B.y, a: B.a, hp: B.hp, uses: B.uses, inv: B.inv, basket: B.basket, smoke: B.smoke, comp: B.comp, pen: B.pen, bT: B.bT, ck: B.ck, rw: B.rw, open: B.open, cT: B.cT, w: B.w, crop: B.crop, sown: B.sown, grown: B.grown, fuel: B.fuel, lit: B.lit, fp: B.fp }));
   const out = { v: 2, at: Date.now(), d, p: { x: Math.round(S.p.x), y: Math.round(S.p.y) }, rg: { hp: rg.hp, steel: rg.steel || 0, flask: rg.flask, kills: rg.kills || 0, looted: [...rg.looted], wisp: rg.wispCarry || 0 }, xs: XS };
   try { localStorage.setItem(dayKey(), JSON.stringify(out)); } catch (e) {}
 }
@@ -3784,12 +3795,12 @@ function dayLoad(sv) {                          // pick a saved run back up wher
   D.baseHp = D.baseHp || rg.maxHp;
   D.beasts = d.beasts.map(b => ({ kind: 'beast', r: 0, s: 1, st: 'graze', t: Math.random() * 3, dir: Math.random() * 7, sp: 0, ph: Math.random() * 9, flash: 0, ...b }));
   for (const sv of d.bld || []) stMake(sv);
-  for (const B of d.builds.filter(B => B.t !== 'signal')) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.pen ? 'pen' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.bT) nb.bT = B.bT; if (B.ck) { nb.ck = B.ck; nb.rw = B.rw; nb.open = B.open; } if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
+  for (const B of d.builds.filter(B => B.t !== 'signal')) { const nb = dayMakeBuild(B.basket ? 'basket' : B.smoke ? 'smoke' : B.comp ? 'compost' : B.pen ? 'pen' : B.fp ? 'fplace' : B.t, B.x, B.y, B.a || 0); if (B.cT) nb.cT = B.cT; if (B.bT) nb.bT = B.bT; if (B.ck) { nb.ck = B.ck; nb.rw = B.rw; nb.open = B.open; } if (B.hp !== undefined) nb.hp = B.hp; if (B.uses !== undefined) nb.uses = B.uses; if (B.inv) nb.inv = B.inv; if (B.w !== undefined) nb.w = B.w; if (B.crop) { nb.crop = B.crop; nb.sown = B.sown; nb.grown = !!B.grown; } if (B.fuel !== undefined) nb.fuel = B.fuel; if (B.lit) nb.lit = 1; }
   { const keep = s => { if (!s || !DIT[s.id]) return null; if (s.inf && !INF[s.inf]) delete s.inf; return s; };   // Joe's fresh start: what the old story left behind goes
     D.inv = D.inv.map(keep); D.box = (D.box || []).map(keep); for (const k in D.gear) D.gear[k] = keep(D.gear[k]); for (const B of D.builds) if (B.inv) B.inv = B.inv.map(keep); }
   if (NO_CAMP && !D.noCamp) campToBuilds();
   if (!D.cacheV) cacheSeed();
-  if (NO_CAMP) D.builds = D.builds.filter(B => !(B.t === 'fire' && Math.hypot(B.x - EX_FIRE.x, B.y - EX_FIRE.y) < 2));   // the fire an earlier version built on the pit's spot   // a run from when there was a camp keeps its box, barrel and fire
+  if (NO_CAMP && !d.pit) D.builds = D.builds.filter(B => !(B.t === 'fire' && Math.hypot(B.x, B.y) < 2));   // the fire an earlier version built on the pit's spot   // a run from when there was a camp keeps its box, barrel and fire
   rg.hp = sv.rg.hp; rg.flask = sv.rg.flask; rg.kills = sv.rg.kills; rg.looted = new Set(sv.rg.looted); rg.wispCarry = sv.rg.wisp || 0;   // v164
   dayGearFx(); rg.hp = Math.min(sv.rg.hp, rg.maxHp); rg.steel = Math.min(sv.rg.steel || 0, steelMax()); D.steelSeen = rg.steel;
   for (const k of d.seen || []) daySee(k, true);   // the book fills back in, quietly
@@ -7275,12 +7286,14 @@ class KitMesh {   // a batch you can rebuild: the lit shapes and their outline
 
 // ---------------- the camp: the palisade with its four gates, two watchtowers, the yard ----------------
 const logTone3 = k => hex(['#4a453e', '#3f3a34', '#524c44', '#46413a'][((k % 4) + 4) % 4]);
+function pitKit(K, x, y) {   // the fire pit on the hill: a ring of stones, the logs crossed in it, a bed of ash
+  K.add(P_CYL(12), x, -0.4, y, 24, 1, 24, hex('#2e2a26'));
+  for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283 + 0.2; K.mt = 'stone'; K.add(P_ROCK(k % 4), x + Math.cos(a) * 14, 1.6, y + Math.sin(a) * 14, 8 + hash(k, 3) * 2, 6, 7, hex(k % 2 ? '#7a7872' : '#8d8b85'), -a); K.mt = null; }
+  for (let k = 0; k < 4; k++) { const a = k / 4 * 3.1416 + 0.4; K.rod(P_CYL(6), x - Math.cos(a) * 9, 1.5, y - Math.sin(a) * 9, x + Math.cos(a) * 9, 4.5, y + Math.sin(a) * 9, 1.8, hex(k % 2 ? '#4a3420' : '#5a3e28'), 0.15); }
+}
 function campKit(K) {
   if (!NO_CAMP) yardKit(K);
-  { const x = EX_FIRE.x, y = EX_FIRE.y;   // the fire in the middle: a ring of stones, the logs crossed in it, a bed of ash
-    K.add(P_CYL(12), x, -0.4, y, 24, 1, 24, hex('#2e2a26'));
-    for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283 + 0.2; K.mt = 'stone'; K.add(P_ROCK(k % 4), x + Math.cos(a) * 14, 1.6, y + Math.sin(a) * 14, 8 + hash(k, 3) * 2, 6, 7, hex(k % 2 ? '#7a7872' : '#8d8b85'), -a); K.mt = null; }
-    for (let k = 0; k < 4; k++) { const a = k / 4 * 3.1416 + 0.4; K.rod(P_CYL(6), x - Math.cos(a) * 9, 1.5, y - Math.sin(a) * 9, x + Math.cos(a) * 9, 4.5, y + Math.sin(a) * 9, 1.8, hex(k % 2 ? '#4a3420' : '#5a3e28'), 0.15); } }
+  // (the fire in the middle is drawn with what you build now, so it can be moved or taken down: pitKit, 89-roofs)
   for (const o of CAMP) {
     if (o.camp === 'wall') {   // three logs, each its own height with a point on top, lashed twice
       for (let m = 0; m < 3; m++) { const f = (m + 0.5) / 3, x = o.ax + (o.bx - o.ax) * f, y = o.ay + (o.by - o.ay) * f, h = 27 + 5 * hash((o.seq * 3 + m) * 1.3, 7);
@@ -7933,7 +7946,7 @@ function grassMask(px, py, lakes, gen) {
     const j0 = Math.max(0, Math.floor((P.y - r - oy) / c)), j1 = Math.min(GM_N - 1, Math.ceil((P.y + r - oy) / c));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (pondIn(P, ox + (i + 0.5) * c, oy + (j + 0.5) * c, 6)) M[j * GM_N + i] = 0;
   }
-  disc(EX_FIRE.x, EX_FIRE.y, 20);
+  if (!EX_FIRE.gone) disc(EX_FIRE.x, EX_FIRE.y, 20);
   for (const o of CAMP) if (o.camp === 'tent') disc(o.x, o.y, 22);
   const D = S.day;
   for (const B of D.builds) if (B.t === 'fire') disc(B.x, B.y, 14);
@@ -9500,6 +9513,7 @@ const nodeB = new Board(900, 560, 0, true);   // the grass and berry bushes you 
 
 // ---------------- the kits ----------------
 const thingsK = new KitMesh(true), dynK = new KitMesh(true);
+castsShadow(thingsK.mesh); castsShadow(dynK.mesh);   // what you build stands in the sun's light too: a roof shades the room under it (Joe: "the sun goes through")
 // a ghost: what you'd build, green where it fits and red where it won't; a blueprint glows like a plan
 const ghostMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({ tint: { value: new V3(0.6, 0.92, 0.55) }, alpha: { value: 0.5 } }, LU), transparent: true, depthWrite: false,
@@ -9531,11 +9545,12 @@ function thingsSync(force) {
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size;
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.open ? 'O' : '') + (B.pen && B.inv.some(s => s && s.id === 'meat') ? 'm' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
-  for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.open ? 'o' : '') + ((o.open || 0) !== (o.ajar || 0) ? 'm' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');   // m: a door on the swing (31-make draws it)
-  key += dayLight() < 0.85 ? 'N' : 'D';
+  for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) key += (o.done ? 'd' : 'p') + (o.burn || '') + (o.open ? 'o' : '') + ((o.open || 0) !== (o.ajar || 0) ? 'm' : '') + (o.del ? 'x' : '') + (o.gone ? 'g' : '');   // m: a door on the swing (31-make draws it)
+  key += dayLight() < 0.85 ? 'N' : 'D'; key += EX_FIRE.gone ? 'P' : '@' + EX_FIRE.x + ',' + EX_FIRE.y;
   if (!force && key === thingsKey && Math.hypot(p.x - thingsAt.x, p.y - thingsAt.y) < 120) return;
   thingsKey = key; thingsAt = { x: p.x, y: p.y };
   const K = new Kit(), PK = new Kit();
+  if (!EX_FIRE.gone && Math.abs(EX_FIRE.x - p.x) < R + 60 && Math.abs(EX_FIRE.y - p.y) < R + 60) pitKit(K, EX_FIRE.x, EX_FIRE.y);   // the fire pit on the hill, wherever you've moved it (89-roofs)
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R + 60 && Math.abs(B.y - p.y) < R + 60) { if (B.t === 'fire') buildKit(K, { kind: 'fire', x: B.x, y: B.y, build: B }); else for (const o of B.parts) buildKit(K, o); }
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) pieceKit(o.done && !o.del ? K : PK, o);
   thingsK.set(K); setGeo(planMesh, PK);
@@ -9708,8 +9723,10 @@ function pieceKit(K, o) {
       const pal = P.m === 'stone' ? (i, j) => MAKE.stone[(i * 3 + j * 5) % 4] : P.m === 'thatch' ? (i, j) => (i + j) % 2 ? MAKE.straw : lit3(MAKE.straw, 0.86) : (i, j) => MAKE.plank[Math.floor(j * 5 / CLIP_N) % 3];
       K.mt = P.m === 'stone' ? 'stone' : 'wood'; floorClipKit(K, o, pal, z - 0.5, 2); K.mt = null; return;
     }
-    if (P.sh === 'tri') { triKit(K, o, P, z, roof); return; }
-    if (roof) roofKit(M, o, P); else floorKit(M, o, P);
+    const c0 = K.col.length;
+    if (P.sh === 'tri') triKit(K, o, P, z, roof);
+    else if (roof) roofKit(M, o, P); else floorKit(M, o, P);
+    if (roof && o.burn) for (let i = c0; i < K.col.length; i++) K.col[i] *= 1 - 0.16 * o.burn;   // scorched by a fire under it (89-roofs)
     return;
   }
   if (P.sh === 'edge') {
@@ -10169,6 +10186,8 @@ function buildKit(K, o) {
   const B = o.build || o, a = B.a || 0, x = o.x, y = o.y;
   if (o.camp === 'wall' || o.camp === 'stakes') { campKit1(K, o); return; }
   const M = maker(K, x, y, a);
+  if (B.fp) { fplaceKit(M, B); return; }   // the stone fireplace (89-roofs)
+  if (B.t === 'pit') { pitKit(K, x, y); return; }   // the fire pit, as a ghost while you move it (67-move)
   if (o.kind === 'fire' || B.t === 'fire') {   // stones round a bed of ash, sticks leant together over the embers
     M.cyl(0, 0, 0, 8, 0.5, hex('#3a3430'), 'plain', 10);
     for (let k = 0; k < 9; k++) { const t = k / 9 * TAU; M.rock(Math.cos(t) * 10.4, Math.sin(t) * 10.4, 1.8, 7, 5, 6.4, MAKE.stone[k % 4], k, t); }
@@ -10513,7 +10532,7 @@ const SWING = { skip: new Set(), next: null, k: null, had: false }, PCACHE = new
     if (!SWING.next || !o.done || o.del) return pk.apply(this, arguments);
     const P = PC(o.id);
     if (stDoorish(P) && (o.open || 0) !== (o.ajar || 0)) { SWING.next.add(o); return; }
-    const key = o.id + '|' + o.x + '|' + o.y + '|' + (o.a || 0) + '|' + (o.open || 0) + '|' + (o.clip || 0) + '|' + (P.lay === 'flat' && floorBelow(o) ? 'f' : '') + (P.light && dayLight() < 0.85 ? 'n' : '');
+    const key = o.id + '|' + o.x + '|' + o.y + '|' + (o.a || 0) + '|' + (o.open || 0) + '|' + (o.clip || 0) + '|' + (P.lay === 'flat' && floorBelow(o) ? 'f' : '') + (P.light && dayLight() < 0.85 ? 'n' : '') + (o.burn ? 'b' + o.burn : '');
     let e = PCACHE.get(o);
     if (!e || e.k !== key) { const T = new Kit(); pk(T, o); e = { k: key, c: T.take() }; PCACHE.set(o, e); }
     K.chunk(e.c);
@@ -10532,7 +10551,7 @@ const GHOST_D = [ghostMesh, planMesh].map(m => {
     const r = tf.apply(this, arguments);
     for (const [m, d] of GHOST_D) { d.geometry = m.geometry; d.visible = m.visible; }
     if (SWING.skip.size || SWING.had) {
-      if (!SWING.k) SWING.k = new KitMesh(true);
+      if (!SWING.k) { SWING.k = new KitMesh(true); castsShadow(SWING.k.mesh); }
       const K = new Kit(); for (const o of SWING.skip) if (S.day && S.day.bld.get(o.key) === o) pieceKit(K, o);
       SWING.k.set(K); SWING.had = K.pos.length > 0;
     }
@@ -10742,7 +10761,7 @@ function dayPlaceSpot(t) {
 const COOK_R = 60;
 function stationHere(at) {
   const p = S.p;
-  if (at === 'fire') return Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
+  if (at === 'fire') return (!EX_FIRE.gone && Math.hypot(p.x - EX_FIRE.x, p.y - EX_FIRE.y) < COOK_R) || S.day.builds.some(B => B.t === 'fire' && Math.hypot(B.x - p.x, B.y - p.y) < COOK_R);
   return at === 'hand' || (at === 'bench' && dayBenchNear(p.x, p.y)) || (at === 'furnace' && dayFurnNear(p.x, p.y)) || (at === 'rack' && dayRackNear(p.x, p.y)) || (at === 'anvil' && dayAnvilNear(p.x, p.y));
 }
 
@@ -11008,7 +11027,7 @@ function stepKind(x, y) {
   if (BEACH && terrH(x, y) < SEA_Y - 0.4) return ['water_wade', 'splash_small'];
   const fl = floorUnder(x, y); if (fl) return fl === 'stone' ? ['step_stone'] : fl === 'thatch' ? ['step_grass'] : ['step_wood'];
   if (BEACH && coastS(x, y) > -165) return ['step_sand', 'step_dirt'];
-  if (Math.hypot(x - EX_FIRE.x, y - EX_FIRE.y) < PIT_R * 0.8) return ['step_dirt', 'step_grass'];   // the trodden ground round the pit
+  if (!EX_FIRE.gone && Math.hypot(x - EX_FIRE.x, y - EX_FIRE.y) < PIT_R * 0.8) return ['step_dirt', 'step_grass'];   // the trodden ground round the pit
   const L = landAt(x, y), cover = landCover(x, y), wet = wxK('rain');
   if (L[1] > 0.55) return ['step_stone', 'step_dirt'];   // rocky ground
   if (wet > 0.4 && Math.random() < 0.5) return ['step_mud', 'step_dirt'];
@@ -12032,7 +12051,7 @@ const POT_MAX = 4, POT_GRAB = 46;
 const cookSlow = r => (r.g === 'food' || COOK_T[r.id]) && !r.make && (r.at === 'fire' || r.at === 'rack');   // herb tea brews too, though it sits under Consumables
 function cookAt(at) {   // the fire or rack you are at
   const p = S.p, D = S.day;
-  if (at === 'fire' && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
+  if (at === 'fire' && !EX_FIRE.gone && dist2(EX_FIRE, p) < COOK_R) return { x: EX_FIRE.x, y: EX_FIRE.y };
   let best = null, bd = 1e9;
   for (const B of D.builds) if (B.t === at && dist2(B, p) < (at === 'fire' ? COOK_R : RACK_R) && dist2(B, p) < bd) { bd = dist2(B, p); best = B; }
   return best && { x: best.x, y: best.y };
@@ -12590,7 +12609,7 @@ function tcolStep(dt) {
   for (const T of S.day.builds) if (T.t === 'tcol') T.w = Math.min(TC_MAX, (T.w || 0) + dt * (TC_FILL + TC_RAIN * wxK('rain')));
 }
 function tcolUse(T) {
-  const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS), boil = Math.hypot(EX_FIRE.x - T.x, EX_FIRE.y - T.y) < TC_BOIL_R || D.builds.some(B => B.t === 'fire' && Math.hypot(B.x - T.x, B.y - T.y) < TC_BOIL_R);
+  const D = S.day, skins = D.inv.filter(s => s && s.id === 'skin' && s.w < SKIN_SIPS), boil = (!EX_FIRE.gone && Math.hypot(EX_FIRE.x - T.x, EX_FIRE.y - T.y) < TC_BOIL_R) || D.builds.some(B => B.t === 'fire' && Math.hypot(B.x - T.x, B.y - T.y) < TC_BOIL_R);
   if ((T.w || 0) < 1) { dayNote('dry', 'only a puddle in it · it fills slowly, faster in the rain', 2); return; }
   if (skins.length) { let n = 0; for (const s of skins) if (T.w >= 1) { T.w -= 1; s.w = SKIN_SIPS; s.dirty = boil ? 0 : 1; n++; } exNote((n > 1 ? `${n} waterskins filled` : 'waterskin filled') + (boil ? ' · boiled over the fire' : ' · murky, boil it')); snd('water_fill') || sfx(0.7, 0.4, 'lowpass', 700, 0.3); }
   else if (D.water >= FOOD_MAX - 2) { dayNote('full', 'you\'re not thirsty', 1.5); return; }
@@ -12631,9 +12650,9 @@ function campToBuilds() {
 function homeSpot() {
   const D = S.day; if (!D) return null;
   if (D.bed) return D.bed;
-  let best = EX_FIRE, bd = Math.hypot(EX_FIRE.x - S.p.x, EX_FIRE.y - S.p.y);   // the fire pit on the hill, or a nearer fire of yours
+  let best = EX_FIRE.gone ? null : EX_FIRE, bd = best ? Math.hypot(EX_FIRE.x - S.p.x, EX_FIRE.y - S.p.y) : 1e9;   // the fire pit on the hill, or a nearer fire of yours
   for (const B of D.builds) if (B.t === 'fire') { const d = Math.hypot(B.x - S.p.x, B.y - S.p.y); if (d < bd) { bd = d; best = B; } }
-  return best;
+  return best || { x: EX_FIRE.x, y: EX_FIRE.y };   // no fire at all: where the pit was
 }
 const HOME_R = 110;
 const atHome = () => { const h = homeSpot(); return !!h && Math.hypot(h.x - S.p.x, h.y - S.p.y) < HOME_R; };
@@ -12681,7 +12700,11 @@ function workStep(dt) {
 // and anything stored in it is left on the ground. Grid pieces give back half their materials as before (all, from a blueprint).
 // A pen with animals in it and the sealed caches out in the woods can't be moved or recycled.
 const MV_REACH = 90, MV_PICK = 30;
-const mvT0 = B => B.basket ? 'basket' : B.smoke ? 'smoke' : B.pen ? 'pen' : B.comp ? 'compost' : B.snare ? 'snare' : B.ftrap ? 'ftrap' : B.t;   // what it was put down as
+const mvT0 = B => B.basket ? 'basket' : B.smoke ? 'smoke' : B.pen ? 'pen' : B.comp ? 'compost' : B.snare ? 'snare' : B.ftrap ? 'ftrap' : B.fp ? 'fplace' : B.t;   // what it was put down as
+// Joe: the fire pit on the hill can be moved or taken down too. It isn't one of your builds, so it stands in as one here
+const PIT_B = { t: 'pit', pit: 1, x: 0, y: 0, a: 0, parts: [] };
+const pitB = () => { if (EX_FIRE.gone) return null; PIT_B.x = EX_FIRE.x; PIT_B.y = EX_FIRE.y; PIT_B.parts = [{ x: EX_FIRE.x, y: EX_FIRE.y, r: 16 }]; return PIT_B; };
+const mvBuilds = () => { const b = pitB(); return b ? [...S.day.builds, b] : S.day.builds; };
 const mvItem = B => { const t = mvT0(B); if (DIT[t] && DIT[t].build === t) return t; if (t === 'fire') return 'campfire'; return Object.keys(DIT).find(k => DIT[k].k === 'place' && DIT[k].build === t) || null; };
 const mvFixed = B => B.t === 'cache' || (B.pen && (S.day.beasts || []).some(b => !b.dead && b.pen && Math.hypot(b.pen[0] - B.x, b.pen[1] - B.y) < 2));
 function mvAimPt() { const p = S.p, A = stAimPt(); if (Math.hypot(A.x - p.x, A.y - p.y) > MV_REACH) { const a = S.aimW || 0; return { x: p.x + Math.cos(a) * MV_REACH, y: p.y + Math.sin(a) * MV_REACH }; } return A; }
@@ -12690,12 +12713,12 @@ function mvAimPt() { const p = S.p, A = stAimPt(); if (Math.hypot(A.x - p.x, A.y
 // is the wall (Joe: "i want to be able to do that with all items ... like drying racks and chests"). It used to go by the spot
 // on the ground under your crosshair, which, looking at the thing itself, falls well behind it, so only what you looked down at
 // the foot of could be moved, and the floor a chest stood on came first.
-const MV_TALL = { plot: 3, snare: 6, ftrap: 6, hearth: 8, fire: 10, chest: 16, basket: 16, compost: 14, spikes: 16, pen: 16, anvil: 18, bench: 22, rainb: 22, tcol: 24, wall: 26, smoke: 30, rack: 32, furnace: 34, effigy: 45, signal: 45, tpost: 50 };
+const MV_TALL = { pit: 10, fplace: 60, plot: 3, snare: 6, ftrap: 6, hearth: 8, fire: 10, chest: 16, basket: 16, compost: 14, spikes: 16, pen: 16, anvil: 18, bench: 22, rainb: 22, tcol: 24, wall: 26, smoke: 30, rack: 32, furnace: 34, effigy: 45, signal: 45, tpost: 50 };
 const mvTop = P => P.H ?? (P.lay === 'floor' || P.lay === 'flat' ? 3 : P.lay === 'mount' ? 34 : 12);
 function mvLook() {   // the nearest thing your view runs into: { B, d } for a placed thing, { o, d } for a built piece
   const p = S.p, cp = Math.cos(look.pitch), sp = Math.sin(look.pitch), a = S.aimW || 0, ca = Math.cos(a) * cp, sa = Math.sin(a) * cp;
   if (isoP()) return null;
-  const L = S.day.builds.filter(B => B.t !== 'cache' && Math.abs(B.x - p.x) < MV_REACH + 60 && Math.abs(B.y - p.y) < MV_REACH + 60);
+  const L = mvBuilds().filter(B => B.t !== 'cache' && Math.abs(B.x - p.x) < MV_REACH + 60 && Math.abs(B.y - p.y) < MV_REACH + 60);
   const G = stNear(p.x, p.y, MV_REACH + 30).filter(o => PC(o.id).lay !== 'roof');   // (a roof overhead is found as before, by the spot on the ground)
   if (!L.length && !G.length) return null;
   for (let d = 4; d <= MV_REACH + 20; d += 3) {
@@ -12708,7 +12731,7 @@ function mvLook() {   // the nearest thing your view runs into: { B, d } for a p
 function mvAimedBuild() {   // the placed thing you're pointing at: the one you're looking at, else the one by the spot on the ground
   const L = mvLook(); if (L && L.B) return L.B;
   const A = mvAimPt(); let best = null, bd = MV_PICK;
-  for (const B of S.day.builds) { if (B.t === 'cache') continue; for (const q of B.parts) { const d = Math.hypot(q.x - A.x, q.y - A.y) - (q.r || 8) * 0.5; if (d < bd) { bd = d; best = B; } } }
+  for (const B of mvBuilds()) { if (B.t === 'cache') continue; for (const q of B.parts) { const d = Math.hypot(q.x - A.x, q.y - A.y) - (q.r || 8) * 0.5; if (d < bd) { bd = d; best = B; } } }
   return best;
 }
 function mvAimed() {   // whatever you're looking at first; else, as before, what's by the spot on the ground
@@ -12716,14 +12739,14 @@ function mvAimed() {   // whatever you're looking at first; else, as before, wha
   const o = stAimed(); if (o) return { kind: 'st', o };
   const B = mvAimedBuild(); return B ? { kind: 'b', B } : null;
 }
-const mvName = t => t.kind === 'st' ? PC(t.o.id).n.toLowerCase() : ((DIT[mvItem(t.B)] || {}).n || t.B.t).toLowerCase();
+const mvName = t => t.kind === 'st' ? PC(t.o.id).n.toLowerCase() : t.B.pit ? 'the fire pit' : ((DIT[mvItem(t.B)] || {}).n || t.B.t).toLowerCase();
 
 // ---- picking up, carrying, putting down ----
 function mvPick(t) {
   const D = S.day;
   if (t.kind === 'b' && mvFixed(t.B)) { dayNote('mvfix', t.B.pen ? 'not with animals in it' : 'it won\'t shift', 1.5); return; }
   if (t.kind === 'st') { const o = t.o; D.mv = { kind: 'st', o, x: o.x, y: o.y, a: o.a, clip: o.clip, bed: o.k === 'bed' && D.bed && Math.abs(D.bed.x - o.x) < 1 && Math.abs(D.bed.y - o.y) < 1 }; D.bld.delete(o.key); stGen++; D.brot = o.a; }
-  else { const B = t.B; D.mv = { kind: 'b', B, x: B.x, y: B.y, a: B.a }; D.builds = D.builds.filter(q => q !== B); }
+  else { const B = t.B; D.mv = { kind: 'b', B, x: B.x, y: B.y, a: B.a }; if (B.pit) EX_FIRE.gone = true; else D.builds = D.builds.filter(q => q !== B); }   // the pit goes out while you carry it
   exNote(`moving · ${mvName(t)} · Attack to put it down`); dayAct(10, 0.45); snd('wood_l') || sfx(1.4, 0.15, 'bandpass', 1500, 0.2); dayChanged();
 }
 function mvSpot() {   // where the thing you're carrying would go, and whether it fits
@@ -12738,6 +12761,7 @@ function mvPut(back) {   // down where you're pointing (or, back, where it came 
   if (M.kind === 'st') {
     const o = M.o; o.x = x; o.y = y; o.a = a; o.clip = clip; if (clip) o.clipV = 1; D.bld.set(o.key, o); stGen++;
     if (M.bed) D.bed = { x, y };
+  } else if (M.B.pit) { pitSet(x, y, false);
   } else {
     const B = M.B, fake = dayMakeBuild(mvT0(B), x, y, a, true);
     B.x = x; B.y = y; B.a = a; B.parts = fake.parts.map(q => Object.assign(q, { build: B })); D.builds.push(B);
@@ -12756,6 +12780,14 @@ function mvToggle() {
 // recycling a placed thing: it comes back to you whole; what was stored in it is left on the ground
 function mvRecycle(B) {
   const D = S.day; if (mvFixed(B)) { dayNote('mvfix', B.pen ? 'not with animals in it' : 'it won\'t shift', 1.5); return; }
+  if (B.pit) {   // the fire pit: its stones and a campfire's worth come back as a campfire, and its safe ring goes with it
+    pitSet(B.x, B.y, true); dayGive('campfire', 1, B.x, B.y, true);
+    ashBurst(B.x, B.y, 10, 20); addShake(0.18); dayChips(B.x, B.y, 10, 'stone', 10);
+    exNote('recycled · the fire pit · a campfire back in your pack');
+    if (actx && !snd('mining', { x: B.x, y: B.y, v: 0.7 })) noiseAt(actx.currentTime, 700, 200, 0.3, 0.35, sfxGain);
+    try { thingsSync(true); } catch (e) {}
+    return dayChanged();
+  }
   const id = mvItem(B);
   if (Array.isArray(B.inv)) for (const s of B.inv) if (s) dayDrop(B.x, B.y, s.id, s.n || 1, s);
   D.builds = D.builds.filter(q => q !== B);
@@ -12824,7 +12856,7 @@ function mvStep() { const D = S && S.day; if (D && D.mv && (dayTool() !== 'build
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && state === 'play' && S && S.day && dayTool() === 'build' && !menusOpen()) mvToggle(); });
 // saving while you carry something saves it where it came from
 { const sv = daySave; daySave = function () { const D = S && S.day, M = D && D.mv; if (!M) return sv.apply(this, arguments);
-  if (M.kind === 'st') D.bld.set(M.o.key, M.o); else D.builds.push(M.B);
+  if (M.kind === 'st') D.bld.set(M.o.key, M.o); else if (!M.B.pit) D.builds.push(M.B);   // (the pit carried is still saved where it stood: S.day.pit only changes when it's put down)
   try { return sv.apply(this, arguments); } finally { if (M.kind === 'st') D.bld.delete(M.o.key); else D.builds = D.builds.filter(q => q !== M.B); } }; }
 
 ;
@@ -18571,7 +18603,7 @@ function weatherFrame(now) {
   if (!rainMesh.visible) return;
   // drops wrap round a box that follows you, so the rain never runs out; a storm slants them on the wind
   const cx = cam.position.x, cz = cam.position.z, n = Math.floor(RAIN_N * Math.min(1, rain * (1 + storm * 0.6)));
-  const fall = 560, len = 22 + storm * 10, sx = 60 * storm, sz = 25 * storm;
+  const fall = 560, len = 22 + storm * 10, sx = 60 * storm, sz = 25 * storm, RF = rainRoofs(cx, cz, now);
   for (let i = 0; i < RAIN_N; i++) {
     const o = i * 6;
     if (i >= n) { rainPos.fill(0, o, o + 6); continue; }
@@ -18579,11 +18611,33 @@ function weatherFrame(now) {
     const y = cam.position.y - EYE + 220 - ((now * fall * (0.85 + c * 0.3) + c * 2200) % 240);
     const x = cx + (((a * RAIN_BOX + now * sx - cx) % RAIN_BOX + RAIN_BOX) % RAIN_BOX) - RAIN_BOX / 2;
     const z = cz + (((b * RAIN_BOX + now * sz - cz) % RAIN_BOX + RAIN_BOX) % RAIN_BOX) - RAIN_BOX / 2;
+    let y1 = y - len;
+    if (RF.length) { const top = rainRoofAt(RF, x, z); if (top !== null) { if (y <= top) { rainPos.fill(0, o, o + 6); continue; } y1 = Math.max(y1, top); } }   // over a roof: it lands on the roof
     rainPos[o] = x; rainPos[o + 1] = y; rainPos[o + 2] = z;
-    rainPos[o + 3] = x - sx * 0.03; rainPos[o + 4] = y - len; rainPos[o + 5] = z - sz * 0.03;
+    rainPos[o + 3] = x - sx * 0.03; rainPos[o + 4] = y1; rainPos[o + 5] = z - sz * 0.03;
   }
   rainGeo.attributes.position.needsUpdate = true;
   rainMat.opacity = 0.5 * rain * (0.45 + 0.55 * ENV.lt) + 0.5 * WXV.flash;
+}
+// Joe: "the rain goes through the roof tiles". The roofs you've built round you, looked up a few times a second, and for a
+// drop over one, how high its top is there: the drop stops on the roof, so under it you stay dry
+const RAIN_RF = { L: [], t: -9, x: 1e9, y: 1e9 };
+function rainRoofs(cx, cz, now) {
+  const R = RAIN_RF; if (!S || !S.day) return R.L;
+  if (now - R.t < 0.4 && Math.hypot(cx - R.x, cz - R.y) < 30) return R.L;
+  R.t = now; R.x = cx; R.y = cz; R.L = [];
+  for (const o of stNear(cx, cz, RAIN_BOX * 0.75)) { const P = PC(o.id); if (P.lay === 'roof' && o.done) R.L.push({ x: o.x, y: o.y, a: o.a || 0, tri: P.sh === 'tri' }); }
+  return R.L;
+}
+function rainRoofAt(L, x, z) {
+  for (const r of L) {
+    const dx = x - r.x, dy = z - r.y; if (Math.abs(dx) > GRID * 0.75 || Math.abs(dy) > GRID * 0.75) continue;
+    let inside;
+    if (r.tri) { inside = true; for (let k = 0; k < 3; k++) { const t = r.a + k * 2.0944; if (-(dx * Math.cos(t) + dy * Math.sin(t)) > TRI_R / 2 + 1) { inside = false; break; } } }
+    else { const c = Math.cos(r.a), s = Math.sin(r.a); inside = Math.abs(dx * c + dy * s) < GRID / 2 + 1 && Math.abs(dy * c - dx * s) < GRID / 2 + 1; }
+    if (inside) return terrH(x, z) + ROOF_H + 3;
+  }
+  return null;
 }
 // what the weather does to the light: greyer and dimmer in the rain, the haze much nearer in fog, white in a lightning flash
 function weatherLight() {
@@ -18688,7 +18742,7 @@ function ambFrame(dt) {
   }
   // fires: their crackle, at the ones nearest you
   if (sndHas('fire_loop')) {
-    const F = out ? [EX_FIRE, ...D.builds.filter(B => B.t === 'fire'), ...clanCamps()].map(o => [o, Math.hypot(o.x - p.x, o.y - p.y)]).filter(q => q[1] < 300).sort((a, b) => a[1] - b[1]).slice(0, 2) : [];
+    const F = out ? [...pitL(), ...D.builds.filter(B => B.t === 'fire'), ...clanCamps()].map(o => [o, Math.hypot(o.x - p.x, o.y - p.y)]).filter(q => q[1] < 300).sort((a, b) => a[1] - b[1]).slice(0, 2) : [];
     while (AMB.fires.length < 2) AMB.fires.push(emitter('fire_loop', { far: 280 }));
     AMB.fires.forEach((E, i) => { const q = F[i]; if (q) emitSet(E, 1 - 0.5 * rain, q[0].x, q[0].y); else emitSet(E, 0); });
     if (F[0] && F[0][1] < 220 && (AMB.t.pop = (AMB.t.pop ?? 1) - dt) <= 0) { AMB.t.pop = 0.8 + Math.random() * 3.5; snd('fire_pop', { x: F[0][0].x, y: F[0][0].y, far: 300, v: 0.5 + 0.5 * Math.random() }); }   // now and then a knot of sap goes off
@@ -18959,8 +19013,9 @@ function smokeFrame(rdt) {
   // the clan's camps: a column you can see over the treetops (rain beats it down)
   for (const k of clanCamps()) { const d = Math.hypot(k.x - p.x, k.y - p.y); if (d < 2600) smokeFrom(k.x, k.y, terrH(k.x, k.y) + 14, 0, 18, k.seed * 9 + 1, 0.85 * (1 - 0.6 * rain), 300, 26); }
   // your fires and the pit
-  const fires = [EX_FIRE, ...D.builds.filter(B => B.t === 'fire')].filter(f => Math.hypot(f.x - p.x, f.y - p.y) < 900).slice(0, 8);
-  for (const f of fires) smokeFrom(f.x, f.y, terrH(f.x, f.y) + 10, 1, 7, hash(f.x * 0.1, f.y * 0.1) * 9, 0.75 * (1 - 0.5 * rain), f === EX_FIRE ? 110 : 80, 9);
+  const fires = [...pitL(), ...D.builds.filter(B => B.t === 'fire')].filter(f => Math.hypot(f.x - p.x, f.y - p.y) < 900).slice(0, 8);
+  for (const f of fires) if (f.fp) { const [cx, cy] = fpFlue(f); smokeFrom(cx, cy, terrH(f.x, f.y) + FPL.top, 1, 5, hash(f.x * 0.1, f.y * 0.1) * 9, 0.75 * (1 - 0.5 * rain), 90, 7); } else smokeFrom(f.x, f.y, terrH(f.x, f.y) + 10, 1, 7, hash(f.x * 0.1, f.y * 0.1) * 9, 0.75 * (1 - 0.5 * rain), f === EX_FIRE ? 110 : 80, 9);
+  roofSmoke(smokeFrom);   // a roof scorching over a fire (89-roofs)
   // mist: in the first hour of light, and while the ground is still wet after rain
   const f = dayT(), dawn = f > NIGHT_OUT - 0.02 ? clamp(1 - (f - NIGHT_OUT) / 0.09, 0, 1) * sstep(NIGHT_OUT - 0.02, NIGHT_OUT + 0.01, f) : 0;
   const want = Math.max(dawn, (LU.rainW ? LU.rainW.value : 0) * (1 - rain) * 0.7);
@@ -19029,7 +19084,7 @@ function glowFrame() {
   mothPts.visible = false;
   if (!on || night < 0.01) return;
   // moths: shared out among the fires near you (up to four of them)
-  const fires = [EX_FIRE, ...D.builds.filter(B => B.t === 'fire' || (B.t === 'tpost' && B.fuel > 0)), ...clanCamps()].filter(f => Math.hypot(f.x - p.x, f.y - p.y) < 420).slice(0, 4);
+  const fires = [...pitL(), ...D.builds.filter(B => B.t === 'fire' || (B.t === 'tpost' && B.fuel > 0)), ...clanCamps()].filter(f => Math.hypot(f.x - p.x, f.y - p.y) < 420).slice(0, 4);
   if (!fires.length) return;
   const at = mothPts.geometry.attributes.at, A = at.array, per = Math.floor(GLOW.moth / fires.length);
   for (let i = 0; i < GLOW.moth; i++) { const f = fires[Math.min(fires.length - 1, Math.floor(i / per))], h = f.t === 'tpost' ? 34 : 0; A[i * 4] = f.x; A[i * 4 + 1] = terrH(f.x, f.y) + h; A[i * 4 + 2] = f.y; A[i * 4 + 3] = i < per * fires.length ? 1 : 0; }
@@ -20842,6 +20897,107 @@ const angDiffDeg = (a, b) => ((a - b + 540) % 360) - 180;
   }; }
 
 ;
+// ================= roofs, fires under them, a stone fireplace, and the fire pit you can move =================
+// Joe: "the rain goes through the roof tiles so that needs fixing also the sun goes through aswell, also if a roof tile is
+// placed above a fire place it should take damage and eventually break. This means we should add a stone fire place to the
+// game meaning we should also be able to move or delete the main starting fire place"
+//   - the rain stops on a roof (85-weather) and a roof throws its shadow, so the room under it is shaded (30-things)
+//   - an open fire under a roof scorches it, darker as it goes, smoke seeping out of it, until it burns through: thatch
+//     soonest, slate last
+//   - the stone fireplace is a fire in every way (cook, warm, light, rest by it) whose chimney takes the heat up through
+//     the roof, so it's the fire to have indoors
+//   - the fire pit on the hill moves with the hammer's Move and comes down with Recycle like anything you put down (67-move);
+//     its safe ring goes where it goes, and is gone if you take it down. S.day.pit keeps where it is in the save
+
+// ---- the fire pit: where it stands ----
+function pitSync() {   // EX_FIRE from the run's own record of it
+  const D = S && S.day; if (!D) return;
+  if (!D.pit) D.pit = { x: 0, y: 0 };
+  EX_FIRE.x = D.pit.x; EX_FIRE.y = D.pit.y; EX_FIRE.gone = !!D.pit.gone;
+  grassKey = '';   // the bare ground round it follows it
+}
+function pitSet(x, y, gone) { const D = S.day; D.pit = gone ? { x, y, gone: 1 } : { x, y }; pitSync(); }
+{ const db = dayBegin; dayBegin = function () { const r = db.apply(this, arguments); S.day.pit = { x: 0, y: 0 }; pitSync(); return r; }; }
+{ const dl = dayLoad; dayLoad = function () {
+    const r = dl.apply(this, arguments); pitSync();
+    for (const o of S.day.bld.values()) roofBurn(o);   // a roof a fire has scorched stays scorched
+    return r;
+  }; }
+
+// ---- the stone fireplace ----
+const FPL = { top: ROOF_H + 16, flue: 6.5 };   // the chimney's top, and how far back of the fire it stands
+const fpFlue = B => { const a = B.a || 0; return [B.x + Math.cos(a) * FPL.flue, B.y + Math.sin(a) * FPL.flue]; };
+// a block of rough split stones laid in courses over a mortar core, the stones running the long way
+function fpWall(M, B, f0, f1, s0, s1, z0, z1, seed) {
+  const alongS = s1 - s0 >= f1 - f0, L = alongS ? s1 - s0 : f1 - f0, T = alongS ? f1 - f0 : s1 - s0;
+  const rows = Math.max(1, Math.round((z1 - z0) / 4.3)), h = (z1 - z0) / rows;
+  M.box((f0 + f1) / 2, (s0 + s1) / 2, z0, f1 - f0 - 0.8, z1 - z0, s1 - s0 - 0.8, MAKE.mortar, 'stone');
+  for (let r = 0; r < rows; r++) {
+    const n = Math.max(1, Math.round(L / 7)), bl = L / n, off = r % 2 ? bl / 2 : 0;
+    for (let i = -1; i < n; i++) {
+      const a0 = Math.max(0, i * bl + off), a1 = Math.min(L, (i + 1) * bl + off); if (a1 - a0 < 1.5) continue;
+      const q = pcRnd(B, seed + r * 13 + i), mid = (a0 + a1) / 2, z = z0 + (r + 0.5) * h, col = lit3(MAKE.stone[(r + i + seed) & 3], 0.9 + 0.2 * q), k = seed + r * 3 + i;
+      if (alongS) M.stone((f0 + f1) / 2, s0 + mid, z, T + 0.3, h - 0.25, a1 - a0 - 0.35, col, k);
+      else M.stone(f0 + mid, (s0 + s1) / 2, z, a1 - a0 - 0.35, h - 0.25, T + 0.3, col, k);
+    }
+  }
+}
+// open at the front (towards you as you put it down), the fire on the hearth inside, the chimney breast over it narrowing
+// to a stack that rises well clear of a roof
+function fplaceKit(M, B) {
+  M.box(-2, 0, 0, 30, 1.4, 36, MAKE.stone[1], 'stone');   // the hearthstone it stands on, out in front of the fire
+  fpWall(M, B, 8, 13, -15, 15, 1.4, 31, 0);   // the back
+  for (const sd of [-1, 1]) fpWall(M, B, -9, 8, sd > 0 ? 10 : -15, sd > 0 ? 15 : -10, 1.4, 19, sd > 0 ? 5 : 9);   // the cheeks either side
+  M.box(-7, 0, 19, 4.6, 4, 31, MAKE.stone[2], 'stone');   // the lintel over the opening
+  M.box(-7.6, 0, 23, 6, 1.4, 34, MAKE.dark);   // a mantel board on it
+  fpWall(M, B, -5, 13, -15, 15, 23, 31, 2);   // the breast
+  fpWall(M, B, -1, 13, -10.5, 10.5, 31, 37, 4);   // narrowing
+  fpWall(M, B, 1, 12, -6.5, 6.5, 37, FPL.top - 1.4, 6);   // the stack
+  M.box(FPL.flue, 0, FPL.top - 1.4, 13, 1.4, 15, MAKE.stone[0], 'stone'); M.box(FPL.flue, 0, FPL.top - 0.2, 7, 0.3, 9, MAKE.soot, 'plain');   // its cap, black inside
+  // inside: soot up the back and sides, a bed of ash, embers and logs burning on it
+  M.box(7.4, 0, 1.4, 1, 17.4, 19.6, MAKE.soot, 'plain');
+  for (const sd of [-1, 1]) M.box(-0.5, sd * 9.6, 1.4, 16, 17.4, 0.9, MAKE.soot, 'plain');
+  M.box(0, 0, 18.4, 15.6, 0.8, 19.6, MAKE.soot, 'plain');
+  M.cyl(0, 0, 1.4, 7, 0.5, hex('#3a3430'), 'plain', 10);
+  for (let k = 0; k < 4; k++) { const t = k * 1.57 + 0.4; M.rock(Math.cos(t) * 2.2, Math.sin(t) * 2.4, 2.3, 3.4, 1.8, 2.8, MAKE.ember, k, t, 0.9, 'plain'); }
+  for (let k = 0; k < 3; k++) { const s = (k - 1) * 3.4; M.log([3.5, s, 1.9], [-4, s * 0.4, 6.5 - Math.abs(k - 1) * 1.6], 1.2, k % 2 ? MAKE.char : MAKE.bark[1], 6); }
+}
+
+// ---- an open fire under a roof ----
+const RFIRE = { every: 0.5, t: 0, dps: { thatch: 0.6, wood: 0.4, stone: 0.22 }, pit: 1.3, hot: [] };
+function roofCovers(o, P, x, y, pad) {   // does this roof reach over (x, y), give or take pad?
+  const dx = x - o.x, dy = y - o.y, a = o.a || 0;
+  if (P.sh === 'tri') { for (let k = 0; k < 3; k++) { const t = a + k * 2.0944; if (-(dx * Math.cos(t) + dy * Math.sin(t)) > TRI_R / 2 + pad) return false; } return true; }
+  const c = Math.cos(a), s = Math.sin(a); return Math.abs(dx * c + dy * s) < GRID / 2 + pad && Math.abs(dy * c - dx * s) < GRID / 2 + pad;
+}
+function roofBurn(o) {   // how scorched it looks: 0 to 3
+  const P = PC(o.id); if (!P || P.lay !== 'roof') return;
+  const k = o.max ? clamp(1 - o.hp / o.max, 0, 1) : 0, b = k > 0.02 ? Math.min(3, 1 + Math.floor(k * 3)) : 0;
+  if (b !== (o.burn || 0)) o.burn = b;
+}
+function roofFireStep(dt) {
+  const D = S.day; if ((RFIRE.t -= dt) > 0) return; RFIRE.t = RFIRE.every; RFIRE.hot = [];
+  for (const f of [...pitL(), ...D.builds.filter(B => B.t === 'fire' && !B.fp)]) {
+    for (const o of stNear(f.x, f.y, 30)) {
+      const P = PC(o.id); if (P.lay !== 'roof' || !o.done || !roofCovers(o, P, f.x, f.y, f === EX_FIRE ? 10 : 6)) continue;
+      o.hp -= (RFIRE.dps[P.m] ?? 0.4) * RFIRE.every * (f === EX_FIRE ? RFIRE.pit : 1); roofBurn(o); RFIRE.hot.push(o);
+      if (!o.scorch) { o.scorch = 1; exNote(`the fire is scorching your ${P.n.toLowerCase()} · a stone fireplace is safe under a roof`, true); }
+      if (o.hp <= 0) {   // burnt through: it comes down in ash and embers
+        stGone(o);
+        for (let i = 0; i < 3; i++) ashBurst(o.x + (Math.random() - 0.5) * 36, o.y + (Math.random() - 0.5) * 36, 6, ROOF_H);
+        dayChips(o.x, o.y, ROOF_H, P.m === 'stone' ? 'stone' : P.m === 'thatch' ? 'leaf' : 'wood', 10);
+        addShake(0.2 * monNear(o, 600)); exNote(`the fire burnt through your ${P.n.toLowerCase()}`, true);
+        if (actx && !snd('wood_break', { x: o.x, y: o.y, v: 0.8 })) boomAt(actx.currentTime, 90, 40, 0.4, 0.4 * monNear(o, 600), sfxGain);
+      }
+    }
+  }
+}
+function roofSmoke(add) {   // smoke seeping out from under a roof that's scorching
+  for (const o of RFIRE.hot) if (S.day.bld.get(o.key) === o) add(o.x, o.y, terrH(o.x, o.y) + ROOF_H + 2, 1, 3, o.x * 0.1 + o.y, 0.55, 45, 34);
+}
+{ const ss = stStep; stStep = function (dt) { if (S.day) roofFireStep(dt); return ss.apply(this, arguments); }; }
+
+;
 // ================= recorded sounds for the woods' own small noises (see 46-sfx) =================
 // Each of these used to be made up on the spot out of noise and tones. Where there's a recording of the thing, it plays
 // instead, in the same place; where there isn't, the built one is still there behind it.
@@ -21137,7 +21293,7 @@ function lightsFrame(now, dt) {
   const fk = s => 0.85 + 0.1 * Math.sin(now * 7.3 + s) + 0.06 * Math.sin(now * 13.1 + s * 2) + 0.05 * Math.random();
   const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 520 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
   // the camp's own fire, and your campfires
-  { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); tongues(EX_FIRE.x, EX_FIRE.y, 1.05); }
+  if (!EX_FIRE.gone) { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); tongues(EX_FIRE.x, EX_FIRE.y, 1.05); }
   for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); tongues(B.x, B.y, 0.9); }
   else if (B.t === 'signal' && B.lit) { const f = fk(B.y); add(B.x, 50, B.y, 520, 1.2 * f, 0.6 * f, 0.25 * f, 3); for (let i = 0; i < 3; i++) fire(B.x + (Math.random() - 0.5) * 30, B.y + (Math.random() - 0.5) * 30, 2.4, 10 + Math.random() * 30); tongues(B.x, B.y, 2.2, 12); tongues(B.x + 8, B.y - 6, 1.4, 20); }
   else if (B.t === 'tpost' && B.fuel > 0) { const f = fk(B.x); add(B.x, 48, B.y, 200, 0.9 * f * night, 0.55 * f * night, 0.25 * f * night, 1); fire(B.x, B.y, 0.6, 48); tongues(B.x, B.y, 0.6, 46); }
@@ -21404,6 +21560,7 @@ function frame(t) {
   $('heal').style.opacity = healFx;
   $('cold').style.opacity = S.day.warm < 30 ? (1 - S.day.warm / 30) * 0.8 : 0;
   grainEl.style.transform = `translate(${(Math.random() * 64 - 64) | 0}px, ${(Math.random() * 64 - 64) | 0}px)`;
+  filmFrame();   // the old film look, if it's on (91-film)
   hotbarEl.hidden = !(state === 'play' && S.running && S.rg.phase === 'fight');
   document.body.classList.toggle('fallen', S.rg.phase === 'dead');
   buildbarEl.hidden = hotbarEl.hidden || dayTool() !== 'build' || !craftEl.hidden;
@@ -21418,6 +21575,56 @@ addEventListener('resize', resize);
 resize();
 requestAnimationFrame(frame);
 window.__fp = { get S() { return S; }, look, MV, IN, startRun, cam, renderer, simStep, beamStep, get fps() { return fpsShow; }, get pixK() { return pixK; }, worldSync, thingsSync };
+
+;
+// ================= the old film look, as the 2D game has it =================
+// Joe: "a toggle in settings to add the film camera grain that is on the original behind you. Make sure it doesn't effect
+// performance". Settings → Film grain puts on the 2D game's look: its grain, as strong as it is there, its heavier vignette,
+// the exposure flicker of an uneven old projector, and the odd speck of dust or a hair for a frame. All of it is plain layers
+// over the picture, laid on by the browser as it puts each frame on the screen: the 3D renderer draws nothing more, and there's
+// no blending mode that would make the screen be read back. Each frame only moves the grain and sets a shade or two; the
+// flicker layer is left out on the frames (most of them) where it wouldn't change a pixel. Off, the faint grain this version
+// has always had is as it was.
+SET.film = !!SET.film;
+const FILM = { flick: 0, op: -1, col: '', base: grainEl.style.backgroundImage, tile: '', dust: [] };
+{   // the grain: dark and light specks over a clear tile, about the 2D game's grain at its strength (it lays its noise on in overlay)
+  const N = 192, c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d'), img = g.createImageData(N, N), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const v = Math.random() - 0.5, w = v > 0; d[i] = d[i + 1] = d[i + 2] = w ? 255 : 0; d[i + 3] = Math.abs(v) * (w ? 0.2 : 0.28) * 255; }
+  g.putImageData(img, 0, 0); FILM.tile = `url(${c.toDataURL()})`;
+}
+{   // dust and hairs: a light and a dark of each, shown one at a time
+  const svg = b => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'>${b}</svg>`)}")`;
+  const L = 'rgba(235,235,228,0.5)', Dk = 'rgba(0,0,0,0.6)';
+  for (const b of [`<circle cx='24' cy='24' r='1.6' fill='${L}'/>`, `<circle cx='24' cy='24' r='1.9' fill='${Dk}'/>`,
+    `<path d='M8 30Q20 14 40 20' stroke='${L}' stroke-width='0.8' fill='none'/>`, `<path d='M10 16Q26 34 38 26' stroke='${Dk}' stroke-width='0.8' fill='none'/>`]) {
+    const el = document.createElement('div'); el.className = 'dust'; el.style.backgroundImage = svg(b); document.body.insertBefore(el, $('cold')); FILM.dust.push({ el, on: false });
+  }
+}
+function filmSync() {
+  document.body.classList.toggle('film', SET.film);
+  grainEl.style.backgroundImage = SET.film ? FILM.tile : FILM.base; grainEl.style.backgroundSize = SET.film ? '192px 192px' : '256px 256px';
+  $('sFilm').setAttribute('aria-pressed', SET.film ? 'true' : 'false');
+  if (!SET.film) { FILM.flick = 0; FILM.op = -1; for (const q of FILM.dust) if (q.on) { q.on = false; q.el.style.opacity = 0; } }
+}
+function filmFrame() {
+  if (!SET.film) return;
+  // the exposure flicker: under half a shade it would change nothing, so it's left out
+  FILM.flick += (Math.random() - 0.5) * 0.01; FILM.flick *= 0.85;
+  const up = FILM.flick > 0, op = up ? FILM.flick * 0.6 : -FILM.flick * 1.5, el = $('flick');
+  const show = op > 0.5 / 255 ? Math.round(op * 1000) / 1000 : 0;
+  if (show && (up ? '#fffffa' : '#000') !== FILM.col) { FILM.col = up ? '#fffffa' : '#000'; el.style.background = FILM.col; }
+  if (show !== FILM.op) { FILM.op = show; el.style.opacity = show; }
+  // a speck of dust or a hair, for a frame now and then
+  for (const q of FILM.dust) if (q.on) { q.on = false; q.el.style.opacity = 0; }
+  if (Math.random() < 0.12) {
+    const q = FILM.dust[(Math.random() * 4) | 0], s = 0.6 + Math.random() * 0.9;
+    q.on = true; q.el.style.transform = `translate(${(Math.random() * innerWidth) | 0}px, ${(Math.random() * innerHeight) | 0}px) rotate(${(Math.random() * 360) | 0}deg) scale(${s.toFixed(2)})`; q.el.style.opacity = 1;
+  }
+}
+{ const ss = syncSet; syncSet = function () { ss.apply(this, arguments); filmSync(); }; }
+$('sFilm').addEventListener('click', () => { SET.film = !SET.film; saveSet(); syncSet(); });
+filmSync();
 
 ;
 // ---------------- outlines: one switch for every line in the game ----------------

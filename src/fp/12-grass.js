@@ -104,7 +104,7 @@ function grassMask(px, py, lakes, gen) {
     const j0 = Math.max(0, Math.floor((P.y - r - oy) / c)), j1 = Math.min(GM_N - 1, Math.ceil((P.y + r - oy) / c));
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (pondIn(P, ox + (i + 0.5) * c, oy + (j + 0.5) * c, 6)) M[j * GM_N + i] = 0;
   }
-  disc(EX_FIRE.x, EX_FIRE.y, 20);
+  if (!EX_FIRE.gone) disc(EX_FIRE.x, EX_FIRE.y, 20);
   for (const o of CAMP) if (o.camp === 'tent') disc(o.x, o.y, 22);
   const D = S.day;
   for (const B of D.builds) if (B.t === 'fire') disc(B.x, B.y, 14);

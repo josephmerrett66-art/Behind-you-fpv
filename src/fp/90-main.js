@@ -40,7 +40,7 @@ function lightsFrame(now, dt) {
   const fk = s => 0.85 + 0.1 * Math.sin(now * 7.3 + s) + 0.06 * Math.sin(now * 13.1 + s * 2) + 0.05 * Math.random();
   const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 520 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
   // the camp's own fire, and your campfires
-  { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); tongues(EX_FIRE.x, EX_FIRE.y, 1.05); }
+  if (!EX_FIRE.gone) { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); tongues(EX_FIRE.x, EX_FIRE.y, 1.05); }
   for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); tongues(B.x, B.y, 0.9); }
   else if (B.t === 'signal' && B.lit) { const f = fk(B.y); add(B.x, 50, B.y, 520, 1.2 * f, 0.6 * f, 0.25 * f, 3); for (let i = 0; i < 3; i++) fire(B.x + (Math.random() - 0.5) * 30, B.y + (Math.random() - 0.5) * 30, 2.4, 10 + Math.random() * 30); tongues(B.x, B.y, 2.2, 12); tongues(B.x + 8, B.y - 6, 1.4, 20); }
   else if (B.t === 'tpost' && B.fuel > 0) { const f = fk(B.x); add(B.x, 48, B.y, 200, 0.9 * f * night, 0.55 * f * night, 0.25 * f * night, 1); fire(B.x, B.y, 0.6, 48); tongues(B.x, B.y, 0.6, 46); }
@@ -307,6 +307,7 @@ function frame(t) {
   $('heal').style.opacity = healFx;
   $('cold').style.opacity = S.day.warm < 30 ? (1 - S.day.warm / 30) * 0.8 : 0;
   grainEl.style.transform = `translate(${(Math.random() * 64 - 64) | 0}px, ${(Math.random() * 64 - 64) | 0}px)`;
+  filmFrame();   // the old film look, if it's on (91-film)
   hotbarEl.hidden = !(state === 'play' && S.running && S.rg.phase === 'fight');
   document.body.classList.toggle('fallen', S.rg.phase === 'dead');
   buildbarEl.hidden = hotbarEl.hidden || dayTool() !== 'build' || !craftEl.hidden;

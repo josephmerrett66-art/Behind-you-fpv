@@ -128,7 +128,7 @@ function stepKind(x, y) {
   if (BEACH && terrH(x, y) < SEA_Y - 0.4) return ['water_wade', 'splash_small'];
   const fl = floorUnder(x, y); if (fl) return fl === 'stone' ? ['step_stone'] : fl === 'thatch' ? ['step_grass'] : ['step_wood'];
   if (BEACH && coastS(x, y) > -165) return ['step_sand', 'step_dirt'];
-  if (Math.hypot(x - EX_FIRE.x, y - EX_FIRE.y) < PIT_R * 0.8) return ['step_dirt', 'step_grass'];   // the trodden ground round the pit
+  if (!EX_FIRE.gone && Math.hypot(x - EX_FIRE.x, y - EX_FIRE.y) < PIT_R * 0.8) return ['step_dirt', 'step_grass'];   // the trodden ground round the pit
   const L = landAt(x, y), cover = landCover(x, y), wet = wxK('rain');
   if (L[1] > 0.55) return ['step_stone', 'step_dirt'];   // rocky ground
   if (wet > 0.4 && Math.random() < 0.5) return ['step_mud', 'step_dirt'];

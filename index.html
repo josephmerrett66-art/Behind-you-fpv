@@ -2620,6 +2620,7 @@ const DIT = {
   bow1: { n: 'Short bow', c: '#9a7040', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#9a7040', dmg: 1.0, dur: 90, b: 'Bow · hold to draw, let go to loose · needs arrows' },   // v189: weapons stage 2, ranged
   bow2: { n: 'Bone bow', c: '#d8cfb8', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#cfc6ae', dmg: 1.35, dur: 170, b: 'Bow · horn and bone, a hard pull and a long flight' },
   bow3: { n: 'War bow', c: '#6e4a2c', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#5e3e24', tip: IRON_HEAD, dmg: 1.8, dur: 300, b: 'Bow · iron-tipped yew, it drops a deer at forty paces' },
+  xbow: { n: 'Crossbow', c: '#6a4a2e', st: 1, k: 'tool', tool: 'xbow', rng: 'xbow', bw: '#9a7040', dmg: 4.7, dur: 220, b: 'Crossbow · click to span it, hold to aim, let go to shoot · every shot a full one · uses arrows' },   // 89-xbow
   sling1: { n: 'Hide sling', c: '#a07850', st: 1, k: 'tool', tool: 'sling', rng: 'sling', dmg: 0.85, dur: 90, b: 'Sling · hold to whirl it, let go to throw · stones or sling shot' },
   sling2: { n: 'Braided sling', c: '#c8b07a', st: 1, k: 'tool', tool: 'sling', rng: 'sling', dmg: 1.2, dur: 200, b: 'Sling · a long braided cord, it hurls hard and stuns' },
   arrows: { n: 'Flint arrows', c: FLINT_HEAD, st: 20, k: 'mat', ammo: 'bow', am: 1, b: 'Arrows · for any bow · the first arrows in your pack are the ones you shoot' },
@@ -2681,6 +2682,7 @@ const DREC = [
   { id: 'bow1', g: 'wpn', out: 'bow1', at: 'hand', cost: { sticks: 3, rope: 2 } },   // v189: ranged
   { id: 'bow2', g: 'wpn', out: 'bow2', at: 'bench', cost: { planks: 2, bone: 3, rope: 2 } },
   { id: 'bow3', g: 'wpn', out: 'bow3', at: 'furnace', cost: { iron: 2, planks: 3, hide: 1, rope: 2 } },
+  { id: 'xbow', g: 'wpn', out: 'xbow', at: 'bench', cost: { bow1: 1, planks: 3, iron: 1, rope: 2 } },   // a short bow lashed across a stock (89-xbow)
   { id: 'sling1', g: 'wpn', out: 'sling1', at: 'hand', cost: { hide: 1, fibre: 3 } },
   { id: 'sling2', g: 'wpn', out: 'sling2', at: 'bench', cost: { rope: 3, hide: 2 } },
   { id: 'arrows', g: 'wpn', out: 'arrows', n: 6, at: 'hand', cost: { sticks: 3, flint: 1, fibre: 2 } },
@@ -3320,6 +3322,7 @@ const ICON = (() => {
     maul: '<path d="M5 20.5l8-10" stroke="#7a5a3a" stroke-width="2.4" stroke-linecap="round"/><rect x="11" y="3" width="10" height="8" rx="2.5" fill="#8d8b85" transform="rotate(-38 16 7)"/><path d="M12.4 10.4l2.6 2" stroke="#c8b07a" stroke-width="1.6"/>',
     mace: '<path d="M5 20.5l7-9" stroke="#5a5a56" stroke-width="2.4" stroke-linecap="round"/><circle cx="15.5" cy="8.5" r="4.6" fill="#9aa0a6"/><g fill="#d8dce0"><path d="M15.5 1.8l1.2 2.4h-2.4zM22.2 8.5l-2.4 1.2V7.3zM15.5 15.2l-1.2-2.4h2.4zM9.3 6.5l2.4-.2-1.3 2z"/></g>',
     bow1: bow('#9a7040'), bow2: bow('#cfc6ae'), bow3: bow('#5e3e24', '#b8bcc0'),   // v189
+    xbow: '<path d="M3.2 20.8l3.2-3.2" stroke="#4a3220" stroke-width="3.6" stroke-linecap="round"/><path d="M5 19L18.6 5.4" stroke="#6a4a2e" stroke-width="2.2" stroke-linecap="round"/><path d="M11.55 2.55Q19.3 4.7 21.45 12.45" stroke="#9a7040" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M11.55 2.55L11.5 12.5 21.45 12.45" stroke="#efe6d2" stroke-width=".8" fill="none"/><path d="M11.5 12.5L19.2 4.8" stroke="#a08a62" stroke-width="1.1"/><path d="M21.2 2.8L18.4 4.2 19.8 5.6z" fill="#4d5560"/><path d="M8.4 15.6l1.8 1.8" stroke="#8d9096" stroke-width="1.2" stroke-linecap="round"/><circle cx="11.5" cy="12.5" r="1" fill="#8d9096"/>',
     sling1: sling('#a07850'), sling2: sling('#c8b07a'),
     arrows: arrows('#4d5560'), arrowsB: arrows('#e6dfcc'), arrowsI: arrows('#b8bcc0'), arrowsF: arrows('#e2763a') + '<g fill="#ffb050"><path d="M5 9c1-1.5 2.4-1.8 2-3.4 1.4 1 1.6 2.6.6 3.8z"/><path d="M9 7c1-1.5 2.4-1.8 2-3.4 1.4 1 1.6 2.6.6 3.8z"/></g>',
     shot: '<g fill="#9a9893"><circle cx="8" cy="15" r="3.2"/><circle cx="15.5" cy="15.5" r="3"/><circle cx="12" cy="9.5" r="3.1"/></g><g fill="#c8c6c0" opacity=".7"><circle cx="7" cy="14" r="1"/><circle cx="14.6" cy="14.5" r=".9"/><circle cx="11" cy="8.5" r="1"/></g>',
@@ -3481,7 +3484,7 @@ const fgBadge = s => fgOk(s) && (fgN(s) || s.inf) ? `<b class="fgb"${s.inf ? ` s
 function slotInner(s) {
   if (!s) return '';
   const T = DIT[s.id];
-  if (T.rng && S && S.day) return iconSvg(s.id) + `<span class="n">${dayAmmoN(T.rng)}</span>` + (s.d !== undefined ? `<i class="dur${s.d / slotDur(s) < 0.25 ? ' low' : ''}" style="--f:${Math.max(0.02, s.d / slotDur(s)).toFixed(3)}"></i>` : '') + fgBadge(s);   // v189: a bow shows the arrows you carry
+  if (T.rng && S && S.day) return iconSvg(s.id) + `<span class="n">${dayAmmoN(T.rng)}${s.ld ? '+1' : ''}</span>` + (s.d !== undefined ? `<i class="dur${s.d / slotDur(s) < 0.25 ? ' low' : ''}" style="--f:${Math.max(0.02, s.d / slotDur(s)).toFixed(3)}"></i>` : '') + fgBadge(s);   // v189: a bow shows the arrows you carry
   return iconSvg(s.id) + (s.n > 1 ? `<span class="n">${s.n}</span>` : '') + (T.k === 'drink' ? `<span class="n">${s.w}/${SKIN_SIPS}</span>` : '')
     + (s.d !== undefined ? `<i class="dur${s.d / slotDur(s) < 0.25 ? ' low' : ''}" style="--f:${Math.max(0.02, s.d / slotDur(s)).toFixed(3)}"></i>` : '') + fgBadge(s);
 }
@@ -4967,8 +4970,9 @@ function dayArmTick(dt) {
 const RNG = {
   bow: { full: 0.75, base: 1.7, sp: [620, 1180], rng: [250, 600], st: 6, snd: 'bow' },
   sling: { full: 0.55, base: 1.35, sp: [520, 900], rng: [210, 440], st: 5, snd: 'sling' },
+  xbow: { full: 0.14, base: 1.7, sp: [1300, 1300], rng: [650, 650], st: 0, snd: 'bow' },   // spanned beforehand (89-xbow): up to your eye at once, and every shot a full one
 };
-const AMMO = { bow: ['arrows', 'arrowsB', 'arrowsI', 'arrowsF'], sling: ['shot', 'stones'] };
+const AMMO = { bow: ['arrows', 'arrowsB', 'arrowsI', 'arrowsF'], sling: ['shot', 'stones'] }; AMMO.xbow = AMMO.bow;
 for (const [k, holder] of [['arrows', 'quiver'], ['arrowsB', 'quiver'], ['arrowsI', 'quiver'], ['arrowsF', 'quiver'], ['shot', 'pouch']])   // a quiver or a pouch in the pack: three times as many to a slot
   Object.defineProperty(DIT[k], 'st', { get: () => (S && S.day && S.day.inv && S.day.inv.some(s => s && s.id === holder)) ? 60 : 20, configurable: true });
 const dayRngId = () => { if (!S || !S.day || !S.rg) return null; const T = heldIt(); return T && T.rng ? T.rng : null; };
@@ -5013,12 +5017,12 @@ function dayLoose(kind, s, c, a, spread, kk, L) {   // one arrow or one stone, f
   const T = heldIt(), A = DIT[s.id], R = RNG[kind], p = S.p;
   const am = s.id === 'stones' ? 0.8 : A.am || 1, dmg = R.base * (T ? T.dmg * dayFgDmg() : 1) * am * (0.25 + 0.75 * c * c) * kk * (1 + 0.12 * sr('might'));
   const sp = R.sp[0] + (R.sp[1] - R.sp[0]) * c, max = L || R.rng[0] + (R.rng[1] - R.rng[0]) * c, b = a + spread;
-  (S.rg.dshots = S.rg.dshots || []).push({ kind: kind === 'bow' ? 'arrow' : 'stone', id: s.id, x: p.x + Math.cos(b) * 12, y: p.y + Math.sin(b) * 12, z: 22, a: b, d: 0, max, sp, dmg, c,
+  (S.rg.dshots = S.rg.dshots || []).push({ kind: kind === 'sling' ? 'stone' : 'arrow', id: s.id, x: p.x + Math.cos(b) * 12, y: p.y + Math.sin(b) * 12, z: 22, a: b, d: 0, max, sp, dmg, c,
     inf: dayInf(), named: T === DIT.nbow, pierce: T === DIT.nbow && c >= 0.95 ? 99 : A.pierce ? 1 : 0, fire: !!A.fire, bleed: !!A.bleed, stun: kind === 'sling' ? (0.25 + 0.4 * c) * kk : 0, knock: kind === 'sling' ? 10 + 22 * c * kk : 6 + 8 * c, hit: new Set(), t: 0, tr: [], arc: 1 });
   dayAmmoUse(s);
-  camKick(a, kind === 'bow' ? -2 - 3 * c : -2); addShake(0.04 + 0.08 * c);
-  if (actx && !snd(kind === 'bow' ? 'bow_release' : 'whoosh', { v: 0.6 + 0.5 * c, rate: kind === 'bow' ? 1 : 1.25 })) { const t = actx.currentTime;
-    if (kind === 'bow') { toneAt(t, 150 + 60 * c, 0.16, 0.05 + 0.04 * c, 'triangle', sfxGain); noiseAt(t, 3200, 1200, 0.1, 0.22 + 0.14 * c, sfxGain); }
+  camKick(a, kind !== 'sling' ? -2 - 3 * c : -2); addShake(0.04 + 0.08 * c);
+  if (actx && !snd(kind !== 'sling' ? 'bow_release' : 'whoosh', { v: 0.6 + 0.5 * c, rate: kind !== 'sling' ? 1 : 1.25 })) { const t = actx.currentTime;
+    if (kind !== 'sling') { toneAt(t, 150 + 60 * c, 0.16, 0.05 + 0.04 * c, 'triangle', sfxGain); noiseAt(t, 3200, 1200, 0.1, 0.22 + 0.14 * c, sfxGain); }
     else { noiseAt(t, 1400, 600, 0.12, 0.3, sfxGain); toneAt(t, 220, 0.06, 0.03, 'square', sfxGain); } }
 }
 function dayThrowStart() {                        // a throwable in your hand: it goes where you point
@@ -9573,7 +9577,7 @@ function thingsFrame(now) {
   for (const q of rg.dshots || []) {
     if (q.f) continue;
     const ux = Math.cos(q.a), uy = Math.sin(q.a), z = q.land ? 2 : q.z || 18;
-    if (q.kind === 'arrow' || q.kind === 'jav') { const L = q.kind === 'jav' ? 34 : 18, tilt = q.land ? 0.45 : 0; K.rod(P_CYL(4), q.x - ux * L, z + (q.land ? L * tilt : -(q.dz || 0) * L), q.y - uy * L, q.x, z, q.y, q.kind === 'jav' ? 0.9 : 0.5, hex('#a08a62')); K.add(P_CONE(4), q.x, z, q.y, 1.6, 3.4, 1.6, hex('#4d5560'), 0, 0, 0); }
+    if (q.kind === 'arrow' || q.kind === 'jav') { const L = q.kind === 'jav' ? 34 : q.xb ? 14 : 18, tilt = q.land ? 0.45 : 0; K.rod(P_CYL(4), q.x - ux * L, z + (q.land ? L * tilt : -(q.dz || 0) * L), q.y - uy * L, q.x, z, q.y, q.kind === 'jav' ? 0.9 : 0.5, hex('#a08a62')); K.add(P_CONE(4), q.x, z, q.y, 1.6, 3.4, 1.6, hex('#4d5560'), 0, 0, 0); }
     else if (q.kind === 'stone' || q.kind === 'bomb' || q.kind === 'flash') K.add(P_BALL(), q.x, z, q.y, 3.6, 3.6, 3.6, hex(q.kind === 'stone' ? '#9a9893' : q.kind === 'bomb' ? '#3a3632' : '#e8e2d0'), 0, 0, 0, q.kind === 'flash' ? 0.6 : 0);
     else { const r = now * 14; K.rod(P_CYL(5), q.x - Math.cos(r) * 9, z - Math.sin(r) * 9, q.y, q.x + Math.cos(r) * 9, z + Math.sin(r) * 9, q.y, 0.9, hex('#6b4a2e')); }
   }
@@ -12151,7 +12155,7 @@ function aimBusy() { return !!(S.day && S.day.draw && state === 'play' && !isoP(
 
 // ---- the flight ----
 // world units are about 5 cm: a full draw leaves at some 66 m/s and drops about a metre over 30 m
-const BAL = { g: 190, drag: 0.3, life: 2.6, step: 5, bow: [430, 1320], sling: [380, 960], gk: { arrow: 1, stone: 1.4 }, head: 2.5, fhead: 1.6 };
+const BAL = { g: 190, drag: 0.3, life: 2.6, step: 5, bow: [430, 1320], sling: [380, 960], xbow: [1750, 1750], gk: { arrow: 1, stone: 1.4 }, head: 2.5, fhead: 1.6 };
 const balSpeed = (kind, c) => { const v = BAL[kind] || BAL.bow; return v[0] + (v[1] - v[0]) * Math.pow(Math.max(0.2, Math.min(1, c)), 0.85); };
 const balFwd = () => { const cp = Math.cos(look.pitch); return [-Math.sin(look.yaw) * cp, Math.sin(look.pitch), -Math.cos(look.yaw) * cp]; };   // (x, up, z)
 // what an arrow could meet along the way: the living near the line it takes
@@ -12237,14 +12241,14 @@ function balStrike(q, o, beast, zone) {   // it went in: a head shot counts for 
 const AIM = { z: 0, on: null, pv: null, at: 0 };
 function aimZoomStep(rdt) {
   const W = S && S.day && S.day.draw && !isoP() && state === 'play' ? S.day.draw : null, c = W ? Math.min(1, W.t / RNG[W.kind].full) : 0;
-  const want = W ? (W.kind === 'bow' ? 0.24 : 0.12) * sEase(c) : 0;
+  const want = W ? (W.kind === 'xbow' ? 0.34 : W.kind === 'bow' ? 0.24 : 0.12) * sEase(c) : 0;   // a crossbow at your eye comes in closest (89-xbow)
   AIM.z += (want - AIM.z) * Math.min(1, rdt * (want > AIM.z ? 5 : 10));
   if (!W) AIM.on = null;
 }
 function aimSensK() { return (1 - AIM.z * 0.9) * (AIM.on && inputMode === 'pad' ? 0.6 : 1); }
 function aimDraw(g) {
   const W = S.day && S.day.draw; if (!W || isoP()) return;
-  const R = RNG[W.kind], c = Math.min(1, W.t / R.full), full = c >= 1, now = S.t, kind = W.kind === 'bow' ? 'arrow' : 'stone';
+  const R = RNG[W.kind], c = Math.min(1, W.t / R.full), full = c >= 1, now = S.t, kind = W.kind === 'sling' ? 'stone' : 'arrow';
   // where this draw would come down if you let go now: the same flight, run through ahead of time
   const v = balSpeed(W.kind, c), f = balFwd(), path = thirdP() ? [] : null; let P;
   if (thirdP()) {
@@ -13576,7 +13580,7 @@ const HOLD = {
 };
 const HEAVY = new Set(['waxe1', 'waxe2', 'waxe3', 'waxe4', 'maul', 'mace', 'bonec', 'nbell', 'nlant']);
 function holdOf(T, id) {
-  if (!T || T.tool === 'bow') return 'fist';
+  if (!T || T.tool === 'bow' || T.tool === 'xbow') return 'fist';
   if (T.tool === 'rod') return 'rod'; if (T.tool === 'sling') return 'sling';
   if (T.wpn === 'spear' || T.thr === 'jav') return 'spear';
   if (T.wpn === 'knife' || T.wpn === 'sword') return 'blade';
@@ -13681,7 +13685,7 @@ function placeHands(dt, now, bob, lag) {
     if (id) { const G = itemModel(id); G.visible = true; if (T.tool === 'bow' && G.parent !== bowRig) { bowRig.add(G); G.position.set(0, 0, BOW_GRIP); } }
   }
   equipT = Math.min(1, equipT + dt / 0.38);
-  const G = id ? ITEM.get(id) : null, hold = holdOf(T, id), bow = !!T && T.tool === 'bow', spearish = hold === 'spear', L = headOf(T, id);
+  const G = id ? ITEM.get(id) : null, hold = holdOf(T, id), bow = !!T && T.tool === 'bow', xb = !!T && T.tool === 'xbow', spearish = hold === 'spear', L = headOf(T, id);
   const A = p.atk, act = p.act, wa = p.wact, cur = VM.cur;
   pzCopy(cur, HOLD[hold]);
   let closeK = !T ? 0.85 : hold === 'icon' || hold === 'small' ? 0.62 : 1, cup = hold === 'icon' ? 0.35 : 0, hideItem = false;
@@ -13725,7 +13729,9 @@ function placeHands(dt, now, bob, lag) {
   cur.p.x *= vmX;
   // the right hand: closed round what it holds, cupped under something small, loosely closed when empty
   fist.visible = true; fistK += (closeK - fistK) * Math.min(1, dt * 14); poseHand(fist, fistK, cup);
+  xbRig.visible = xbHand.visible = false;
   if (bow) placeBow(dt, now, G, cur, bx, by, ly, lp);
+  else if (xb) { bowRig.visible = false; placeXbow(dt, now, G, bx, by, ly, lp); }   // the crossbow in both hands (89-xbow)
   else {
     bowRig.visible = false;
     handG.position.copy(cur.p); armTo(fist, 1, cur.p);
@@ -13740,8 +13746,8 @@ function placeHands(dt, now, bob, lag) {
       sp.scale.set(w * (1 + 0.08 * Math.sin(now * 19 + i * 2)), Math.max(0.01, h), 1); sp.position.x = 0.5 * Math.sin(now * (9 + i) + i) * (1 + v); sp.material.rotation = -0.12 * v + 0.06 * Math.sin(now * 5 + i); });
   }
   // the left: the torch, up by night, down by day (and on your belt while you've a bow in hand)
-  torchK += (((S.torchLvl > 0.05 || S.torchOn) && !bow ? 1 : 0) - torchK) * Math.min(1, dt * 5);
-  torchG.visible = torchK > 0.02 && !bow;
+  torchK += (((S.torchLvl > 0.05 || S.torchOn) && !bow && !xb ? 1 : 0) - torchK) * Math.min(1, dt * 5);
+  torchG.visible = torchK > 0.02 && !bow && !xb;
   torchG.position.set((-8.2 + bx - ly * 6 - 0.4 * Math.sin(ph) * runK) * vmX, -6.3 + by + lp * 5 - VIEW_FX.dip * 0.12 - (1 - torchK) * 14 + drink * 5 + 0.12 * Math.sin(now * 1.7 + 0.6) - 1.0 * runK, -16 + drink * 6 + 0.6 * runK);
   torchG.rotation.set(0.1 + lp * 0.5 + drink * 0.9 + 0.12 * runK, -0.2 + ly * 0.5, 0.1 + drink * 0.4);
   if (torchG.visible) { torchG.updateMatrixWorld(true); armTo(torchHand, -1, torchHand.getWorldPosition(VM.w)); }
@@ -14198,6 +14204,7 @@ function itemModel(id) {
     for (const n of ['strA', 'strB']) { const o = vmPart(G, cyl(0.13, 0.13, 1, 4), mat('#efe6d2', 0.3), 0, 0, 0, 0, 0, 0, false); o.name = n; }
     vmString(G, 0);
     const ar = new THREE.Group(); ar.name = 'arrow'; G.add(ar); buildArrow(ar, !!T.tip || id === 'nbow');
+  } else if (tool === 'xbow') { xbModel(G, K, T); baked = false;   // the crossbow: its stock and bow baked, the string and the arrow in the groove parts of their own (89-xbow)
   } else if (tool === 'sling') {
     const pouch = new THREE.Group(); pouch.name = 'pouch'; pouch.position.set(0, -7, 0); G.add(pouch);
     const P = hkit(); P.add(rockG([0, 0, 0], [1.3, 0.55, 1.0], 2, 0.08, 1, true), T.c, HMT.leather); P.add(rockG([0, 0.5, 0], [0.78, 0.7, 0.78], 5, 0.12, 1), '#9a9893', HMT.stone, { ew: 0.06 }); P.bake(pouch);
@@ -16358,8 +16365,8 @@ function posePlayer(now) {
   const cr = D.crK || 0;
   if (cr > 0) { rootY -= 4.5 * cr; P.legL[0] -= 0.75 * cr; P.legR[0] -= 0.75 * cr; P.shinL[0] += 1.3 * cr; P.shinR[0] += 1.3 * cr; P.footL[0] -= 0.5 * cr; P.footR[0] -= 0.5 * cr; lean(0.5 * cr); P.foreL[0] -= 0.6 * cr; P.foreR[0] -= 0.6 * cr; }
   // ---- what's in your hand when you're not swinging it ----
-  const spearish = T && (T.wpn === 'spear' || T.thr === 'jav'), bow = T && T.tool === 'bow', armed = T && (T.wpn || T.tool);
-  if (armed && !bow) { P.armR[0] += -0.25; P.foreR[0] += -0.55; P.handR[0] = -0.2; }
+  const spearish = T && (T.wpn === 'spear' || T.thr === 'jav'), bow = T && T.tool === 'bow', xb = T && T.tool === 'xbow', armed = T && (T.wpn || T.tool);
+  if (armed && !bow && !xb) { P.armR[0] += -0.25; P.foreR[0] += -0.55; P.handR[0] = -0.2; }
   if (bow) { P.armL = [-0.15 + 0.4 * P.armL[0], 0.15, -0.22]; P.foreL = [-1.2, 0, 0]; P.handL = [0, 0, 0.25]; }   // the bow carried low in front, upright, ready
   // ---- a blow ----
   const kind = A ? (A.ov ? 'chop' : A.pose === 3 || spearish ? 'thrust' : A.i === 2 ? 'slam' : A.i === 3 ? 'thrust' : A.side < 0 ? 'back' : 'fore') : Wa ? 'slam' : null;
@@ -16398,6 +16405,11 @@ function posePlayer(now) {
     }
     // a heavy weapon swings bigger and slower through the body
     if (T && (T.wpn === 'waxe' || T.wpn === 'club' || T.wpn === 'bone' || id === 'maul')) { P.chest[1] *= 1.15; lunge *= 1.15; }
+  } else if (xb && !act) {     // the crossbow in both hands (89-xbow): square on to shoot, bent over it to span
+    stiff = 26;
+    if (D.draw && D.draw.kind === 'xbow') { P.hips[1] = 0.3; P.chest[1] = 0.22; P.head[1] = -0.38; P.head[0] = 0.12; P.legL[0] = -0.25; P.legR[0] = 0.2; P.shinL[0] = 0.2; }
+    else if (D.xspan) { lean(0.3); P.head[0] += 0.3; }
+    xbArms(P, D, s, dt);
   } else if (D.draw && bow) {   // the bow: side on, the bow arm straight out along your aim, the string drawn back to your chin
     const c = clamp(D.draw.t / (RNG.bow ? RNG.bow.full : 0.8), 0, 1); stiff = 22;
     P.hips[1] = 0.45; P.chest[1] = 0.4; P.head[1] = -0.75; P.head[0] = 0.12; P.spine[0] = 0.05;
@@ -16414,7 +16426,7 @@ function posePlayer(now) {
     else { P.armR = bmix(P.armR, [-1.3, 0, 0.1], k); P.foreR = bmix(P.foreR, [-0.6, 0, 0], k); }
   }
   // your torch, held up and out in the left hand by night; with a bow in that hand it hangs from your belt instead, still lit
-  const lit = S.torchLvl > 0.05 || S.torchOn, torch = lit && !bow && !(kind === 'slam' || kind === 'chop');
+  const lit = S.torchLvl > 0.05 || S.torchOn, torch = lit && !bow && !xb && !(kind === 'slam' || kind === 'chop');
   if (torch) { P.armL = [-1.15, 0.25, -0.1]; P.foreL = [-0.55, 0, 0]; P.handL = [0.35, 0, 0]; }
   // a dash: low and long, arms swept back, one leg reaching
   const rollU = p.roll > 0 ? 1 - p.roll / ROLL_T : -1;
@@ -16458,9 +16470,10 @@ function posePlayer(now) {
   const hand = bow ? X.B.handL : X.B.handR;
   if (id && TP.items.has(id)) {
     TP.items.get(id).position.set(0, 0, 0); TP.items.get(id).rotation.set(0, 0, 0);
-    TP.hold.matrix.makeTranslation(0, terrH(X.mesh.position.x, X.mesh.position.z), 0).multiply(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3));
+    if (xb) xbHoldTP(TP.items.get(id), X.B.chest, terrH(X.mesh.position.x, X.mesh.position.z), D, s);
+    else { TP.hold.matrix.makeTranslation(0, terrH(X.mesh.position.x, X.mesh.position.z), 0).multiply(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3));
     if (bow) TP.hold.matrix.multiply(_bm.makeBasis(_bx.set(-1, 0, 0), _by.set(0, 0, 1), _bz.set(0, 1, 0))).multiply(_bm.makeTranslation(0, 0, BOW_GRIP));   // the grip in your fist, limbs across it, the string toward you
-    else TP.hold.matrix.multiply(_bm.makeRotationFromEuler(_be.set(Math.PI / 2, 0, 0)));
+    else TP.hold.matrix.multiply(_bm.makeRotationFromEuler(_be.set(Math.PI / 2, 0, 0))); }
     TP.hold.matrixWorldNeedsUpdate = true; TP.hold.visible = true;
     if (bow) bowNock(TP.items.get(id), D.draw);
   } else TP.hold.visible = false;
@@ -16469,7 +16482,7 @@ function posePlayer(now) {
     const a = _bv.set(0, -1.6, 0).applyMatrix4(X.B.handL.matrixWorld).clone(), b = _bv.set(0, -2, 6.5).applyMatrix4(X.B.handL.matrixWorld).clone();
     between(PT.rod, a.x, a.y, a.z, b.x, b.y, b.z, 1.2, hex('#66655e'), 0);
     stat(b.x, b.y, b.z, 10, 1, 0.92, 0.75, 0.8 * S.torchLvl, 0); stat(b.x, b.y, b.z, 3, 1, 1, 0.95, 1, 0);
-  } else if (lit && bow) {   // clipped to your belt on the left hip, lens down and forward
+  } else if (lit && (bow || xb)) {   // clipped to your belt on the left hip, lens down and forward
     const ty = terrH(X.mesh.position.x, X.mesh.position.z), a = _bv.set(-4.9, 0.6, 1.2).applyMatrix4(X.B.hips.matrixWorld).clone(), b = _bv.set(-5.3, -4.6, 3.4).applyMatrix4(X.B.hips.matrixWorld).clone();
     a.y += ty; b.y += ty;
     between(PT.rod, a.x, a.y, a.z, b.x, b.y, b.z, 1.2, hex('#66655e'), 0);
@@ -20820,6 +20833,202 @@ const angDiffDeg = (a, b) => ((a - b + 540) % 360) - 180;
   }
   return rs.apply(this, arguments);
 }; }
+
+;
+// ================= the crossbow =================
+// Joe: "add a crossbow that is essentially an upgraded bow. I would love the idea of standing on the platform shooting the
+// cannibals, that's the fantasy!" Made at a workbench from a short bow, planks, an iron bar and rope: the bow lashed across
+// the nose of a wooden stock, an iron nut to hold the string back and a long trigger under it. It shoots the arrows you
+// already make, and it's made for the lookout (68-lift):
+//   - click and you span it: up against you, nose high, you haul the string back over the nut and lay an arrow in the
+//     groove. That takes a breath and some stamina, and you walk slowly while you do it: it's for while they're coming.
+//   - once spanned it stays spanned: put it away, take it out again, and the shot is still waiting (the +1 on its slot).
+//   - hold to bring it up to your eye (the view comes in closer than with a bow), let go to shoot. Every shot is a full one,
+//     faster and flatter than any bow's, and it goes through the first one it meets into the one behind. In the head it
+//     drops a cannibal; two in the body do for most of them.
+//   - after a shot it spans itself again if you've arrows, so up on the stand it's shoot, span, shoot.
+const XB = { span: 1.4, latch: 0.7, st: 9, cd: 0.3, auto: 0.35 };
+const xbHeld = () => { const T = heldIt(); return !!(T && T.tool === 'xbow'); };
+
+// ---- spanning it, bringing it up, and letting go ----
+{ const ds = dayDrawStart; dayDrawStart = function () {
+  if (!S.day || !S.rg || !xbHeld()) return ds.apply(this, arguments);
+  const D = S.day, s = heldSlot();
+  if (D.draw || D.xspan || S.p.act || (S.rg.rngCd || 0) > 0) return true;
+  if (s.ld && DIT[s.ld]) { D.draw = { kind: 'xbow', t: 0, full: true, a: S.aimW || 0 }; snd('cloth', { v: 0.3, rate: 1.4 }); return true; }   // spanned: up to your eye
+  xbSpan(s, false); return true;
+}; }
+function xbSpan(s, auto) {   // start hauling the string back (auto: straight after a shot, quietly, if you've the breath)
+  const D = S.day;
+  if (!dayAmmo('xbow')) {
+    if (!auto) { dayNote('noammo', 'no arrows · make some at a fire or a bench', 2); if (actx && !snd('ui_error')) toneAt(actx.currentTime, 300, 0.08, 0.04, 'square', sfxGain); }
+    return false;
+  }
+  if (auto) { if (D.st < XB.st) return false; D.st -= XB.st; D.stT = 0; } else if (!dayStam(XB.st)) return false;
+  D.xspan = { t: 0, s };
+  if (!D.told.xbow) { D.told.xbow = 1; exNote('spanning · it stays spanned till you shoot · hold to aim, let go to shoot', true); }
+  return true;
+}
+{ const dr = dayDrawRelease; dayDrawRelease = function () {
+  const D = S.day; if (!D || !D.draw || D.draw.kind !== 'xbow') return dr.apply(this, arguments);
+  const W = D.draw, s = heldSlot(), rg = S.rg; D.draw = null;
+  if (!s || !s.ld || !DIT[s.ld] || !xbHeld()) return;
+  const bolt = { id: s.ld, n: 2 }, n0 = rg.dshots ? rg.dshots.length : 0; delete s.ld;   // the arrow in the groove left your quiver when you spanned it
+  const G = aimLooseAt('xbow', 1);
+  dayLoose('xbow', bolt, 1, W.a, G.off, 1, G.L);
+  if (rg.dshots && rg.dshots.length > n0) { const q = rg.dshots[rg.dshots.length - 1]; q.pierce = Math.max(q.pierce || 0, DIT[bolt.id].pierce ? 2 : 1); q.knock = 22; q.xb = 1; }
+  dayWear(); rg.rngCd = XB.cd; D.xauto = XB.auto; XBV.kick = 1;
+  camKick(W.a, -3); addShake(0.1); padRumble(0.35, 70);
+  snd('trap_snap', { v: 0.5, rate: 1.4 });   // the nut letting go
+}; }
+{ const dt0 = dayDrawTick; dayDrawTick = function (dt) { dt0.apply(this, arguments); xbTick(dt); }; }
+function xbTick(dt) {
+  const D = S.day, s = heldSlot();
+  if (D.xauto > 0 && (D.xauto -= dt) <= 0) { D.xauto = 0; if (xbHeld() && s && !s.ld && !D.xspan && !D.draw && !S.p.act && S.rg.phase === 'fight') xbSpan(s, true); }
+  const X = D.xspan; if (!X) return;
+  if (s !== X.s || !xbHeld() || S.p.act || S.rg.phase !== 'fight') { D.xspan = null; return; }   // put down part way: the string slips back off the nut
+  const u0 = X.t / XB.span; X.t += dt * dayFgSp(); const u = X.t / XB.span;
+  if (u0 < 0.16 && u >= 0.16 && actx && !snd('bow_draw', { v: 0.9, rate: 0.75 })) noiseAt(actx.currentTime, 700, 300, 0.4, 0.1, sfxGain);   // hauling it back
+  if (u0 < XB.latch && u >= XB.latch) {   // over the nut: it catches, and an arrow goes in the groove
+    const a = dayAmmo('xbow'); if (!a) { D.xspan = null; dayNote('noammo', 'no arrows', 2); return; }
+    s.ld = a.id; dayAmmoUse(a); padRumble(0.2, 50);
+    if (actx && !snd('latch', { v: 0.8, rate: 1.5 })) toneAt(actx.currentTime, 1500, 0.05, 0.04, 'square', sfxGain);
+  }
+  if (u >= 1) D.xspan = null;
+}
+{ const ss = sprintStep; sprintStep = function (dt, ml) {   // spanning it: a slow walk, no running
+  if (!S.day || !S.day.xspan) return ss.apply(this, arguments);
+  const h = SPR.held; SPR.on = SPR.held = false; const k = ss.apply(this, arguments); SPR.held = h; return k * 0.6;
+}; }
+{ const dv = dayVerb; dayVerb = function () {
+  if (!S.day || !xbHeld()) return dv.apply(this, arguments);
+  const D = S.day, s = heldSlot(); return D.draw ? 'Shoot' : D.xspan ? 'Spanning' : s && s.ld ? 'Aim' : 'Span';
+}; }
+
+// ---- what it looks like ----
+// Its origin is the stock's wrist, where your right hand closes round it; it points down -z with its deck up +y. The short
+// bow it was made from runs across the nose, lashed on; the string sits on the deck in front of the iron nut, or drawn
+// back over it; the arrow lies in the groove with its nock against the string.
+const XBM = { tip: [10.5, 0.34, -13.1], rest: [0, 0.82, -13.1], nut: [0, 0.98, -1.85], grip: [0, -0.2, 0.9], fore: [0, -0.3, -8.2] };
+function xbModel(G, K, T) {
+  const wd = T.c || '#6a4a2e', bw = T.bw || '#9a7040';
+  // the stock: a heavy butt dropping below the line, a slim wrist for your hand, the long fore-stock with its groove, the nose
+  const ST = [[9.3, -1.55, 0.5, 0.9], [9.0, -1.5, 0.66, 1.25], [6.2, -1.12, 0.66, 1.2], [3.2, -0.56, 0.56, 0.86], [1.6, -0.28, 0.48, 0.66], [-0.4, -0.08, 0.5, 0.64],
+    [-2.0, 0, 0.58, 0.72], [-14.5, 0, 0.58, 0.72], [-14.9, -0.28, 0.76, 1.0], [-16.6, -0.28, 0.76, 1.0], [-16.95, -0.24, 0.6, 0.8]];
+  K.add(sweep(ST.map(([z, y, w, h]) => [[0, y, z], sqS(w, h, 0.5, 12)]), [1, 0, 0]), wd, HMT.wood, { cf: (x, y, z, c) => y > 0.6 && z < -1.3 && z > -14.6 && Math.abs(x) < 0.2 ? _hkc.copy(c).lerp(COLR('#2a1c12'), 0.65) : null });
+  // the bow across the nose, its limbs tapering out to the nocks and swept back toward you
+  const path = [];
+  for (let i = 0; i <= 20; i++) { const s = i / 10 - 1, a = Math.abs(s); path.push([[10.6 * s, 0.32, -15.8 + 2.7 * s * s], ovalS(lerp(0.5, 0.26, a), lerp(0.42, 0.22, a), 8)]); }
+  K.add(sweep(path, [0, 1, 0]), bw, HMT.wood);
+  for (const s of [-1, 1]) K.add(hBallG([s * 10.55, 0.34, -13.1], [0.34, 0.4, 0.34], 7, 6), '#d8c8a0', HMT.bone, { ew: 0.06 });   // the nocks
+  for (const z of [-15.05, -16.55]) K.add(turnG(wrapG(0, 0.42, 1.12), Math.PI / 2, 0, 0, [0, -0.28, z]), RAWHIDE, HMT.cord, { ew: 0.06 });   // lashed on either side of it
+  // iron: the nut the string catches on, the long trigger under the wrist, the stirrup out in front
+  K.add(hRodG([-0.62, 0.72, -1.5], [0.62, 0.72, -1.5], 0.36, 0.36, 9), IRON_D, HMT.metal, { ew: 0.06 });
+  K.add(hRodG([0, -0.5, -2.2], [0, -1.9, 1.5], 0.2, 0.16, 6), IRON_D, HMT.metal, { ew: 0.05 });
+  K.add(hBallG([0, -0.62, -2.1], [0.62, 0.26, 0.26], 7, 5), IRON_D, HMT.metal, { ew: 0.05 });   // its pin through the stock
+  K.add(new THREE.TorusGeometry(1.25, 0.17, 6, 14, Math.PI).rotateX(-Math.PI / 2).translate(0, -0.28, -16.9), IRON_D, HMT.metal, { ew: 0.05 });
+  const st = new THREE.Group(); st.name = 'xstock'; G.add(st); K.bake(st);
+  for (const n of ['strA', 'strB']) { const o = vmPart(G, cyl(0.12, 0.12, 1, 4), mat('#efe6d2', 0.3), 0, 0, 0, 0, 0, 0, false); o.name = n; }
+  for (const [n, iron] of [['bolt', false], ['boltI', true]]) {   // an arrow cut down to a bolt, flint-headed or iron
+    const b = new THREE.Group(); b.name = n; b.scale.set(1.1, 1.1, 0.68); b.position.set(0, 0.98, XBM.nut[2] - 2 * 0.68); b.visible = false; G.add(b); buildArrow(b, iron);
+  }
+  xbString(G, 0);
+}
+const _xa = new V3(), _xb = new V3(), _xc = new V3();
+function xbString(G, k) {   // each half of the string from its nock to the middle: k 0 on the deck in front, 1 back over the nut
+  _xc.set(0, lerp(XBM.rest[1], XBM.nut[1], k), lerp(XBM.rest[2], XBM.nut[2], k));
+  for (const [n, sx] of [['strA', 1], ['strB', -1]]) {
+    const o = G.getObjectByName(n); if (!o) continue;
+    _xa.set(sx * XBM.tip[0], XBM.tip[1], XBM.tip[2]); _xb.subVectors(_xc, _xa); const L = _xb.length();
+    o.position.copy(_xa).addScaledVector(_xb, 0.5); o.quaternion.setFromUnitVectors(_sUp, _xb.normalize()); o.scale.set(1, L, 1);
+  }
+}
+function xbBolt(G, id, slide) {   // the arrow in the groove (id null: none), slid back by slide
+  for (const n of ['bolt', 'boltI']) { const b = G.getObjectByName(n); b.visible = !!id && (n === 'boltI') === (id === 'arrowsI'); b.position.z = XBM.nut[2] - 2 * 0.68 + (slide || 0); }
+}
+// where it is in the span: how far the string is back, where the right hand is, whether the arrow is in
+function xbPhase(D, s) {
+  const X = D && D.xspan, u = X ? clamp(X.t / XB.span, 0, 1) : 0, L = XB.latch;
+  if (!X) return { u: 0, on: 0, str: s && s.ld ? 1 : 0, hand: 0, slide: 0, bolt: s && s.ld };
+  const on = u < 0.16 ? easeIO(u / 0.16) : u > 0.86 ? easeIO((1 - u) / 0.14) : 1;
+  const str = u < 0.16 ? 0 : u < L ? easeIO((u - 0.16) / (L - 0.16)) : 1;
+  const hand = u < 0.16 ? easeIO(u / 0.16) : u < 0.86 ? 1 : easeIO((1 - u) / 0.14);   // 0 on the grip, 1 at the string (or the arrow)
+  const lay = u < L ? 0 : clamp((u - L) / (0.84 - L), 0, 1);
+  return { u, on, str, hand, lay, slide: u < L ? 0 : 4.5 * (1 - easeOut(lay)), bolt: u >= L && s ? s.ld : null };
+}
+
+// ---- in first person: both hands on it ----
+const XBV = { k: 0, kick: 0 };   // up at your eye (0..1); the kick of a shot
+const xbRig = new THREE.Group(); vmScene.add(xbRig); xbRig.visible = false;
+const xbHand = makeHand(true); vmScene.add(xbHand); xbHand.visible = false; poseHand(xbHand, 0.85);
+// rest: carried low on the right, canted; aim: the stock under your cheek, the arrow running in under the crosshair;
+// span: nose up in front of you, the deck toward you, so you see the string come back
+const XBP = { rest: PZ([5.2, -6.2, -13.5], [0.3, 1, 0.04], [-0.12, -0.02, -1]), aim: PZ([1.6, -4.6, -9.6], [0, 1, 0], [0, 0, -1]), span: PZ([2.4, -9.6, -11.5], [0.12, 0.78, 0.6], [-0.04, 0.55, -0.83]) };
+const XBQ = { a: new THREE.Quaternion(), b: new THREE.Quaternion(), u: new V3(), f: new V3(), p: new V3() };
+const xbR = (v, x, y, z) => xbRig.localToWorld(v.set(x, y, z));
+const xbDir = (v, x, y, z) => v.set(x, y, z).applyQuaternion(xbRig.quaternion);
+function placeXbow(dt, now, G, bx, by, ly, lp) {
+  const D = S.day, s = heldSlot(), ph = xbPhase(D, s);
+  if (G.parent !== xbRig) xbRig.add(G);
+  G.visible = true; G.position.set(0, 0, 0); G.quaternion.identity();
+  XBV.k = clamp(XBV.k + ((D && D.draw && D.draw.kind === 'xbow') ? 1 : -1) * dt * 7, 0, 1); XBV.kick = Math.max(0, XBV.kick - dt * 4.5);
+  const eq = easeBack(equipT), run = runK * (1 - XBV.k) * (1 - ph.on), P = pzMix(VM.tmp, XBP.rest, XBP.aim, easeIO(XBV.k));
+  if (ph.on > 0) pzMix(P, P, XBP.span, ph.on);
+  const kk = XBV.kick * XBV.kick, br = 0.14 * Math.sin(now * 1.7) * (1 - 0.7 * XBV.k);
+  P.p.x += bx * (1 - 0.6 * XBV.k) - ly * 6 + 2 * (1 - eq); P.p.y += by * (1 - 0.6 * XBV.k) + lp * 5 - VIEW_FX.dip * 0.15 - 9 * (1 - eq) - 1.4 * run + br + 0.7 * kk;
+  P.p.z += 0.8 * run + 2.4 * kk; P.f.y += 0.22 * kk; P.f.normalize();
+  P.u.applyQuaternion(VM.lagQ); P.f.applyQuaternion(VM.lagQ);
+  P.p.x *= Math.max(vmX, 0.8);
+  xbRig.visible = true; xbRig.position.copy(P.p); handFrame(P.u, P.f, xbRig.quaternion); xbRig.updateMatrixWorld(true);
+  xbString(G, ph.str); xbBolt(G, ph.bolt, ph.slide);
+  // the right hand: round the wrist of the stock, thumb up its side, a finger on the trigger; while spanning, hooked on the string, then laying the arrow in
+  const grip = xbR(XBQ.p, ...XBM.grip), qg = handFrame(xbDir(XBQ.u, 0, 0.08, -1), xbDir(XBQ.f, -1, 0, 0), XBQ.a);
+  let close = 1;
+  if (ph.hand > 0) {
+    const k = ph.str, at = ph.lay > 0 ? xbR(_xa, 0, 1.55, XBM.nut[2] + 0.9 + ph.slide) : xbR(_xa, 0, lerp(XBM.rest[1], XBM.nut[1], k) + 0.85, lerp(XBM.rest[2], XBM.nut[2], k) + 0.35);
+    const qs = handFrame(xbDir(XBQ.u, -1, 0, 0.1), xbDir(XBQ.f, 0, -0.5, 1), XBQ.b);
+    grip.lerp(at, ph.hand); qg.slerp(qs, ph.hand); close = lerp(1, ph.lay > 0 ? 0.45 : 0.6, ph.hand);
+  }
+  handG.position.copy(grip); handG.quaternion.copy(qg);
+  fist.visible = true; fistK += (close - fistK) * Math.min(1, dt * 16); poseHand(fist, fistK, 0);
+  armTo(fist, 1, handG.position, VM.pole.set(0.7 - 0.45 * ph.hand, -1, 0.15 + 0.2 * ph.hand));
+  // the left hand: under the fore-stock, its fingers round the far side, holding it up
+  xbHand.visible = true; xbR(xbHand.position, ...XBM.fore);
+  handFrame(xbDir(XBQ.u, 0, 0, -1), xbDir(XBQ.f, 1, 0, 0), xbHand.quaternion);
+  armTo(xbHand, -1, xbHand.position, VM.w.set(-0.7, -1, 0.1));
+}
+
+// ---- in third person (76-body) ----
+// The same model, scaled to you: carried low across you in both hands, up into your right shoulder with your cheek on the
+// stock to shoot, nose up against your belly while you haul the string back.
+const XBT = { sc: 0.85, o: new V3(), f: new V3(0, 0, 1), u: new V3(0, 1, 0), go: 0, M: new M4() };
+const _xm = new M4(), _xq = new V3(), _xr = new V3(), _xs = new V3();
+function xbArms(P, D, s, dt) {   // the pose for both arms, and (in XBT) where the crossbow is in your chest
+  const iq = chestQ(P), fw = new V3(0, 0, 1).applyQuaternion(iq), up = new V3(0, 1, 0).applyQuaternion(iq), rt = new V3(1, 0, 0).applyQuaternion(iq);
+  const ph = xbPhase(D, s), aim = D.draw && D.draw.kind === 'xbow', sc = XBT.sc, at = (x, y, z) => new V3().addScaledVector(rt, x).addScaledVector(up, y).addScaledVector(fw, z);
+  let o, f, u;
+  if (ph.on > 0.5) { f = at(0, 0.6, 0.8).normalize(); u = at(0, 0.8, -0.6).normalize(); o = at(1.2, -4.8, 6.2); }   // spanning
+  else if (aim) { f = fw.clone(); u = up.clone(); o = at(3.0, 4.4, 1.0).addScaledVector(f, 9.3 * sc).addScaledVector(u, 1.55 * sc); }   // the butt in your shoulder
+  else { f = at(-0.3, -0.32, 1).normalize(); u = at(0.3, 1, 0.25).normalize(); o = at(3.2, -3.2, 6.4); }   // carried
+  const k = XBT.go ? 1 - Math.exp(-16 * dt) : 1; XBT.go = 1;
+  XBT.o.lerp(o, k); XBT.f.lerp(f, k).normalize(); XBT.u.lerp(u, k).normalize();
+  // the hands, at their places on it
+  const Z = _xq.copy(XBT.f).negate(), Y = _xr.copy(XBT.u).addScaledVector(Z, -XBT.u.dot(Z)).normalize(), X = _xs.crossVectors(Y, Z);
+  const pt = (x, y, z) => XBT.o.clone().addScaledVector(X, x * sc).addScaledVector(Y, y * sc).addScaledVector(Z, z * sc);
+  const shL = new V3(-5.6, 3.6, 0), shR = new V3(5.6, 3.6, 0);
+  let HR = pt(...XBM.grip);
+  if (ph.hand > 0) { const sk = ph.str; HR.lerp(pt(0, lerp(XBM.rest[1], XBM.nut[1], sk) + 1.2, lerp(XBM.rest[2], XBM.nut[2], sk)), ph.hand); }
+  const HL = pt(XBM.fore[0], XBM.fore[1] - 1, XBM.fore[2]);
+  const [aR, bR] = armReach(shR, HR, new V3(1, -0.8, 0).addScaledVector(fw, -0.5)); P.armR = aR; P.foreR = [bR, 0, 0]; P.handR = [0, 0, 0];
+  const [aL, bL] = armReach(shL, HL, new V3(-0.4, -1, 0)); P.armL = aL; P.foreL = [bL, 0, 0]; P.handL = [0, 0, 0];
+}
+function xbHoldTP(G, chest, ty, D, s) {   // the model where xbArms put it, and its string and arrow
+  const Z = _xq.copy(XBT.f).negate(), Y = _xr.copy(XBT.u).addScaledVector(Z, -XBT.u.dot(Z)).normalize(), X = _xs.crossVectors(Y, Z);
+  XBT.M.makeBasis(X, Y, Z).setPosition(XBT.o).multiply(_xm.makeScale(XBT.sc, XBT.sc, XBT.sc));
+  TP.hold.matrix.makeTranslation(0, ty, 0).multiply(chest.matrixWorld).multiply(XBT.M);
+  G.position.set(0, 0, 0); G.rotation.set(0, 0, 0);
+  const ph = xbPhase(D, s); xbString(G, ph.str); xbBolt(G, ph.bolt, ph.slide);
+}
 
 ;
 // ================= the sun and the dark, the lights, the camera, the frame =================

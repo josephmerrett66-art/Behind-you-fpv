@@ -25,7 +25,7 @@ function aimBusy() { return !!(S.day && S.day.draw && state === 'play' && !isoP(
 
 // ---- the flight ----
 // world units are about 5 cm: a full draw leaves at some 66 m/s and drops about a metre over 30 m
-const BAL = { g: 190, drag: 0.3, life: 2.6, step: 5, bow: [430, 1320], sling: [380, 960], gk: { arrow: 1, stone: 1.4 }, head: 2.5, fhead: 1.6 };
+const BAL = { g: 190, drag: 0.3, life: 2.6, step: 5, bow: [430, 1320], sling: [380, 960], xbow: [1750, 1750], gk: { arrow: 1, stone: 1.4 }, head: 2.5, fhead: 1.6 };
 const balSpeed = (kind, c) => { const v = BAL[kind] || BAL.bow; return v[0] + (v[1] - v[0]) * Math.pow(Math.max(0.2, Math.min(1, c)), 0.85); };
 const balFwd = () => { const cp = Math.cos(look.pitch); return [-Math.sin(look.yaw) * cp, Math.sin(look.pitch), -Math.cos(look.yaw) * cp]; };   // (x, up, z)
 // what an arrow could meet along the way: the living near the line it takes
@@ -111,14 +111,14 @@ function balStrike(q, o, beast, zone) {   // it went in: a head shot counts for 
 const AIM = { z: 0, on: null, pv: null, at: 0 };
 function aimZoomStep(rdt) {
   const W = S && S.day && S.day.draw && !isoP() && state === 'play' ? S.day.draw : null, c = W ? Math.min(1, W.t / RNG[W.kind].full) : 0;
-  const want = W ? (W.kind === 'bow' ? 0.24 : 0.12) * sEase(c) : 0;
+  const want = W ? (W.kind === 'xbow' ? 0.34 : W.kind === 'bow' ? 0.24 : 0.12) * sEase(c) : 0;   // a crossbow at your eye comes in closest (89-xbow)
   AIM.z += (want - AIM.z) * Math.min(1, rdt * (want > AIM.z ? 5 : 10));
   if (!W) AIM.on = null;
 }
 function aimSensK() { return (1 - AIM.z * 0.9) * (AIM.on && inputMode === 'pad' ? 0.6 : 1); }
 function aimDraw(g) {
   const W = S.day && S.day.draw; if (!W || isoP()) return;
-  const R = RNG[W.kind], c = Math.min(1, W.t / R.full), full = c >= 1, now = S.t, kind = W.kind === 'bow' ? 'arrow' : 'stone';
+  const R = RNG[W.kind], c = Math.min(1, W.t / R.full), full = c >= 1, now = S.t, kind = W.kind === 'sling' ? 'stone' : 'arrow';
   // where this draw would come down if you let go now: the same flight, run through ahead of time
   const v = balSpeed(W.kind, c), f = balFwd(), path = thirdP() ? [] : null; let P;
   if (thirdP()) {

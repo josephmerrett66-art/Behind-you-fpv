@@ -411,6 +411,7 @@ function itemModel(id) {
     for (const n of ['strA', 'strB']) { const o = vmPart(G, cyl(0.13, 0.13, 1, 4), mat('#efe6d2', 0.3), 0, 0, 0, 0, 0, 0, false); o.name = n; }
     vmString(G, 0);
     const ar = new THREE.Group(); ar.name = 'arrow'; G.add(ar); buildArrow(ar, !!T.tip || id === 'nbow');
+  } else if (tool === 'xbow') { xbModel(G, K, T); baked = false;   // the crossbow: its stock and bow baked, the string and the arrow in the groove parts of their own (89-xbow)
   } else if (tool === 'sling') {
     const pouch = new THREE.Group(); pouch.name = 'pouch'; pouch.position.set(0, -7, 0); G.add(pouch);
     const P = hkit(); P.add(rockG([0, 0, 0], [1.3, 0.55, 1.0], 2, 0.08, 1, true), T.c, HMT.leather); P.add(rockG([0, 0.5, 0], [0.78, 0.7, 0.78], 5, 0.12, 1), '#9a9893', HMT.stone, { ew: 0.06 }); P.bake(pouch);

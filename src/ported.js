@@ -1944,6 +1944,7 @@ const DIT = {
   bow1: { n: 'Short bow', c: '#9a7040', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#9a7040', dmg: 1.0, dur: 90, b: 'Bow · hold to draw, let go to loose · needs arrows' },   // v189: weapons stage 2, ranged
   bow2: { n: 'Bone bow', c: '#d8cfb8', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#cfc6ae', dmg: 1.35, dur: 170, b: 'Bow · horn and bone, a hard pull and a long flight' },
   bow3: { n: 'War bow', c: '#6e4a2c', st: 1, k: 'tool', tool: 'bow', rng: 'bow', bw: '#5e3e24', tip: IRON_HEAD, dmg: 1.8, dur: 300, b: 'Bow · iron-tipped yew, it drops a deer at forty paces' },
+  xbow: { n: 'Crossbow', c: '#6a4a2e', st: 1, k: 'tool', tool: 'xbow', rng: 'xbow', bw: '#9a7040', dmg: 4.7, dur: 220, b: 'Crossbow · click to span it, hold to aim, let go to shoot · every shot a full one · uses arrows' },   // 89-xbow
   sling1: { n: 'Hide sling', c: '#a07850', st: 1, k: 'tool', tool: 'sling', rng: 'sling', dmg: 0.85, dur: 90, b: 'Sling · hold to whirl it, let go to throw · stones or sling shot' },
   sling2: { n: 'Braided sling', c: '#c8b07a', st: 1, k: 'tool', tool: 'sling', rng: 'sling', dmg: 1.2, dur: 200, b: 'Sling · a long braided cord, it hurls hard and stuns' },
   arrows: { n: 'Flint arrows', c: FLINT_HEAD, st: 20, k: 'mat', ammo: 'bow', am: 1, b: 'Arrows · for any bow · the first arrows in your pack are the ones you shoot' },
@@ -2005,6 +2006,7 @@ const DREC = [
   { id: 'bow1', g: 'wpn', out: 'bow1', at: 'hand', cost: { sticks: 3, rope: 2 } },   // v189: ranged
   { id: 'bow2', g: 'wpn', out: 'bow2', at: 'bench', cost: { planks: 2, bone: 3, rope: 2 } },
   { id: 'bow3', g: 'wpn', out: 'bow3', at: 'furnace', cost: { iron: 2, planks: 3, hide: 1, rope: 2 } },
+  { id: 'xbow', g: 'wpn', out: 'xbow', at: 'bench', cost: { bow1: 1, planks: 3, iron: 1, rope: 2 } },   // a short bow lashed across a stock (89-xbow)
   { id: 'sling1', g: 'wpn', out: 'sling1', at: 'hand', cost: { hide: 1, fibre: 3 } },
   { id: 'sling2', g: 'wpn', out: 'sling2', at: 'bench', cost: { rope: 3, hide: 2 } },
   { id: 'arrows', g: 'wpn', out: 'arrows', n: 6, at: 'hand', cost: { sticks: 3, flint: 1, fibre: 2 } },
@@ -2644,6 +2646,7 @@ const ICON = (() => {
     maul: '<path d="M5 20.5l8-10" stroke="#7a5a3a" stroke-width="2.4" stroke-linecap="round"/><rect x="11" y="3" width="10" height="8" rx="2.5" fill="#8d8b85" transform="rotate(-38 16 7)"/><path d="M12.4 10.4l2.6 2" stroke="#c8b07a" stroke-width="1.6"/>',
     mace: '<path d="M5 20.5l7-9" stroke="#5a5a56" stroke-width="2.4" stroke-linecap="round"/><circle cx="15.5" cy="8.5" r="4.6" fill="#9aa0a6"/><g fill="#d8dce0"><path d="M15.5 1.8l1.2 2.4h-2.4zM22.2 8.5l-2.4 1.2V7.3zM15.5 15.2l-1.2-2.4h2.4zM9.3 6.5l2.4-.2-1.3 2z"/></g>',
     bow1: bow('#9a7040'), bow2: bow('#cfc6ae'), bow3: bow('#5e3e24', '#b8bcc0'),   // v189
+    xbow: '<path d="M3.2 20.8l3.2-3.2" stroke="#4a3220" stroke-width="3.6" stroke-linecap="round"/><path d="M5 19L18.6 5.4" stroke="#6a4a2e" stroke-width="2.2" stroke-linecap="round"/><path d="M11.55 2.55Q19.3 4.7 21.45 12.45" stroke="#9a7040" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M11.55 2.55L11.5 12.5 21.45 12.45" stroke="#efe6d2" stroke-width=".8" fill="none"/><path d="M11.5 12.5L19.2 4.8" stroke="#a08a62" stroke-width="1.1"/><path d="M21.2 2.8L18.4 4.2 19.8 5.6z" fill="#4d5560"/><path d="M8.4 15.6l1.8 1.8" stroke="#8d9096" stroke-width="1.2" stroke-linecap="round"/><circle cx="11.5" cy="12.5" r="1" fill="#8d9096"/>',
     sling1: sling('#a07850'), sling2: sling('#c8b07a'),
     arrows: arrows('#4d5560'), arrowsB: arrows('#e6dfcc'), arrowsI: arrows('#b8bcc0'), arrowsF: arrows('#e2763a') + '<g fill="#ffb050"><path d="M5 9c1-1.5 2.4-1.8 2-3.4 1.4 1 1.6 2.6.6 3.8z"/><path d="M9 7c1-1.5 2.4-1.8 2-3.4 1.4 1 1.6 2.6.6 3.8z"/></g>',
     shot: '<g fill="#9a9893"><circle cx="8" cy="15" r="3.2"/><circle cx="15.5" cy="15.5" r="3"/><circle cx="12" cy="9.5" r="3.1"/></g><g fill="#c8c6c0" opacity=".7"><circle cx="7" cy="14" r="1"/><circle cx="14.6" cy="14.5" r=".9"/><circle cx="11" cy="8.5" r="1"/></g>',
@@ -2805,7 +2808,7 @@ const fgBadge = s => fgOk(s) && (fgN(s) || s.inf) ? `<b class="fgb"${s.inf ? ` s
 function slotInner(s) {
   if (!s) return '';
   const T = DIT[s.id];
-  if (T.rng && S && S.day) return iconSvg(s.id) + `<span class="n">${dayAmmoN(T.rng)}</span>` + (s.d !== undefined ? `<i class="dur${s.d / slotDur(s) < 0.25 ? ' low' : ''}" style="--f:${Math.max(0.02, s.d / slotDur(s)).toFixed(3)}"></i>` : '') + fgBadge(s);   // v189: a bow shows the arrows you carry
+  if (T.rng && S && S.day) return iconSvg(s.id) + `<span class="n">${dayAmmoN(T.rng)}${s.ld ? '+1' : ''}</span>` + (s.d !== undefined ? `<i class="dur${s.d / slotDur(s) < 0.25 ? ' low' : ''}" style="--f:${Math.max(0.02, s.d / slotDur(s)).toFixed(3)}"></i>` : '') + fgBadge(s);   // v189: a bow shows the arrows you carry
   return iconSvg(s.id) + (s.n > 1 ? `<span class="n">${s.n}</span>` : '') + (T.k === 'drink' ? `<span class="n">${s.w}/${SKIN_SIPS}</span>` : '')
     + (s.d !== undefined ? `<i class="dur${s.d / slotDur(s) < 0.25 ? ' low' : ''}" style="--f:${Math.max(0.02, s.d / slotDur(s)).toFixed(3)}"></i>` : '') + fgBadge(s);
 }
@@ -4291,8 +4294,9 @@ function dayArmTick(dt) {
 const RNG = {
   bow: { full: 0.75, base: 1.7, sp: [620, 1180], rng: [250, 600], st: 6, snd: 'bow' },
   sling: { full: 0.55, base: 1.35, sp: [520, 900], rng: [210, 440], st: 5, snd: 'sling' },
+  xbow: { full: 0.14, base: 1.7, sp: [1300, 1300], rng: [650, 650], st: 0, snd: 'bow' },   // spanned beforehand (89-xbow): up to your eye at once, and every shot a full one
 };
-const AMMO = { bow: ['arrows', 'arrowsB', 'arrowsI', 'arrowsF'], sling: ['shot', 'stones'] };
+const AMMO = { bow: ['arrows', 'arrowsB', 'arrowsI', 'arrowsF'], sling: ['shot', 'stones'] }; AMMO.xbow = AMMO.bow;
 for (const [k, holder] of [['arrows', 'quiver'], ['arrowsB', 'quiver'], ['arrowsI', 'quiver'], ['arrowsF', 'quiver'], ['shot', 'pouch']])   // a quiver or a pouch in the pack: three times as many to a slot
   Object.defineProperty(DIT[k], 'st', { get: () => (S && S.day && S.day.inv && S.day.inv.some(s => s && s.id === holder)) ? 60 : 20, configurable: true });
 const dayRngId = () => { if (!S || !S.day || !S.rg) return null; const T = heldIt(); return T && T.rng ? T.rng : null; };
@@ -4337,12 +4341,12 @@ function dayLoose(kind, s, c, a, spread, kk, L) {   // one arrow or one stone, f
   const T = heldIt(), A = DIT[s.id], R = RNG[kind], p = S.p;
   const am = s.id === 'stones' ? 0.8 : A.am || 1, dmg = R.base * (T ? T.dmg * dayFgDmg() : 1) * am * (0.25 + 0.75 * c * c) * kk * (1 + 0.12 * sr('might'));
   const sp = R.sp[0] + (R.sp[1] - R.sp[0]) * c, max = L || R.rng[0] + (R.rng[1] - R.rng[0]) * c, b = a + spread;
-  (S.rg.dshots = S.rg.dshots || []).push({ kind: kind === 'bow' ? 'arrow' : 'stone', id: s.id, x: p.x + Math.cos(b) * 12, y: p.y + Math.sin(b) * 12, z: 22, a: b, d: 0, max, sp, dmg, c,
+  (S.rg.dshots = S.rg.dshots || []).push({ kind: kind === 'sling' ? 'stone' : 'arrow', id: s.id, x: p.x + Math.cos(b) * 12, y: p.y + Math.sin(b) * 12, z: 22, a: b, d: 0, max, sp, dmg, c,
     inf: dayInf(), named: T === DIT.nbow, pierce: T === DIT.nbow && c >= 0.95 ? 99 : A.pierce ? 1 : 0, fire: !!A.fire, bleed: !!A.bleed, stun: kind === 'sling' ? (0.25 + 0.4 * c) * kk : 0, knock: kind === 'sling' ? 10 + 22 * c * kk : 6 + 8 * c, hit: new Set(), t: 0, tr: [], arc: 1 });
   dayAmmoUse(s);
-  camKick(a, kind === 'bow' ? -2 - 3 * c : -2); addShake(0.04 + 0.08 * c);
-  if (actx && !snd(kind === 'bow' ? 'bow_release' : 'whoosh', { v: 0.6 + 0.5 * c, rate: kind === 'bow' ? 1 : 1.25 })) { const t = actx.currentTime;
-    if (kind === 'bow') { toneAt(t, 150 + 60 * c, 0.16, 0.05 + 0.04 * c, 'triangle', sfxGain); noiseAt(t, 3200, 1200, 0.1, 0.22 + 0.14 * c, sfxGain); }
+  camKick(a, kind !== 'sling' ? -2 - 3 * c : -2); addShake(0.04 + 0.08 * c);
+  if (actx && !snd(kind !== 'sling' ? 'bow_release' : 'whoosh', { v: 0.6 + 0.5 * c, rate: kind !== 'sling' ? 1 : 1.25 })) { const t = actx.currentTime;
+    if (kind !== 'sling') { toneAt(t, 150 + 60 * c, 0.16, 0.05 + 0.04 * c, 'triangle', sfxGain); noiseAt(t, 3200, 1200, 0.1, 0.22 + 0.14 * c, sfxGain); }
     else { noiseAt(t, 1400, 600, 0.12, 0.3, sfxGain); toneAt(t, 220, 0.06, 0.03, 'square', sfxGain); } }
 }
 function dayThrowStart() {                        // a throwable in your hand: it goes where you point

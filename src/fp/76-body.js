@@ -302,8 +302,8 @@ function posePlayer(now) {
   const cr = D.crK || 0;
   if (cr > 0) { rootY -= 4.5 * cr; P.legL[0] -= 0.75 * cr; P.legR[0] -= 0.75 * cr; P.shinL[0] += 1.3 * cr; P.shinR[0] += 1.3 * cr; P.footL[0] -= 0.5 * cr; P.footR[0] -= 0.5 * cr; lean(0.5 * cr); P.foreL[0] -= 0.6 * cr; P.foreR[0] -= 0.6 * cr; }
   // ---- what's in your hand when you're not swinging it ----
-  const spearish = T && (T.wpn === 'spear' || T.thr === 'jav'), bow = T && T.tool === 'bow', armed = T && (T.wpn || T.tool);
-  if (armed && !bow) { P.armR[0] += -0.25; P.foreR[0] += -0.55; P.handR[0] = -0.2; }
+  const spearish = T && (T.wpn === 'spear' || T.thr === 'jav'), bow = T && T.tool === 'bow', xb = T && T.tool === 'xbow', armed = T && (T.wpn || T.tool);
+  if (armed && !bow && !xb) { P.armR[0] += -0.25; P.foreR[0] += -0.55; P.handR[0] = -0.2; }
   if (bow) { P.armL = [-0.15 + 0.4 * P.armL[0], 0.15, -0.22]; P.foreL = [-1.2, 0, 0]; P.handL = [0, 0, 0.25]; }   // the bow carried low in front, upright, ready
   // ---- a blow ----
   const kind = A ? (A.ov ? 'chop' : A.pose === 3 || spearish ? 'thrust' : A.i === 2 ? 'slam' : A.i === 3 ? 'thrust' : A.side < 0 ? 'back' : 'fore') : Wa ? 'slam' : null;
@@ -342,6 +342,11 @@ function posePlayer(now) {
     }
     // a heavy weapon swings bigger and slower through the body
     if (T && (T.wpn === 'waxe' || T.wpn === 'club' || T.wpn === 'bone' || id === 'maul')) { P.chest[1] *= 1.15; lunge *= 1.15; }
+  } else if (xb && !act) {     // the crossbow in both hands (89-xbow): square on to shoot, bent over it to span
+    stiff = 26;
+    if (D.draw && D.draw.kind === 'xbow') { P.hips[1] = 0.3; P.chest[1] = 0.22; P.head[1] = -0.38; P.head[0] = 0.12; P.legL[0] = -0.25; P.legR[0] = 0.2; P.shinL[0] = 0.2; }
+    else if (D.xspan) { lean(0.3); P.head[0] += 0.3; }
+    xbArms(P, D, s, dt);
   } else if (D.draw && bow) {   // the bow: side on, the bow arm straight out along your aim, the string drawn back to your chin
     const c = clamp(D.draw.t / (RNG.bow ? RNG.bow.full : 0.8), 0, 1); stiff = 22;
     P.hips[1] = 0.45; P.chest[1] = 0.4; P.head[1] = -0.75; P.head[0] = 0.12; P.spine[0] = 0.05;
@@ -358,7 +363,7 @@ function posePlayer(now) {
     else { P.armR = bmix(P.armR, [-1.3, 0, 0.1], k); P.foreR = bmix(P.foreR, [-0.6, 0, 0], k); }
   }
   // your torch, held up and out in the left hand by night; with a bow in that hand it hangs from your belt instead, still lit
-  const lit = S.torchLvl > 0.05 || S.torchOn, torch = lit && !bow && !(kind === 'slam' || kind === 'chop');
+  const lit = S.torchLvl > 0.05 || S.torchOn, torch = lit && !bow && !xb && !(kind === 'slam' || kind === 'chop');
   if (torch) { P.armL = [-1.15, 0.25, -0.1]; P.foreL = [-0.55, 0, 0]; P.handL = [0.35, 0, 0]; }
   // a dash: low and long, arms swept back, one leg reaching
   const rollU = p.roll > 0 ? 1 - p.roll / ROLL_T : -1;
@@ -402,9 +407,10 @@ function posePlayer(now) {
   const hand = bow ? X.B.handL : X.B.handR;
   if (id && TP.items.has(id)) {
     TP.items.get(id).position.set(0, 0, 0); TP.items.get(id).rotation.set(0, 0, 0);
-    TP.hold.matrix.makeTranslation(0, terrH(X.mesh.position.x, X.mesh.position.z), 0).multiply(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3));
+    if (xb) xbHoldTP(TP.items.get(id), X.B.chest, terrH(X.mesh.position.x, X.mesh.position.z), D, s);
+    else { TP.hold.matrix.makeTranslation(0, terrH(X.mesh.position.x, X.mesh.position.z), 0).multiply(hand.matrixWorld).multiply(_bm.makeTranslation(0, -1.6, 0.3));
     if (bow) TP.hold.matrix.multiply(_bm.makeBasis(_bx.set(-1, 0, 0), _by.set(0, 0, 1), _bz.set(0, 1, 0))).multiply(_bm.makeTranslation(0, 0, BOW_GRIP));   // the grip in your fist, limbs across it, the string toward you
-    else TP.hold.matrix.multiply(_bm.makeRotationFromEuler(_be.set(Math.PI / 2, 0, 0)));
+    else TP.hold.matrix.multiply(_bm.makeRotationFromEuler(_be.set(Math.PI / 2, 0, 0))); }
     TP.hold.matrixWorldNeedsUpdate = true; TP.hold.visible = true;
     if (bow) bowNock(TP.items.get(id), D.draw);
   } else TP.hold.visible = false;
@@ -413,7 +419,7 @@ function posePlayer(now) {
     const a = _bv.set(0, -1.6, 0).applyMatrix4(X.B.handL.matrixWorld).clone(), b = _bv.set(0, -2, 6.5).applyMatrix4(X.B.handL.matrixWorld).clone();
     between(PT.rod, a.x, a.y, a.z, b.x, b.y, b.z, 1.2, hex('#66655e'), 0);
     stat(b.x, b.y, b.z, 10, 1, 0.92, 0.75, 0.8 * S.torchLvl, 0); stat(b.x, b.y, b.z, 3, 1, 1, 0.95, 1, 0);
-  } else if (lit && bow) {   // clipped to your belt on the left hip, lens down and forward
+  } else if (lit && (bow || xb)) {   // clipped to your belt on the left hip, lens down and forward
     const ty = terrH(X.mesh.position.x, X.mesh.position.z), a = _bv.set(-4.9, 0.6, 1.2).applyMatrix4(X.B.hips.matrixWorld).clone(), b = _bv.set(-5.3, -4.6, 3.4).applyMatrix4(X.B.hips.matrixWorld).clone();
     a.y += ty; b.y += ty;
     between(PT.rod, a.x, a.y, a.z, b.x, b.y, b.z, 1.2, hex('#66655e'), 0);

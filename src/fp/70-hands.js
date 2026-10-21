@@ -271,7 +271,7 @@ const HOLD = {
 };
 const HEAVY = new Set(['waxe1', 'waxe2', 'waxe3', 'waxe4', 'maul', 'mace', 'bonec', 'nbell', 'nlant']);
 function holdOf(T, id) {
-  if (!T || T.tool === 'bow') return 'fist';
+  if (!T || T.tool === 'bow' || T.tool === 'xbow') return 'fist';
   if (T.tool === 'rod') return 'rod'; if (T.tool === 'sling') return 'sling';
   if (T.wpn === 'spear' || T.thr === 'jav') return 'spear';
   if (T.wpn === 'knife' || T.wpn === 'sword') return 'blade';
@@ -376,7 +376,7 @@ function placeHands(dt, now, bob, lag) {
     if (id) { const G = itemModel(id); G.visible = true; if (T.tool === 'bow' && G.parent !== bowRig) { bowRig.add(G); G.position.set(0, 0, BOW_GRIP); } }
   }
   equipT = Math.min(1, equipT + dt / 0.38);
-  const G = id ? ITEM.get(id) : null, hold = holdOf(T, id), bow = !!T && T.tool === 'bow', spearish = hold === 'spear', L = headOf(T, id);
+  const G = id ? ITEM.get(id) : null, hold = holdOf(T, id), bow = !!T && T.tool === 'bow', xb = !!T && T.tool === 'xbow', spearish = hold === 'spear', L = headOf(T, id);
   const A = p.atk, act = p.act, wa = p.wact, cur = VM.cur;
   pzCopy(cur, HOLD[hold]);
   let closeK = !T ? 0.85 : hold === 'icon' || hold === 'small' ? 0.62 : 1, cup = hold === 'icon' ? 0.35 : 0, hideItem = false;
@@ -420,7 +420,9 @@ function placeHands(dt, now, bob, lag) {
   cur.p.x *= vmX;
   // the right hand: closed round what it holds, cupped under something small, loosely closed when empty
   fist.visible = true; fistK += (closeK - fistK) * Math.min(1, dt * 14); poseHand(fist, fistK, cup);
+  xbRig.visible = xbHand.visible = false;
   if (bow) placeBow(dt, now, G, cur, bx, by, ly, lp);
+  else if (xb) { bowRig.visible = false; placeXbow(dt, now, G, bx, by, ly, lp); }   // the crossbow in both hands (89-xbow)
   else {
     bowRig.visible = false;
     handG.position.copy(cur.p); armTo(fist, 1, cur.p);
@@ -435,8 +437,8 @@ function placeHands(dt, now, bob, lag) {
       sp.scale.set(w * (1 + 0.08 * Math.sin(now * 19 + i * 2)), Math.max(0.01, h), 1); sp.position.x = 0.5 * Math.sin(now * (9 + i) + i) * (1 + v); sp.material.rotation = -0.12 * v + 0.06 * Math.sin(now * 5 + i); });
   }
   // the left: the torch, up by night, down by day (and on your belt while you've a bow in hand)
-  torchK += (((S.torchLvl > 0.05 || S.torchOn) && !bow ? 1 : 0) - torchK) * Math.min(1, dt * 5);
-  torchG.visible = torchK > 0.02 && !bow;
+  torchK += (((S.torchLvl > 0.05 || S.torchOn) && !bow && !xb ? 1 : 0) - torchK) * Math.min(1, dt * 5);
+  torchG.visible = torchK > 0.02 && !bow && !xb;
   torchG.position.set((-8.2 + bx - ly * 6 - 0.4 * Math.sin(ph) * runK) * vmX, -6.3 + by + lp * 5 - VIEW_FX.dip * 0.12 - (1 - torchK) * 14 + drink * 5 + 0.12 * Math.sin(now * 1.7 + 0.6) - 1.0 * runK, -16 + drink * 6 + 0.6 * runK);
   torchG.rotation.set(0.1 + lp * 0.5 + drink * 0.9 + 0.12 * runK, -0.2 + ly * 0.5, 0.1 + drink * 0.4);
   if (torchG.visible) { torchG.updateMatrixWorld(true); armTo(torchHand, -1, torchHand.getWorldPosition(VM.w)); }

@@ -493,7 +493,7 @@ const CLAN_ST = {
     if (!c.hs || (c.hs.at && S.t > c.hs.at)) {   // a new spot on the ground, away from where the others are
       let best = null, bs = -1e9;
       for (let k = 0; k < 8; k++) {
-        const a = Math.atan2(e.y - p.y, e.x - p.x) + (Math.random() - 0.5) * 2.4, r = 140 + Math.random() * 90, G = clanAround(r, a);
+        const b = Math.atan2(e.y - p.y, e.x - p.x), a = b + (c.slot !== undefined ? clamp(angDiff(c.slot, b), -1.2, 1.2) + (Math.random() - 0.5) * 1.0 : (Math.random() - 0.5) * 2.4), r = 140 + Math.random() * 90, G = clanAround(r, a);   // toward its own side of you (79-surround)
         if (!clanOpen(G.x, G.y)) continue;
         let sc = -Math.hypot(G.x - e.x, G.y - e.y) * 0.2 + Math.random() * 40;
         for (const o of clanList()) if (o !== e && o.cl.hs) sc -= Math.max(0, 140 - Math.hypot(o.cl.hs.x - G.x, o.cl.hs.y - G.y));
@@ -526,7 +526,8 @@ const CLAN_ST = {
     if (!R) return clanGo(e, clan().rage > 0 && c.hunter ? 'hunt' : 'watch');
     if (!c.o.G || (c.o.at && S.t > c.o.at)) {
       const a0 = Math.atan2(e.y - R.y, e.x - R.x); let G = null;
-      for (let k = 0; k < 6 && !G; k++) { const a = a0 + (Math.random() - 0.5) * 1.6, r = R.r + 50 + Math.random() * 70, x = R.x + Math.cos(a) * r, y = R.y + Math.sin(a) * r; if (!lakeAt(x, y, 20) && !clanList().some(o => o !== e && o.cl.o.G && Math.hypot(o.cl.o.G.x - x, o.cl.o.G.y - y) < 45)) G = { x, y }; }
+      const to = c.slot !== undefined ? clamp(angDiff(c.slot, a0), -0.9, 0.9) : 0;   // edging round toward its own side of you (79-surround)
+      for (let k = 0; k < 6 && !G; k++) { const a = a0 + to + (Math.random() - 0.5) * (to ? 0.8 : 1.6), r = R.r + 50 + Math.random() * 70, x = R.x + Math.cos(a) * r, y = R.y + Math.sin(a) * r; if (!lakeAt(x, y, 20) && !clanList().some(o => o !== e && o.cl.o.G && Math.hypot(o.cl.o.G.x - x, o.cl.o.G.y - y) < 45)) G = { x, y }; }
       c.o.G = G || { x: e.x, y: e.y }; c.o.at = 0; c.o.pose = Math.random() < 0.5 ? 0.88 : 0.12; c.o.v = CL.walk * (1 + Math.random());
     }
     const L = clanMove(e, c.o.G.x, c.o.G.y, c.o.v, dt);

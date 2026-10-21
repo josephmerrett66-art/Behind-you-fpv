@@ -154,7 +154,7 @@ function clanWanderPick(e, c, g, W) {
 function clanShadowOf(e) {
   const c = e.cl, g = c.band; if (c.sh) return c.sh;
   const M = g ? bandOf(g) : [e], i = Math.max(0, M.indexOf(e)), p = S.p, a0 = g && g.stalk ? g.stalk.a : Math.atan2(e.y - p.y, e.x - p.x);
-  return (c.sh = { a: a0 + (i - (M.length - 1) / 2) * (0.45 + Math.random() * 0.4) + (Math.random() - 0.5) * 0.4, dir: Math.random() < 0.5 ? 1 : -1,
+  return (c.sh = { a: a0 + (i - (M.length - 1) / 2) * (0.45 + Math.random() * 0.4) + (Math.random() - 0.5) * 0.4, dir: Math.random() < 0.5 ? 1 : -1, goal: a0 + surrSpread(i, M.length) + (Math.random() - 0.5) * 0.3,   // its own side of you (79-surround)
     dr: (Math.random() - 0.5) * 120, v: 70 + Math.random() * 40, mode: 'move', G: null, t: 0, pose: 0.9, seenAt: -9 });
 }
 function clanShadow(e, c, g, d, dt) {
@@ -172,9 +172,10 @@ function clanShadow(e, c, g, d, dt) {
     c.cr = H.mode === 'stare' ? 0.12 : H.pose; c.faceW = Math.atan2(p.y - e.y, p.x - e.x); c.stare = 1;
     if ((H.t -= dt) > 0 || (g.close && S.t < (H.inAt ?? 0))) return;
     H.mode = 'move'; H.G = null; H.slip = 0;
-    if (!g.close) {   // on round you, now and then doubling back, never far round from the side the band came from
-      H.a += H.dir * (0.25 + Math.random() * 0.45); if (Math.random() < 0.25) H.dir = -H.dir;
-      if (g.stalk && Math.abs(angDiff(H.a, g.stalk.a)) > 1.6) H.dir = Math.sign(angDiff(g.stalk.a, H.a));
+    if (!g.close) {   // on round you to its own side of you (79-surround); there, drifting about it, now and then doubling back
+      const off = angDiff(H.goal ?? H.a, H.a), far = Math.abs(off) > 0.5;
+      if (far) H.dir = Math.sign(off); else if (Math.random() < 0.25) H.dir = -H.dir;
+      H.a += H.dir * Math.min(0.25 + Math.random() * 0.45, far ? Math.abs(off) : 0.7);
     }
   }
   if (!H.G) H.G = clanShadowSpot(e, g, H, B, home, stop);

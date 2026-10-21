@@ -13022,10 +13022,13 @@ function penSafe(P) {   // firelight, a hearthstone, a lit torch post, or a ring
 // ================= your hands: what you hold in your right, your torch in your left =================
 // Whatever is in the hotbar slot you've picked is what you hold: an axe, a pick, a spear, a bow, a sling, a club, a hand torch,
 // a hammer; anything else you hold up as itself. It moves with what the main game says you are doing: a swing, a chop,
-// a jab, a draw, eating, drinking, picking something up.
+// a jab, a draw, eating, drinking, picking something up. (What each thing looks like: 70-kit.)
 const vmLight = { value: new V3(1, 0.95, 0.88) };
+// a colour as it was picked: the renderer passes colours straight through (00-core), so a hex read the usual way (as sRGB,
+// turned linear) came out darker and oranger than it was meant, the hands a sunburnt orange and every haft near black
+const vmCol = h => typeof h === 'number' ? new THREE.Color().setHex(h, THREE.LinearSRGBColorSpace) : new THREE.Color().setStyle(h, THREE.LinearSRGBColorSpace);
 function vmMat(h, em = 0) {
-  const c = new THREE.Color(h);
+  const c = vmCol(h);
   return new THREE.ShaderMaterial({
     uniforms: { col: { value: new V3(c.r, c.g, c.b) }, em: { value: em }, vmL: vmLight, colourK: LU.colourK },
     vertexShader: `varying vec3 vN; void main() { vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
@@ -13048,7 +13051,7 @@ const SLEEVE = '#d0a07a', GLOVE = '#daa880', SKIN = '#c8a07a';   // bare forearm
 const cyl = (r0, r1, h, n = 8) => new THREE.CylinderGeometry(r0, r1, h, n);
 const _sa = new V3(), _sb = new V3(), _sUp = new V3(0, 1, 0);
 function vmString(G, c, at) {   // lay each half of the bowstring from its tip to the nock, drawn back by c (or to the point at)
-  const nock = at ? at.clone() : new V3(0, 0, -3.4 + 9 * c);
+  const nock = at ? at.clone() : new V3(0, BOW_NOCK, -3.4 + 9 * c);
   for (const [n, y] of [['strA', 10.6], ['strB', -10.6]]) {
     const o = G.getObjectByName(n); if (!o) continue;
     _sa.set(0, y, -3.4); _sb.subVectors(nock, _sa); const L = _sb.length();
@@ -13061,7 +13064,7 @@ const capsule = (r, h) => new THREE.CapsuleGeometry(r, h, 3, 8);
 // Built round the grip: whatever it holds runs along the hand's +y through the origin, the palm faces -x, the back of the hand
 // +x, and the wrist and forearm run back along +z to a rolled shirt cuff. Every finger is a chain of joints, so the same hand
 // closes into a fist round a handle, rests half open, or cups something small. mirror makes it a left hand.
-const HSKIN = '#e2b28c', HSKIN_D = '#d29e7a', HNAIL = '#efd2bc', HCUFF = '#e6dcc4';
+const HSKIN = '#e2b28c', HSKIN_D = '#d29e7a', HNAIL = '#efd2bc', HCUFF = '#d6cab0';
 const vmEdgeThin = new THREE.ShaderMaterial({
   side: THREE.BackSide, uniforms: { vmL: vmLight },
   vertexShader: `void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position + normal * 0.07, 1.0); }`,
@@ -13088,10 +13091,14 @@ function makeHand(mirror) {
   // the wrist and forearm, thick toward the elbow, flatter than round, and the shirt's sleeve rolled up just short of the elbow
   // (it angles down and away, so from your eyes it drops out of the bottom of the view instead of coming at you)
   const fore = new THREE.Group(); fore.position.set(1.0, -0.1, 2.2); fore.rotation.x = 0.62; root.add(fore);
-  const fa = new THREE.CylinderGeometry(1.15, 0.86, 8, 12, 4); fa.rotateX(Math.PI / 2); fa.translate(0, 0, 4); fa.scale(0.8, 1, 1);
+  // (slim at the wrist, filling out with the muscle toward the elbow)
+  const fa = new THREE.LatheGeometry([[0.76, -0.3], [0.8, 0], [0.9, 1.4], [1.08, 3.4], [1.24, 5.4], [1.24, 6.8], [1.14, 8.4]].map(([r, z]) => new THREE.Vector2(r, z)), 14);
+  fa.rotateX(Math.PI / 2); fa.scale(0.8, 1, 1);
   vmFlesh(fore, fa, skin, false);
-  vmFlesh(fore, new THREE.TorusGeometry(1.25, 0.44, 7, 14).scale(0.84, 1, 1), mat(HCUFF), false).position.z = 8.2;
-  vmFlesh(fore, new THREE.CylinderGeometry(1.4, 1.34, 3, 12).rotateX(Math.PI / 2).scale(0.84, 1, 1), mat(HCUFF), false).position.z = 9.9;
+  vmFlesh(fore, new THREE.TorusGeometry(1.2, 0.36, 7, 14).scale(0.84, 1, 1), mat(HCUFF), false).position.z = 8.3;
+  vmFlesh(fore, new THREE.CylinderGeometry(1.3, 1.26, 3, 12).rotateX(Math.PI / 2).scale(0.84, 1, 1), mat(HCUFF), false).position.z = 9.9;
+  // the wrist: a rounded joint for the forearm to turn on, so it bends there instead of folding through the hand
+  vmFlesh(root, new THREE.SphereGeometry(0.9, 10, 8).scale(0.84, 1, 1), skin).position.set(1.0, -0.1, 2.2);
   // fingers: three bones each, the knuckles in an arc across the top of the palm
   const fingers = FINGERS.map(([y, L, r], i) => {
     const j0 = new THREE.Group(); j0.position.set(1.12, y, -0.25 + Math.abs(i - 1.3) * 0.12); root.add(j0);
@@ -13113,7 +13120,7 @@ function makeHand(mirror) {
   const t1 = new THREE.Group(); t1.position.z = -1.25; t0.add(t1); vmFlesh(t1, new THREE.SphereGeometry(0.4, 8, 6), dark); vmFlesh(t1, segGeo(0.4, 0.37, 0.95), skin);
   const t2 = new THREE.Group(); t2.position.z = -0.95; t1.add(t2); vmFlesh(t2, segGeo(0.37, 0.32, 0.8), skin);
   const tn = new THREE.Group(); tn.position.z = -0.8; t2.add(tn); vmFlesh(tn, new THREE.SphereGeometry(0.27, 8, 6).scale(0.85, 0.55, 1.05), nail).position.set(0, 0.2, 0.3);
-  H.userData = { fingers, thumb: [t0, t1, t2], root };
+  H.userData = { fingers, thumb: [t0, t1, t2], root, fore, elbow: new V3(), arm: false };
   bakeHand(H);
   return H;
 }
@@ -13155,7 +13162,7 @@ function bakeHand(H) {
     vertexShader: `${head} void main() { mat4 m = J[int(gi + 0.5)]; gl_Position = projectionMatrix * modelViewMatrix * (m * vec4(position + normal * ew, 1.0)); }`,
     fragmentShader: `uniform vec3 vmL; void main() { gl_FragColor = vec4(vec3(0.15, 0.15, 0.14) * vmL, 1.0); }`,
   });
-  const sync = () => { inv.copy(root.matrixWorld).invert(); for (let i = 0; i < NG; i++) M[i].multiplyMatrices(inv, groups[i].matrixWorld); };   // each joint, as the hand is posed this frame
+  const sync = () => { aimFore(H); inv.copy(root.matrixWorld).invert(); for (let i = 0; i < NG; i++) M[i].multiplyMatrices(inv, groups[i].matrixWorld); };   // each joint, as the hand is posed this frame
   const body = new THREE.Mesh(G, skin), edge = new THREE.Mesh(G, line);
   body.frustumCulled = edge.frustumCulled = false; body.onBeforeRender = edge.onBeforeRender = sync;
   root.add(body); root.add(edge);
@@ -13220,50 +13227,698 @@ function iconPlane(id) {   // anything without a shape of its own: its picture f
   const m = new THREE.MeshBasicMaterial({ map: iconTex, transparent: true, alphaTest: 0.3, side: THREE.DoubleSide });
   const o = new THREE.Mesh(g, m); o.position.set(0, 3.6, -0.8); return o;
 }
+// ---------------- moving them ----------------
+// Joe: "the axe and stuff like that, especially how they're held and used, doesn't look very good... a lot more natural with
+// their hand, wrist, and arm movement." Each hand used to be one stiff block turned to a few set angles, the forearm stuck
+// out behind it like a log, and a swing was the whole block swept from one corner to another. Now:
+//   - the arm is a real arm. Each hand hangs off a shoulder down below the view; the elbow finds its own place between the
+//     two (bent out and down), and the forearm runs from the wrist to it, turning at the wrist as far as a wrist turns.
+//   - the hand is aimed, not spun: where the grip is, which way what it holds points, and which way its edge or head faces.
+//   - a blow has a wind-up, a strike and a follow-through, timed so the head lands as the blow does. The arm leads and the
+//     head trails it, then the wrist snaps it through, and the edge leads the way it's travelling.
+//   - picking a thing up brings it up into view; it breathes with you, rides lower and swings with your stride at a run.
+//   - a bow is held in the left hand, upright, and the right hand draws its string (the torch goes on your belt).
+const VM_UA = 9.5, VM_FA = 11.2;   // shoulder to elbow; elbow to the middle of the fist (a hand is about 3.3cm to a unit)
+const FORE_N = new V3(0, -Math.sin(0.62), Math.cos(0.62)), FORE_MAX = 1.05, _fZ = new V3(0, 0, 1);
+const _afw = new V3(), _fd = new V3(), _fm = new M4(), _fq = new THREE.Quaternion(), _fq1 = new THREE.Quaternion();
+function aimFore(H) {   // as it's drawn: the forearm from the wrist toward the elbow, as far as a wrist will bend
+  const { root, fore, elbow, arm } = H.userData;
+  if (!arm) { fore.quaternion.setFromAxisAngle(_fv1.set(1, 0, 0), 0.62); fore.updateMatrixWorld(true); return; }
+  _afw.setFromMatrixPosition(fore.matrixWorld);
+  _fd.subVectors(elbow, _afw).transformDirection(_fm.copy(root.matrixWorld).invert());
+  const a = FORE_N.angleTo(_fd);
+  if (a > FORE_MAX) { _fq.setFromUnitVectors(FORE_N, _fd); _fq1.identity().slerp(_fq, FORE_MAX / a); _fd.copy(FORE_N).applyQuaternion(_fq1); }
+  fore.quaternion.setFromUnitVectors(_fZ, _fd); fore.updateMatrixWorld(true);
+}
+const _fv1 = new V3(), _ikD = new V3(), _ikP = new V3();
+function elbowAt(sh, T, pole, out) {   // two bones from the shoulder to T, the elbow bent out toward pole
+  const D = _ikD.subVectors(T, sh), d = clamp(D.length(), 2, VM_UA + VM_FA - 0.05); D.normalize();
+  const a = Math.acos(clamp((VM_UA * VM_UA + d * d - VM_FA * VM_FA) / (2 * VM_UA * d), -1, 1));
+  _ikP.copy(pole).addScaledVector(D, -pole.dot(D)).normalize();
+  return out.copy(sh).addScaledVector(D, VM_UA * Math.cos(a)).addScaledVector(_ikP, VM_UA * Math.sin(a));
+}
+const _hx = new V3(), _hy = new V3(), _hz = new V3(), _hm = new M4();
+const _ha = new V3(), _hb = new V3();
+function handFrame(U, F, q, arm) {   // the hand's turn: what it holds along U, its knuckles (and so an edge or a head) toward F
+  _hy.copy(U).normalize(); _hz.copy(F).addScaledVector(_hy, -F.dot(_hy));
+  if (_hz.lengthSq() < 1e-5) _hz.set(0, 0, -1).addScaledVector(_hy, _hy.z);
+  _hz.normalize().negate();
+  if (arm) {   // only as far round as the wrist allows from the way the forearm comes in (arm: toward the elbow)
+    _ha.copy(arm).addScaledVector(_hy, -arm.dot(_hy));
+    if (_ha.lengthSq() > 1e-4) {
+      _ha.normalize(); const th = Math.atan2(_hb.crossVectors(_ha, _hz).dot(_hy), _ha.dot(_hz)), lim = 0.85;
+      if (Math.abs(th) > lim) { const a = Math.sign(th) * lim; _hb.crossVectors(_hy, _ha); _hz.copy(_ha).multiplyScalar(Math.cos(a)).addScaledVector(_hb, Math.sin(a)); }
+    }
+  }
+  _hx.crossVectors(_hy, _hz);
+  return q.setFromRotationMatrix(_hm.makeBasis(_hx, _hy, _hz));
+}
+// a pose: where the grip is, which way the thing points (u), which way its edge, head or knuckles face (f)
+const PZ = (p, u, f) => ({ p: new V3(...p), u: new V3(...u).normalize(), f: new V3(...f).normalize() });
+const pzCopy = (o, a) => { o.p.copy(a.p); o.u.copy(a.u); o.f.copy(a.f); return o; };
+function pzMix(o, a, b, k, ku = k) { o.p.lerpVectors(a.p, b.p, k); o.u.lerpVectors(a.u, b.u, ku).normalize(); o.f.lerpVectors(a.f, b.f, ku).normalize(); return o; }
+// how each kind of thing rests in your hand
+const HOLD = {
+  fist: PZ([6.8, -6.7, -13], [-0.1, 0.95, -0.3], [-0.05, -0.75, -0.65]),
+  tool: PZ([7.4, -6.4, -13.6], [-0.3, 0.86, -0.4], [-0.62, -0.1, -0.78]),
+  heavy: PZ([7.8, -7.2, -14], [-0.36, 0.82, -0.44], [-0.62, -0.1, -0.78]),
+  blade: PZ([6.8, -5.6, -13], [-0.3, 0.62, -0.72], [-0.1, -0.76, -0.6]),
+  spear: PZ([7.4, -5.2, -11], [-0.24, 0.28, -0.93], [-0.55, 0.82, 0.05]),
+  light: PZ([7.2, -6.2, -14], [-0.24, 0.92, -0.3], [-0.45, -0.1, -0.88]),
+  small: PZ([6.6, -2.8, -12.5], [-0.12, 0.96, -0.24], [-0.4, -0.15, -0.9]),
+  icon: PZ([7.0, -4.8, -13], [-0.12, 0.95, -0.3], [-0.3, -0.2, -0.93]),
+  rod: PZ([7.8, -7.6, -12.5], [-0.3, 0.55, -0.78], [-0.15, 0.82, 0.55]),
+  sling: PZ([7.0, -4.0, -13.5], [-0.05, 0.99, -0.1], [-0.3, 0, -0.95]),
+};
+const HEAVY = new Set(['waxe1', 'waxe2', 'waxe3', 'waxe4', 'maul', 'mace', 'bonec', 'nbell', 'nlant']);
+function holdOf(T, id) {
+  if (!T || T.tool === 'bow') return 'fist';
+  if (T.tool === 'rod') return 'rod'; if (T.tool === 'sling') return 'sling';
+  if (T.wpn === 'spear' || T.thr === 'jav') return 'spear';
+  if (T.wpn === 'knife' || T.wpn === 'sword') return 'blade';
+  if (HEAVY.has(id)) return 'heavy';
+  if (T.tool === 'axe' || T.tool === 'pick' || T.tool === 'build' || T.wpn || T.thr === 'taxe') return 'tool';
+  if (T.k === 'light') return 'light';
+  if (T.thr === 'bomb' || T.thr === 'flash') return 'small';
+  return 'icon';
+}
+// how far out along it the business end is: the head that lands on the mark
+function headOf(T, id) {
+  if (!T) return 0;
+  if (T.tool === 'axe' || T.wpn === 'waxe' || T.thr === 'taxe') return 11.6 * (T.wpn === 'waxe' ? 1.22 : T.thr === 'taxe' ? 0.8 : 1);
+  if (T.tool === 'pick') return 12.2; if (T.tool === 'build') return 10.9;
+  if (T.wpn === 'sword') return 10; if (T.wpn === 'knife') return 5.5;
+  if (id === 'maul') return 13.6; if (T.wpn === 'club' || T.wpn === 'bone') return 11.5;
+  if (T.k === 'light') return 9;
+  return 2;
+}
+// the blows: a wind-up, the strike (the head on the mark, hd, at the middle of the view), and the follow-through
+const STRIKE = {
+  fell: { w: PZ([8.5, -3.5, -12.5], [0.62, 0.74, 0.22], [0, 0, -1]), hd: [-0.5, -1.8, -22], hu: [-0.6, 0.42, -0.68], fo: PZ([2, -13, -15], [-0.65, -0.45, -0.6], [0, 0, -1]) },
+  chop: { w: PZ([8, -1.5, -12.5], [0.25, 0.86, 0.42], [0, 0, -1]), hd: [0.5, -7, -24], hu: [-0.12, -0.3, -0.95], fo: PZ([3, -13.5, -14], [-0.1, -0.8, -0.6], [0, 0, -1]) },
+  cut: { w: PZ([10, -4, -13], [0.65, 0.55, -0.35], [0, 0, -1]), hd: [-1, -2, -21], hu: [-0.75, 0.15, -0.65], fo: PZ([-3, -12.5, -15], [-0.8, -0.45, -0.4], [0, 0, -1]) },
+  back: { w: PZ([-3, -4, -14], [-0.75, 0.45, -0.45], [0, 0, -1]), hd: [1, -2, -21], hu: [0.6, 0.15, -0.78], fo: PZ([10, -12, -14], [0.85, -0.35, -0.35], [0, 0, -1]) },
+  punch: { w: PZ([8.5, -8.5, -12], [0.05, 0.95, 0.3], [0, 0, -1]), hd: [2, -6.8, -22], hu: [-0.85, 0.5, -0.15], fo: PZ([3, -7, -20.5], [-0.85, 0.5, -0.15], [0, 0, -1]) },
+  throw: { w: PZ([11, 1.5, -6], [0.2, 0.5, 0.85], [0, 0, -1]), hd: [4, -3, -21], hu: [-0.1, 0.35, -0.93], fo: PZ([1, -10, -17], [-0.2, -0.5, -0.85], [0, 0, -1]), hand: 1 },
+  hurl: { w: PZ([10.5, -1.5, -4], [-0.1, 0.15, -0.98], [-0.55, 0.82, 0.05]), hd: [5, -3, -22], hu: [-0.12, 0.1, -0.99], fo: PZ([3, -8, -20], [-0.15, -0.1, -0.98], [-0.55, 0.82, 0.05]), hand: 1, keepF: 1 },
+};
+const _sk = [0, 1, 2, 3, 4].map(() => PZ([0, 0, 0], [0, 1, 0], [0, 0, -1])), _skH = [new V3(), new V3(), new V3(), new V3(), new V3()];
+const easeIO = k => k * k * (3 - 2 * k), easeOut = k => 1 - (1 - k) * (1 - k), easeBack = k => { const c = 1.70158, q = k - 1; return 1 + (c + 1) * q * q * q + c * q * q; };
+const smooth = easeIO;
+function crV(o, a, b, c, d, t) {   // through b to c on a curve that also passes through a and d
+  const t2 = t * t, t3 = t2 * t;
+  for (const k of ['x', 'y', 'z']) o[k] = 0.5 * (2 * b[k] + (c[k] - a[k]) * t + (2 * a[k] - 5 * b[k] + 4 * c[k] - d[k]) * t2 + (3 * b[k] - a[k] - 3 * c[k] + d[k]) * t3);
+  return o;
+}
+// a blow of kind, u of the way through, hitting at h: the five keys, then where between them u falls
+function strikePose(out, base, kind, u, h, L) {
+  const S0 = STRIKE[kind], K = _sk;
+  pzCopy(K[0], base); pzCopy(K[4], base);
+  if (kind === 'thrust') {   // a jab: back a little, then straight out at the mark and back
+    pzCopy(K[1], base); K[1].p.add(_fv1.set(1.2, 0.4, 4));
+    pzCopy(K[2], base); K[2].p.add(_fv1.set(-3.2, 1.6, -12)); K[2].u.lerp(_fv1.set(-0.1, 0.1, -1).normalize(), 0.6).normalize();
+    pzCopy(K[3], K[2]); K[3].p.add(_fv1.set(0.4, -0.4, 2));
+  } else {
+    pzCopy(K[1], S0.w); pzCopy(K[3], S0.fo);
+    K[2].u.set(...S0.hu).normalize(); K[2].p.set(...S0.hd).addScaledVector(K[2].u, -L);
+    // the edge leads: each key faces the way the head is travelling through it
+    if (!S0.keepF) {
+      for (let i = 1; i < 4; i++) _skH[i].copy(K[i].p).addScaledVector(K[i].u, Math.max(L, 3));
+      K[1].f.subVectors(_skH[2], _skH[1]).normalize(); K[2].f.subVectors(_skH[3], _skH[1]).normalize(); K[3].f.subVectors(_skH[3], _skH[2]).normalize();
+    } else { K[1].f.copy(base.f); K[2].f.copy(base.f); K[3].f.copy(base.f); }
+  }
+  const T = [0, 0.62 * h, h, h + 0.3 * (1 - h), 1];
+  let i = 0; while (i < 3 && u > T[i + 1]) i++;
+  const k = clamp((u - T[i]) / (T[i + 1] - T[i]), 0, 1);
+  // into the wind-up eased; the strike speeding up, the head trailing the hands until the wrist snaps it through; then easing off
+  const e = i === 1 ? Math.pow(k, 1.5) : i === 2 ? easeOut(k) : easeIO(k), eu = i === 1 ? k * k : e;
+  crV(out.p, K[Math.max(0, i - 1)].p, K[i].p, K[i + 1].p, K[Math.min(4, i + 2)].p, e);
+  out.u.lerpVectors(K[i].u, K[i + 1].u, eu).normalize(); out.f.lerpVectors(K[i].f, K[i + 1].f, eu).normalize();
+  return out;
+}
+function strikeKind(A, T, spearish) {
+  if (A.wd) { const D = A.wd; if (D.thrust || A.w === 'twin' || A.w === 'spear') return 'thrust'; if (D.slam || D.round || D.fin) return 'chop'; return (A.side || 1) < 0 ? 'back' : 'cut'; }
+  if (A.ov) { const t = T && T.tool; return t === 'axe' ? 'fell' : t === 'pick' || t === 'build' ? 'chop' : !T ? 'punch' : spearish ? 'thrust' : T.k === 'light' || T.wpn || T.thr === 'taxe' ? 'cut' : 'punch'; }
+  if (A.i === 2) return 'chop'; if (A.i === 3 || spearish) return 'thrust';
+  return (A.side || 1) < 0 ? 'back' : 'cut';
+}
+function hitOf(A) {
+  const D = A.wd || A.ov || (typeof ATK !== 'undefined' && ATK[A.i]) || {}, at = D.hits && D.hits.length ? D.hits[D.hits.length - 1].at : D.hitAt;
+  return clamp((at || A.dur * 0.4) / A.dur, 0.15, 0.8);
+}
+// the poses a few things you do bring your hand to
+const ACT = {
+  mouth: PZ([1.6, -4.6, -8], [-0.35, 0.55, 0.75], [-0.6, -0.3, -0.6]),
+  pick: PZ([3.5, -15, -17], [-0.25, 0.4, -0.88], [-0.4, -0.85, -0.3]),
+  reach: PZ([5.5, -3.5, -20], [-0.3, 0.8, -0.5], [-0.5, -0.2, -0.85]),
+  workUp: PZ([6.5, -2.5, -13.5], [-0.15, 0.6, 0.78], [0, 0, -1]), workDn: PZ([4, -9, -16], [-0.2, -0.3, -0.93], [0, -1, 0]),
+  cutA: PZ([5.5, -12.5, -18], [-0.35, -0.35, -0.87], [-0.2, -0.9, 0.3]), cutB: PZ([3.2, -11.2, -20.5], [-0.35, -0.45, -0.82], [-0.2, -0.9, 0.3]),
+  guard: PZ([3.8, -4.8, -14], [-0.92, 0.35, -0.15], [0.05, 0.3, -1]), guardF: PZ([5, -4.6, -12], [-0.3, 0.95, 0], [0, 0, -1]),
+  spin: PZ([7.5, -1.5, -12], [0, 1, 0], [-0.3, 0, -0.95]), loose: PZ([4, -4, -19], [-0.1, 0.9, -0.4], [-0.3, 0, -0.95]),
+};
+// the bow, in the left fist: carried low and canted at rest, up and square to your aim when you draw
+const BOW_REST = PZ([-7, -6.8, -17.5], [0.5, 0.85, -0.12], [0.3, 0, -0.95]), BOW_AIM = PZ([-1.2, -4.6, -21], [0.24, 0.97, 0], [0.15, 0.04, -1]);
+const bowRig = new THREE.Group(); vmScene.add(bowRig); bowRig.visible = false;
+const bowHand = makeHand(true); bowRig.add(bowHand); poseHand(bowHand, 0.95); bowHand.rotation.y = -0.25;   // the knuckles turned out a little
+let shownId = null, torchK = 0, equipT = 1, runK = 0, bowK = 0, drawH = 0, strHold = 0;
+const VM = { cur: PZ([0, 0, 0], [0, 1, 0], [0, 0, -1]), tmp: PZ([0, 0, 0], [0, 1, 0], [0, 0, -1]), sh: new V3(), pole: new V3(), q: new THREE.Quaternion(), lagQ: new THREE.Quaternion(), e: new THREE.Euler(), v: new V3(), w: new V3() };
+function armTo(H, side, grip, pole) {   // the elbow for a hand gripping at grip (view space), for the forearm to reach to
+  const sh = VM.sh.set(side * 5.8 * vmX, -6.8, 2);
+  sh.x += (grip.x - side * 7.4 * vmX) * 0.12; sh.y += clamp((grip.y + 6.4) * 0.12, -1, 1.5); sh.z += clamp((grip.z + 13.6) * 0.15, -1.5, 1);   // the shoulder follows the reach a little
+  elbowAt(sh, grip, pole || VM.pole.set(side * 0.65, -1, 0.1), H.userData.elbow); H.userData.arm = true;
+}
+function placeHands(dt, now, bob, lag) {
+  const p = S.p, D = S.day, s = heldSlot(), id = s ? s.id : null, T = id ? DIT[id] : null;
+  if (id !== shownId) {
+    if (shownId && ITEM.has(shownId)) ITEM.get(shownId).visible = false;
+    shownId = id; equipT = 0;
+    if (id) { const G = itemModel(id); G.visible = true; if (T.tool === 'bow' && G.parent !== bowRig) { bowRig.add(G); G.position.set(0, 0, BOW_GRIP); } }
+  }
+  equipT = Math.min(1, equipT + dt / 0.38);
+  const G = id ? ITEM.get(id) : null, hold = holdOf(T, id), bow = !!T && T.tool === 'bow', spearish = hold === 'spear', L = headOf(T, id);
+  const A = p.atk, act = p.act, wa = p.wact, cur = VM.cur;
+  pzCopy(cur, HOLD[hold]);
+  let closeK = !T ? 0.85 : hold === 'icon' || hold === 'small' ? 0.62 : 1, cup = hold === 'icon' ? 0.35 : 0, hideItem = false;
+  // what you're doing: a blow, a throw, a turn of the sling, or something with your hands
+  if (A && A.t < A.dur && !bow) {
+    const kind = strikeKind(A, T, spearish);
+    strikePose(cur, HOLD[hold], kind, A.t / A.dur, hitOf(A), L);
+    if (!T) closeK = 1;
+  } else if (wa && wa.t < (wa.dur || 0.4) && !bow && !(D && D.draw)) {
+    const u = wa.t / (wa.dur || 0.4);
+    if (wa.fn && wa.rel >= 0.15 && hold !== 'sling') { strikePose(cur, HOLD[hold], spearish ? 'hurl' : 'throw', u, clamp(wa.rel / wa.dur, 0.2, 0.8), spearish ? 0 : L); hideItem = u > wa.rel / wa.dur + 0.02 && u < 0.9; if (hideItem) closeK = 0.3; }   // let go: the hand opens after it
+    else if (hold === 'sling') { pzMix(cur, ACT.spin, ACT.loose, easeOut(clamp(u * 3, 0, 1))); if (u > 0.6) pzMix(cur, cur, HOLD.sling, easeIO((u - 0.6) / 0.4)); }   // let go: the arm snaps forward
+    else pzMix(cur, cur, T ? ACT.guard : ACT.guardF, Math.sin(Math.PI * u) * 0.7);
+  } else if (act && act.t < act.dur) {
+    const u = act.t / act.dur, k = Math.sin(Math.PI * Math.min(1, u * 1.1));
+    if (act.pose === 8 || act.pose === 9) pzMix(cur, cur, ACT.mouth, easeIO(k));                    // to your mouth
+    else if (act.pose === 7) { pzMix(cur, cur, ACT.pick, easeIO(k)); closeK *= 1 - 0.8 * k; }       // down to pick it up
+    else if (act.pose === 10) { const c = 0.5 - 0.5 * Math.cos(u * Math.PI * 6); pzMix(VM.tmp, ACT.workUp, ACT.workDn, c < 0.5 ? easeIO(c * 2) * 0.35 : 0.35 + 0.65 * Math.pow((c - 0.5) * 2, 1.6)); pzMix(cur, cur, VM.tmp, Math.min(1, u * 6, (1 - u) * 6)); }   // working at it
+    else if (act.pose === 11) { const c = 0.5 + 0.5 * Math.sin(u * Math.PI * 4); pzMix(VM.tmp, ACT.cutA, ACT.cutB, c); pzMix(cur, cur, VM.tmp, act.cont ? 1 : Math.min(1, u * 6)); }   // down at a body, the knife sawing (88-meat)
+    else if (act.pose !== 4 || !T || T.tool !== 'rod') pzMix(cur, cur, ACT.reach, easeIO(k));
+  }
+  if (hold === 'sling' && D && D.draw) pzMix(cur, cur, ACT.spin, Math.min(1, D.draw.t * 5));   // up over your head to turn it
+  // your guard up: what you hold brought up and across in front of you (68-guard)
+  if (GUARD.k > 0.01) pzMix(cur, cur, T ? ACT.guard : ACT.guardF, easeIO(GUARD.k));
+  // the blow lands: the hand jars back (v129: back, not a shudder)
+  if (CFX.recoil > 0) { const r = smooth(Math.min(1, CFX.recoil)); cur.p.z += 2.2 * r; cur.p.y += 0.6 * r; cur.u.z += 0.3 * r; cur.u.normalize(); }
+  // eating and drinking: the left hand lifts the flask to your mouth
+  const drink = S.rg.drink ? Math.sin(Math.PI * clamp(1 - S.rg.drink / FLASK_T, 0, 1)) : 0;
+  // alive in your hand: it rises into view when you take it up, moves with your breath, rides lower and swings at a run
+  const v = Math.hypot(p.vx, p.vy) / RUN; runK += (clamp((v - 0.45) / 0.4, 0, 1) - runK) * Math.min(1, dt * 6);
+  const busy = (A && A.t < A.dur) || (wa && wa.t < (wa.dur || 0.4)) || (act && act.t < act.dur) ? 1 : 0, calm = 1 - busy, eq = easeBack(equipT);
+  const ph = p.phase || 0, br = Math.sin(now * 1.7);
+  cur.p.y += (0.14 * br - 1.3 * runK + 0.35 * runK * Math.abs(Math.sin(ph))) * calm - 9 * (1 - eq);
+  cur.p.x += (0.5 * Math.sin(ph) * runK + 0.06 * Math.sin(now * 0.9)) * calm + 2 * (1 - eq);
+  cur.p.z += 0.8 * runK * calm;
+  cur.u.x += 0.05 * br * calm * 0.3 + 0.18 * Math.sin(ph) * runK * calm; cur.u.z += (0.3 * runK * calm + 0.6 * (1 - eq)); cur.u.normalize();
+  // swaying against your turning and bobbing with your stride
+  const [bx, by] = bob, [ly, lp] = lag;
+  cur.p.x += bx - ly * 6; cur.p.y += by + lp * 5 - VIEW_FX.dip * 0.15 - drink * 6;
+  VM.lagQ.setFromEuler(VM.e.set(lp * 0.5, ly * 0.5, 0)); cur.u.applyQuaternion(VM.lagQ); cur.f.applyQuaternion(VM.lagQ);
+  cur.p.x *= vmX;
+  // the right hand: closed round what it holds, cupped under something small, loosely closed when empty
+  fist.visible = true; fistK += (closeK - fistK) * Math.min(1, dt * 14); poseHand(fist, fistK, cup);
+  if (bow) placeBow(dt, now, G, cur, bx, by, ly, lp);
+  else {
+    bowRig.visible = false;
+    handG.position.copy(cur.p); armTo(fist, 1, cur.p);
+    handFrame(cur.u, cur.f, handG.quaternion, VM.v.subVectors(fist.userData.elbow, cur.p));
+    if (G) G.visible = !hideItem;
+  }
+  if (G && T.tool === 'sling') swingSling(G, now, D);
+  if (G && T.k === 'light') {   // the flame licks up off the head: three tongues, outer red to a pale core, each flickering on its own beat
+    const fl = G.getObjectByName('flame'), lit = S.day && dayTorch() ? 1 : 0.15;
+    fl.children.forEach((sp, i) => { if (i > 2) { sp.material.opacity = 0.3 * lit * (0.85 + 0.15 * Math.sin(now * 23)); return; }
+      const w = [4.2, 3.2, 2.0][i], h = [6.8, 5.4, 3.4][i] * (1 + 0.16 * Math.sin(now * (13 + i * 4) + i) * Math.sin(now * (7 + i * 3))) * (1 - 0.25 * v) * lit;
+      sp.scale.set(w * (1 + 0.08 * Math.sin(now * 19 + i * 2)), Math.max(0.01, h), 1); sp.position.x = 0.5 * Math.sin(now * (9 + i) + i) * (1 + v); sp.material.rotation = -0.12 * v + 0.06 * Math.sin(now * 5 + i); });
+  }
+  // the left: the torch, up by night, down by day (and on your belt while you've a bow in hand)
+  torchK += (((S.torchLvl > 0.05 || S.torchOn) && !bow ? 1 : 0) - torchK) * Math.min(1, dt * 5);
+  torchG.visible = torchK > 0.02 && !bow;
+  torchG.position.set((-8.2 + bx - ly * 6 - 0.4 * Math.sin(ph) * runK) * vmX, -6.3 + by + lp * 5 - VIEW_FX.dip * 0.12 - (1 - torchK) * 14 + drink * 5 + 0.12 * Math.sin(now * 1.7 + 0.6) - 1.0 * runK, -16 + drink * 6 + 0.6 * runK);
+  torchG.rotation.set(0.1 + lp * 0.5 + drink * 0.9 + 0.12 * runK, -0.2 + ly * 0.5, 0.1 + drink * 0.4);
+  if (torchG.visible) { torchG.updateMatrixWorld(true); armTo(torchHand, -1, torchHand.getWorldPosition(VM.w)); }
+  lensGlow.material.opacity = (0.7 + 0.1 * Math.sin(now * 9)) * S.torchLvl;
+}
+function placeBow(dt, now, G, cur, bx, by, ly, lp) {
+  const D = S.day, R = RNG.bow ? RNG.bow.full : 0.8, wa = S.p.wact;
+  let c = D && D.draw ? clamp(D.draw.t / R, 0, 1) : 0;
+  if (wa && wa.fn && wa.t < wa.dur && wa.rel) c = wa.t < wa.rel ? easeOut(wa.t / wa.rel) : 0;   // a volley: a quick draw and loose
+  bowK += ((D && D.draw) || c > 0 ? 1 : -1) * dt * 6; bowK = clamp(bowK, 0, 1);
+  // the string snaps forward when you loose; your hand comes after it more slowly
+  drawH = c >= drawH ? c : Math.max(c, drawH - dt * 2.6);
+  const P = pzMix(VM.tmp, BOW_REST, BOW_AIM, easeIO(bowK)), eq = easeBack(equipT), run = runK * (1 - bowK);
+  P.p.x += bx - ly * 6 + 2 * (1 - eq); P.p.y += by + lp * 5 - VIEW_FX.dip * 0.15 - 9 * (1 - eq) - 1.2 * run + 0.14 * Math.sin(now * 1.7) * (1 - bowK);
+  P.p.z += 0.8 * run;
+  P.u.applyQuaternion(VM.lagQ); P.f.applyQuaternion(VM.lagQ);
+  P.p.x *= vmX;
+  bowRig.visible = true; bowRig.position.copy(P.p); handFrame(P.u, P.f, bowRig.quaternion); bowRig.updateMatrixWorld(true);
+  vmString(G, c);
+  const ar = G.getObjectByName('arrow'); ar.visible = c > 0.01 || (!!(D && D.draw) && dayAmmoN('bow') > 0); ar.position.set(-0.5, BOW_NOCK, -5.4 + 9 * c); ar.quaternion.identity();
+  // the right hand: hanging easy while you carry the bow, then onto the string, fingers hooked round it under the nock,
+  // drawing it back to your chin
+  const N = VM.v.set(0, BOW_NOCK - 0.4, BOW_GRIP - 3.4 + 9 * drawH), k = easeIO(bowK);
+  bowRig.localToWorld(N); handG.position.lerpVectors(cur.p, N, k);
+  handFrame(cur.u, cur.f, handG.quaternion).slerp(bowRig.quaternion, k);
+  const off = drawH > c + 0.04 ? 1 : 0; fistK += ((bowK < 0.5 ? 0.85 : off ? 0.25 : 0.62) - fistK) * Math.min(1, dt * 18); poseHand(fist, fistK, 0);
+  armTo(fist, 1, handG.position, VM.pole.set(0.65 + 0.25 * k, -1 + 1.3 * k, 0.1 + 0.1 * k)); armTo(bowHand, -1, bowRig.position, VM.w.set(-0.8, -1, 0));
+}
+function swingSling(G, now, D) {   // the pouch on its cords: hanging from your fingers, or turning round over your head
+  const pu = G.getObjectByName('pouch'), A = G.getObjectByName('cordA'), B = G.getObjectByName('cordB');
+  handG.updateMatrixWorld(true);
+  const wa = S.p.wact, loose = !(D && D.draw) && wa && wa.t < wa.dur ? wa.t / wa.dur : -1, free = (D && D.draw) || loose >= 0;
+  const W = VM.w.copy(G.localToWorld(VM.v.set(0, -1.6, 0)));
+  if (D && D.draw) { const a = now * (8 + 10 * clamp(D.draw.t / 0.8, 0, 1)); W.add(_fv1.set(Math.cos(a) * 6.5, 0.6 + Math.sin(a * 0.5) * 0.4, Math.sin(a) * 6.5)); }
+  else if (loose >= 0) W.add(_fv1.set(-0.5 * (1 - loose), 1.5 - 7 * loose * loose, -6.5 * (1 - loose * loose)));   // let go: flung out ahead, then dropping
+  if (free) { G.worldToLocal(W); pu.position.copy(W); } else pu.position.set(0, 1.3, -0.3);   // between throws the pouch is in your fist, the cords hanging in a loop
+  for (const [o, sx] of [[A, 1], [B, -1]]) {   // each cord from the loop round your finger to its end of the pouch (or hanging)
+    const a = _fd.set(0.18 * sx, -1.65, 0), d = free ? _afw.set(1.0 * sx, 0.15, 0).add(pu.position).sub(a) : _afw.set(-0.13 * sx, -3.2, 0.25 + 0.1 * Math.sin(now * 1.3)), l = d.length();
+    o.position.copy(a).addScaledVector(d, 0.5); o.quaternion.setFromUnitVectors(_sUp, d.normalize()); o.scale.set(1, l, 1);
+  }
+}
+
+;
+// ================= the things you hold, made properly =================
+// Joe: "the axe and stuff like that... doesn't look very good. We need to do a pass on adding details to these things."
+// Every tool and weapon used to be two or three plain blocks: a stick and a box for an axe, a stick and a hoop for a pick.
+// Now each is built the way it would have been made out here. A haft swept along a slight bend, thicker at the head and
+// at the knob, slim at the grip. A stone head ground to an edge and lashed into a split haft; a flint one knapped into
+// facets; an iron one forged with an eye round the haft, a cheek and a flared, polished bit. Spear points shaped like a
+// leaf, knives with a guard and rivets, a femur club with its knuckles, a mace with flanges, a bow whose limbs taper to
+// the nocks with a leather grip at the middle, arrows with fletching.
+// Each is a few dozen shapes baked into one mesh with one outline, like the hands. Every vertex carries its colour and
+// what it's made of, and the shader paints the stuff in: grain running along wood, flecks in stone, ripples in knapped
+// flint, a brushed sheen and a glint on metal, cord wound round and round. The parts that move (a bowstring, an arrow,
+// a sling's pouch, a reel, a flame) stay parts of their own.
+// The model's grip is at its origin and it runs up its +y; a head or an edge faces -z (the way the fingers wrap), the
+// palm side is -x. Third person holds the very same models (76-body).
+const HMT = { plain: 0, wood: 1, stone: 2, flint: 3, metal: 4, cord: 5, leather: 6, bone: 7, rag: 8 };
+const HMT_SHINE = [0, 0.05, 0.08, 0.55, 0.9, 0.04, 0.14, 0.2, 0];
+const HKIT_V = `attribute vec3 cl; attribute vec4 mx; varying vec3 vN, vC, vP; varying vec4 vX;
+  void main() { vN = normalize(normalMatrix * normal); vC = cl; vP = position; vX = mx; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const HKIT_F = `uniform vec3 vmL; uniform float colourK; varying vec3 vN, vC, vP; varying vec4 vX;
+  float kh(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+  float kn(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(kh(i), kh(i + vec3(1.0, 0.0, 0.0)), f.x), mix(kh(i + vec3(0.0, 1.0, 0.0)), kh(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+               mix(mix(kh(i + vec3(0.0, 0.0, 1.0)), kh(i + vec3(1.0, 0.0, 1.0)), f.x), mix(kh(i + vec3(0.0, 1.0, 1.0)), kh(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z); }
+  void main() {
+    vec3 n = normalize(vN), L = normalize(vec3(0.25, 0.55, 0.8)); float m = vX.x, l = 0.5 + 0.55 * max(dot(n, L), 0.0);
+    vec3 c = vC;
+    if (m < 0.5) {}
+    else if (m < 1.5) { float g = sin(vP.x * 4.0 + vP.z * 3.0 + kn(vP * vec3(1.3, 0.16, 1.3)) * 9.0); c *= 0.9 + 0.1 * g; c *= 0.9 + 0.16 * kn(vP * vec3(2.6, 0.45, 2.6)); }   // wood: grain along the haft
+    else if (m < 2.5) { c *= 0.8 + 0.34 * kn(vP * 2.2); c *= 1.0 - 0.2 * step(0.9, kh(floor(vP * 7.0))); }   // stone: mottled and flecked
+    else if (m < 3.5) { c *= 0.76 + 0.32 * kn(vP * 1.6 + kn(vP * 4.0) * 1.5); }   // flint: the ripples where it was knapped
+    else if (m < 4.5) { c *= 0.9 + 0.14 * kn(vP * vec3(10.0, 0.8, 10.0)); }   // metal: brushed
+    else if (m < 5.5) { float w = sin(vP.y * 11.0 + atan(vP.x, vP.z) * 2.0); c *= 0.72 + 0.32 * smoothstep(-0.5, 0.6, w); }   // cord wound round and round
+    else if (m < 6.5) { c *= 0.86 + 0.16 * kn(vP * 4.5); }   // leather
+    else if (m < 7.5) { c *= 0.9 + 0.12 * kn(vP * vec3(2.2, 0.7, 2.2)); c *= 1.0 - 0.16 * step(0.93, kh(floor(vP * 6.0))); }   // bone, pitted
+    else { c *= 0.8 + 0.22 * (0.5 + 0.5 * sin(vP.y * 7.0 + vP.x * 3.0) * sin(vP.y * 3.5 - vP.z * 5.0)); }   // rag
+    vec3 o = c * l * vmL;
+    vec3 hv = normalize(L + vec3(0.0, 0.0, 1.0)); o += vmL * vX.z * pow(max(dot(n, hv), 0.0), 28.0) * 0.6;   // a glint off metal, a gleam off flint
+    o = mix(o, c, vX.y);
+    float g = dot(o, vec3(0.3, 0.55, 0.15)); gl_FragColor = vec4(mix(vec3(g), o, colourK), 1.0);
+  }`;
+const hkMat = new THREE.ShaderMaterial({ uniforms: { vmL: vmLight, colourK: LU.colourK }, vertexShader: HKIT_V, fragmentShader: HKIT_F });
+const hkLine = new THREE.ShaderMaterial({
+  side: THREE.BackSide, uniforms: { vmL: vmLight },
+  vertexShader: `attribute vec3 en; attribute float ew; void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position + en * ew, 1.0); }`,
+  fragmentShader: `uniform vec3 vmL; void main() { gl_FragColor = vec4(vec3(0.15, 0.15, 0.14) * vmL, 1.0); }`,
+});
+const hkHash = (a, b, c) => { const s = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453; return s - Math.floor(s); };
+const _hkc = new THREE.Color();
+// a kit: parts added one by one, then baked into one mesh (and one outline) in a group
+function hkit() {
+  const parts = [];
+  return {
+    add(g, col, m = HMT.plain, o = {}) { parts.push({ g, col, m, em: o.em || 0, sh: o.sh ?? HMT_SHINE[m], ew: o.ew ?? 0.13, cf: o.cf }); return g; },
+    bake(into) {
+      const G = parts.map(P => P.g.index ? P.g.toNonIndexed() : P.g);
+      let nV = 0; for (const g of G) nV += g.attributes.position.count;
+      const pos = new Float32Array(nV * 3), nor = new Float32Array(nV * 3), en = new Float32Array(nV * 3), cl = new Float32Array(nV * 3), mx = new Float32Array(nV * 4), ew = new Float32Array(nV);
+      let o = 0;
+      G.forEach((g, pi) => {
+        const P = parts[pi], A = g.attributes.position, N = g.attributes.normal, KC = g.attributes.kc, base = vmCol(P.col);
+        // the outline is pushed out along normals smoothed across each part's corners, so a faceted head keeps an unbroken line
+        const sm = new Map(), key = i => `${Math.round(A.getX(i) * 200)},${Math.round(A.getY(i) * 200)},${Math.round(A.getZ(i) * 200)}`;
+        for (let i = 0; i < A.count; i++) { const k = key(i), s = sm.get(k) || [0, 0, 0]; s[0] += N.getX(i); s[1] += N.getY(i); s[2] += N.getZ(i); sm.set(k, s); }
+        for (let i = 0; i < A.count; i++, o++) {
+          const x = A.getX(i), y = A.getY(i), z = A.getZ(i);
+          pos.set([x, y, z], o * 3); nor.set([N.getX(i), N.getY(i), N.getZ(i)], o * 3);
+          const s = sm.get(key(i)), sl = Math.hypot(s[0], s[1], s[2]) || 1; en.set([s[0] / sl, s[1] / sl, s[2] / sl], o * 3);
+          let c = base;
+          if (KC) c = _hkc.setRGB(KC.getX(i), KC.getY(i), KC.getZ(i));
+          if (P.cf) { const r = P.cf(x, y, z, c); if (r) c = r; }
+          cl.set([c.r, c.g, c.b], o * 3); mx.set([P.m, P.em, P.sh, 0], o * 4); ew[o] = P.ew;
+        }
+      });
+      const B = new THREE.BufferGeometry();
+      B.setAttribute('position', new THREE.BufferAttribute(pos, 3)); B.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); B.setAttribute('en', new THREE.BufferAttribute(en, 3));
+      B.setAttribute('cl', new THREE.BufferAttribute(cl, 3)); B.setAttribute('mx', new THREE.BufferAttribute(mx, 4)); B.setAttribute('ew', new THREE.BufferAttribute(ew, 1));
+      B.computeBoundingSphere();
+      const body = new THREE.Mesh(B, hkMat), line = new THREE.Mesh(B, hkLine);
+      body.frustumCulled = line.frustumCulled = false; into.add(body); into.add(line);
+      return into;
+    },
+  };
+}
+
+// ---- shapes ----
+// a shape swept along a path: each step is [point, section], a section being a closed loop of [u, v] going round
+// anticlockwise (u along ref, pushed square to the path; v across); the ends shut with a fan. kc(i, j) may colour a point.
+const _swT = new V3(), _swN = new V3(), _swB = new V3(), _swR = new V3();
+function sweep(path, ref = [1, 0, 0], o = {}) {
+  const n = path[0][1].length, pos = [], idx = [], kc = o.kc ? [] : null;
+  path.forEach(([p, sec], i) => {
+    const a = path[Math.max(0, i - 1)][0], b = path[Math.min(path.length - 1, i + 1)][0];
+    _swT.set(b[0] - a[0], b[1] - a[1], b[2] - a[2]).normalize();
+    _swR.set(ref[0], ref[1], ref[2]); _swN.copy(_swR).addScaledVector(_swT, -_swR.dot(_swT)).normalize(); _swB.crossVectors(_swT, _swN);
+    sec.forEach(([u, v], j) => {
+      pos.push(p[0] + _swN.x * u + _swB.x * v, p[1] + _swN.y * u + _swB.y * v, p[2] + _swN.z * u + _swB.z * v);
+      if (kc) { const c = vmCol(o.kc(i, j) || o.col || '#888'); kc.push(c.r, c.g, c.b); }
+    });
+  });
+  for (let i = 0; i < path.length - 1; i++) for (let j = 0; j < n; j++) { const a = i * n + j, b = i * n + (j + 1) % n, c = a + n, d = b + n; idx.push(a, b, c, b, d, c); }
+  const cap = (i, end) => {
+    const k = pos.length / 3; let cx = 0, cy = 0, cz = 0;
+    for (let j = 0; j < n; j++) { const q = (i * n + j) * 3; cx += pos[q]; cy += pos[q + 1]; cz += pos[q + 2]; }
+    pos.push(cx / n, cy / n, cz / n); if (kc) kc.push(kc[i * n * 3], kc[i * n * 3 + 1], kc[i * n * 3 + 2]);
+    for (let j = 0; j < n; j++) { const a = i * n + j, b = i * n + (j + 1) % n; end ? idx.push(k, a, b) : idx.push(k, b, a); }
+  };
+  if (o.capA !== false) cap(0, false);
+  if (o.capB !== false) cap(path.length - 1, true);
+  let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  if (kc) g.setAttribute('kc', new THREE.Float32BufferAttribute(kc, 3));
+  g.setIndex(idx);
+  if (o.flat) g = g.toNonIndexed();
+  g.computeVertexNormals(); return g;
+}
+// sections
+const ovalS = (ru, rv, n = 9, ph = 0) => Array.from({ length: n }, (_, i) => { const a = ph + i / n * TAU; return [Math.cos(a) * ru, Math.sin(a) * rv]; });
+const sqS = (ru, rv, e = 0.6, n = 12) => Array.from({ length: n }, (_, i) => { const a = i / n * TAU, c = Math.cos(a), s = Math.sin(a); return [Math.sign(c) * Math.pow(Math.abs(c), e) * ru, Math.sign(s) * Math.pow(Math.abs(s), e) * rv]; });
+const lozS = (t, wf, wb = wf) => [[t, 0], [0, wf], [-t, 0], [0, -wb]];                                                   // double-edged: an edge each side, a ridge down the middle
+const ribS = (t, w) => [[t, 0], [t * 0.32, w * 0.55], [0, w], [-t * 0.32, w * 0.55], [-t, 0], [-t * 0.32, -w * 0.55], [0, -w], [t * 0.32, -w * 0.55]];   // a raised midrib
+const knifeS = (t, w, wb) => [[t, 0], [0, w], [-t, 0], [-t * 0.85, -wb], [t * 0.85, -wb]];                              // one edge, a thick spine
+// a lump of stone or bone: an icosahedron nudged out of round, faceted or smooth
+function rockG(c, s, seed = 1, rough = 0.16, det = 1, smoothIt = false) {
+  const g = smoothIt ? new THREE.SphereGeometry(1, 12, 9) : new THREE.IcosahedronGeometry(1, det), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + rough * (hkHash(Math.round(x * 40), Math.round(y * 40), Math.round(z * 40) + seed * 7) * 2 - 1);
+    p.setXYZ(i, x * k * s[0] + c[0], y * k * s[1] + c[1], z * k * s[2] + c[2]);
+  }
+  g.computeVertexNormals(); return g;
+}
+const _hkm = new THREE.Matrix4(), _hke = new THREE.Euler();
+const turnG = (g, rx, ry, rz, at) => { g.applyMatrix4(_hkm.makeRotationFromEuler(_hke.set(rx, ry, rz))); if (at) g.translate(at[0], at[1], at[2]); return g; };
+const hBallG = (c, r, ws = 10, hs = 8) => new THREE.SphereGeometry(1, ws, hs).scale(r[0], r[1], r[2]).translate(c[0], c[1], c[2]);
+// a straight round rod from a to b, radius r0 at a and r1 at b, shut at both ends
+function hRodG(a, b, r0, r1 = r0, n = 8, seg = 2) {
+  const path = []; for (let i = 0; i <= seg; i++) { const t = i / seg; path.push([[lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)], ovalS(lerp(r0, r1, t), lerp(r0, r1, t), n)]); }
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ref = Math.abs(d[1]) > Math.abs(d[0]) + Math.abs(d[2]) ? [1, 0, 0] : [0, 1, 0];
+  return sweep(path, ref);
+}
+// a band of lashing wound round an upright haft at y, h high
+const wrapG = (y, h, r, n = 12) => sweep([[[0, y - h / 2, 0], ovalS(r * 0.94, r * 0.94, n)], [[0, y - h / 2 + 0.08, 0], ovalS(r, r, n)], [[0, y + h / 2 - 0.08, 0], ovalS(r, r, n)], [[0, y + h / 2, 0], ovalS(r * 0.94, r * 0.94, n)]]);
+// a wooden haft from y0 up to y1: prof(t) its radius along the way, bowed a touch forward, the ends rounded off
+function haftG(y0, y1, prof, o = {}) {
+  const seg = o.seg || 14, path = [], L = y1 - y0, n = o.n || 9;
+  for (let i = 0; i <= seg; i++) {
+    const t = i / seg, e0 = 0.5 / L, rnd = Math.sqrt(Math.max(0.12, Math.min(1, t / e0, (1 - t) / e0)));
+    const r = prof(t) * (o.roundEnds === false ? 1 : rnd);
+    path.push([[(o.bx || 0) * Math.sin(Math.PI * t), y0 + L * t, -(o.bend ?? 0.28) * Math.sin(Math.PI * t) + (o.foot || 0) * Math.max(0, 1 - t * 8)], ovalS(r * (o.flat || 0.9), r, n)]);
+  }
+  return sweep(path);
+}
+const COLR = vmCol;
+const WOOD = '#7a5a3a', HICKORY = '#a8834f', ASH = '#8a6a46', DARKWOOD = '#5c4330', RAWHIDE = '#c4a67a', SINEW = '#9c7f58', LEATHER = '#5a3e2a', TAN = '#8a6440';
+const IRON_D = '#7a7e84', STEEL_B = '#3c434c', BRASS = '#b89448';
+const headKind = c => c === STONE_HEAD ? 'stone' : c === FLINT_HEAD ? 'flint' : c === IRON_HEAD ? 'iron' : c === '#dfe6ee' ? 'steel' : c === '#e6dfcc' || c === '#f4ecd8' || c === '#e2cc9e' || c === '#cfc6ae' || c === '#d8cfb8' ? 'bone' : 'other';
+
+// ---- axes ----
+// a head as a run of cross-sections from the poll at the back to the edge at the front: [z, half thickness, half height, drop]
+const AXE_PROF = {
+  iron: [[1.45, 0.6, 1.1, 0], [1.3, 0.84, 1.28, 0], [0.6, 0.98, 1.36, 0], [-0.6, 0.98, 1.36, 0], [-1.3, 0.62, 1.22, 0.05], [-2.4, 0.42, 1.5, 0.25], [-3.4, 0.24, 2.05, 0.5], [-4.3, 0.1, 2.45, 0.7], [-4.75, 0.035, 2.5, 0.75], [-4.86, 0.01, 2.2, 0.75]],
+  beard: [[1.45, 0.6, 1.1, 0], [1.3, 0.84, 1.28, 0], [0.6, 0.98, 1.36, 0], [-0.6, 0.98, 1.36, 0], [-1.3, 0.62, 1.25, 0.1], [-2.4, 0.42, 1.7, 0.5], [-3.4, 0.24, 2.35, 0.95], [-4.3, 0.1, 2.95, 1.25], [-4.75, 0.035, 3.05, 1.3], [-4.86, 0.01, 2.75, 1.3]],
+  stone: [[2.0, 0.45, 0.75, 0], [1.6, 0.82, 1.12, 0], [0.8, 1.04, 1.32, 0], [-0.4, 1.0, 1.42, 0], [-1.6, 0.76, 1.52, 0.05], [-2.8, 0.42, 1.62, 0.1], [-3.6, 0.16, 1.66, 0.12], [-3.95, 0.05, 1.5, 0.12], [-4.05, 0.02, 1.15, 0.12]],
+  flint: [[1.8, 0.4, 0.7, 0], [1.4, 0.72, 1.0, 0], [0.6, 0.9, 1.2, 0], [-0.6, 0.84, 1.32, 0], [-1.8, 0.58, 1.5, 0.08], [-3.0, 0.3, 1.66, 0.14], [-3.9, 0.1, 1.74, 0.18], [-4.3, 0.03, 1.5, 0.18], [-4.4, 0.01, 1.05, 0.18]],
+  bone: [[1.3, 0.42, 0.85, 0], [0.9, 0.62, 1.1, 0], [-0.3, 0.7, 1.35, 0], [-1.6, 0.46, 1.9, 0.3], [-2.8, 0.26, 2.6, 0.5], [-3.7, 0.12, 2.9, 0.55], [-4.15, 0.04, 2.75, 0.55], [-4.3, 0.01, 2.2, 0.55]],
+};
+function axeHeadG(prof, y, b, o = {}) {
+  const path = prof.map(([z, t, h, cy], i) => {
+    const j = o.jit ? 1 + o.jit * (hkHash(i, 3, o.seed || 1) * 2 - 1) : 1, sc = o.scallop && i >= prof.length - 4 ? 1 + 0.07 * Math.sin(i * 2.1) : 1;
+    return [[0, y - cy * b, z * b], sqS(t * b * j, h * b * j * sc, o.e ?? 0.62, 12)];
+  });
+  return sweep(path, [1, 0, 0], { flat: o.flat });
+}
+function buildAxe(K, T, id) {
+  const w = T.wpn === 'waxe', thr = T.thr === 'taxe', b = w ? 1.22 : thr ? 0.8 : 1, kind = headKind(T.hc || T.c);
+  const y0 = -3.2 * b, y1 = (kind === 'iron' || kind === 'steel' ? 13.0 : 14.2) * b, hy = 11.6 * b;
+  const haftCol = kind === 'steel' ? HICKORY : kind === 'iron' ? ASH : WOOD;
+  K.add(haftG(y0, y1, t => (t < 0.06 ? 0.66 : t < 0.2 ? lerp(0.6, 0.5, (t - 0.06) / 0.14) : t < 0.7 ? 0.5 : lerp(0.5, 0.6, (t - 0.7) / 0.3)) * (w ? 1.1 : 1) * (thr ? 0.9 : 1), { foot: 0.5, bend: 0.3 * b }), haftCol, HMT.wood);
+  if (w) K.add(wrapG(0.4, 4.6, 0.62), LEATHER, HMT.leather, { ew: 0.08 });   // a war axe's grip, bound in leather
+  const edgeLit = (zEdge, hi) => (x, y, z, c) => z < zEdge * b ? _hkc.copy(c).lerp(COLR(hi), clamp((zEdge * b - z) / (0.7 * b), 0, 1)) : null;
+  if (kind === 'iron' || kind === 'steel') {
+    const prof = w ? AXE_PROF.beard : AXE_PROF.iron, col = kind === 'steel' ? STEEL_B : IRON_D;
+    K.add(axeHeadG(prof, hy, b * (kind === 'steel' ? 1.05 : 1)), col, HMT.metal, { cf: edgeLit(-3.7, kind === 'steel' ? '#eef3f8' : '#d8dcde') });
+    K.add(hRodG([0, hy + 1.2 * b, 0], [0, hy + 1.62 * b, 0], 0.5 * b, 0.46 * b, 8), haftCol, HMT.wood, { ew: 0.05 });   // the haft's end through the eye, and its wedge
+    K.add(new THREE.BoxGeometry(0.12, 0.2, 0.8).translate(0, hy + 1.64 * b, 0), '#3a2c20', HMT.plain, { ew: 0 });
+  } else {
+    const prof = AXE_PROF[kind] || AXE_PROF.stone, col = T.hc || T.c, flint = kind === 'flint';
+    K.add(axeHeadG(prof, hy, b, { flat: flint, jit: flint ? 0.05 : 0.08, seed: id.length, scallop: flint, e: flint ? 0.7 : 0.85 }), col, kind === 'bone' ? HMT.bone : flint ? HMT.flint : HMT.stone);
+    if (kind === 'bone') for (let i = 0; i < 4; i++) K.add(rockG([0, hy + (1.2 + 0.15 * i) * b, (-0.6 - i * 0.75) * b], [0.3 * b, 0.42 * b, 0.3 * b], i + 2, 0.12, 0, true), '#efe8d6', HMT.bone, { ew: 0.06 });   // teeth along the jaw's top
+    // lashed into a split haft: bound tight above and below the head, and crossed over it
+    const cord = kind === 'bone' ? SINEW : RAWHIDE, rH = 0.62 * b;
+    K.add(wrapG(hy + 1.75 * b, 1.0 * b, rH), cord, HMT.cord, { ew: 0.07 });
+    K.add(wrapG(hy - 1.75 * b, 1.0 * b, rH), cord, HMT.cord, { ew: 0.07 });
+    for (const s of [-1, 1]) for (const d of [-1, 1]) {
+      const x = s * (prof[2][1] * b + 0.08), pth = [[[x, hy - 1.5 * b, 0.95 * b * d], ovalS(0.12, 0.26, 6)], [[x * 1.04, hy, 0], ovalS(0.12, 0.26, 6)], [[x, hy + 1.5 * b, -0.95 * b * d], ovalS(0.12, 0.26, 6)]];
+      K.add(sweep(pth, [s, 0, 0]), cord, HMT.cord, { ew: 0.05 });
+    }
+  }
+}
+// ---- picks: a spike through the haft's top (stone and flint lashed; iron and steel forged, a point one way and a chisel the other) ----
+function buildPick(K, T, id) {
+  const kind = headKind(T.c), metal = kind === 'iron' || kind === 'steel', hy = 12.2;
+  K.add(haftG(-3.2, metal ? 13.4 : 14.0, t => t < 0.06 ? 0.66 : t < 0.2 ? lerp(0.6, 0.5, (t - 0.06) / 0.14) : t < 0.7 ? 0.5 : lerp(0.5, 0.6, (t - 0.7) / 0.3), { foot: 0.5 }), metal ? ASH : WOOD, HMT.wood);
+  const path = [], zs = metal ? [3.9, 3.2, 2.2, 1.0, 0, -1.0, -2.4, -3.8, -5.0, -6.0, -6.6] : [1.6, 1.0, 0, -1.0, -2.2, -3.4, -4.5, -5.3, -5.8];
+  zs.forEach((z, i) => {
+    const y = hy + 0.35 - 0.042 * z * z, eye = Math.max(0, 1 - Math.abs(z) / 1.1);
+    let t, h;
+    if (z > 0 && metal) { const k = (z - 1.0) / 2.9; t = lerp(0.62, 0.1, clamp(k, 0, 1)); h = lerp(0.72, 0.62, clamp(k, 0, 1)); }   // the chisel end: thin but broad
+    else if (z > 0) { const k = z / 1.6; t = lerp(0.8, 0.45, k); h = lerp(0.9, 0.55, k); }
+    else { const k = -z / (metal ? 6.6 : 5.8); t = lerp(0.62, 0.04, Math.pow(k, 0.9)); h = lerp(0.72, 0.05, Math.pow(k, 0.9)); }
+    t += eye * (metal ? 0.36 : 0.3); h += eye * (metal ? 0.42 : 0.36);
+    path.push([[0, y, z], sqS(t, h, metal ? 0.55 : 0.8, 10)]);
+  });
+  K.add(sweep(path, [1, 0, 0], { flat: kind === 'flint' }), metal ? (kind === 'steel' ? '#9aa4ae' : IRON_D) : T.c, metal ? HMT.metal : kind === 'flint' ? HMT.flint : HMT.stone,
+    { cf: metal ? (x, y, z, c) => z < -5.2 || z > 3.4 ? _hkc.copy(c).lerp(COLR('#e4e8ea'), 0.6) : null : null });
+  if (!metal) { K.add(wrapG(hy + 1.6, 0.9, 0.62), RAWHIDE, HMT.cord, { ew: 0.07 }); K.add(wrapG(hy - 1.5, 0.9, 0.62), RAWHIDE, HMT.cord, { ew: 0.07 }); }
+  else K.add(hRodG([0, hy + 1.1, 0], [0, hy + 1.45, 0], 0.5, 0.46), ASH, HMT.wood, { ew: 0.05 });
+}
+// ---- the hammer: a claw hammer from the plane's tool kit ----
+function buildHammer(K) {
+  K.add(haftG(-2.4, 10.6, t => t < 0.45 ? 0.56 : lerp(0.56, 0.44, (t - 0.45) / 0.55), { bend: 0.1 }), '#a8834f', HMT.wood);
+  K.add(wrapG(0.6, 5.2, 0.62, 12), '#2e2e2c', HMT.leather, { ew: 0.08 });   // a rubber grip
+  const hy = 10.9;
+  K.add(sweep([[[0, hy, -2.7], ovalS(0.78, 0.78, 12)], [[0, hy, -2.45], ovalS(0.86, 0.86, 12)], [[0, hy, -1.7], ovalS(0.78, 0.78, 12)], [[0, hy, -1.3], ovalS(0.52, 0.52, 12)], [[0, hy, -0.85], sqS(0.6, 0.82, 0.5)], [[0, hy, 0.85], sqS(0.6, 0.82, 0.5)]], [1, 0, 0]),
+    '#6e747c', HMT.metal, { cf: (x, y, z, c) => z < -2.5 ? _hkc.copy(c).lerp(COLR('#d8dde2'), 0.7) : null });
+  for (const s of [-1, 1]) {   // the claw, split down the middle and curving down
+    const pth = []; for (let i = 0; i <= 6; i++) { const t = i / 6, a = t * 1.05; pth.push([[s * 0.24, hy - 0.1 - Math.sin(a) * 2.2 + 0.2, 0.85 + Math.sin(a) * 1.0 + t * 1.4], sqS(0.2 * (1 - 0.6 * t), 0.62 * (1 - 0.75 * t), 0.6, 8)]); }
+    K.add(sweep(pth, [1, 0, 0]), '#6e747c', HMT.metal, { ew: 0.08 });
+  }
+}
+// ---- spears ----
+function leafW(s, w) { return w * (s < 0.32 ? lerp(0.34, 1, Math.sin(s / 0.32 * Math.PI / 2)) : Math.pow(1 - (s - 0.32) / 0.68, 0.85)); }
+function buildSpear(K, T, id) {
+  const jav = T.thr === 'jav', kind = id === 'spear0' ? 'stick' : id === 'nglaive' ? 'antler' : headKind(T.hc || T.c), r = jav ? 0.42 : 0.5;
+  const y0 = jav ? -12 : -10, top = kind === 'stick' ? 27.8 : 24.4;
+  K.add(haftG(y0, top, t => kind === 'stick' ? r * (t > 0.82 ? Math.pow(Math.max(0.02, (1 - t) / 0.18), 0.75) : 1) : r * (t > 0.92 ? 1.06 : 1), { bend: 0.22, seg: 22, n: 8, roundEnds: kind !== 'stick' }), kind === 'stick' ? '#a08a62' : jav ? '#9a7a52' : '#8a6a44', HMT.wood,
+    { cf: kind === 'stick' ? (x, y, z, c) => y > 22 ? _hkc.copy(c).lerp(COLR('#2a1e16'), clamp((y - 22) / 4.5, 0, 0.92)) : null : null });   // fire-hardened: charred to the point
+  if (kind === 'stick') { K.add(wrapG(0.4, 3.4, 0.56), RAWHIDE, HMT.cord, { ew: 0.06 }); return; }
+  K.add(wrapG(0.5, jav ? 3.4 : 4.2, r + 0.1), jav ? TAN : LEATHER, HMT.leather, { ew: 0.07 });   // a leather grip where you hold it
+  const hb = top - 0.4;
+  if (kind === 'iron') {
+    K.add(sweep([[[0, 21.4, 0], ovalS(0.6, 0.6, 10)], [[0, 24.0, 0], ovalS(0.54, 0.54, 10)], [[0, 24.6, 0], ovalS(0.36, 0.36, 10)]], [0, 0, 1]), IRON_D, HMT.metal, { ew: 0.08 });   // the socket
+    K.add(hBallG([0.6, 22.4, 0], [0.16, 0.16, 0.16], 6, 5), '#d0d4d6', HMT.metal, { ew: 0 });
+    const path = []; for (let i = 0; i <= 14; i++) { const s = i / 14; path.push([[0, 24.4 + s * 7.4, 0], ribS(0.3 * (1 - s * 0.85) + 0.02, Math.max(0.03, leafW(s, 1.35)))]); }
+    K.add(sweep(path, [0, 0, 1], { flat: true }), '#c4c8cc', HMT.metal);
+    return;
+  }
+  if (kind === 'antler') {   // a curved blade of antler with a tine off it, socketed in leather
+    const P = [[0, 24, 0], [0.5, 26, 0], [1.3, 28.4, 0], [1.75, 30.6, 0], [1.4, 32.4, 0], [0.6, 33.6, 0]];
+    K.add(sweep(P.map((p, i) => [p, ovalS(0.4 * (1 - i / 7), 0.9 * (1 - i / 6.2) + 0.06, 8)]), [0, 0, 1]), T.hc || '#e2cc9e', HMT.bone);
+    K.add(sweep([[[0.6, 26.4, 0], ovalS(0.3, 0.34, 7)], [[-0.6, 28.0, 0], ovalS(0.24, 0.26, 7)], [[-1.3, 29.6, 0], ovalS(0.12, 0.12, 7)]], [0, 0, 1]), T.hc || '#e2cc9e', HMT.bone, { ew: 0.08 });
+    K.add(wrapG(23.4, 2.4, 0.66), LEATHER, HMT.leather, { ew: 0.07 });
+    return;
+  }
+  // a knapped point lashed into a split shaft: stone ground smooth, flint flaked into facets, bone filed jagged
+  const flint = kind === 'flint', bone = kind === 'bone', L = jav ? 4.6 : bone ? 7.0 : 6.2, W = jav ? 0.95 : bone ? 0.85 : 1.3, path = [];
+  for (let i = 0; i <= 12; i++) { const s = i / 12, sc = flint ? 1 + 0.08 * Math.sin(s * 38) : 1; path.push([[0, hb + s * L, 0], lozS(0.36 * (1 - s * 0.85) + 0.02, Math.max(0.03, leafW(s, W) * sc))]); }
+  K.add(sweep(path, [0, 0, 1], { flat: flint || bone }), T.hc || T.c, bone ? HMT.bone : flint ? HMT.flint : HMT.stone);
+  if (bone) for (const y of [hb + 2.2, hb + 3.8]) for (const s of [-1, 1]) K.add(turnG(new THREE.ConeGeometry(0.2, 1.1, 5), 0, 0, s * 2.5, [s * (leafW((y - hb) / L, W) + 0.18), y - 0.25, 0]), T.hc || T.c, HMT.bone, { ew: 0.06 });   // barbs
+  K.add(wrapG(hb - 0.6, 2.2, r + 0.14), bone ? SINEW : RAWHIDE, HMT.cord, { ew: 0.07 });
+}
+// ---- knives and swords ----
+function buildBlade(K, T, id) {
+  const sword = T.wpn === 'sword', kind = id === 'nfang' ? 'fang' : headKind(T.hc || T.c), named = !!T.named, col = T.hc || T.c;
+  const L = sword ? 15.2 : 7.4, by = sword ? 2.4 : 1.9;
+  if (kind === 'fang') {   // a great curved fang, bound into a leather hilt
+    const path = []; for (let i = 0; i <= 12; i++) { const s = i / 12; path.push([[0, by - 0.4 + s * 8.2, 1.1 * s * s], ovalS(0.62 * (1 - s) + 0.05, 0.8 * (1 - s) + 0.05, 9)]); }
+    K.add(sweep(path), col, HMT.bone, { cf: (x, y, z, c) => y < by + 1 ? _hkc.copy(c).lerp(COLR('#c8b48c'), 0.5) : null });
+    K.add(haftG(-2.6, by, () => 0.6, { bend: 0 }), '#3a2a20', HMT.leather);
+    K.add(wrapG(-0.4, 3.2, 0.66), SINEW, HMT.cord, { ew: 0.07 });
+    return;
+  }
+  const metal = kind === 'iron' || kind === 'other' || named;
+  const path = [];
+  for (let i = 0; i <= 14; i++) {
+    const s = i / 14, y = by + s * L;
+    if (metal) {
+      const w = (sword ? 1.0 : 0.95) * (s < 0.72 ? lerp(1, 0.86, s / 0.72) : 0.86 * Math.pow(Math.max(0, 1 - (s - 0.72) / 0.28), 0.8)) + 0.02;
+      path.push([[0, y, 0], sword ? ribS(0.26 * (1 - s * 0.6), w) : knifeS(0.26 * (1 - s * 0.55), w, Math.max(0.05, 0.5 * (s < 0.7 ? 1 : 1 - (s - 0.7) / 0.3)))]);
+    } else {
+      const jag = kind === 'bone' && sword ? 1 + 0.1 * Math.sin(s * 70) : kind === 'flint' ? 1 + 0.07 * Math.sin(s * 44) : 1;
+      const w = (sword ? 0.95 : 0.9) * (s < 0.25 ? lerp(0.75, 1, s / 0.25) : Math.pow(Math.max(0, 1 - (s - 0.25) / 0.75), 0.75)) * jag + 0.03;
+      path.push([[0, y, kind === 'bone' ? -0.3 * s * s : 0], lozS(0.3 * (1 - s * 0.7) + 0.02, w)]);
+    }
+  }
+  const bladeCol = named && kind !== 'bone' ? col : metal ? '#c4c8cc' : col;
+  K.add(sweep(path, [1, 0, 0], { flat: true }), bladeCol, metal ? HMT.metal : kind === 'flint' ? HMT.flint : kind === 'bone' ? HMT.bone : HMT.stone, { em: id === 'nash' ? 0.3 : 0 });
+  if (metal) {
+    // a guard across the blade, a wrapped grip and a pommel
+    const gw = sword ? 2.3 : 1.25;
+    K.add(sweep([[[0, by - 0.1, -gw], sqS(0.28, 0.3, 0.6, 8)], [[0, by + 0.05, -gw * 0.5], sqS(0.34, 0.36, 0.6, 8)], [[0, by + 0.05, gw * 0.5], sqS(0.34, 0.36, 0.6, 8)], [[0, by - 0.1, gw], sqS(0.28, 0.3, 0.6, 8)]], [1, 0, 0]),
+      named ? BRASS : '#5a5650', HMT.metal, { ew: 0.08 });
+    K.add(haftG(-2.9, by - 0.2, t => lerp(0.5, 0.56, Math.sin(Math.PI * t)), { bend: 0, flat: 0.78 }), sword ? LEATHER : '#5e4630', sword ? HMT.cord : HMT.wood);
+    if (!sword) for (const y of [-1.6, -0.2]) for (const s of [-1, 1]) K.add(hBallG([s * 0.42, y, 0], [0.1, 0.16, 0.16], 6, 5), BRASS, HMT.metal, { ew: 0 });   // rivets through the scales
+    K.add(hBallG([0, -3.15, 0], sword ? [0.62, 0.5, 0.75] : [0.5, 0.36, 0.56]), named ? BRASS : '#6a6e72', HMT.metal, { ew: 0.09 });
+  } else {
+    K.add(haftG(-2.8, by + 0.2, t => 0.5 + 0.05 * Math.sin(Math.PI * t), { bend: 0 }), kind === 'bone' ? '#d8ceb6' : DARKWOOD, kind === 'bone' ? HMT.bone : HMT.wood);
+    K.add(wrapG(-0.3, sword ? 3.6 : 3.0, 0.6), kind === 'bone' ? SINEW : RAWHIDE, HMT.cord, { ew: 0.07 });
+    K.add(wrapG(by - 0.25, 0.7, 0.62), kind === 'bone' ? SINEW : RAWHIDE, HMT.cord, { ew: 0.06 });
+    if (sword) K.add(hBallG([0, -3.0, 0], [0.62, 0.55, 0.62]), kind === 'bone' ? '#e6dfcc' : DARKWOOD, HMT.bone, { ew: 0.08 });
+  }
+}
+// ---- clubs ----
+function buildClub(K, T, id) {
+  const bc = T.bc || '#6e5235', spikes = T.spikes;
+  if (id === 'bonec') {   // a great thighbone: held round its shaft, the knuckled end up
+    K.add(haftG(-4.2, 11.4, t => 0.58 + 0.5 * Math.pow(Math.abs(t - 0.4) / 0.6, 2.2), { bend: 0.4, seg: 16 }), bc, HMT.bone);
+    for (const s of [-1, 1]) K.add(rockG([s * 0.8, 12.0, 0.1], [1.15, 1.3, 1.25], s + 3, 0.08, 0, true), bc, HMT.bone);
+    K.add(rockG([0.5, -4.6, 0], [1.05, 1.05, 1.0], 9, 0.06, 0, true), bc, HMT.bone);
+    K.add(wrapG(0.2, 3.6, 0.72), SINEW, HMT.cord, { ew: 0.07 });
+    return;
+  }
+  if (id === 'maul') {   // a rock lashed across the end of a log
+    K.add(haftG(-2.8, 12.6, t => 0.68 - 0.06 * Math.sin(Math.PI * t), { bend: 0.2 }), '#6e5235', HMT.wood);
+    K.add(rockG([0, 13.6, -0.2], [2.4, 2.0, 3.1], 5, 0.14, 1, true), STONE_HEAD, HMT.stone);
+    for (const z of [-0.9, 0.7]) K.add(turnG(new THREE.TorusGeometry(1.95, 0.22, 6, 16).scale(1.22, 1.06, 1), 0, Math.PI / 2, 0, [0, 13.5, z]), RAWHIDE, HMT.cord, { ew: 0.06 });
+    K.add(wrapG(11.6, 1.4, 0.8), RAWHIDE, HMT.cord, { ew: 0.07 });
+    return;
+  }
+  if (id === 'mace' || id === 'nbell' || id === 'nlant') {
+    const shaftC = id === 'nlant' ? '#3a3d42' : id === 'nbell' ? bc : '#4a4038';
+    K.add(haftG(-2.8, 10.4, t => 0.52 + 0.04 * t, { bend: 0.1 }), shaftC, id === 'nlant' ? HMT.metal : HMT.wood);
+    K.add(wrapG(0.4, 4.4, 0.62), LEATHER, HMT.leather, { ew: 0.08 });
+    if (id === 'mace') {   // flanged: seven blades of iron round a core, and a spike on top
+      K.add(sweep([[[0, 9.2, 0], ovalS(0.7, 0.7, 10)], [[0, 9.8, 0], ovalS(0.95, 0.95, 10)], [[0, 13.0, 0], ovalS(0.95, 0.95, 10)], [[0, 13.5, 0], ovalS(0.6, 0.6, 10)]], [0, 0, 1]), bc, HMT.metal);
+      for (let i = 0; i < 7; i++) {
+        const a = i / 7 * TAU, rd = [Math.cos(a), 0, Math.sin(a)], pth = [];
+        for (let k = 0; k <= 6; k++) { const s = k / 6, e = 1.15 * Math.sin(Math.PI * (0.12 + 0.76 * s)); pth.push([[0, 9.5 + s * 3.8, 0], [[0.75, -0.1], [0.75 + e, -0.04], [0.8 + e, 0], [0.75 + e, 0.04], [0.75, 0.1]]]); }
+        K.add(sweep(pth, rd, { flat: true }), spikes || '#c8ccd0', HMT.metal, { ew: 0.07 });
+      }
+      K.add(new THREE.ConeGeometry(0.42, 1.8, 7).translate(0, 14.3, 0), spikes || '#d8dce0', HMT.metal, { ew: 0.07 });
+    } else if (id === 'nbell') {   // a bell for a hammer's head, its mouth forward, spikes behind
+      const prof = [[0.01, 0], [0.7, 0.05], [0.95, 0.5], [1.05, 1.4], [1.35, 2.2], [1.9, 2.75], [1.95, 2.95], [1.6, 2.9], [0.01, 2.9]].map(([r, y]) => new THREE.Vector2(r, y));
+      K.add(turnG(new THREE.LatheGeometry(prof, 14), -Math.PI / 2, 0, 0, [0, 11.6, -0.4]), '#b8903c', HMT.metal);
+      for (const [y, z] of [[11.6, 1.4], [12.5, 1.0], [10.7, 1.0]]) K.add(turnG(new THREE.ConeGeometry(0.32, 1.6, 6), Math.PI / 2, 0, 0, [0, y, z + 0.6]), spikes, HMT.metal, { ew: 0.06 });
+      K.add(sweep([[[0, 11.6, -0.6], ovalS(0.72, 0.72, 10)], [[0, 11.6, 1.2], ovalS(0.72, 0.72, 10)]], [1, 0, 0]), '#8a6a2c', HMT.metal, { ew: 0.07 });
+    } else {   // a lantern on a mace: an iron cage round a coal that glows
+      for (const y of [9.4, 13.4]) K.add(sweep([[[0, y - 0.3, 0], ovalS(1.0, 1.0, 12)], [[0, y + 0.3, 0], ovalS(1.35, 1.35, 12)]], [0, 0, 1]), '#3a3d42', HMT.metal, { ew: 0.08 });
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; K.add(hRodG([Math.cos(a) * 1.15, 9.6, Math.sin(a) * 1.15], [Math.cos(a) * 1.15, 13.2, Math.sin(a) * 1.15], 0.14, 0.14, 6), '#3a3d42', HMT.metal, { ew: 0.05 }); }
+      K.add(rockG([0, 11.4, 0], [0.85, 1.1, 0.85], 4, 0.18, 1), spikes || '#ffb050', HMT.plain, { em: 1, ew: 0 });
+      for (let i = 0; i < 4; i++) { const a = i / 4 * TAU + 0.4; K.add(turnG(new THREE.ConeGeometry(0.28, 1.3, 6), 0, 0, -Math.PI / 2, [1.9, 0, 0]).applyMatrix4(_hkm.makeRotationY(a)).translate(0, 11.4, 0), '#5a5e64', HMT.metal, { ew: 0.05 }); }
+      K.add(new THREE.ConeGeometry(0.36, 1.4, 7).translate(0, 14.3, 0), '#5a5e64', HMT.metal, { ew: 0.06 });
+    }
+    return;
+  }
+  // a wooden club: a heavy branch, knotted and thick at the end, its grip carved slim and bound
+  K.add(sweep(Array.from({ length: 19 }, (_, i) => {
+    const t = i / 18, y = lerp(-2.6, 13.6, t), r = 0.6 + 1.45 * sstep(3, 11.8, y), e = Math.sqrt(Math.max(0.1, Math.min(1, t / 0.03, (1 - t) / 0.1)));
+    return [[0, y, -0.2 * Math.sin(Math.PI * t)], ovalS(r * e * 0.95, r * e, 10).map(([u, v], j) => { const k = 1 + (y > 5 ? 0.14 : 0.03) * (hkHash(i, j, 3) * 2 - 1); return [u * k, v * k]; })];
+  })), bc, HMT.wood);
+  for (const [y, a] of [[8.2, 0.6], [10.6, 2.8], [12.0, 4.6], [9.4, 4.0]]) K.add(rockG([Math.cos(a) * (0.6 + 1.45 * sstep(3, 11.8, y)), y, Math.sin(a) * (0.6 + 1.45 * sstep(3, 11.8, y))], [0.45, 0.4, 0.45], y, 0.15, 0, true), bc, HMT.wood, { ew: 0.07 });   // knots
+  K.add(wrapG(0.4, 3.6, 0.68), RAWHIDE, HMT.cord, { ew: 0.07 });
+  if (spikes) for (let i = 0; i < 9; i++) {   // flint driven through the head
+    const a = i / 9 * TAU + (i % 2) * 0.35, y = 8.4 + (i % 3) * 1.7, r = 0.6 + 1.45 * sstep(3, 11.8, y);
+    K.add(rockG([0, 0, 0], [0.22, 0.95, 0.42], i + 11, 0.2, 0).applyMatrix4(_hkm.makeRotationFromEuler(_hke.set(0.5 * Math.sin(i), -a, Math.PI / 2 - 0.25))).translate(Math.cos(a) * (r + 0.55), y, Math.sin(a) * (r + 0.55)), spikes, HMT.flint, { ew: 0.07 });
+  }
+}
+// ---- bows: tips at the string's ends (0, +-10.6, -3.4), the grip 8.4 out in front of the string ----
+const BOW_NOCK = 1.3;
+function buildBow(K, T, id) {
+  const bw = T.bw || '#9a7040', bone = id === 'bow2', path = [];
+  for (let i = 0; i <= 24; i++) {
+    const s = i / 12 - 1, a = Math.abs(s), y = 10.9 * s, z = -8.4 + 5.0 * s * s;
+    const wd = a < 0.12 ? 0.82 : lerp(0.72, 0.26, (a - 0.12) / 0.88), th = a < 0.12 ? 0.75 : lerp(0.5, 0.2, (a - 0.12) / 0.88);
+    path.push([[0, y, z], ovalS(wd, th, 8)]);
+  }
+  K.add(sweep(path, [1, 0, 0]), bw, bone ? HMT.bone : HMT.wood, { cf: bone ? (x, y, z, c) => Math.abs(Math.sin(y * 1.6)) < 0.18 ? _hkc.copy(c).lerp(COLR(SINEW), 0.7) : null : null });
+  K.add(sweep([[[0, -1.9, -8.4], ovalS(0.86, 0.8, 10)], [[0, -1.7, -8.4], ovalS(0.95, 0.9, 10)], [[0, 1.7, -8.4], ovalS(0.95, 0.9, 10)], [[0, 1.9, -8.4], ovalS(0.86, 0.8, 10)]]), id === 'nbow' ? '#2a1a10' : LEATHER, HMT.leather, { ew: 0.08 });   // the grip
+  for (const s of [-1, 1]) K.add(hBallG([0, s * 10.75, -3.3], [0.32, 0.5, 0.32], 7, 6), T.tip || (id === 'nbow' ? '#d8c8a0' : bw), T.tip ? HMT.metal : HMT.bone, { ew: 0.06 });   // the nocks
+  if (id === 'nbow') for (const s of [-1, 1]) K.add(wrapG(0, 0.5, 0.6).translate(0, s * 4.2, -8.4 + 5 * 0.15), BRASS, HMT.metal, { ew: 0.05 });
+}
+function buildArrow(G, iron) {   // a shaft, three vanes at the nock, and a point (with its nock at z = +2, as 76-body expects)
+  const K = hkit();
+  K.add(hRodG([0, 0, 2.0], [0, 0, -18.2], 0.2, 0.2, 6, 1), '#a08a62', HMT.wood, { ew: 0.05 });
+  K.add(hRodG([0, 0, 2.25], [0, 0, 1.6], 0.26, 0.24, 6, 1), '#3a2a20', HMT.plain, { ew: 0.04 });
+  for (let i = 0; i < 3; i++) { const a = i / 3 * TAU + 0.5; K.add(turnG(new THREE.BoxGeometry(0.06, 0.62, 3.0).translate(0, 0.42, 0), 0, 0, a, [0, 0, 0.1]), i ? '#e8e0cc' : '#b04030', HMT.plain, { ew: 0.03 }); }
+  K.add(sweep([0, 0.35, 0.7, 1].map(s => [[0, 0, -18.0 - s * 2.4], lozS(0.12 * (1 - s) + 0.02, 0.6 * (s < 0.35 ? lerp(0.5, 1, s / 0.35) : 1 - (s - 0.35) / 0.65) + 0.02)]), [1, 0, 0], { flat: true }), iron ? '#b8bcc0' : FLINT_HEAD, iron ? HMT.metal : HMT.flint, { ew: 0.04 });
+  K.bake(G);
+}
+// ---- small things you throw ----
+function buildPot(K) {   // a clay pot of pitch, held by its neck: a rag stuffed in its mouth for a wick, a cord tied under the lip
+  const prof = [[0.01, -4.3], [1.2, -4.2], [2.0, -3.5], [2.25, -2.4], [2.0, -1.3], [1.2, -0.55], [0.62, -0.3], [0.6, 0.3], [0.78, 0.55], [0.6, 0.62], [0.01, 0.5]].map(([r, y]) => new THREE.Vector2(r, y));
+  K.add(new THREE.LatheGeometry(prof, 14), '#7a4c2c', HMT.stone, { cf: (x, y, z, c) => y > -1.2 ? _hkc.copy(c).lerp(COLR('#20160e'), clamp((y + 1.2) / 1.8, 0, 0.7)) : null });   // pitch run down from the mouth
+  K.add(sweep([[[0, 0.5, 0], ovalS(0.42, 0.42, 8)], [[0.2, 1.6, 0.1], ovalS(0.38, 0.32, 8)], [[0.5, 2.5, 0.3], ovalS(0.18, 0.18, 8)]], [0, 0, 1]), '#c8b07a', HMT.rag, { cf: (x, y, z, c) => y > 1.9 ? _hkc.copy(c).lerp(COLR('#2a1a10'), 0.8) : null });
+  K.add(wrapG(-0.45, 0.3, 0.86), RAWHIDE, HMT.cord, { ew: 0.05 });
+}
+function buildPouch(K, T) {   // a cloth pouch of powder, held by its tied neck, the ends of the cloth sticking up out of your fist
+  K.add(rockG([0, -2.3, 0], [1.9, 2.0, 1.8], 3, 0.1, 1, true), '#d8cdb0', HMT.rag);
+  K.add(sweep([[[0, -0.6, 0], ovalS(0.75, 0.75, 9)], [[0, 0, 0], ovalS(0.5, 0.5, 9)], [[0, 1.1, 0], ovalS(0.62, 0.62, 9)], [[0, 1.6, 0], ovalS(0.95, 0.85, 9)], [[0, 1.85, 0], ovalS(0.7, 0.6, 9)]], [0, 0, 1]), '#d8cdb0', HMT.rag, { ew: 0.08 });
+  K.add(wrapG(-0.4, 0.3, 0.62), '#8a6a48', HMT.cord, { ew: 0.04 });
+  for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; K.add(hBallG([Math.cos(a) * 1.1, -2.2 + Math.sin(i * 2.3) * 1.2, Math.sin(a) * 1.0], [0.16, 0.16, 0.16], 5, 4), T.c || '#efe6d2', HMT.plain, { em: 0.25, ew: 0 }); }   // powder showing through the weave
+}
+// ---- a torch you carry: a knotted branch, its head wound in rag and pitch, burning at the top ----
+function buildTorchItem(K) {
+  K.add(haftG(-3, 8.2, t => lerp(0.62, 0.74, t), { bend: 0.25 }), '#6b4a2e', HMT.wood);
+  for (const [y, a] of [[1.5, 1], [4.2, 3.6]]) K.add(rockG([Math.cos(a) * 0.62, y, Math.sin(a) * 0.62], [0.32, 0.28, 0.32], a, 0.1, 0, true), '#5a3e26', HMT.wood, { ew: 0.06 });
+  K.add(sweep(Array.from({ length: 9 }, (_, i) => { const t = i / 8, y = 6.9 + t * 2.9, r = 1.05 + 0.32 * Math.sin(Math.PI * t) + 0.08 * Math.sin(t * 19); return [[0, y, 0], ovalS(r, r * 0.96, 10)]; }), [0, 0, 1]), '#4a3420', HMT.rag);
+  K.add(sweep([[[0, 9.6, 0], ovalS(1.15, 1.15, 10)], [[0, 10.0, 0], ovalS(0.9, 0.9, 10)]], [0, 0, 1]), '#ff8a30', HMT.plain, { em: 1, ew: 0 });
+}
 function itemModel(id) {
   if (ITEM.has(id)) return ITEM.get(id);
-  const T = DIT[id], G = new THREE.Group(), hc = T.hc || T.c || '#9a9893', wood = '#7a5a3a';
-  const shaft = (len, r = 0.55, col = wood, y0 = -2) => { const g = cyl(r, r * 1.08, len, 7); g.translate(0, y0 + len / 2, 0); vmPart(G, g, mat(col), 0, 0, 0); };
-  const tool = T.tool, w = T.wpn, thr = T.thr;
-  if (tool === 'axe' || w === 'waxe' || thr === 'taxe') {
-    const big = w === 'waxe' ? 1.25 : thr === 'taxe' ? 0.8 : 1; shaft(15 * big);
-    const hd = new THREE.BoxGeometry(0.9, 3.4 * big, 5 * big); const p = hd.attributes.position; for (let i = 0; i < p.count; i++) { const z = p.getZ(i); if (z < 0) p.setY(i, p.getY(i) * 1.6); } hd.computeVertexNormals();
-    vmPart(G, hd, mat(hc), 0, 11.5 * big, -2.2 * big);
-  } else if (tool === 'pick') {
-    shaft(15);
-    const hd = new THREE.TorusGeometry(6, 0.75, 6, 12, Math.PI * 0.8); hd.rotateZ(Math.PI * 0.1); hd.rotateY(Math.PI / 2);
-    vmPart(G, hd, mat(hc), 0, 7.4, 0);
-  } else if (tool === 'build') {
-    shaft(12, 0.5);
-    vmPart(G, new THREE.BoxGeometry(1.6, 1.8, 5), mat('#5c6066'), 0, 10.4, -0.6);
-  } else if (w === 'spear' || thr === 'jav') {
-    shaft(34, 0.5, T.c === '#a08a62' ? '#a08a62' : '#8a6a44', -10);
-    const hd = new THREE.ConeGeometry(1.1, 5, 6); vmPart(G, hd, mat(hc), 0, 26.5, 0);
-  } else if (w === 'knife' || w === 'sword') {
-    const L = w === 'sword' ? 15 : 7.5;
-    const bl = new THREE.BoxGeometry(0.3, L, 1.9, 1, 4, 1); bl.translate(0, L / 2 + 2.4, 0);
-    const p = bl.attributes.position; for (let i = 0; i < p.count; i++) { const y = p.getY(i), k = clamp((y - 2.4) / L, 0, 1); p.setZ(i, p.getZ(i) * (1 - 0.65 * k * k)); } bl.computeVertexNormals();
-    vmPart(G, bl, mat(hc), 0, 0, 0);
-    vmPart(G, new THREE.BoxGeometry(0.8, 0.6, w === 'sword' ? 4.4 : 2.4), mat('#4a4a44'), 0, 2.2, 0);
-    vmPart(G, cyl(0.6, 0.7, 4, 7), mat('#3b2d22'), 0, -0.2, 0);
-  } else if (w === 'club' || w === 'bone') {
-    shaft(10, 0.7, T.bc || '#6e5235');
-    vmPart(G, new THREE.SphereGeometry(2.4, 9, 7).scale(1, 1.6, 1), mat(id === 'maul' ? '#8d8b85' : T.bc || '#6e5235'), 0, 10, 0);
-    if (T.spikes) for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; vmPart(G, new THREE.ConeGeometry(0.45, 1.8, 5), mat(T.spikes), Math.cos(a) * 2.3, 10 + (i % 2) * 1.6, Math.sin(a) * 2.3, Math.sin(a) * 1.4, 0, -Math.cos(a) * 1.4, false); }
-  } else if (tool === 'bow') {
-    const bw = T.bw || '#9a7040', BR = 13.74, BA = 1.9, arc = new THREE.TorusGeometry(BR, 0.55, 6, 18, BA); arc.rotateZ(Math.PI - BA / 2); arc.translate(5.34, 0, 0); arc.rotateY(-Math.PI / 2);   // limbs bellied forward, tips at the string's ends
-    const bo = vmPart(G, arc, mat(bw), 0, 0, 0); bo.name = 'bow';
+  const T = DIT[id], G = new THREE.Group(), K = hkit(), tool = T.tool, w = T.wpn, thr = T.thr;
+  let baked = true;
+  if (tool === 'axe' || w === 'waxe' || thr === 'taxe') buildAxe(K, T, id);
+  else if (tool === 'pick') buildPick(K, T, id);
+  else if (tool === 'build') buildHammer(K);
+  else if (w === 'spear' || thr === 'jav') buildSpear(K, T, id);
+  else if (w === 'knife' || w === 'sword') buildBlade(K, T, id);
+  else if (w === 'club' || w === 'bone') buildClub(K, T, id);
+  else if (tool === 'bow') {
+    buildBow(K, T, id); const bo = new THREE.Group(); bo.name = 'bow'; G.add(bo); K.bake(bo); baked = false;
     // the string: two thin cords from the bow's tips to the nock (a THREE.Line drew as a long stray line across the view)
-    for (const n of ['strA', 'strB']) { const o = vmPart(G, cyl(0.14, 0.14, 1, 4), mat('#efe6d2', 0.3), 0, 0, 0, 0, 0, 0, false); o.name = n; }
+    for (const n of ['strA', 'strB']) { const o = vmPart(G, cyl(0.13, 0.13, 1, 4), mat('#efe6d2', 0.3), 0, 0, 0, 0, 0, 0, false); o.name = n; }
     vmString(G, 0);
-    const ar = new THREE.Group(); ar.name = 'arrow'; G.add(ar);
-    const sh = cyl(0.22, 0.22, 20, 5); sh.rotateX(Math.PI / 2); vmPart(ar, sh, mat('#a08a62'), 0, 0, -8, 0, 0, 0, false);
-    vmPart(ar, new THREE.ConeGeometry(0.6, 2.2, 5).rotateX(-Math.PI / 2), mat('#4d5560'), 0, 0, -19, 0, 0, 0, false);
+    const ar = new THREE.Group(); ar.name = 'arrow'; G.add(ar); buildArrow(ar, !!T.tip || id === 'nbow');
   } else if (tool === 'sling') {
-    const g = new THREE.TorusGeometry(2.6, 0.3, 5, 10); vmPart(G, g, mat(T.c), 0, -3, 0, Math.PI / 2, 0, 0, false);
-    const pouch = vmPart(G, new THREE.SphereGeometry(1.4, 8, 6).scale(1, 0.7, 1), mat(T.c), 0, -7, 0); pouch.name = 'pouch';
-    vmPart(pouch, new THREE.SphereGeometry(0.9, 7, 5), mat('#9a9893'), 0, 0.6, 0, 0, 0, 0, false);
+    const pouch = new THREE.Group(); pouch.name = 'pouch'; pouch.position.set(0, -7, 0); G.add(pouch);
+    const P = hkit(); P.add(rockG([0, 0, 0], [1.3, 0.55, 1.0], 2, 0.08, 1, true), T.c, HMT.leather); P.add(rockG([0, 0.5, 0], [0.78, 0.7, 0.78], 5, 0.12, 1), '#9a9893', HMT.stone, { ew: 0.06 }); P.bake(pouch);
+    for (const n of ['cordA', 'cordB']) { const o = vmPart(G, cyl(0.12, 0.12, 1, 4), mat(T.c), 0, 0, 0, 0, 0, 0, false); o.name = n; }
+    K.add(new THREE.TorusGeometry(0.75, 0.16, 5, 12).rotateX(Math.PI / 2).translate(0, -1.6, 0), T.c, HMT.cord, { ew: 0.04 });   // the loop round your finger
   } else if (tool === 'rod') {   // a cork grip and a wooden reel, then the rod in three lengths that bend under a fish (71-fish)
+    baked = false;
     vmPart(G, cyl(0.62, 0.7, 7, 8).translate(0, -1, 0), mat('#b89668'), 0, 0, 0);
     const reel = new THREE.Group(); reel.name = 'reel'; reel.position.set(0, 1.6, 1.1); reel.scale.setScalar(0.62); G.add(reel);
     vmPart(reel, cyl(1.5, 1.5, 0.9, 12).rotateZ(Math.PI / 2), mat('#6e5235'), 0, 0, 0);
@@ -13280,97 +13935,16 @@ function itemModel(id) {
     });
     const tip = new THREE.Object3D(); tip.name = 'rodTip'; tip.position.set(0, L[2], 0); seg.add(tip);
   } else if (T.k === 'light') {
-    shaft(11, 0.7, '#6b4a2e', -3);
-    vmPart(G, cyl(1.3, 0.9, 2.6, 8), mat('#3a2a1a'), 0, 8.6, 0);
-    for (let k = 0; k < 3; k++) vmPart(G, cyl(1.38, 1.2, 0.5, 8), mat(k % 2 ? '#5a4028' : '#4a3420'), 0, 7.7 + k * 0.85, 0, 0, k * 0.7, 0, false);   // rag bound round the head
-    vmPart(G, cyl(1.1, 1.25, 0.6, 8), mat('#ff8a30', 1), 0, 9.8, 0, 0, 0, 0, false);   // the top, burning: an ember glow
+    buildTorchItem(K);
     const fl = new THREE.Group(); fl.name = 'flame'; fl.position.set(0, 10.1, 0); G.add(fl);
     for (const [c, o] of [[0xff5a18, 0.75], [0xffa040, 0.85], [0xfff0c0, 0.95]]) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, color: c, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: o })); sp.center.set(0.5, 0.08); fl.add(sp); }
     const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0xff8a40, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.35 })); gl.scale.set(26, 26, 1); gl.position.y = 3; fl.add(gl);
-  } else if (thr === 'bomb' || thr === 'flash') {
-    vmPart(G, new THREE.SphereGeometry(2.4, 10, 8), mat(T.c), 0, 2.6, 0);
-    if (thr === 'bomb') vmPart(G, cyl(0.25, 0.25, 2.4, 5), mat('#c8b07a'), 0, 5.2, 0, 0, 0, 0, false);
-  } else G.add(iconPlane(id));
+  } else if (thr === 'bomb') buildPot(K);
+  else if (thr === 'flash') buildPouch(K, T);
+  else { G.add(iconPlane(id)); baked = false; }
+  if (baked) K.bake(G);
   G.visible = false; handG.add(G); ITEM.set(id, G);
   return G;
-}
-
-// ---------------- moving them ----------------
-// a few poses for the right hand: [x, y, z, rx, ry, rz] in view space
-const POSE = {
-  idle: [8.8, -7.6, -16, -0.95, 0.1, 0.45], spearIdle: [7.4, -6.7, -11, -1.45, 0.05, 0.12], bowIdle: [3.4, -5.4, -17, -0.05, -0.08, -0.25],
-  icon: [8.2, -7.4, -15, -0.35, -0.25, 0.12], fist: [7.6, -7.4, -14.5, -0.4, 0.35, 0.55],
-};
-const easeOut = u => 1 - Math.pow(1 - u, 3), smooth = u => u * u * (3 - 2 * u);
-function lerp6(a, b, k) { const o = []; for (let i = 0; i < 6; i++) o[i] = lerp(a[i], b[i], k); return o; }
-function swingPose(base, u, side, kind) {   // a blow's arc: wind up, cut through, return
-  const w = Math.min(1, u / 0.22), s = clamp((u - 0.22) / 0.3, 0, 1), r = clamp((u - 0.55) / 0.45, 0, 1);
-  let k0, k1;
-  if (kind === 'thrust') { k0 = [8, -6, -8, -1.5, 0.1, 0.1]; k1 = [4, -5, -30, -1.55, 0, 0.05]; }
-  else if (kind === 'chop') { k0 = [6, 3, -19, 0.35, 0.05, -0.1]; k1 = [2, -12, -19, -2.1, 0.05, 0]; }
-  else if (side > 0) { k0 = [12, -3, -17, -1.45, -0.8, -0.6]; k1 = [-9, -8.5, -18, -1.5, 1.1, 0.5]; }
-  else { k0 = [-8, -4, -17, -1.45, 1.0, 0.8]; k1 = [11, -9, -17, -1.5, -1.0, -0.4]; }
-  const a = lerp6(base, k0, smooth(w)), b = lerp6(k0, k1, easeOut(s));
-  return s <= 0 ? a : r <= 0 ? b : lerp6(k1, base, smooth(r));
-}
-let shownId = null, torchK = 0;
-function placeHands(dt, now, bob, lag) {
-  const p = S.p, D = S.day, s = heldSlot(), id = s ? s.id : null, T = id ? DIT[id] : null;
-  if (id !== shownId) { if (shownId && ITEM.has(shownId)) ITEM.get(shownId).visible = false; shownId = id; if (id) itemModel(id).visible = true; }
-  fist.visible = true;
-  { // how closed the right hand is: a fist round a handle, cupped under something small, relaxed and half open when empty,
-    // and it opens as it reaches down to pick something up
-    const icon0 = T && !T.tool && T.k !== 'light', reach = p.act && p.act.t < p.act.dur && p.act.pose === 7 ? Math.sin(Math.PI * p.act.t / p.act.dur) : 0;
-    const want = (!T ? 0.32 : icon0 ? 0.62 : 1) * (1 - 0.8 * reach);
-    fistK += (want - fistK) * Math.min(1, dt * 14); poseHand(fist, fistK, icon0 ? 0.35 : 0);
-  }
-  const G = id ? ITEM.get(id) : null;
-  const spearish = T && (T.wpn === 'spear' || T.thr === 'jav'), bow = T && T.tool === 'bow', icon = T && !T.tool && T.k !== 'light';
-  let base = !T ? POSE.fist : spearish ? POSE.spearIdle : bow ? POSE.bowIdle : icon ? POSE.icon : POSE.idle;
-  let cur = base.slice();
-  const A = p.atk, act = p.act, wa = p.wact;
-  if (A && A.t < A.dur) {
-    const u = A.t / A.dur, kind = A.ov ? 'chop' : A.pose === 3 || spearish ? 'thrust' : A.i === 2 ? 'chop' : 'cut';
-    cur = swingPose(base, u, A.side || 1, kind);
-  } else if (wa && wa.t < (wa.dur || 0.4)) {
-    const u = wa.t / (wa.dur || 0.4); cur = swingPose(base, u, 1, spearish ? 'thrust' : 'chop');
-  } else if (act && act.t < act.dur) {
-    const u = act.t / act.dur, k = Math.sin(Math.PI * Math.min(1, u * 1.1));
-    if (act.pose === 8 || act.pose === 9) cur = lerp6(base, [1.5, -5, -9, 0.6, 0.2, 0.1], k);                 // to your mouth
-    else if (act.pose === 7) cur = lerp6(base, [4, -16, -18, -1.9, 0.2, 0.2], k);                            // down to pick it up
-    else if (act.pose === 10) { const c = Math.abs(Math.sin(u * Math.PI * 3)); cur = lerp6(base, [5, -6 + 8 * c, -15, -0.4 - 1.4 * (1 - c), 0.05, 0], Math.min(1, u * 5)); }   // working at it
-    else if (act.pose === 11) { const c = Math.sin(u * Math.PI * 4); cur = lerp6(base, [4.5 + 2.4 * c, -12.5 + 1.4 * Math.abs(c), -19 + 1.6 * Math.abs(c), -1.35 + 0.18 * c, 0.1 + 0.32 * c, 0.6], act.cont ? 1 : Math.min(1, u * 6)); }   // down at a body, the knife sawing (88-meat)
-    else cur = lerp6(base, [6, -2, -20, -1.2, 0, 0.3], k);
-  }
-  if (bow && D.draw) { const c = clamp(D.draw.t / (RNG.bow ? RNG.bow.full : 0.8), 0, 1); cur = lerp6(base, [1.2, -4, -14, -0.02, -0.04, -0.06], Math.min(1, c * 3)); }
-  if (G && bow) {   // the string comes back with the draw, the arrow on it
-    const c = D.draw ? clamp(D.draw.t / (RNG.bow ? RNG.bow.full : 0.8), 0, 1) : 0, ar = G.getObjectByName('arrow');
-    vmString(G, c);
-    ar.visible = !!D.draw || dayAmmoN('bow') > 0; ar.position.z = 9 * c;
-  }
-  if (G && T.tool === 'sling') { const pu = G.getObjectByName('pouch'); if (D.draw) { const a = now * (8 + 10 * clamp(D.draw.t / 0.8, 0, 1)); pu.position.set(Math.cos(a) * 6, -4 + Math.sin(a) * 2, Math.sin(a) * 6); } else pu.position.set(0, -7, 0); }
-  if (G && T.k === 'light') {   // the flame licks up off the head: three tongues, outer red to a pale core, each flickering on its own beat
-    const fl = G.getObjectByName('flame'), lit = S.day && dayTorch() ? 1 : 0.15, v = Math.hypot(S.p.vx, S.p.vy) / RUN;
-    fl.children.forEach((sp, i) => { if (i > 2) { sp.material.opacity = 0.3 * lit * (0.85 + 0.15 * Math.sin(now * 23)); return; }
-      const w = [4.2, 3.2, 2.0][i], h = [6.8, 5.4, 3.4][i] * (1 + 0.16 * Math.sin(now * (13 + i * 4) + i) * Math.sin(now * (7 + i * 3))) * (1 - 0.25 * v) * lit;
-      sp.scale.set(w * (1 + 0.08 * Math.sin(now * 19 + i * 2)), Math.max(0.01, h), 1); sp.position.x = 0.5 * Math.sin(now * (9 + i) + i) * (1 + v); sp.material.rotation = -0.12 * v + 0.06 * Math.sin(now * 5 + i); });
-  }
-  // eating and drinking: the left hand lifts the flask to your mouth
-  const drink = S.rg.drink ? Math.sin(Math.PI * clamp(1 - S.rg.drink / FLASK_T, 0, 1)) : 0;
-  // your guard up: what you hold brought up and across in front of you (68-guard)
-  if (GUARD.k > 0.01) cur = lerp6(cur, T ? [4.2, -3.8, -14.5, -0.15, 0.35, 1.2] : [5.2, -4.2, -12, -0.1, 0.25, 0.4], GUARD.k);
-  // the blow lands: the hand jars back (v129: back, not a shudder)
-  if (CFX.recoil > 0) { const r = smooth(Math.min(1, CFX.recoil)); cur = cur.slice(); cur[2] += 2.2 * r; cur[1] += 0.6 * r; cur[3] += 0.12 * r; }
-  // put the right hand where the pose says, swaying against your turning and bobbing with your stride
-  const [bx, by] = bob, [ly, lp] = lag;
-  handG.position.set((cur[0] + bx - ly * 6) * vmX, cur[1] + by + lp * 5 - VIEW_FX.dip * 0.15 - drink * 6, cur[2]);
-  handG.rotation.set(cur[3] + lp * 0.9, cur[4] + ly * 0.9, cur[5]);
-  // the left: the torch, up by night, down by day
-  torchK += ((S.torchLvl > 0.05 || S.torchOn ? 1 : 0) - torchK) * Math.min(1, dt * 5);
-  torchG.visible = torchK > 0.02;
-  torchG.position.set((-8.2 + bx - ly * 6) * vmX, -6.3 + by + lp * 5 - VIEW_FX.dip * 0.12 - (1 - torchK) * 14 + drink * 5, -16 + drink * 6);
-  torchG.rotation.set(0.1 + lp * 0.9 + drink * 0.9, -0.2 + ly * 0.9, 0.1 + drink * 0.4);
-  lensGlow.material.opacity = (0.7 + 0.1 * Math.sin(now * 9)) * S.torchLvl;
 }
 
 ;
@@ -15181,7 +15755,7 @@ function thirdFrame(rdt, now, headY) {
   const on = outsideP() && state === 'play';
   if (!isoP() || !on) isoOff();
   if (!on) { TP.hold.visible = false; TP.boom = 76; return false; }
-  handG.visible = torchG.visible = false;
+  handG.visible = torchG.visible = bowRig.visible = false;
   if (isoP()) isoCamera(S.p, rdt); else thirdCamera(S.p, look.yaw, look.pitch, headY);
   cam.rotation.z *= 0.25;   // fallen: the camera stays upright and watches you go down
   cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);
@@ -20080,7 +20654,7 @@ function placeCamera(dt, rdt, now) {
   // hands
   const ly = angDiff(look.tYaw, look.yaw), lp = look.tPitch - look.pitch;
   if (thirdFrame(rdt, now, cam.position.y)) return;
-  handG.visible = torchG.visible = fallK < 0.3; if (fallK >= 0.3) return;
+  handG.visible = torchG.visible = fallK < 0.3; if (fallK >= 0.3) { bowRig.visible = false; return; }
   placeHands(rdt, now, [Math.cos(p.phase) * 0.45 * VIEW_FX.bobAmt, Math.sin(p.phase * 2) * 0.55 * VIEW_FX.bobAmt], [ly, lp]);
 }
 

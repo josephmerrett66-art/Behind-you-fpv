@@ -36,7 +36,7 @@ function thirdFrame(rdt, now, headY) {
   const on = outsideP() && state === 'play';
   if (!isoP() || !on) isoOff();
   if (!on) { TP.hold.visible = false; TP.boom = 76; return false; }
-  handG.visible = torchG.visible = false;
+  handG.visible = torchG.visible = bowRig.visible = false;
   if (isoP()) isoCamera(S.p, rdt); else thirdCamera(S.p, look.yaw, look.pitch, headY);
   cam.rotation.z *= 0.25;   // fallen: the camera stays upright and watches you go down
   cam.updateMatrixWorld(); LU.camPos.value.copy(cam.position);

@@ -130,7 +130,7 @@ function placeCamera(dt, rdt, now) {
   // hands
   const ly = angDiff(look.tYaw, look.yaw), lp = look.tPitch - look.pitch;
   if (thirdFrame(rdt, now, cam.position.y)) return;
-  handG.visible = torchG.visible = fallK < 0.3; if (fallK >= 0.3) return;
+  handG.visible = torchG.visible = fallK < 0.3; if (fallK >= 0.3) { bowRig.visible = false; return; }
   placeHands(rdt, now, [Math.cos(p.phase) * 0.45 * VIEW_FX.bobAmt, Math.sin(p.phase * 2) * 0.55 * VIEW_FX.bobAmt], [ly, lp]);
 }
 

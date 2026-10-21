@@ -71,7 +71,7 @@ function balLaunch(q, kind, c, off) {
   const v = balSpeed(kind, c), f = balFwd(); let ox, oY, oy, d;
   if (thirdP()) {
     const cp = cam.position, T = balTrace(cp.x, cp.y, cp.z, f[0] * 1e3, f[1] * 1e3, f[2] * 1e3, 0, 1.8);
-    ox = S.p.x + Math.cos(S.aimW) * 10; oy = S.p.y + Math.sin(S.aimW) * 10; oY = terrH(S.p.x, S.p.y) + 28;
+    ox = S.p.x + Math.cos(S.aimW) * 10; oy = S.p.y + Math.sin(S.aimW) * 10; oY = terrH(S.p.x, S.p.y) + 28 + (S.p.jz || 0);
     const dx = T.x - ox, dY = T.Y - oY, dy = T.y - oy, L = Math.hypot(dx, dY, dy) || 1; d = [dx / L, dY / L, dy / L];
   } else { const cp = cam.position; ox = cp.x + f[0] * 6; oY = cp.y - 1.2 + f[1] * 6; oy = cp.z + f[2] * 6; d = [f[0], f[1], f[2]]; }
   if (off) { const hz = Math.hypot(d[0], d[2]), a = Math.atan2(d[2], d[0]) + off; d = [Math.cos(a) * hz, d[1], Math.sin(a) * hz]; }   // a volley's arrows fan out
@@ -122,7 +122,7 @@ function aimDraw(g) {
   // where this draw would come down if you let go now: the same flight, run through ahead of time
   const v = balSpeed(W.kind, c), f = balFwd(), path = thirdP() ? [] : null; let P;
   if (thirdP()) {
-    const cp = cam.position, T = balTrace(cp.x, cp.y, cp.z, f[0] * 1e3, f[1] * 1e3, f[2] * 1e3, 0, 1.8), ox = S.p.x + Math.cos(S.aimW) * 10, oy = S.p.y + Math.sin(S.aimW) * 10, oY = terrH(S.p.x, S.p.y) + 28;
+    const cp = cam.position, T = balTrace(cp.x, cp.y, cp.z, f[0] * 1e3, f[1] * 1e3, f[2] * 1e3, 0, 1.8), ox = S.p.x + Math.cos(S.aimW) * 10, oy = S.p.y + Math.sin(S.aimW) * 10, oY = terrH(S.p.x, S.p.y) + 28 + (S.p.jz || 0);
     const dx = T.x - ox, dY = T.Y - oY, dy = T.y - oy, L = Math.hypot(dx, dY, dy) || 1;
     P = balTrace(ox, oY, oy, dx / L * v, dY / L * v, dy / L * v, BAL.gk[kind], BAL.life, path);
   } else { const cp = cam.position; P = balTrace(cp.x + f[0] * 6, cp.y - 1.2 + f[1] * 6, cp.z + f[2] * 6, f[0] * v, f[1] * v, f[2] * v, BAL.gk[kind], BAL.life, null); }

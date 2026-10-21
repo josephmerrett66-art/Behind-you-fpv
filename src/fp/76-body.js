@@ -369,7 +369,7 @@ function posePlayer(now) {
     if (Math.random() < 0.6) { const a = X.face + Math.PI + (Math.random() - 0.5) * 0.8; spark(p.x, 2, p.y, Math.cos(a) * 40, 12 + Math.random() * 20, Math.sin(a) * 40, 0.4, 8 + Math.random() * 6, 0.62, 0.55, 0.45, 0.35, 0, -10, 2); }
   }
   // in the air: knees up; your guard up: both arms raised across you (68-guard)
-  if (p.jz > 0) { P.legL[0] -= 0.75; P.shinL[0] += 1.1; P.legR[0] -= 0.35; P.shinR[0] += 0.7; P.armL[0] -= 0.3; P.armR[0] -= 0.2; }
+  if (lvAir(p)) { P.legL[0] -= 0.75; P.shinL[0] += 1.1; P.legR[0] -= 0.35; P.shinR[0] += 0.7; P.armL[0] -= 0.3; P.armR[0] -= 0.2; }
   if (GUARD.k > 0.01) { const g = GUARD.k; P.armR = bmix(P.armR, [-1.55, 0.35, 0.55], g); P.foreR = bmix(P.foreR, [-1.25, 0, 0], g); P.armL = bmix(P.armL, [-1.45, -0.35, -0.6], g); P.foreL = bmix(P.foreL, [-1.35, 0, 0], g); P.spine[0] += 0.08 * g; }
   // hurt: knocked back, chin up; dead: pitched forward onto your face, away from the camera
   const hk = CFX.hurt ? Math.max(0, 1 - CFX.hurt.t / 0.35) : 0;

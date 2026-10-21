@@ -114,7 +114,7 @@ function fishRelease() {
   FHOLD.down = false;
   const F = fState(); if (!F || F.st !== 'charge') return;
   const c = clamp(F.t / FSH.charge, 0.12, 1), p = S.p, a = S.aimW || 0, R = FSH.castMin + (FSH.castMax - FSH.castMin) * c;
-  S.day.fsh = { st: 'fly', t: 0, T: 0.35 + 0.45 * c, c, x0: p.x + Math.cos(a) * 12, y0: p.y + Math.sin(a) * 12, z0: terrH(p.x, p.y) + EYE + 6, x1: p.x + Math.cos(a) * R, y1: p.y + Math.sin(a) * R, x: p.x, y: p.y, z: 0, whip: 0 };
+  S.day.fsh = { st: 'fly', t: 0, T: 0.35 + 0.45 * c, c, x0: p.x + Math.cos(a) * 12, y0: p.y + Math.sin(a) * 12, z0: terrH(p.x, p.y) + EYE + (p.jz || 0) + 6, x1: p.x + Math.cos(a) * R, y1: p.y + Math.sin(a) * R, x: p.x, y: p.y, z: 0, whip: 0 };
   fSnd.whip(c); dayAct(4, 0.35);
 }
 function fishHook(F) {

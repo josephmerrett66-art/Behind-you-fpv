@@ -16,7 +16,7 @@ function isoAim(rdt) {
   let a = ISO.face ?? aimOfYaw(look.yaw);
   if (inputMode === 'kb' && ISO.mx >= 0) {
     _isoN.set(ISO.mx / VW * 2 - 1, 1 - ISO.my / VH * 2); _isoR.setFromCamera(_isoN, cam);
-    const o = _isoR.ray.origin, d = _isoR.ray.direction, h = terrH(p.x, p.y) + 18;
+    const o = _isoR.ray.origin, d = _isoR.ray.direction, h = terrH(p.x, p.y) + 18 + (p.jz || 0);
     if (d.y < -0.05) { const t = (h - o.y) / d.y, gx = o.x + d.x * t, gz = o.z + d.z * t; if (Math.hypot(gx - p.x, gz - p.y) > 4) a = Math.atan2(gz - p.y, gx - p.x); }
   } else {
     const mx = MV.x, my = MV.y;
@@ -42,7 +42,7 @@ function isoCamera(p, rdt) {
   if (spin) ISO.yawT += spin * rdt * 1.8;
   let dy = ISO.yawT - ISO.yaw; ISO.yaw += dy * Math.min(1, rdt * 10);
   const port = cam.aspect < 1, fov = port ? 62 : 46, dist = (port ? 320 : 290) * (SET.isoZoom || 1.7);   // the zoom setting pulls the camera back
-  const gy = terrH(p.x, p.y) + 14, cp = Math.cos(ISO.pitch), fx = -Math.sin(ISO.yaw) * cp, fy = Math.sin(ISO.pitch), fz = -Math.cos(ISO.yaw) * cp;
+  const gy = terrH(p.x, p.y) + 14 + (p.jz || 0), cp = Math.cos(ISO.pitch), fx = -Math.sin(ISO.yaw) * cp, fy = Math.sin(ISO.pitch), fz = -Math.cos(ISO.yaw) * cp;
   const sh = VIEW_FX.trauma * VIEW_FX.trauma * 3, nz = s => Math.sin(VIEW_FX.shakeT * 37 + s) * sh;
   const ahead = dist * 0.14, tx = p.x + fx / cp * ahead, tz = p.y + fz / cp * ahead;   // the point looked at sits a little beyond you
   cam.position.set(tx - fx * dist + nz(1), gy - fy * dist + nz(2), tz - fz * dist + nz(3));

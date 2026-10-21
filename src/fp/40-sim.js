@@ -76,7 +76,7 @@ function simStep(dt) {
   // bump into trees and rocks, the camp's towers and stores, your own walls and lamps
   const near = Math.hypot(p.x, p.y) < CAMP_R + 40;
   for (const o of propsNear(p.x, p.y, 60).concat(daySolidsNear(p.x, p.y, 60), lightsNear(p.x, p.y, 60).filter(L => L.r), near ? CAMP_SOLID : [])) {
-    if (o.nocol) continue;
+    if (o.nocol || (o.st && (p.jz || 0) >= (PC(o.st.id).H || 36) - 2) || (o.build && (p.jz || 0) > 30)) continue;   // (up on a lookout, over the tops of your walls and benches: 68-lift)
     const dx = p.x - o.x, dy = p.y - o.y, d = Math.hypot(dx, dy), min = o.r * o.s + 7;
     if (d < min && d > 0) { p.x = o.x + dx / d * min; p.y = o.y + dy / d * min; }
   }
@@ -172,7 +172,7 @@ FP.seen = (x, y) => {                       // in front of you and near enough t
 };
 FP.aimPt = (d0, d1) => {                    // the spot on the ground under your crosshair, kept between d0 and d1 away
   const p = S.p, cp = Math.cos(look.pitch), sp = Math.sin(look.pitch);
-  let d = sp < -0.02 ? (EYE * cp) / -sp : d1;
+  let d = sp < -0.02 ? ((EYE + (p.jz || 0)) * cp) / -sp : d1;   // (from up on a lookout, further out: 68-lift)
   d = clamp(d, d0, d1);
   return { x: p.x + Math.cos(S.aimW) * d, y: p.y + Math.sin(S.aimW) * d };
 };

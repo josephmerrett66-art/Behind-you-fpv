@@ -73,22 +73,15 @@ function guardSnd(k) {
 function jump() {
   const p = S && S.p, D = S && S.day, rg = S && S.rg;
   if (!D || !S.running || !rg || rg.phase !== 'fight' || menusOpen() || p.act) return;
-  if (p.jz > 0 || p.jvz > 0) return;
+  if (lvAir(p)) return;
   if (!dayStam(JUMP.st)) return;
   if (D.crouch) dayCrouch(false);
-  p.jvz = JUMP.v; p.jz = 0.001;
+  p.jvz = JUMP.v; p.jair = 1;   // from wherever you stand: the ground, a stair, the boards (68-lift)
   if (actx && !snd('cloth', { v: 0.6 })) noiseAt(actx.currentTime, 700, 400, 0.1, 0.07, sfxGain);
 }
-function jumpStep(dt) {
-  const p = S.p; if (!(p.jz > 0) && !(p.jvz > 0)) return;
-  p.jvz -= JUMP.g * dt; p.jz = Math.max(0, (p.jz || 0) + p.jvz * dt);
-  if (p.jz <= 0) {   // down: both feet, and the view gives a little
-    const hard = clamp(-p.jvz / JUMP.v, 0, 1.4); p.jvz = 0;
-    VIEW_FX.dip = Math.max(VIEW_FX.dip, 3.2 * hard); FPX.step(true, -1); if (stepKind(p.x, p.y)[0] !== 'water_wade') snd('jump_land', { v: 0.35 + 0.35 * hard }); setTimeout(() => FPX.step(true, 1), 45);
-  }
-}
-{ const ss = simStep; simStep = function (dt) { if (S && S.day) guardStep(dt); const r = ss.apply(this, arguments); if (S && S.p) jumpStep(dt); return r; }; }
-{ const st = FPX.step; FPX.step = function (running, side) { if (S && S.p && S.p.jz > 0) return; return st.call(this, running, side); }; }   // no footfalls in the air
+// up and down: the jump, the stairs, the boards and the drop off them are one step now (lvStep, 68-lift)
+{ const ss = simStep; simStep = function (dt) { if (S && S.day) guardStep(dt); const p = S && S.p, px = p ? p.x : 0, py = p ? p.y : 0, r = ss.apply(this, arguments); if (p) lvStep(dt, px, py); return r; }; }
+{ const st = FPX.step; FPX.step = function (running, side) { if (S && S.p && lvAir(S.p)) return; return st.call(this, running, side); }; }   // no footfalls in the air
 // on a phone: hold the Block button
 blockBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (e.pointerType !== 'mouse') setMode('touch'); GUARD.want.t = e.pointerId; blockBtn.classList.add('on'); try { blockBtn.setPointerCapture(e.pointerId); } catch (_) {} });
 { const up = e => { if (e.pointerId === GUARD.want.t) { GUARD.want.t = null; blockBtn.classList.remove('on'); } };

@@ -164,3 +164,17 @@ Object.assign(CLAN_ST, {
     if (c.t > 35) go();
   },
 });
+
+// ---- you up on a lookout (68-lift): out of reach of a club, so they go for what's holding you up ----
+{ const sw = siegeWall; siegeWall = function (e, x, y) { const L = x === S.p.x && y === S.p.y ? lvUnder() : null; return L || sw.apply(this, arguments); }; }
+{ const rd = CLAN_ST.raid, bt = CLAN_ST.batter;
+  CLAN_ST.raid = function (e, c) { const L = assaultOn() && clan().siege && lvUnder(); if (L) return clanGo(e, 'batter', { w: L }); return rd.apply(this, arguments); };
+  CLAN_ST.batter = function (e, c) {   // at the posts on its own side of the stand (or the stairs), not a wall's line
+    const o = c.o.w;
+    if (o && !c.o.G && lvPiece(o)) {
+      const hy = PC(o.id).lay === 'deck' ? GRID / 2 : LV.stairW / 2, [f, s] = lvLocal(o, e.x, e.y), [qx, qy] = lvWorld(o, clamp(f, -GRID / 2, GRID / 2), clamp(s, -hy, hy));
+      const dx = e.x - qx, dy = e.y - qy, L = Math.hypot(dx, dy) || 1;
+      c.o.G = { x: qx + dx / L * 12, y: qy + dy / L * 12, wx: qx, wy: qy }; c.o.swT = 0.2 + Math.random() * 0.5;
+    }
+    return bt.apply(this, arguments);
+  }; }

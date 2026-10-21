@@ -25,7 +25,7 @@ function mvLook() {   // the nearest thing your view runs into: { B, d } for a p
   const G = stNear(p.x, p.y, MV_REACH + 30).filter(o => PC(o.id).lay !== 'roof');   // (a roof overhead is found as before, by the spot on the ground)
   if (!L.length && !G.length) return null;
   for (let d = 4; d <= MV_REACH + 20; d += 3) {
-    const x = p.x + ca * d, y = p.y + sa * d, h = EYE + sp * d; if (h < -1) break;
+    const x = p.x + ca * d, y = p.y + sa * d, h = EYE + (p.jz || 0) + sp * d; if (h < -1) break;
     for (const B of L) { if (h > (MV_TALL[mvT0(B)] ?? 24)) continue; for (const q of B.parts) if (Math.hypot(q.x - x, q.y - y) < (q.r || 8) * 0.6 + 4) return { B, d }; }
     for (const o of G) if (h <= mvTop(PC(o.id)) && stDistTo(o, x, y) < 3) return { o, d };
   }

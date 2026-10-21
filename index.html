@@ -13051,7 +13051,7 @@ const SLEEVE = '#d0a07a', GLOVE = '#daa880', SKIN = '#c8a07a';   // bare forearm
 const cyl = (r0, r1, h, n = 8) => new THREE.CylinderGeometry(r0, r1, h, n);
 const _sa = new V3(), _sb = new V3(), _sUp = new V3(0, 1, 0);
 function vmString(G, c, at) {   // lay each half of the bowstring from its tip to the nock, drawn back by c (or to the point at)
-  const nock = at ? at.clone() : new V3(0, BOW_NOCK, -3.4 + 9 * c);
+  const nock = at ? at.clone() : new V3(0, BOW_NOCK, -3.4 + BOW_DRAW * c);
   for (const [n, y] of [['strA', 10.6], ['strB', -10.6]]) {
     const o = G.getObjectByName(n); if (!o) continue;
     _sa.set(0, y, -3.4); _sb.subVectors(nock, _sa); const L = _sb.length();
@@ -13376,8 +13376,10 @@ const ACT = {
   guard: PZ([3.8, -4.8, -14], [-0.92, 0.35, -0.15], [0.05, 0.3, -1]), guardF: PZ([5, -4.6, -12], [-0.3, 0.95, 0], [0, 0, -1]),
   spin: PZ([7.5, -1.5, -12], [0, 1, 0], [-0.3, 0, -0.95]), loose: PZ([4, -4, -19], [-0.1, 0.9, -0.4], [-0.3, 0, -0.95]),
 };
-// the bow, in the left fist: carried low and canted at rest, up and square to your aim when you draw
-const BOW_REST = PZ([-7, -6.8, -17.5], [0.5, 0.85, -0.12], [0.3, 0, -0.95]), BOW_AIM = PZ([-1.2, -4.6, -21], [0.24, 0.97, 0], [0.15, 0.04, -1]);
+// the bow, in the left fist: carried low and canted at rest, brought up when you draw. Joe: "I can't see where I am aiming
+// because the bow is right in the middle of the cross hairs". So it's drawn off to the left of your aim, its top leaning
+// away, the arrow running in from under your right eye: the string, the limbs and the arrow all stay clear of the middle.
+const BOW_REST = PZ([-7, -6.8, -17.5], [0.5, 0.85, -0.12], [0.3, 0, -0.95]), BOW_AIM = PZ([-4.5, -6.8, -21], [-0.22, 0.97, -0.05], [-0.25, -0.08, -0.96]);
 const bowRig = new THREE.Group(); vmScene.add(bowRig); bowRig.visible = false;
 const bowHand = makeHand(true); bowRig.add(bowHand); poseHand(bowHand, 0.95); bowHand.rotation.y = -0.25;   // the knuckles turned out a little
 let shownId = null, torchK = 0, equipT = 1, runK = 0, bowK = 0, drawH = 0, strHold = 0;
@@ -13472,17 +13474,17 @@ function placeBow(dt, now, G, cur, bx, by, ly, lp) {
   P.p.x += bx - ly * 6 + 2 * (1 - eq); P.p.y += by + lp * 5 - VIEW_FX.dip * 0.15 - 9 * (1 - eq) - 1.2 * run + 0.14 * Math.sin(now * 1.7) * (1 - bowK);
   P.p.z += 0.8 * run;
   P.u.applyQuaternion(VM.lagQ); P.f.applyQuaternion(VM.lagQ);
-  P.p.x *= vmX;
+  P.p.x *= Math.max(vmX, 0.7);   // on a narrow screen, not so far in that it covers your aim again
   bowRig.visible = true; bowRig.position.copy(P.p); handFrame(P.u, P.f, bowRig.quaternion); bowRig.updateMatrixWorld(true);
   vmString(G, c);
-  const ar = G.getObjectByName('arrow'); ar.visible = c > 0.01 || (!!(D && D.draw) && dayAmmoN('bow') > 0); ar.position.set(-0.5, BOW_NOCK, -5.4 + 9 * c); ar.quaternion.identity();
+  const ar = G.getObjectByName('arrow'); ar.visible = c > 0.01 || (!!(D && D.draw) && dayAmmoN('bow') > 0); ar.position.set(-0.5, BOW_NOCK, -5.4 + BOW_DRAW * c); ar.quaternion.identity();
   // the right hand: hanging easy while you carry the bow, then onto the string, fingers hooked round it under the nock,
   // drawing it back to your chin
-  const N = VM.v.set(0, BOW_NOCK - 0.4, BOW_GRIP - 3.4 + 9 * drawH), k = easeIO(bowK);
+  const N = VM.v.set(0, BOW_NOCK - 0.4, BOW_GRIP - 3.4 + BOW_DRAW * drawH), k = easeIO(bowK);
   bowRig.localToWorld(N); handG.position.lerpVectors(cur.p, N, k);
   handFrame(cur.u, cur.f, handG.quaternion).slerp(bowRig.quaternion, k);
   const off = drawH > c + 0.04 ? 1 : 0; fistK += ((bowK < 0.5 ? 0.85 : off ? 0.25 : 0.62) - fistK) * Math.min(1, dt * 18); poseHand(fist, fistK, 0);
-  armTo(fist, 1, handG.position, VM.pole.set(0.65 + 0.25 * k, -1 + 1.3 * k, 0.1 + 0.1 * k)); armTo(bowHand, -1, bowRig.position, VM.w.set(-0.8, -1, 0));
+  armTo(fist, 1, handG.position, VM.pole.set(0.65 - 0.25 * k, -1, 0.1 + 0.4 * k));   // drawing, the elbow kept low, so the forearm drops out of the view instead of lying across it armTo(bowHand, -1, bowRig.position, VM.w.set(-0.8, -1, 0));
 }
 function swingSling(G, now, D) {   // the pouch on its cords: hanging from your fingers, or turning round over your head
   const pu = G.getObjectByName('pouch'), A = G.getObjectByName('cordA'), B = G.getObjectByName('cordB');
@@ -13855,7 +13857,7 @@ function buildClub(K, T, id) {
   }
 }
 // ---- bows: tips at the string's ends (0, +-10.6, -3.4), the grip 8.4 out in front of the string ----
-const BOW_NOCK = 1.3;
+const BOW_NOCK = 1.3, BOW_DRAW = 12.5;   // the nock above the grip; how far back a full draw takes the string (to under your eye)
 function buildBow(K, T, id) {
   const bw = T.bw || '#9a7040', bone = id === 'bow2', path = [];
   for (let i = 0; i <= 24; i++) {

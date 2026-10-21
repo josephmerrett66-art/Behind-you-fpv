@@ -354,7 +354,7 @@ function buildClub(K, T, id) {
   }
 }
 // ---- bows: tips at the string's ends (0, +-10.6, -3.4), the grip 8.4 out in front of the string ----
-const BOW_NOCK = 1.3;
+const BOW_NOCK = 1.3, BOW_DRAW = 12.5;   // the nock above the grip; how far back a full draw takes the string (to under your eye)
 function buildBow(K, T, id) {
   const bw = T.bw || '#9a7040', bone = id === 'bow2', path = [];
   for (let i = 0; i <= 24; i++) {

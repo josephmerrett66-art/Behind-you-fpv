@@ -50,7 +50,7 @@ function snd(k, o = {}) {
   const len = Math.min(o.dur || 1e9, (b.duration - b.lead) / rate);
   let out;
   if (o.out) { out = actx.createGain(); out.gain.value = v; out.connect(o.out); }
-  else if (o.x !== undefined || o.who) { out = placeOut(o.x ?? o.who.x, o.y ?? o.who.y, v, o.far || 700, o.who || null, len + (o.at || 0) + 0.4); if (!out) return null; }
+  else if (o.x !== undefined || o.who) { out = placeOut(o.x ?? o.who.x, o.y ?? o.who.y, v, o.far || 700, o.who || null, len + (o.at || 0) + 0.4); if (!out) return { stop() {}, disconnect() {} }; }
   else {
     out = actx.createGain(); out.gain.value = v;
     if (o.pan && actx.createStereoPanner) { const pn = actx.createStereoPanner(); pn.pan.value = clamp(o.pan, -1, 1); out.connect(pn); pn.connect(sfxGain); } else out.connect(sfxGain);
@@ -59,7 +59,7 @@ function snd(k, o = {}) {
   let node = s;
   if (o.lp) { const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; node.connect(f); node = f; }
   if (o.dur) { const g = actx.createGain(); g.gain.setValueAtTime(1, t); g.gain.setValueAtTime(1, t + Math.max(0, len - 0.06)); g.gain.linearRampToValueAtTime(0.0001, t + len); node.connect(g); node = g; }
-  node.connect(out); s.start(t, b.lead); if (o.dur) s.stop(t + len + 0.02);
+  node.connect(out); if (out.trackSource) out.trackSource(s); s.start(t, b.lead); if (o.dur) s.stop(t + len + 0.02);
   return s;
 }
 // the same, at the player: for what you do with your own hands (a small lean to the side it happens on)
@@ -99,7 +99,7 @@ function emitFrame(dt) {
     E.vol += (E.want - E.vol) * Math.min(1, dt * 2.5);
     E.lvl.gain.setTargetAtTime(E.vol * (SFXV[E.k] ?? 0.6), t, 0.05);
     if (E.P) { E.P.x = E.x; E.P.y = E.y; placeSet(E.P, placeCalc(E.P), false); }
-    if (E.dead && E.vol < 0.003) { try { E.s.stop(); } catch (e) {} E.lvl.disconnect(); EMIT.delete(E); }
+    if (E.dead && E.vol < 0.003) { try { E.s.stop(); } catch (e) {} E.s.disconnect(); E.lvl.disconnect(); if (E.P) placeDispose(E.P); EMIT.delete(E); }
   }
 }
 { const af = audioFrame; audioFrame = function () { af.apply(this, arguments); emitFrame(frameDtTP || 0.016); }; }

@@ -50,7 +50,7 @@ function lightsFrame(now, dt) {
   for (const o of lightsNear(p.x, p.y, 700)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); tongues(o.x, o.y, 0.9); }
   // your lamps, sconces, braziers and candles, lit at dusk
   if (ENV.lt < 0.85) for (const o of stNear(p.x, p.y, 700)) { const P = PC(o.id); if (!P.light || !o.done) continue; const f = fk(o.x) * (1 - ENV.lt);
-    const h = P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8, [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
+    const h = (o.z || 0) + (P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8), [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
     add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') { fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); tongues(lx, ly, P.k === 'brazier' ? 0.7 : 0.3, h - 2); } else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
   // a hand torch, held up
   if (dayTorch()) { const f = fk(1.3); add(p.x + Math.cos(S.aimW) * 8, 40, p.y + Math.sin(S.aimW) * 8, TORCH_R, 1.0 * f, 0.62 * f, 0.3 * f, 4); }

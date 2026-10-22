@@ -3372,7 +3372,7 @@ function stSnap(P, A) {                          // the nearest snap point to wh
   const D = S.day, free = { x: A.x, y: A.y, a: (D.brot || 0) + (P.sh === 'edge' || P.sh === 'mount' ? 0 : 0), snap: false };
   if (D.bsnap === false || D.crouch) return free;
   let best = null, bd = P.sh === 'mount' ? 22 : P.sh === 'edge' ? SNAP_R + 8 : SNAP_R;
-  for (const o of stNear(A.x, A.y, 130)) for (const s of stSockets(o, P)) { const d = Math.hypot(s.x - A.x, s.y - A.y); if (d < bd && stFree(P, s) === true) { bd = d; best = s; } }
+  for (const o of stNear(A.x, A.y, 130)) for (const s of stSockets(o, P)) { const d = Math.hypot(s.x - A.x, s.y - A.y); if (d < bd && stFree(P, { ...s, snap: true }) === true) { bd = d; best = s; } }
   if (!best) for (const o of stNear(A.x, A.y, 130)) for (const s of stSockets(o, P)) { const d = Math.hypot(s.x - A.x, s.y - A.y); if (d < bd) { bd = d; best = s; } }
   return best ? { x: best.x, y: best.y, a: best.a, snap: true, on: best.on } : free;
 }
@@ -3423,6 +3423,7 @@ function stPlace() {
   if (!stKnown(P)) return;
   if (why !== true) { dayNote('nost', why, 1.2); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; }
   const o = { kind: 'dst', key: 'b' + (stUid++), id: P.id, k: P.k, x: sp.x, y: sp.y, a: sp.a, r: 10, need: Object.assign({}, P.cost), hp: P.hp, max: P.hp, done: false, open: 0, put: 0, seed: Math.random() * 9 };
+  if (sp.support) { o.z = sp.z; o.support = sp.support; o.on = sp.on.key; }
   o.clip = stClipOf(P, sp); if (o.clip) o.clipV = 1;   // a floor across the palisade keeps only your side of it
   D.bld.set(o.key, o); stGen++;
   dayAct(10, 0.45); ashBurst(sp.x, sp.y, 6, 6); o.dropT = S.t;
@@ -3480,11 +3481,12 @@ function stMake(sv) {                            // a piece read back out of a s
   if (NO_CAMP) o.clip = 0;   // no fence to trim a floor at
   else if (sv.clipV) { if (sv.clip) { o.clip = sv.clip; o.clipV = 1; } }
   else o.clip = stClipOld(P, o);   // floors from before the trim (or trimmed the wrong way by v62) keep the inside of the camp
+  if (sv.support && ['flowers', 'candles'].includes(P.id) && Number.isFinite(sv.z)) { o.z = sv.z; o.support = sv.support; }
   S.day.bld.set(o.key, o); stGen++;
   if (o.done && o.k === 'bed') S.day.bed = { x: o.x, y: o.y };
   return o;
 }
-const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done, clip: o.clip || 0, clipV: o.clipV || undefined });
+const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done, clip: o.clip || 0, clipV: o.clipV || undefined, z: o.support ? o.z : undefined, support: o.support || undefined });
 function stAimed(pred) {                         // the piece you're pointing at (the nearest to where you point, in reach)
   const p = S.p, A = stAimPt(); let best = null, bd = 30;
   if (Math.hypot(A.x - p.x, A.y - p.y) > 90) { const a = S.aimW || 0; A.x = p.x + Math.cos(a) * 90; A.y = p.y + Math.sin(a) * 90; }
@@ -3497,7 +3499,7 @@ function stGhost() {
   const D = S.day; if (!D || dayTool() !== 'build' || !S.running || S.rg.phase !== 'fight' || D.bdel) return null;
   const P = PC(D.piece); if (!stKnown(P)) return null;
   const sp = stSnap(P, stAimPt()), why = stFree(P, sp);
-  return { kind: 'dstg', id: P.id, k: P.k, clip: stClipOf(P, sp), x: sp.x, y: sp.y, a: sp.a, ok: why === true, why: why === true ? '' : why, snap: sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
+  return { kind: 'dstg', id: P.id, k: P.k, clip: stClipOf(P, sp), x: sp.x, y: sp.y, a: sp.a, z: sp.z, support: sp.support, ok: why === true, why: why === true ? '' : why, snap: sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
 }
 function stStep(dt) {
   const D = S.day, rg = S.rg, p = S.p, night = dayNight();

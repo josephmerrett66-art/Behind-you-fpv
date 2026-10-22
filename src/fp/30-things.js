@@ -94,7 +94,7 @@ const U = (a, f, s) => [Math.cos(a) * f - Math.sin(a) * s, Math.sin(a) * f + Mat
 
 // ---------------- keeping it all filled in round you ----------------
 let thingsKey = '', thingsT = 0, thingsAt = { x: 1e9, y: 1e9 };
-function thingsSync(force) {
+function thingsSmallSync(force) {
   const D = S.day, p = S.p, R = 560;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size;
@@ -108,6 +108,75 @@ function thingsSync(force) {
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R + 60 && Math.abs(B.y - p.y) < R + 60) { if (B.t === 'fire') buildKit(K, { kind: 'fire', x: B.x, y: B.y, build: B }); else for (const o of B.parts) buildKit(K, o); }
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) pieceKit(o.done && !o.del ? K : PK, o);
   thingsK.set(K); setGeo(planMesh, PK);
+}
+
+// Keep local batches independent: changing a door, crop or blueprint must not upload the whole base.
+const THING_CELLS = new Map(), THING_IDS = new WeakMap();
+let thingUid = 0, thingDay = null, thingCheck = 0, thingGen = -1, thingDoor = -1;
+function thingId(o) { if (!THING_IDS.has(o)) THING_IDS.set(o, ++thingUid); return THING_IDS.get(o); }
+function thingsSync(force) {
+  const D = S.day, p = S.p, R = 620, size = 280, cells = new Map(), now = performance.now();
+  if (D.bld.size < 256) {
+    if (THING_CELLS.size) {
+      for (const c of THING_CELLS.values()) { for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m); c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); }
+      THING_CELLS.clear(); force = true; thingDay = null;
+    }
+    thingsK.visible = true; planMesh.visible = true;
+    return thingsSmallSync(force);
+  }
+  thingsK.visible = false; planMesh.visible = false;
+  if (!force && thingDay === D && thingGen === stGen && thingDoor === doorV && now < thingCheck) return;
+  thingCheck = now + 100; thingGen = stGen; thingDoor = doorV;
+  const add = (o, type, state) => {
+    if (Math.abs(o.x - p.x) >= R || Math.abs(o.y - p.y) >= R) return;
+    const id = Math.floor(o.x / size) + ',' + Math.floor(o.y / size);
+    let c = cells.get(id); if (!c) cells.set(id, c = { key: '', items: [] });
+    c.key += '|' + thingId(o) + ':' + state; c.items.push([o, type]);
+  };
+  if (!EX_FIRE.gone) add(EX_FIRE, 'pit', EX_FIRE.x + ',' + EX_FIRE.y);
+  for (const B of D.builds) add(B, 'build', JSON.stringify([B.x, B.y, B.a, B.openT > 0, B.open, B.pen && B.inv.some(s => s && s.id === 'meat'), B.lit, B.crop, B.grown, (B.basket || B.comp) && !!B.inv.find(Boolean), Math.round((B.w || 0) * 2), B.fuel > 0, B.items && B.items.length]));
+  for (const o of stNear(p.x, p.y, R)) {
+    if (Math.abs(o.x - p.x) >= 560 || Math.abs(o.y - p.y) >= 560) continue;
+    const P = PC(o.id);
+    // Moving doors remain in their existing dynamic batch, independent of all static cells.
+    if (o.done && !o.del && stDoorish(P) && (o.open || 0) !== (o.ajar || 0)) { if (SWING.next) SWING.next.add(o); continue; }
+    add(o, 'piece', JSON.stringify([o.id, o.x, o.y, o.a, o.z || 0, o.done, o.burn, o.open, o.del, o.gone, o.clip, P.lay === 'flat' && floorBelow(o), lvPiece(o) ? stGen : 0]));
+  }
+  let changed = thingDay !== D; thingDay = D;
+  const night = dayLight() < 0.85;
+  for (const [id, c] of cells) {
+    c.key += ':' + night;
+    let old = THING_CELLS.get(id);
+    if (!old) {
+      const solid = new KitMesh(true), plan = new THREE.Mesh(new THREE.BufferGeometry(), planMat);
+      castsShadow(solid.mesh); plan.renderOrder = 6; scene.add(plan);
+      const depth = new THREE.Mesh(plan.geometry, GHOST_D[1][1].material); depth.renderOrder = 5; scene.add(depth);
+      THING_CELLS.set(id, old = { solid, plan, depth, key: null });
+    }
+    if (old.key === c.key && !changed) continue;
+    const K = new Kit(), PK = new Kit();
+    for (const [o, type] of c.items) {
+      if (type === 'pit') pitKit(K, o.x, o.y);
+      else if (type === 'build') { if (o.t === 'fire') buildKit(K, { kind: 'fire', x: o.x, y: o.y, build: o }); else for (const q of o.parts) buildKit(K, q); }
+      else pieceKit(o.done && !o.del ? K : PK, o);
+    }
+    old.solid.set(K); setGeo(old.plan, PK); old.depth.geometry = old.plan.geometry;
+    old.solid.visible = old.solid.mesh.geometry.attributes.position.count > 0;
+    old.plan.visible = old.depth.visible = old.plan.geometry.attributes.position.count > 0;
+    for (const m of [old.solid.mesh, old.solid.edge, old.plan, old.depth]) {
+      // Geometry is lifted in the vertex shader. Expand bounds for surface terrain and flattening;
+      // retain the original uncullable behaviour in the separate underground world.
+      m.frustumCulled = c.items.every(([o]) => o.x < CAVE_X0);
+    }
+    for (const g of [old.solid.mesh.geometry, old.plan.geometry]) if (g.boundingSphere) g.boundingSphere.radius += 128;
+    old.key = c.key; thingsKey += '.';
+  }
+  for (const [id, c] of THING_CELLS) if (!cells.has(id)) {
+    for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m);
+    c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); THING_CELLS.delete(id); thingsKey += '.';
+  }
+  // A door can start/finish swinging without changing any remaining static cell.
+  thingsKey = 'cells:' + [...THING_CELLS.values()].map(c => c.key).join(';') + '|s:' + [...(SWING.next || [])].map(thingId).join(',');
 }
 
 // ---------------- each frame: nodes, drops, ghosts, what's flying, the tree you just felled ----------------

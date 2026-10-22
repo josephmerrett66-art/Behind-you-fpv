@@ -4054,7 +4054,7 @@ function stSnap(P, A) {                          // the nearest snap point to wh
   const D = S.day, free = { x: A.x, y: A.y, a: (D.brot || 0) + (P.sh === 'edge' || P.sh === 'mount' ? 0 : 0), snap: false };
   if (D.bsnap === false || D.crouch) return free;
   let best = null, bd = P.sh === 'mount' ? 22 : P.sh === 'edge' ? SNAP_R + 8 : SNAP_R;
-  for (const o of stNear(A.x, A.y, 130)) for (const s of stSockets(o, P)) { const d = Math.hypot(s.x - A.x, s.y - A.y); if (d < bd && stFree(P, s) === true) { bd = d; best = s; } }
+  for (const o of stNear(A.x, A.y, 130)) for (const s of stSockets(o, P)) { const d = Math.hypot(s.x - A.x, s.y - A.y); if (d < bd && stFree(P, { ...s, snap: true }) === true) { bd = d; best = s; } }
   if (!best) for (const o of stNear(A.x, A.y, 130)) for (const s of stSockets(o, P)) { const d = Math.hypot(s.x - A.x, s.y - A.y); if (d < bd) { bd = d; best = s; } }
   return best ? { x: best.x, y: best.y, a: best.a, snap: true, on: best.on } : free;
 }
@@ -4105,6 +4105,7 @@ function stPlace() {
   if (!stKnown(P)) return;
   if (why !== true) { dayNote('nost', why, 1.2); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; }
   const o = { kind: 'dst', key: 'b' + (stUid++), id: P.id, k: P.k, x: sp.x, y: sp.y, a: sp.a, r: 10, need: Object.assign({}, P.cost), hp: P.hp, max: P.hp, done: false, open: 0, put: 0, seed: Math.random() * 9 };
+  if (sp.support) { o.z = sp.z; o.support = sp.support; o.on = sp.on.key; }
   o.clip = stClipOf(P, sp); if (o.clip) o.clipV = 1;   // a floor across the palisade keeps only your side of it
   D.bld.set(o.key, o); stGen++;
   dayAct(10, 0.45); ashBurst(sp.x, sp.y, 6, 6); o.dropT = S.t;
@@ -4162,11 +4163,12 @@ function stMake(sv) {                            // a piece read back out of a s
   if (NO_CAMP) o.clip = 0;   // no fence to trim a floor at
   else if (sv.clipV) { if (sv.clip) { o.clip = sv.clip; o.clipV = 1; } }
   else o.clip = stClipOld(P, o);   // floors from before the trim (or trimmed the wrong way by v62) keep the inside of the camp
+  if (sv.support && ['flowers', 'candles'].includes(P.id) && Number.isFinite(sv.z)) { o.z = sv.z; o.support = sv.support; }
   S.day.bld.set(o.key, o); stGen++;
   if (o.done && o.k === 'bed') S.day.bed = { x: o.x, y: o.y };
   return o;
 }
-const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done, clip: o.clip || 0, clipV: o.clipV || undefined });
+const stOut = o => ({ id: o.id, x: Math.round(o.x * 10) / 10, y: Math.round(o.y * 10) / 10, a: Math.round(o.a * 1000) / 1000, hp: Math.round(o.hp * 10) / 10, need: o.need, done: o.done, clip: o.clip || 0, clipV: o.clipV || undefined, z: o.support ? o.z : undefined, support: o.support || undefined });
 function stAimed(pred) {                         // the piece you're pointing at (the nearest to where you point, in reach)
   const p = S.p, A = stAimPt(); let best = null, bd = 30;
   if (Math.hypot(A.x - p.x, A.y - p.y) > 90) { const a = S.aimW || 0; A.x = p.x + Math.cos(a) * 90; A.y = p.y + Math.sin(a) * 90; }
@@ -4179,7 +4181,7 @@ function stGhost() {
   const D = S.day; if (!D || dayTool() !== 'build' || !S.running || S.rg.phase !== 'fight' || D.bdel) return null;
   const P = PC(D.piece); if (!stKnown(P)) return null;
   const sp = stSnap(P, stAimPt()), why = stFree(P, sp);
-  return { kind: 'dstg', id: P.id, k: P.k, clip: stClipOf(P, sp), x: sp.x, y: sp.y, a: sp.a, ok: why === true, why: why === true ? '' : why, snap: sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
+  return { kind: 'dstg', id: P.id, k: P.k, clip: stClipOf(P, sp), x: sp.x, y: sp.y, a: sp.a, z: sp.z, support: sp.support, ok: why === true, why: why === true ? '' : why, snap: sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
 }
 function stStep(dt) {
   const D = S.day, rg = S.rg, p = S.p, night = dayNight();
@@ -9540,7 +9542,7 @@ const U = (a, f, s) => [Math.cos(a) * f - Math.sin(a) * s, Math.sin(a) * f + Mat
 
 // ---------------- keeping it all filled in round you ----------------
 let thingsKey = '', thingsT = 0, thingsAt = { x: 1e9, y: 1e9 };
-function thingsSync(force) {
+function thingsSmallSync(force) {
   const D = S.day, p = S.p, R = 560;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size;
@@ -9554,6 +9556,75 @@ function thingsSync(force) {
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R + 60 && Math.abs(B.y - p.y) < R + 60) { if (B.t === 'fire') buildKit(K, { kind: 'fire', x: B.x, y: B.y, build: B }); else for (const o of B.parts) buildKit(K, o); }
   for (const o of D.bld.values()) if (Math.abs(o.x - p.x) < R && Math.abs(o.y - p.y) < R) pieceKit(o.done && !o.del ? K : PK, o);
   thingsK.set(K); setGeo(planMesh, PK);
+}
+
+// Keep local batches independent: changing a door, crop or blueprint must not upload the whole base.
+const THING_CELLS = new Map(), THING_IDS = new WeakMap();
+let thingUid = 0, thingDay = null, thingCheck = 0, thingGen = -1, thingDoor = -1;
+function thingId(o) { if (!THING_IDS.has(o)) THING_IDS.set(o, ++thingUid); return THING_IDS.get(o); }
+function thingsSync(force) {
+  const D = S.day, p = S.p, R = 620, size = 280, cells = new Map(), now = performance.now();
+  if (D.bld.size < 256) {
+    if (THING_CELLS.size) {
+      for (const c of THING_CELLS.values()) { for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m); c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); }
+      THING_CELLS.clear(); force = true; thingDay = null;
+    }
+    thingsK.visible = true; planMesh.visible = true;
+    return thingsSmallSync(force);
+  }
+  thingsK.visible = false; planMesh.visible = false;
+  if (!force && thingDay === D && thingGen === stGen && thingDoor === doorV && now < thingCheck) return;
+  thingCheck = now + 100; thingGen = stGen; thingDoor = doorV;
+  const add = (o, type, state) => {
+    if (Math.abs(o.x - p.x) >= R || Math.abs(o.y - p.y) >= R) return;
+    const id = Math.floor(o.x / size) + ',' + Math.floor(o.y / size);
+    let c = cells.get(id); if (!c) cells.set(id, c = { key: '', items: [] });
+    c.key += '|' + thingId(o) + ':' + state; c.items.push([o, type]);
+  };
+  if (!EX_FIRE.gone) add(EX_FIRE, 'pit', EX_FIRE.x + ',' + EX_FIRE.y);
+  for (const B of D.builds) add(B, 'build', JSON.stringify([B.x, B.y, B.a, B.openT > 0, B.open, B.pen && B.inv.some(s => s && s.id === 'meat'), B.lit, B.crop, B.grown, (B.basket || B.comp) && !!B.inv.find(Boolean), Math.round((B.w || 0) * 2), B.fuel > 0, B.items && B.items.length]));
+  for (const o of stNear(p.x, p.y, R)) {
+    if (Math.abs(o.x - p.x) >= 560 || Math.abs(o.y - p.y) >= 560) continue;
+    const P = PC(o.id);
+    // Moving doors remain in their existing dynamic batch, independent of all static cells.
+    if (o.done && !o.del && stDoorish(P) && (o.open || 0) !== (o.ajar || 0)) { if (SWING.next) SWING.next.add(o); continue; }
+    add(o, 'piece', JSON.stringify([o.id, o.x, o.y, o.a, o.z || 0, o.done, o.burn, o.open, o.del, o.gone, o.clip, P.lay === 'flat' && floorBelow(o), lvPiece(o) ? stGen : 0]));
+  }
+  let changed = thingDay !== D; thingDay = D;
+  const night = dayLight() < 0.85;
+  for (const [id, c] of cells) {
+    c.key += ':' + night;
+    let old = THING_CELLS.get(id);
+    if (!old) {
+      const solid = new KitMesh(true), plan = new THREE.Mesh(new THREE.BufferGeometry(), planMat);
+      castsShadow(solid.mesh); plan.renderOrder = 6; scene.add(plan);
+      const depth = new THREE.Mesh(plan.geometry, GHOST_D[1][1].material); depth.renderOrder = 5; scene.add(depth);
+      THING_CELLS.set(id, old = { solid, plan, depth, key: null });
+    }
+    if (old.key === c.key && !changed) continue;
+    const K = new Kit(), PK = new Kit();
+    for (const [o, type] of c.items) {
+      if (type === 'pit') pitKit(K, o.x, o.y);
+      else if (type === 'build') { if (o.t === 'fire') buildKit(K, { kind: 'fire', x: o.x, y: o.y, build: o }); else for (const q of o.parts) buildKit(K, q); }
+      else pieceKit(o.done && !o.del ? K : PK, o);
+    }
+    old.solid.set(K); setGeo(old.plan, PK); old.depth.geometry = old.plan.geometry;
+    old.solid.visible = old.solid.mesh.geometry.attributes.position.count > 0;
+    old.plan.visible = old.depth.visible = old.plan.geometry.attributes.position.count > 0;
+    for (const m of [old.solid.mesh, old.solid.edge, old.plan, old.depth]) {
+      // Geometry is lifted in the vertex shader. Expand bounds for surface terrain and flattening;
+      // retain the original uncullable behaviour in the separate underground world.
+      m.frustumCulled = c.items.every(([o]) => o.x < CAVE_X0);
+    }
+    for (const g of [old.solid.mesh.geometry, old.plan.geometry]) if (g.boundingSphere) g.boundingSphere.radius += 128;
+    old.key = c.key; thingsKey += '.';
+  }
+  for (const [id, c] of THING_CELLS) if (!cells.has(id)) {
+    for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m);
+    c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); THING_CELLS.delete(id); thingsKey += '.';
+  }
+  // A door can start/finish swinging without changing any remaining static cell.
+  thingsKey = 'cells:' + [...THING_CELLS.values()].map(c => c.key).join(';') + '|s:' + [...(SWING.next || [])].map(thingId).join(',');
 }
 
 // ---------------- each frame: nodes, drops, ghosts, what's flying, the tree you just felled ----------------
@@ -9716,7 +9787,7 @@ function floorBelow(o) {
   return false;
 }
 function pieceKit(K, o) {
-  const P = PC(o.id), a = o.a || 0, x = o.x, y = o.y, H = P.H || 36, L = P.L || GRID, M = maker(K, x, y, a, P.lay === 'flat' && floorBelow(o) ? 1.9 : 0), h2 = L / 2;
+  const P = PC(o.id), a = o.a || 0, x = o.x, y = o.y, H = P.H || 36, L = P.L || GRID, M = maker(K, x, y, a, o.z || (P.lay === 'flat' && floorBelow(o) ? 1.9 : 0)), h2 = L / 2;
   if (P.sh === 'sq' || P.sh === 'tri') {
     const roof = P.lay === 'roof', z = roof ? ROOF_H : 0;
     if (!roof && o.clip) {   // a floor cut off at the camp's fence, its tiles in the same boards, flags or matting as a whole one
@@ -10532,7 +10603,7 @@ const SWING = { skip: new Set(), next: null, k: null, had: false }, PCACHE = new
     if (!SWING.next || !o.done || o.del) return pk.apply(this, arguments);
     const P = PC(o.id);
     if (stDoorish(P) && (o.open || 0) !== (o.ajar || 0)) { SWING.next.add(o); return; }
-    const key = o.id + '|' + o.x + '|' + o.y + '|' + (o.a || 0) + '|' + (o.open || 0) + '|' + (o.clip || 0) + '|' + (P.lay === 'flat' && floorBelow(o) ? 'f' : '') + (P.light && dayLight() < 0.85 ? 'n' : '') + (o.burn ? 'b' + o.burn : '');
+    const key = o.id + '|' + o.x + '|' + o.y + '|' + (o.a || 0) + '|' + (o.z || 0) + '|' + (o.open || 0) + '|' + (o.clip || 0) + '|' + (P.lay === 'flat' && floorBelow(o) ? 'f' : '') + (P.light && dayLight() < 0.85 ? 'n' : '') + (o.burn ? 'b' + o.burn : '');
     let e = PCACHE.get(o);
     if (!e || e.k !== key) { const T = new Kit(); pk(T, o); e = { k: key, c: T.take() }; PCACHE.set(o, e); }
     K.chunk(e.c);
@@ -10782,7 +10853,10 @@ function initAudio() {
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   actx = new AC();
-  OUT = actx.createBiquadFilter(); OUT.type = 'lowpass'; OUT.frequency.value = 20000; OUT.Q.value = 0.5; OUT.connect(actx.destination);
+  OUT = actx.createBiquadFilter(); OUT.type = 'lowpass'; OUT.frequency.value = 20000; OUT.Q.value = 0.5;
+  const limiter = actx.createDynamicsCompressor(); limiter.threshold.value = -3; limiter.knee.value = 3;
+  limiter.ratio.value = 12; limiter.attack.value = 0.003; limiter.release.value = 0.12;
+  OUT.connect(limiter); limiter.connect(actx.destination);
   sfxGain = actx.createGain(); sfxGain.gain.value = SET.sound ? 0.9 : 0; sfxGain.connect(OUT);
   ambG = actx.createGain(); ambG.gain.value = 0; ambG.connect(sfxGain);
   const dec = (b64, done) => { try { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); actx.decodeAudioData(u.buffer, done, () => {}); } catch (e) {} };
@@ -10830,17 +10904,32 @@ function placeCalc(P) {
     f: 900 + 13100 * Math.pow(1 - Math.min(u, 0.9), 1.6) * lerp(0.22, 1, sstep(-1, 0.15, front) ** 1.6) };   // duller with distance, and behind you (smoothly, no step at your shoulder)
 }
 function placeSet(P, v, now) {
-  const t = actx.currentTime, set = (q, x) => { if (now) q.value = x; else q.setTargetAtTime(x, t, 0.04); };
+  const t = actx.currentTime, set = (q, x) => { if (now) q.value = x; else { q.cancelScheduledValues(t); q.setTargetAtTime(x, t, 0.04); } };
   set(P.g.gain, v.dir); set(P.lp.frequency, v.f); if (P.wet) set(P.wet.gain, v.wet);
   if (P.pn) { if (P.pn.positionX) { set(P.pn.positionX, v.side); set(P.pn.positionY, 0.08); set(P.pn.positionZ, -v.front); } else P.pn.setPosition(v.side, 0.08, -v.front); }
   if (P.bal) set(P.bal.pan, clamp(P.pn ? v.side * 0.45 : Math.sign(v.side) * Math.abs(v.side) ** 0.7 * 0.85, -1, 1));
 }
 // x, y where it is (or who: the thing making it, followed while it plays), for about life seconds
-function placeOut(x, y, vol, far = 700, who = null, life = 3) {
+function placeDispose(P) {
+  if (P.closed) return; P.closed = true;
+  if (P.source) { try { P.source.stop(); } catch (_) {} P.source.disconnect(); }
+  for (const n of [P.inp, P.lp, P.g, P.wet, P.pn, P.bal]) if (n) n.disconnect();
+  const i = PLACED.indexOf(P); if (i >= 0) PLACED.splice(i, 1);
+}
+function placeOut(x, y, vol, far = 700, who = null, life = 3, voice = null) {
   if (!actx) return null;
-  const P = { x, y, vol, far, who, until: actx.currentTime + life }, v = placeCalc(P);
+  const P = { x, y, vol, far, who, voice, until: actx.currentTime + life }, v = placeCalc(P);
+  if (![x, y, vol, far, life, v.dir, v.f].every(Number.isFinite) || far <= 0 || v.dir + v.wet < 0.001) return null;
+  for (const q of [...PLACED]) if (q.until <= actx.currentTime) placeDispose(q);
+  const voices = PLACED.filter(q => q.voice);
+  // One voice per enemy, eight across the group; damage/attack cries outrank idle chatter.
+  const score = q => (q.voice ? q.voice.priority : 3) * 10 + placeCalc(q).dir;
+  let victim = voice && who ? voices.find(q => q.who === who) : null;
+  if (!victim && voice && voices.length >= 8) victim = voices.reduce((a, b) => score(a) < score(b) ? a : b);
+  if (!victim && PLACED.length >= 48) victim = PLACED.reduce((a, b) => score(a) < score(b) ? a : b);
+  if (victim) { if (score(victim) > score(P)) return null; placeDispose(victim); }
   const inp = actx.createGain(), lp = actx.createBiquadFilter(), g = actx.createGain(); lp.type = 'lowpass'; lp.Q.value = 0.6;
-  inp.connect(lp); lp.connect(g); P.g = g; P.lp = lp;
+  inp.connect(lp); lp.connect(g); P.inp = inp; P.g = g; P.lp = lp;
   const R = forestVerb(); if (R) { P.wet = actx.createGain(); lp.connect(P.wet); P.wet.connect(R.in); }
   // where it is round your head: a head-shaped (HRTF) panner, so left, right, in front and behind each sound like it, best in
   // headphones, with a gentle lean to the near side for phone speakers; a plain pan only where a browser has no such panner
@@ -10849,13 +10938,15 @@ function placeOut(x, y, vol, far = 700, who = null, life = 3) {
     if (actx.createStereoPanner) { P.bal = actx.createStereoPanner(); pn.connect(P.bal); P.bal.connect(sfxGain); } else pn.connect(sfxGain);
   } else if (actx.createStereoPanner) { P.bal = actx.createStereoPanner(); g.connect(P.bal); P.bal.connect(sfxGain); } else g.connect(sfxGain);
   placeSet(P, v, true);
-  PLACED.push(P); if (PLACED.length > 64) PLACED.shift();
+  PLACED.push(P);
+  inp.trackSource = source => { P.source = source; source.onended = () => placeDispose(P); };
+  inp.release = () => placeDispose(P);
   return inp;
 }
 function placeFrame() {   // every placed sound still playing, set again from where you are now
   if (!actx) return;
   const t = actx.currentTime;
-  for (let i = PLACED.length - 1; i >= 0; i--) { const P = PLACED[i]; if (t > P.until) PLACED.splice(i, 1); else placeSet(P, placeCalc(P), false); }
+  for (let i = PLACED.length - 1; i >= 0; i--) { const P = PLACED[i]; if (t > P.until) placeDispose(P); else placeSet(P, placeCalc(P), false); }
   if (FVERB) FVERB.g.gain.setTargetAtTime(typeof caveIn === 'function' && caveIn() ? 0.25 : 1, t, 0.4);   // underground the rock's own echo takes over
 }
 // the few sounds update() made itself
@@ -10949,7 +11040,7 @@ function snd(k, o = {}) {
   const len = Math.min(o.dur || 1e9, (b.duration - b.lead) / rate);
   let out;
   if (o.out) { out = actx.createGain(); out.gain.value = v; out.connect(o.out); }
-  else if (o.x !== undefined || o.who) { out = placeOut(o.x ?? o.who.x, o.y ?? o.who.y, v, o.far || 700, o.who || null, len + (o.at || 0) + 0.4); if (!out) return null; }
+  else if (o.x !== undefined || o.who) { out = placeOut(o.x ?? o.who.x, o.y ?? o.who.y, v, o.far || 700, o.who || null, len + (o.at || 0) + 0.4); if (!out) return { stop() {}, disconnect() {} }; }
   else {
     out = actx.createGain(); out.gain.value = v;
     if (o.pan && actx.createStereoPanner) { const pn = actx.createStereoPanner(); pn.pan.value = clamp(o.pan, -1, 1); out.connect(pn); pn.connect(sfxGain); } else out.connect(sfxGain);
@@ -10958,7 +11049,7 @@ function snd(k, o = {}) {
   let node = s;
   if (o.lp) { const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = o.lp; node.connect(f); node = f; }
   if (o.dur) { const g = actx.createGain(); g.gain.setValueAtTime(1, t); g.gain.setValueAtTime(1, t + Math.max(0, len - 0.06)); g.gain.linearRampToValueAtTime(0.0001, t + len); node.connect(g); node = g; }
-  node.connect(out); s.start(t, b.lead); if (o.dur) s.stop(t + len + 0.02);
+  node.connect(out); if (out.trackSource) out.trackSource(s); s.start(t, b.lead); if (o.dur) s.stop(t + len + 0.02);
   return s;
 }
 // the same, at the player: for what you do with your own hands (a small lean to the side it happens on)
@@ -10998,7 +11089,7 @@ function emitFrame(dt) {
     E.vol += (E.want - E.vol) * Math.min(1, dt * 2.5);
     E.lvl.gain.setTargetAtTime(E.vol * (SFXV[E.k] ?? 0.6), t, 0.05);
     if (E.P) { E.P.x = E.x; E.P.y = E.y; placeSet(E.P, placeCalc(E.P), false); }
-    if (E.dead && E.vol < 0.003) { try { E.s.stop(); } catch (e) {} E.lvl.disconnect(); EMIT.delete(E); }
+    if (E.dead && E.vol < 0.003) { try { E.s.stop(); } catch (e) {} E.s.disconnect(); E.lvl.disconnect(); if (E.P) placeDispose(E.P); EMIT.delete(E); }
   }
 }
 { const af = audioFrame; audioFrame = function () { af.apply(this, arguments); emitFrame(frameDtTP || 0.016); }; }
@@ -12302,6 +12393,30 @@ function aimDraw(g) {
 }
 
 ;
+// Local broad phase; membership changes already advance stGen throughout the building system.
+const ST_INDEX = { map: null, gen: -1, size: -1, cells: new Map() }, ST_CELL = 128;
+stNear = function (x, y, R) {
+  const D = S.day, out = []; if (!D) return out;
+  if (D.bld.size < 256) { for (const o of D.bld.values()) if (Math.abs(o.x - x) < R + GRID && Math.abs(o.y - y) < R + GRID) out.push(o); return out; }
+  if (ST_INDEX.map !== D.bld || ST_INDEX.gen !== stGen || ST_INDEX.size !== D.bld.size) {
+    ST_INDEX.map = D.bld; ST_INDEX.gen = stGen; ST_INDEX.size = D.bld.size; ST_INDEX.cells.clear();
+    let order = 0;
+    for (const o of D.bld.values()) {
+      const key = Math.floor(o.x / ST_CELL) + ',' + Math.floor(o.y / ST_CELL);
+      let c = ST_INDEX.cells.get(key); if (!c) ST_INDEX.cells.set(key, c = []);
+      c.push({ o, order: order++ });
+    }
+  }
+  const pad = R + GRID;
+  for (let i = Math.floor((x - pad) / ST_CELL); i <= Math.floor((x + pad) / ST_CELL); i++)
+    for (let j = Math.floor((y - pad) / ST_CELL); j <= Math.floor((y + pad) / ST_CELL); j++) {
+      const c = ST_INDEX.cells.get(i + ',' + j); if (!c) continue;
+      for (const e of c) if (Math.abs(e.o.x - x) < pad && Math.abs(e.o.y - y) < pad) out.push(e);
+    }
+  out.sort((a, b) => a.order - b.order); return out.map(e => e.o);
+};
+
+;
 // ================= doors you open and shut yourself; shut doors and spikes keep the clan out (Joe) =================
 // A door stays as you left it: E (X on a pad) opens it and E shuts it again, when you're at it and looking its way. A gate
 // (Joe: "the gates and only the gates auto opening and closing when you walk through pretty much instantly") swings open,
@@ -12724,7 +12839,7 @@ function mvLook() {   // the nearest thing your view runs into: { B, d } for a p
   for (let d = 4; d <= MV_REACH + 20; d += 3) {
     const x = p.x + ca * d, y = p.y + sa * d, h = EYE + (p.jz || 0) + sp * d; if (h < -1) break;
     for (const B of L) { if (h > (MV_TALL[mvT0(B)] ?? 24)) continue; for (const q of B.parts) if (Math.hypot(q.x - x, q.y - y) < (q.r || 8) * 0.6 + 4) return { B, d }; }
-    for (const o of G) if (h <= mvTop(PC(o.id)) && stDistTo(o, x, y) < 3) return { o, d };
+    for (const o of G) if (h >= (o.z || -1) && h <= (o.z || 0) + mvTop(PC(o.id)) && stDistTo(o, x, y) < 3) return { o, d };
   }
   return null;
 }
@@ -12745,7 +12860,7 @@ const mvName = t => t.kind === 'st' ? PC(t.o.id).n.toLowerCase() : t.B.pit ? 'th
 function mvPick(t) {
   const D = S.day;
   if (t.kind === 'b' && mvFixed(t.B)) { dayNote('mvfix', t.B.pen ? 'not with animals in it' : 'it won\'t shift', 1.5); return; }
-  if (t.kind === 'st') { const o = t.o; D.mv = { kind: 'st', o, x: o.x, y: o.y, a: o.a, clip: o.clip, bed: o.k === 'bed' && D.bed && Math.abs(D.bed.x - o.x) < 1 && Math.abs(D.bed.y - o.y) < 1 }; D.bld.delete(o.key); stGen++; D.brot = o.a; }
+  if (t.kind === 'st') { const o = t.o; D.mv = { kind: 'st', o, x: o.x, y: o.y, a: o.a, clip: o.clip, z: o.z, support: o.support, on: o.on, children: [...D.bld.values()].filter(q => q.on === o.key), bed: o.k === 'bed' && D.bed && Math.abs(D.bed.x - o.x) < 1 && Math.abs(D.bed.y - o.y) < 1 }; D.bld.delete(o.key); for (const q of D.mv.children) D.bld.delete(q.key); stGen++; D.brot = o.a; }
   else { const B = t.B; D.mv = { kind: 'b', B, x: B.x, y: B.y, a: B.a }; if (B.pit) EX_FIRE.gone = true; else D.builds = D.builds.filter(q => q !== B); }   // the pit goes out while you carry it
   exNote(`moving · ${mvName(t)} · Attack to put it down`); dayAct(10, 0.45); snd('wood_l') || sfx(1.4, 0.15, 'bandpass', 1500, 0.2); dayChanged();
 }
@@ -12756,10 +12871,11 @@ function mvSpot() {   // where the thing you're carrying would go, and whether i
 }
 function mvPut(back) {   // down where you're pointing (or, back, where it came from)
   const D = S.day, M = D.mv; if (!M) return;
-  let x = M.x, y = M.y, a = M.a, clip = M.clip;
-  if (!back) { const s = mvSpot(); if (!s.ok) { dayNote('mvno', s.why || 'no room there', 1.2); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; } x = s.sp.x; y = s.sp.y; a = s.sp.a; if (M.kind === 'st') clip = stClipOf(PC(M.o.id), s.sp); }
+  let x = M.x, y = M.y, a = M.a, clip = M.clip, z = M.z, support = M.support, on = M.on;
+  if (!back) { const s = mvSpot(); if (!s.ok) { dayNote('mvno', s.why || 'no room there', 1.2); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; } x = s.sp.x; y = s.sp.y; a = s.sp.a; z = s.sp.z; support = s.sp.support; on = s.sp.on && s.sp.on.key; if (M.kind === 'st') clip = stClipOf(PC(M.o.id), s.sp); }
   if (M.kind === 'st') {
-    const o = M.o; o.x = x; o.y = y; o.a = a; o.clip = clip; if (clip) o.clipV = 1; D.bld.set(o.key, o); stGen++;
+    const o = M.o; o.x = x; o.y = y; o.a = a; o.z = z; o.support = support; o.on = on; o.clip = clip;
+    for (const q of M.children || []) { const dx = q.x - M.x, dy = q.y - M.y, da = a - M.a; q.x = x + dx * Math.cos(da) - dy * Math.sin(da); q.y = y + dx * Math.sin(da) + dy * Math.cos(da); q.a += da; q.support = decorSupport(o); D.bld.set(q.key, q); } if (clip) o.clipV = 1; D.bld.set(o.key, o); stGen++;
     if (M.bed) D.bed = { x, y };
   } else if (M.B.pit) { pitSet(x, y, false);
   } else {
@@ -12824,7 +12940,7 @@ function mvRecycle(B) {
     const D = S.day; if (!D || !D.bmove) return sg();
     const M = D.mv; if (!M || M.kind !== 'st' || dayTool() !== 'build') return null;
     const P = PC(M.o.id), s = mvSpot(); if (!s) return null;
-    return { kind: 'dstg', id: P.id, k: P.k, clip: stClipOf(P, s.sp), x: s.sp.x, y: s.sp.y, a: s.sp.a, ok: s.ok, why: s.ok ? '' : s.why, snap: s.sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
+    return { kind: 'dstg', id: P.id, k: P.k, clip: stClipOf(P, s.sp), x: s.sp.x, y: s.sp.y, a: s.sp.a, z: s.sp.z, support: s.sp.support, ok: s.ok, why: s.ok ? '' : s.why, snap: s.sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
   }; }
 { const dg = dayGhost;
   dayGhost = function () {
@@ -12856,8 +12972,8 @@ function mvStep() { const D = S && S.day; if (D && D.mv && (dayTool() !== 'build
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && state === 'play' && S && S.day && dayTool() === 'build' && !menusOpen()) mvToggle(); });
 // saving while you carry something saves it where it came from
 { const sv = daySave; daySave = function () { const D = S && S.day, M = D && D.mv; if (!M) return sv.apply(this, arguments);
-  if (M.kind === 'st') D.bld.set(M.o.key, M.o); else if (!M.B.pit) D.builds.push(M.B);   // (the pit carried is still saved where it stood: S.day.pit only changes when it's put down)
-  try { return sv.apply(this, arguments); } finally { if (M.kind === 'st') D.bld.delete(M.o.key); else D.builds = D.builds.filter(q => q !== M.B); } }; }
+  if (M.kind === 'st') { D.bld.set(M.o.key, M.o); for (const q of M.children || []) D.bld.set(q.key, q); stGen++; } else if (!M.B.pit) D.builds.push(M.B);   // (the pit carried is still saved where it stood: S.day.pit only changes when it's put down)
+  try { return sv.apply(this, arguments); } finally { if (M.kind === 'st') { D.bld.delete(M.o.key); for (const q of M.children || []) D.bld.delete(q.key); stGen++; } else D.builds = D.builds.filter(q => q !== M.B); } }; }
 
 ;
 // ================= a jump and a block, where the roll was (Joe: "Jump and block") =================
@@ -13187,8 +13303,12 @@ function stairKit(K, o) {
 }
 { const pk = pieceKit; pieceKit = function (K, o) {
     const L = PC(o.id).lay;
-    if (L === 'deck') return standKit(K, o);
-    if (L === 'stair') return stairKit(K, o);
+    if (L === 'deck' || L === 'stair') {
+      if (!o.done || !SWING.next) return L === 'deck' ? standKit(K, o) : stairKit(K, o);
+      const key = [o.id, o.x, o.y, o.a, stGen].join('|'); let c = PCACHE.get(o);
+      if (!c || c.k !== key) { const T = new Kit(); if (L === 'deck') standKit(T, o); else stairKit(T, o); c = { k: key, c: T.take() }; PCACHE.set(o, c); }
+      K.chunk(c.c); return;
+    }
     return pk.apply(this, arguments);
   }; }
 
@@ -15305,9 +15425,9 @@ function clanRec(k, x, y, v, vp, who) {
   const mine = B.filter(b => b.voice === clanVoiceOf(who, vp)); if (mine.length >= 2) B = mine;   // its own voice, where that man recorded this kind of cry
   let i = Math.floor(Math.random() * B.length); if (B[i] === CL_VLAST[k]) i = (i + 1) % B.length; CL_VLAST[k] = B[i];
   const rate = clamp(Math.pow(vp / 125, 0.2), 0.93, 1.08) * (0.98 + Math.random() * 0.04);
-  const o = placeOut(x, y, CL_SND[k][0] * v * CL_VG[k], CL_SND[k][1], who, (B[i].duration - (B[i].lead || 0)) / rate + 0.3); if (!o) return true;
+  const o = placeOut(x, y, CL_SND[k][0] * v * CL_VG[k], CL_SND[k][1], who, (B[i].duration - (B[i].lead || 0)) / rate + 0.3, { priority: ['hurt', 'die', 'grunt', 'scream'].includes(k) ? 2 : 1 }); if (!o) return true;
   const s = actx.createBufferSource(); s.buffer = B[i]; s.playbackRate.value = rate;
-  s.connect(o); s.start(actx.currentTime, B[i].lead || 0);   // from where the voice starts, straight away
+  s.connect(o); o.trackSource(s); s.start(actx.currentTime, B[i].lead || 0);   // from where the voice starts, straight away
   return true;
 }
 const VOW = { a: [730, 1090, 2440], o: [570, 840, 2410], u: [320, 870, 2240], e: [530, 1840, 2480], i: [290, 2290, 3010], ae: [660, 1720, 2410], uh: [560, 1190, 2390] };
@@ -15348,7 +15468,7 @@ function clanSnd(k, x, y, v = 1, vp = 120, who = null) {
   if (!actx || !noiseBuf || !sfxGain || !CL_SND[k]) return;
   if (CL_VG[k] && (clanRec(k, x, y, v, vp, who) || (VOX && VOX[k]))) return;   // a voice: the recorded one, never the built one beside it
   if (k === 'hurt') k = 'grunt';
-  const o = placeOut(x, y, CL_SND[k][0] * v, CL_SND[k][1], who, 2.6); if (!o) return;
+  const o = placeOut(x, y, CL_SND[k][0] * v, CL_SND[k][1], who, 2.6, CL_VG[k] ? { priority: ['hurt', 'die', 'grunt', 'scream'].includes(k) ? 2 : 1 } : null); if (!o) return;
   const t = actx.currentTime, R = Math.random, fk = vp > 160 ? 1.17 : 1, V = (q) => clanVoice(q.t ?? t, o, Object.assign({ fk }, q));
   if (k === 'twig') { clanNz(t, 'highpass', 2600, 0.025, 0.9, o); clanNz(t + 0.035 + R() * 0.03, 'bandpass', 1800, 0.045, 0.6, o, 3); boomAt(t, 260, 120, 0.05, 0.25, o); }
   else if (k === 'rustle') { for (let i = 0; i < 3; i++) clanNz(t + i * 0.07 + R() * 0.05, 'bandpass', 2400 + R() * 2400, 0.12 + R() * 0.1, 0.35, o, 1.2); }
@@ -20897,6 +21017,101 @@ const angDiffDeg = (a, b) => ((a - b + 540) % 360) - 180;
   }; }
 
 ;
+// Surface-aware aiming uses the same point for the preview, build, and Move tool.
+const DECOR_RADIUS = { flowers: 4, candles: 4.6 };
+const DECOR_TOPS = { table: { h: 16, x: 14, y: 8 }, stool: { h: 10.15, r: 4.4 }, crate: { h: 13.6, x: 6.5, y: 6.5 } };
+const decorSupport = o => ({ id: o.id, x: o.x, y: o.y, a: o.a || 0 });
+function decorFits(o, x, y, radius) {
+  const top = DECOR_TOPS[o.id]; if (!top || !o.done || o.del) return false;
+  const [f, s] = lvLocal(o, x, y);
+  if (top.r ? Math.hypot(f, s) + radius > top.r : Math.abs(f) + radius > top.x || Math.abs(s) + radius > top.y) return false;
+  // The table's built-in bowl and cup occupy real space too.
+  if (o.id === 'table' && (Math.hypot(f + 4, s - 2) < radius + 2.6 || Math.hypot(f - 5, s + 3) < radius + 1.2)) return false;
+  return true;
+}
+function buildRayAt(height, reach = 150) {
+  const p = S.p, a = S.aimW || 0, cp = Math.cos(look.pitch), sp = Math.sin(look.pitch);
+  const eye = terrH(p.x, p.y) + EYE + (p.jz || 0);
+  const at = t => ({ x: p.x + Math.cos(a) * cp * t, y: p.y + Math.sin(a) * cp * t });
+  const delta = t => { const q = at(t); return eye + sp * t - terrH(q.x, q.y) - height; };
+  let previous = delta(0);
+  for (let t = 2; t <= reach; t += 2) {
+    const d = delta(t);
+    if (d * previous <= 0) {
+      let lo = t - 2, hi = t;
+      for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (delta(mid) * previous > 0) lo = mid; else hi = mid; }
+      return { ...at((lo + hi) / 2), t: (lo + hi) / 2 };
+    }
+    previous = d;
+  }
+  return null;
+}
+{ const snap = stSnap;
+  stSnap = function (P, A) {
+    if (isoP()) return snap(P, A);
+    if (P.lay === 'roof') {
+      const hit = buildRayAt(ROOF_H);
+      if (hit) A = hit;
+      else { // A level view can still select the nearby roof socket above the wall being aimed at.
+        let best = null, score = Infinity; const p = S.p, ux = Math.cos(S.aimW), uy = Math.sin(S.aimW);
+        for (const o of stNear(p.x, p.y, 150)) for (const q of stSockets(o, P)) {
+          const dx = q.x - p.x, dy = q.y - p.y, along = dx * ux + dy * uy, side = Math.abs(dy * ux - dx * uy);
+          if (along < 0 || Math.hypot(dx, dy) > 150 || side > GRID / 2) continue;
+          const dh = terrH(q.x, q.y) + ROOF_H - terrH(p.x, p.y) - EYE - (p.jz || 0);
+          const angle = Math.abs(Math.atan2(dh, Math.max(1, along)) - look.pitch);
+          const cost = angle * 100 + side + along * 0.04;
+          if (angle < 0.45 && cost < score && stFree(P, { ...q, snap: true }) === true) { best = q; score = cost; }
+        }
+        A = best || { x: p.x + ux * 58, y: p.y + uy * 58 };
+      }
+    }
+    if (DECOR_RADIUS[P.id]) {
+      let best = null; const hits = new Map();
+      for (const o of stNear(S.p.x, S.p.y, 150)) {
+        const top = DECOR_TOPS[o.id]; if (!top || !o.done || o.del) continue;
+        if (!hits.has(top.h)) hits.set(top.h, buildRayAt(top.h));
+        const hit = hits.get(top.h); if (!hit || (best && hit.t >= best.t)) continue;
+        const [f, s] = lvLocal(o, hit.x, hit.y);
+        if (top.r ? Math.hypot(f, s) > top.r : Math.abs(f) > top.x || Math.abs(s) > top.y) continue;
+        best = { ...hit, a: S.day.brot || 0, z: top.h, support: decorSupport(o), on: o, snap: false };
+      }
+      if (best) return best;
+    }
+    return snap(P, A);
+  };
+}
+{ const free = stFree;
+  stFree = function (P, sp) {
+    if (sp.support) {
+      const r = DECOR_RADIUS[P.id];
+      if (!r || !sp.on || S.day.bld.get(sp.on.key) !== sp.on || !decorFits(sp.on, sp.x, sp.y, r)) return 'keep the whole object on a clear surface';
+      for (const o of stNear(sp.x, sp.y, 20)) if (o !== sp.on && (o.z || 0) === sp.z && DECOR_RADIUS[o.id] && Math.hypot(o.x - sp.x, o.y - sp.y) < r + DECOR_RADIUS[o.id]) return 'another decoration is in the way';
+    } else if (DECOR_RADIUS[P.id]) {
+      for (const o of stNear(sp.x, sp.y, 25)) if (o.done && DECOR_TOPS[o.id] && stDistTo(o, sp.x, sp.y) < DECOR_RADIUS[P.id]) return 'aim at a clear spot on the top';
+    }
+    if (P.lay === 'roof') for (const o of stNear(sp.x, sp.y, GRID)) if (PC(o.id).lay === 'roof' && stOverlap(P, sp, o)) return 'a roof is already there';
+    return free(P, sp);
+  };
+}
+// Old saves omit these optional fields. Resolve supports after all pieces have received new runtime keys.
+{ const load = dayLoad; dayLoad = function () {
+    const r = load.apply(this, arguments);
+    if (S && S.day) for (const o of S.day.bld.values()) if (o.support) {
+      const b = o.support, parent = stNear(b.x, b.y, 1).find(q => q.id === b.id && Math.hypot(q.x - b.x, q.y - b.y) < 0.2 && q.done);
+      if (parent && DECOR_TOPS[parent.id]) { o.on = parent.key; o.support = decorSupport(parent); o.z = DECOR_TOPS[parent.id].h; }
+      else { delete o.support; delete o.z; delete o.on; }
+    }
+    return r;
+  }; }
+
+{ const aimed = stAimed; stAimed = function (pred) {
+    const nearby = S && S.day && stNear(S.p.x, S.p.y, MV_REACH).some(o => o.support);
+    const hit = nearby && mvLook();
+    if (hit && hit.o && hit.o.support && (!pred || pred(hit.o))) return hit.o;
+    return aimed.apply(this, arguments);
+  }; }
+
+;
 // ================= roofs, fires under them, a stone fireplace, and the fire pit you can move =================
 // Joe: "the rain goes through the roof tiles so that needs fixing also the sun goes through aswell, also if a roof tile is
 // placed above a fire place it should take damage and eventually break. This means we should add a stone fire place to the
@@ -21303,7 +21518,7 @@ function lightsFrame(now, dt) {
   for (const o of lightsNear(p.x, p.y, 700)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); tongues(o.x, o.y, 0.9); }
   // your lamps, sconces, braziers and candles, lit at dusk
   if (ENV.lt < 0.85) for (const o of stNear(p.x, p.y, 700)) { const P = PC(o.id); if (!P.light || !o.done) continue; const f = fk(o.x) * (1 - ENV.lt);
-    const h = P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8, [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
+    const h = (o.z || 0) + (P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8), [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
     add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') { fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); tongues(lx, ly, P.k === 'brazier' ? 0.7 : 0.3, h - 2); } else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
   // a hand torch, held up
   if (dayTorch()) { const f = fk(1.3); add(p.x + Math.cos(S.aimW) * 8, 40, p.y + Math.sin(S.aimW) * 8, TORCH_R, 1.0 * f, 0.62 * f, 0.3 * f, 4); }

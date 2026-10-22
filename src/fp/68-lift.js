@@ -233,7 +233,11 @@ function stairKit(K, o) {
 }
 { const pk = pieceKit; pieceKit = function (K, o) {
     const L = PC(o.id).lay;
-    if (L === 'deck') return standKit(K, o);
-    if (L === 'stair') return stairKit(K, o);
+    if (L === 'deck' || L === 'stair') {
+      if (!o.done || !SWING.next) return L === 'deck' ? standKit(K, o) : stairKit(K, o);
+      const key = [o.id, o.x, o.y, o.a, stGen].join('|'); let c = PCACHE.get(o);
+      if (!c || c.k !== key) { const T = new Kit(); if (L === 'deck') standKit(T, o); else stairKit(T, o); c = { k: key, c: T.take() }; PCACHE.set(o, c); }
+      K.chunk(c.c); return;
+    }
     return pk.apply(this, arguments);
   }; }

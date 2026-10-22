@@ -31,7 +31,7 @@ function mvLook() {   // the nearest thing your view runs into: { B, d } for a p
   for (let d = 4; d <= MV_REACH + 20; d += 3) {
     const x = p.x + ca * d, y = p.y + sa * d, h = EYE + (p.jz || 0) + sp * d; if (h < -1) break;
     for (const B of L) { if (h > (MV_TALL[mvT0(B)] ?? 24)) continue; for (const q of B.parts) if (Math.hypot(q.x - x, q.y - y) < (q.r || 8) * 0.6 + 4) return { B, d }; }
-    for (const o of G) if (h <= mvTop(PC(o.id)) && stDistTo(o, x, y) < 3) return { o, d };
+    for (const o of G) if (h >= (o.z || -1) && h <= (o.z || 0) + mvTop(PC(o.id)) && stDistTo(o, x, y) < 3) return { o, d };
   }
   return null;
 }
@@ -52,7 +52,7 @@ const mvName = t => t.kind === 'st' ? PC(t.o.id).n.toLowerCase() : t.B.pit ? 'th
 function mvPick(t) {
   const D = S.day;
   if (t.kind === 'b' && mvFixed(t.B)) { dayNote('mvfix', t.B.pen ? 'not with animals in it' : 'it won\'t shift', 1.5); return; }
-  if (t.kind === 'st') { const o = t.o; D.mv = { kind: 'st', o, x: o.x, y: o.y, a: o.a, clip: o.clip, bed: o.k === 'bed' && D.bed && Math.abs(D.bed.x - o.x) < 1 && Math.abs(D.bed.y - o.y) < 1 }; D.bld.delete(o.key); stGen++; D.brot = o.a; }
+  if (t.kind === 'st') { const o = t.o; D.mv = { kind: 'st', o, x: o.x, y: o.y, a: o.a, clip: o.clip, z: o.z, support: o.support, on: o.on, children: [...D.bld.values()].filter(q => q.on === o.key), bed: o.k === 'bed' && D.bed && Math.abs(D.bed.x - o.x) < 1 && Math.abs(D.bed.y - o.y) < 1 }; D.bld.delete(o.key); for (const q of D.mv.children) D.bld.delete(q.key); stGen++; D.brot = o.a; }
   else { const B = t.B; D.mv = { kind: 'b', B, x: B.x, y: B.y, a: B.a }; if (B.pit) EX_FIRE.gone = true; else D.builds = D.builds.filter(q => q !== B); }   // the pit goes out while you carry it
   exNote(`moving · ${mvName(t)} · Attack to put it down`); dayAct(10, 0.45); snd('wood_l') || sfx(1.4, 0.15, 'bandpass', 1500, 0.2); dayChanged();
 }
@@ -63,10 +63,11 @@ function mvSpot() {   // where the thing you're carrying would go, and whether i
 }
 function mvPut(back) {   // down where you're pointing (or, back, where it came from)
   const D = S.day, M = D.mv; if (!M) return;
-  let x = M.x, y = M.y, a = M.a, clip = M.clip;
-  if (!back) { const s = mvSpot(); if (!s.ok) { dayNote('mvno', s.why || 'no room there', 1.2); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; } x = s.sp.x; y = s.sp.y; a = s.sp.a; if (M.kind === 'st') clip = stClipOf(PC(M.o.id), s.sp); }
+  let x = M.x, y = M.y, a = M.a, clip = M.clip, z = M.z, support = M.support, on = M.on;
+  if (!back) { const s = mvSpot(); if (!s.ok) { dayNote('mvno', s.why || 'no room there', 1.2); if (actx && !snd('ui_error')) noiseAt(actx.currentTime, 600, 300, 0.1, 0.25, sfxGain); return; } x = s.sp.x; y = s.sp.y; a = s.sp.a; z = s.sp.z; support = s.sp.support; on = s.sp.on && s.sp.on.key; if (M.kind === 'st') clip = stClipOf(PC(M.o.id), s.sp); }
   if (M.kind === 'st') {
-    const o = M.o; o.x = x; o.y = y; o.a = a; o.clip = clip; if (clip) o.clipV = 1; D.bld.set(o.key, o); stGen++;
+    const o = M.o; o.x = x; o.y = y; o.a = a; o.z = z; o.support = support; o.on = on; o.clip = clip;
+    for (const q of M.children || []) { const dx = q.x - M.x, dy = q.y - M.y, da = a - M.a; q.x = x + dx * Math.cos(da) - dy * Math.sin(da); q.y = y + dx * Math.sin(da) + dy * Math.cos(da); q.a += da; q.support = decorSupport(o); D.bld.set(q.key, q); } if (clip) o.clipV = 1; D.bld.set(o.key, o); stGen++;
     if (M.bed) D.bed = { x, y };
   } else if (M.B.pit) { pitSet(x, y, false);
   } else {
@@ -131,7 +132,7 @@ function mvRecycle(B) {
     const D = S.day; if (!D || !D.bmove) return sg();
     const M = D.mv; if (!M || M.kind !== 'st' || dayTool() !== 'build') return null;
     const P = PC(M.o.id), s = mvSpot(); if (!s) return null;
-    return { kind: 'dstg', id: P.id, k: P.k, clip: stClipOf(P, s.sp), x: s.sp.x, y: s.sp.y, a: s.sp.a, ok: s.ok, why: s.ok ? '' : s.why, snap: s.sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
+    return { kind: 'dstg', id: P.id, k: P.k, clip: stClipOf(P, s.sp), x: s.sp.x, y: s.sp.y, a: s.sp.a, z: s.sp.z, support: s.sp.support, ok: s.ok, why: s.ok ? '' : s.why, snap: s.sp.snap, r: 0, s: 1, need: P.cost, done: false, open: 0, seed: 3 };
   }; }
 { const dg = dayGhost;
   dayGhost = function () {
@@ -163,5 +164,5 @@ function mvStep() { const D = S && S.day; if (D && D.mv && (dayTool() !== 'build
 addEventListener('keydown', e => { if (e.code === 'KeyM' && !e.repeat && state === 'play' && S && S.day && dayTool() === 'build' && !menusOpen()) mvToggle(); });
 // saving while you carry something saves it where it came from
 { const sv = daySave; daySave = function () { const D = S && S.day, M = D && D.mv; if (!M) return sv.apply(this, arguments);
-  if (M.kind === 'st') D.bld.set(M.o.key, M.o); else if (!M.B.pit) D.builds.push(M.B);   // (the pit carried is still saved where it stood: S.day.pit only changes when it's put down)
-  try { return sv.apply(this, arguments); } finally { if (M.kind === 'st') D.bld.delete(M.o.key); else D.builds = D.builds.filter(q => q !== M.B); } }; }
+  if (M.kind === 'st') { D.bld.set(M.o.key, M.o); for (const q of M.children || []) D.bld.set(q.key, q); stGen++; } else if (!M.B.pit) D.builds.push(M.B);   // (the pit carried is still saved where it stood: S.day.pit only changes when it's put down)
+  try { return sv.apply(this, arguments); } finally { if (M.kind === 'st') { D.bld.delete(M.o.key); for (const q of M.children || []) D.bld.delete(q.key); stGen++; } else D.builds = D.builds.filter(q => q !== M.B); } }; }

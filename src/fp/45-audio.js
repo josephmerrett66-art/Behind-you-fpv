@@ -6,7 +6,10 @@ function initAudio() {
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   actx = new AC();
-  OUT = actx.createBiquadFilter(); OUT.type = 'lowpass'; OUT.frequency.value = 20000; OUT.Q.value = 0.5; OUT.connect(actx.destination);
+  OUT = actx.createBiquadFilter(); OUT.type = 'lowpass'; OUT.frequency.value = 20000; OUT.Q.value = 0.5;
+  const limiter = actx.createDynamicsCompressor(); limiter.threshold.value = -3; limiter.knee.value = 3;
+  limiter.ratio.value = 12; limiter.attack.value = 0.003; limiter.release.value = 0.12;
+  OUT.connect(limiter); limiter.connect(actx.destination);
   sfxGain = actx.createGain(); sfxGain.gain.value = SET.sound ? 0.9 : 0; sfxGain.connect(OUT);
   ambG = actx.createGain(); ambG.gain.value = 0; ambG.connect(sfxGain);
   const dec = (b64, done) => { try { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); actx.decodeAudioData(u.buffer, done, () => {}); } catch (e) {} };
@@ -54,17 +57,32 @@ function placeCalc(P) {
     f: 900 + 13100 * Math.pow(1 - Math.min(u, 0.9), 1.6) * lerp(0.22, 1, sstep(-1, 0.15, front) ** 1.6) };   // duller with distance, and behind you (smoothly, no step at your shoulder)
 }
 function placeSet(P, v, now) {
-  const t = actx.currentTime, set = (q, x) => { if (now) q.value = x; else q.setTargetAtTime(x, t, 0.04); };
+  const t = actx.currentTime, set = (q, x) => { if (now) q.value = x; else { q.cancelScheduledValues(t); q.setTargetAtTime(x, t, 0.04); } };
   set(P.g.gain, v.dir); set(P.lp.frequency, v.f); if (P.wet) set(P.wet.gain, v.wet);
   if (P.pn) { if (P.pn.positionX) { set(P.pn.positionX, v.side); set(P.pn.positionY, 0.08); set(P.pn.positionZ, -v.front); } else P.pn.setPosition(v.side, 0.08, -v.front); }
   if (P.bal) set(P.bal.pan, clamp(P.pn ? v.side * 0.45 : Math.sign(v.side) * Math.abs(v.side) ** 0.7 * 0.85, -1, 1));
 }
 // x, y where it is (or who: the thing making it, followed while it plays), for about life seconds
-function placeOut(x, y, vol, far = 700, who = null, life = 3) {
+function placeDispose(P) {
+  if (P.closed) return; P.closed = true;
+  if (P.source) { try { P.source.stop(); } catch (_) {} P.source.disconnect(); }
+  for (const n of [P.inp, P.lp, P.g, P.wet, P.pn, P.bal]) if (n) n.disconnect();
+  const i = PLACED.indexOf(P); if (i >= 0) PLACED.splice(i, 1);
+}
+function placeOut(x, y, vol, far = 700, who = null, life = 3, voice = null) {
   if (!actx) return null;
-  const P = { x, y, vol, far, who, until: actx.currentTime + life }, v = placeCalc(P);
+  const P = { x, y, vol, far, who, voice, until: actx.currentTime + life }, v = placeCalc(P);
+  if (![x, y, vol, far, life, v.dir, v.f].every(Number.isFinite) || far <= 0 || v.dir + v.wet < 0.001) return null;
+  for (const q of [...PLACED]) if (q.until <= actx.currentTime) placeDispose(q);
+  const voices = PLACED.filter(q => q.voice);
+  // One voice per enemy, eight across the group; damage/attack cries outrank idle chatter.
+  const score = q => (q.voice ? q.voice.priority : 3) * 10 + placeCalc(q).dir;
+  let victim = voice && who ? voices.find(q => q.who === who) : null;
+  if (!victim && voice && voices.length >= 8) victim = voices.reduce((a, b) => score(a) < score(b) ? a : b);
+  if (!victim && PLACED.length >= 48) victim = PLACED.reduce((a, b) => score(a) < score(b) ? a : b);
+  if (victim) { if (score(victim) > score(P)) return null; placeDispose(victim); }
   const inp = actx.createGain(), lp = actx.createBiquadFilter(), g = actx.createGain(); lp.type = 'lowpass'; lp.Q.value = 0.6;
-  inp.connect(lp); lp.connect(g); P.g = g; P.lp = lp;
+  inp.connect(lp); lp.connect(g); P.inp = inp; P.g = g; P.lp = lp;
   const R = forestVerb(); if (R) { P.wet = actx.createGain(); lp.connect(P.wet); P.wet.connect(R.in); }
   // where it is round your head: a head-shaped (HRTF) panner, so left, right, in front and behind each sound like it, best in
   // headphones, with a gentle lean to the near side for phone speakers; a plain pan only where a browser has no such panner
@@ -73,13 +91,15 @@ function placeOut(x, y, vol, far = 700, who = null, life = 3) {
     if (actx.createStereoPanner) { P.bal = actx.createStereoPanner(); pn.connect(P.bal); P.bal.connect(sfxGain); } else pn.connect(sfxGain);
   } else if (actx.createStereoPanner) { P.bal = actx.createStereoPanner(); g.connect(P.bal); P.bal.connect(sfxGain); } else g.connect(sfxGain);
   placeSet(P, v, true);
-  PLACED.push(P); if (PLACED.length > 64) PLACED.shift();
+  PLACED.push(P);
+  inp.trackSource = source => { P.source = source; source.onended = () => placeDispose(P); };
+  inp.release = () => placeDispose(P);
   return inp;
 }
 function placeFrame() {   // every placed sound still playing, set again from where you are now
   if (!actx) return;
   const t = actx.currentTime;
-  for (let i = PLACED.length - 1; i >= 0; i--) { const P = PLACED[i]; if (t > P.until) PLACED.splice(i, 1); else placeSet(P, placeCalc(P), false); }
+  for (let i = PLACED.length - 1; i >= 0; i--) { const P = PLACED[i]; if (t > P.until) placeDispose(P); else placeSet(P, placeCalc(P), false); }
   if (FVERB) FVERB.g.gain.setTargetAtTime(typeof caveIn === 'function' && caveIn() ? 0.25 : 1, t, 0.4);   // underground the rock's own echo takes over
 }
 // the few sounds update() made itself

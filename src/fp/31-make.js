@@ -94,7 +94,7 @@ function floorBelow(o) {
   return false;
 }
 function pieceKit(K, o) {
-  const P = PC(o.id), a = o.a || 0, x = o.x, y = o.y, H = P.H || 36, L = P.L || GRID, M = maker(K, x, y, a, P.lay === 'flat' && floorBelow(o) ? 1.9 : 0), h2 = L / 2;
+  const P = PC(o.id), a = o.a || 0, x = o.x, y = o.y, H = P.H || 36, L = P.L || GRID, M = maker(K, x, y, a, o.z || (P.lay === 'flat' && floorBelow(o) ? 1.9 : 0)), h2 = L / 2;
   if (P.sh === 'sq' || P.sh === 'tri') {
     const roof = P.lay === 'roof', z = roof ? ROOF_H : 0;
     if (!roof && o.clip) {   // a floor cut off at the camp's fence, its tiles in the same boards, flags or matting as a whole one
@@ -910,7 +910,7 @@ const SWING = { skip: new Set(), next: null, k: null, had: false }, PCACHE = new
     if (!SWING.next || !o.done || o.del) return pk.apply(this, arguments);
     const P = PC(o.id);
     if (stDoorish(P) && (o.open || 0) !== (o.ajar || 0)) { SWING.next.add(o); return; }
-    const key = o.id + '|' + o.x + '|' + o.y + '|' + (o.a || 0) + '|' + (o.open || 0) + '|' + (o.clip || 0) + '|' + (P.lay === 'flat' && floorBelow(o) ? 'f' : '') + (P.light && dayLight() < 0.85 ? 'n' : '') + (o.burn ? 'b' + o.burn : '');
+    const key = o.id + '|' + o.x + '|' + o.y + '|' + (o.a || 0) + '|' + (o.z || 0) + '|' + (o.open || 0) + '|' + (o.clip || 0) + '|' + (P.lay === 'flat' && floorBelow(o) ? 'f' : '') + (P.light && dayLight() < 0.85 ? 'n' : '') + (o.burn ? 'b' + o.burn : '');
     let e = PCACHE.get(o);
     if (!e || e.k !== key) { const T = new Kit(); pk(T, o); e = { k: key, c: T.take() }; PCACHE.set(o, e); }
     K.chunk(e.c);

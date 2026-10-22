@@ -714,9 +714,9 @@ function clanRec(k, x, y, v, vp, who) {
   const mine = B.filter(b => b.voice === clanVoiceOf(who, vp)); if (mine.length >= 2) B = mine;   // its own voice, where that man recorded this kind of cry
   let i = Math.floor(Math.random() * B.length); if (B[i] === CL_VLAST[k]) i = (i + 1) % B.length; CL_VLAST[k] = B[i];
   const rate = clamp(Math.pow(vp / 125, 0.2), 0.93, 1.08) * (0.98 + Math.random() * 0.04);
-  const o = placeOut(x, y, CL_SND[k][0] * v * CL_VG[k], CL_SND[k][1], who, (B[i].duration - (B[i].lead || 0)) / rate + 0.3); if (!o) return true;
+  const o = placeOut(x, y, CL_SND[k][0] * v * CL_VG[k], CL_SND[k][1], who, (B[i].duration - (B[i].lead || 0)) / rate + 0.3, { priority: ['hurt', 'die', 'grunt', 'scream'].includes(k) ? 2 : 1 }); if (!o) return true;
   const s = actx.createBufferSource(); s.buffer = B[i]; s.playbackRate.value = rate;
-  s.connect(o); s.start(actx.currentTime, B[i].lead || 0);   // from where the voice starts, straight away
+  s.connect(o); o.trackSource(s); s.start(actx.currentTime, B[i].lead || 0);   // from where the voice starts, straight away
   return true;
 }
 const VOW = { a: [730, 1090, 2440], o: [570, 840, 2410], u: [320, 870, 2240], e: [530, 1840, 2480], i: [290, 2290, 3010], ae: [660, 1720, 2410], uh: [560, 1190, 2390] };
@@ -757,7 +757,7 @@ function clanSnd(k, x, y, v = 1, vp = 120, who = null) {
   if (!actx || !noiseBuf || !sfxGain || !CL_SND[k]) return;
   if (CL_VG[k] && (clanRec(k, x, y, v, vp, who) || (VOX && VOX[k]))) return;   // a voice: the recorded one, never the built one beside it
   if (k === 'hurt') k = 'grunt';
-  const o = placeOut(x, y, CL_SND[k][0] * v, CL_SND[k][1], who, 2.6); if (!o) return;
+  const o = placeOut(x, y, CL_SND[k][0] * v, CL_SND[k][1], who, 2.6, CL_VG[k] ? { priority: ['hurt', 'die', 'grunt', 'scream'].includes(k) ? 2 : 1 } : null); if (!o) return;
   const t = actx.currentTime, R = Math.random, fk = vp > 160 ? 1.17 : 1, V = (q) => clanVoice(q.t ?? t, o, Object.assign({ fk }, q));
   if (k === 'twig') { clanNz(t, 'highpass', 2600, 0.025, 0.9, o); clanNz(t + 0.035 + R() * 0.03, 'bandpass', 1800, 0.045, 0.6, o, 3); boomAt(t, 260, 120, 0.05, 0.25, o); }
   else if (k === 'rustle') { for (let i = 0; i < 3; i++) clanNz(t + i * 0.07 + R() * 0.05, 'bandpass', 2400 + R() * 2400, 0.12 + R() * 0.1, 0.35, o, 1.2); }

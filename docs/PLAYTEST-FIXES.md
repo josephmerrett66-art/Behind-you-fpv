@@ -90,4 +90,4 @@ node tools/profile-base.cjs after
 
 ## Delivery status
 
-Changes are local on branch `codex/playtest-base-audio-placement`. The GitHub connection rejected writing with HTTP 403, “Resource not accessible by integration”; no branch or update was published remotely. The live GitHub Pages game is unchanged. The packaged HTML is a playable review build. A local preview uses a different browser origin and therefore does not automatically share the live site's saved game.
+The implementation was pushed to `main` in commit `fafaf67` using the Mac's existing Git credentials. The earlier GitHub connector write attempt failed with HTTP 403, and the configured GitHub CLI credential helper pointed to a missing executable; using the existing macOS credential helper allowed the push. GitHub Pages deployment is separate from the successful repository update and has not been verified here. The packaged HTML remains available as a local playtest build. A local preview uses a different browser origin and therefore does not automatically share the live site's saved game.

@@ -1,5 +1,7 @@
 # More convincing tree foliage
 
+The subsequent light-through-canopy pass is documented in [CANOPY-LIGHT.md](CANOPY-LIGHT.md).
+
 Oak and cherry crowns have lobed cores and twelve small solid folded leaves around each clump. The extra edge detail replaces some of the core's sphere tessellation: each high-detail clump now costs 176 triangles instead of 192. Complete oak and cherry models use approximately 7% fewer triangles. Their indexed vertex counts increase by about 3%, while conifer triangle and vertex counts stay unchanged. Conifer hems now have deeper branch-tip notches and droop. Saplings share that tier primitive and were included in grounding checks.
 
 The tree material uses a deterministic 256 × 256 packed field for pointed leaf blades, veins and needle sprays. Two local-space samples replace the previous two or three calls to eight-corner procedural noise. Fine detail is mipmapped and stays attached to swaying trees. Lighting varies between canopy interiors, upper growth and a restrained sun-facing highlight. Near-camera leaf thinning and the existing distance crossfade remain in place. The detail map is generated offline, with no image-generation work at runtime.

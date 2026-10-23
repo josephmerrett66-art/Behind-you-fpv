@@ -86,10 +86,15 @@ uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC; uniform vec2 t
 uniform vec4 pl[${NL}]; uniform vec3 plc[${NL}];
 uniform sampler2D shMap; uniform mat4 shM; uniform vec4 shP, shC;
 // the sun's shadow (13-sun.js): 1 in the open, down toward shP.x's share in the shade of whatever stands between here and the sun
+float shadowCoverage(vec3 p) {
+  vec3 s = (shM * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+  return shC.w * (1.0 - smoothstep(0.4, 0.5, max(abs(s.x - 0.5), abs(s.y - 0.5))))
+    * step(0.0, s.z) * step(s.z, 1.0);
+}
 float sunShade(vec3 p) {
   if (shP.x < 0.005) return 1.0;
   vec3 s = (shM * vec4(p, 1.0)).xyz * 0.5 + 0.5;
-  float e = smoothstep(0.5, 0.4, max(abs(s.x - 0.5), abs(s.y - 0.5)));
+  float e = shadowCoverage(p);
   if (e <= 0.0) return 1.0;
   float d = s.z - shP.z, o = shP.y, k = 0.0;
   k += step(texture2D(shMap, s.xy).r, d);

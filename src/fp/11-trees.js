@@ -237,7 +237,7 @@ function treesBuild() {
       m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
       TREES[k].push({ m, e, band, list: [] });
     }
-    TREE_SHADOWS[k] = low.map(g => { const m = new THREE.InstancedMesh(g, SUN.mat, TREE_CAP); m.layers.set(1); m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return { m, n: 0 }; });
+    TREE_SHADOWS[k] = low.map(g => { const m = new THREE.InstancedMesh(g, SUN.mat, TREE_CAP); m.layers.set(1); m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return { m, n: 0, casters: [], selected: [] }; });
   }
 }
 const _tm = new M4(), _tq = new THREE.Quaternion(), _tq2 = new THREE.Quaternion(), _te = new THREE.Euler(), _tp = new V3(), _ts = new V3(), _tax = new V3();
@@ -293,7 +293,7 @@ function instanceCompact(B) {
 }
 function treesEnd() {
   const px=S.p.x,py=S.p.y,SR=shadowReach()**2,unique=new Set();
-  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k])B.n=0;
+  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k]){B.n=0;B.casters.length=0;}
   for (const k of TREE_KINDS) for (const B of TREES[k]) {
     instanceSource(B);
     const d2=o=>(o.x-px)**2+(o.y-py)**2;
@@ -302,12 +302,32 @@ function treesEnd() {
       const o=B.list[i],d=d2(o);treeMatrix(o,0).toArray(B.source,i*16);B.heights[i]=terrH(o.x,o.y);
       if(B.band<2&&d<=400**2)B.shN=i+1;
       if(d>400**2&&d<SR&&!unique.has(o)){
-        unique.add(o);const vi=(o.seed*997|0)%TREE_NV,Q=TREE_SHADOWS[k][vi];if(Q.n<TREE_CAP)Q.m.setMatrixAt(Q.n++,treeMatrix(o,0));
+        unique.add(o);const vi=(o.seed*997|0)%TREE_NV,Q=TREE_SHADOWS[k][vi];if(Q.n<TREE_CAP){
+          const matrix=treeMatrix(o,0).clone();
+          if(!Q.m.geometry.boundingSphere)Q.m.geometry.computeBoundingSphere();
+          const sphere=Q.m.geometry.boundingSphere.clone().applyMatrix4(matrix);
+          sphere.center.y+=B.heights[i];sphere.radius+=24;
+          Q.casters.push({matrix,sphere});Q.n++;
+        }
       }
     }
     B.n=B.list.length;B.keepShadow=B.shN;B.dirty=true;instanceCompact(B);
   }
-  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k]){B.m.count=B.n;treeUpload(B,B.n);}
+  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k]){B.selected=[];B.m.count=0;}
+}
+// A shadow caster can be behind the player or far beyond the visible ground it shades.
+// Cull its entire volume against the light, never its root against the player radius.
+function treeShadowFrame() {
+  if(!treesBuilt)return;
+  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k]){
+    const selected=[];
+    for(let i=0;i<B.casters.length;i++)if(SUN.frustum.intersectsSphere(B.casters[i].sphere))selected.push(i);
+    if(selected.length!==B.selected.length||selected.some((v,i)=>v!==B.selected[i])){
+      for(let i=0;i<selected.length;i++)B.m.setMatrixAt(i,B.casters[selected[i]].matrix);
+      treeUpload(B,selected.length);B.selected=selected;
+    }
+    B.m.count=selected.length;
+  }
 }
 // each frame: a tree you're chopping shudders with each blow
 function treesFrame() {

@@ -19,7 +19,7 @@ const SUN = (() => {
       vec4 mvPosition = viewMatrix * wpos; gl_Position = projectionMatrix * mvPosition;`);
   };
   LU.shMap.value = rt.depthTexture; LU.shP.value.set(0, 1.1 / N, 1.6 / 2590, 0);
-  return { N, R, rt, cam, mat, c: new V3(), v: new V3(), d: new V3() };
+  return { N, R, rt, cam, mat, c: new V3(), v: new V3(), d: new V3(), frustum: new THREE.Frustum() };
 })();
 // mark something as standing in the sun's light (a mesh, or a group and everything in it)
 function castsShadow(o) { o.traverse(q => q.layers.enable(1)); return o; }
@@ -43,6 +43,9 @@ function sunShadows() {
   sc.position.addScaledVector(right, -ox).addScaledVector(up, -oy); sc.updateMatrixWorld();
   LU.shM.value.multiplyMatrices(sc.projectionMatrix, sc.matrixWorldInverse);
   LU.shC.value.set(c.x, c.z, R * Rk, 1);
+  // Test complete caster bounds in light space, including casters outside the camera view.
+  SUN.frustum.setFromProjectionMatrix(LU.shM.value);
+  treeShadowFrame();
   // the depth from the sun's side: only things marked as casting
   const prevT = renderer.getRenderTarget();
   // only the trees and rocks near enough to land a shadow in the map (they're kept nearest first): the rest are left out of this pass
@@ -54,6 +57,6 @@ function sunShadows() {
   scene.overrideMaterial = null; renderer.setRenderTarget(prevT);
   for (const [m, n] of cut) m.count = n;
 }
-// how far from you anything can stand and still throw a shadow into the map: its reach round its centre, the centre's lead, and a
-// tall tree's long shadow at a low sun, with room for walking on before the woods are next re-laid
-function shadowReach() { const Rk = isoP() ? Math.max(1, (SET.isoZoom || 1.7) * 0.75) : 1; return SUN.R * Rk * 1.45 + SUN.R * 0.35 + 160; }
+// The tilted map projects much farther across the ground at sunrise/sunset than its
+// orthographic radius. Keep the loaded tree pool; the light frustum selects each frame.
+function shadowReach() { return drawR() + VIS.preload; }

@@ -6526,10 +6526,15 @@ uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC; uniform vec2 t
 uniform vec4 pl[${NL}]; uniform vec3 plc[${NL}];
 uniform sampler2D shMap; uniform mat4 shM; uniform vec4 shP, shC;
 // the sun's shadow (13-sun.js): 1 in the open, down toward shP.x's share in the shade of whatever stands between here and the sun
+float shadowCoverage(vec3 p) {
+  vec3 s = (shM * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+  return shC.w * (1.0 - smoothstep(0.4, 0.5, max(abs(s.x - 0.5), abs(s.y - 0.5))))
+    * step(0.0, s.z) * step(s.z, 1.0);
+}
 float sunShade(vec3 p) {
   if (shP.x < 0.005) return 1.0;
   vec3 s = (shM * vec4(p, 1.0)).xyz * 0.5 + 0.5;
-  float e = smoothstep(0.5, 0.4, max(abs(s.x - 0.5), abs(s.y - 0.5)));
+  float e = shadowCoverage(p);
   if (e <= 0.0) return 1.0;
   float d = s.z - shP.z, o = shP.y, k = 0.0;
   k += step(texture2D(shMap, s.xy).r, d);
@@ -7568,8 +7573,8 @@ shGeo.setAttribute('position', new THREE.Float32BufferAttribute([-1, 0, -1, 1, 0
 const shDat = new Float32Array(MAXSH * 4); { const b = new THREE.InstancedBufferAttribute(shDat, 4); b.setUsage(THREE.DynamicDrawUsage); shGeo.setAttribute('sd', b); }
 shGeo.instanceCount = 0;
 const shMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ k: { value: 0.3 }, lean: { value: new THREE.Vector2(0.3, 0.3) } }, LU), transparent: true, depthWrite: false,
-  vertexShader: TERR_GLSL + `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float near = sd.w < 0.0 ? shC.w * smoothstep(shC.z * 0.92, shC.z * 0.72, distance(sd.xy, shC.xy)) : 0.0, r = sd.z * mix(1.0, 0.5, near), len = abs(sd.w) * (1.0 - near); vK = 1.0 - 0.45 * near; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.0, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); w.y = terrH(w.xz) + 0.25; vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
-  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * vK * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, fogC.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
+  vertexShader: TERR_GLSL + `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float r = sd.z, len = abs(sd.w); vK = sd.w < 0.0 ? 1.0 : 0.0; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.0, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); w.y = terrH(w.xz) + 0.25; vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
+  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * (1.0 - vK * shadowCoverage(vW)) * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, fogC.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
 const shMesh = new THREE.Mesh(shGeo, shMat); shMesh.frustumCulled = false; shMesh.renderOrder = 2; scene.add(shMesh);
 let shN = 0, shBase = 0;
 function shadow(x, y, r, len = 0) { if (shN >= MAXSH) return; const i = shN++ * 4; shDat[i] = x; shDat[i + 1] = y; shDat[i + 2] = r; shDat[i + 3] = len; }
@@ -7871,7 +7876,7 @@ function treesBuild() {
       m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
       TREES[k].push({ m, e, band, list: [] });
     }
-    TREE_SHADOWS[k] = low.map(g => { const m = new THREE.InstancedMesh(g, SUN.mat, TREE_CAP); m.layers.set(1); m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return { m, n: 0 }; });
+    TREE_SHADOWS[k] = low.map(g => { const m = new THREE.InstancedMesh(g, SUN.mat, TREE_CAP); m.layers.set(1); m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return { m, n: 0, casters: [], selected: [] }; });
   }
 }
 const _tm = new M4(), _tq = new THREE.Quaternion(), _tq2 = new THREE.Quaternion(), _te = new THREE.Euler(), _tp = new V3(), _ts = new V3(), _tax = new V3();
@@ -7927,7 +7932,7 @@ function instanceCompact(B) {
 }
 function treesEnd() {
   const px=S.p.x,py=S.p.y,SR=shadowReach()**2,unique=new Set();
-  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k])B.n=0;
+  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k]){B.n=0;B.casters.length=0;}
   for (const k of TREE_KINDS) for (const B of TREES[k]) {
     instanceSource(B);
     const d2=o=>(o.x-px)**2+(o.y-py)**2;
@@ -7936,12 +7941,32 @@ function treesEnd() {
       const o=B.list[i],d=d2(o);treeMatrix(o,0).toArray(B.source,i*16);B.heights[i]=terrH(o.x,o.y);
       if(B.band<2&&d<=400**2)B.shN=i+1;
       if(d>400**2&&d<SR&&!unique.has(o)){
-        unique.add(o);const vi=(o.seed*997|0)%TREE_NV,Q=TREE_SHADOWS[k][vi];if(Q.n<TREE_CAP)Q.m.setMatrixAt(Q.n++,treeMatrix(o,0));
+        unique.add(o);const vi=(o.seed*997|0)%TREE_NV,Q=TREE_SHADOWS[k][vi];if(Q.n<TREE_CAP){
+          const matrix=treeMatrix(o,0).clone();
+          if(!Q.m.geometry.boundingSphere)Q.m.geometry.computeBoundingSphere();
+          const sphere=Q.m.geometry.boundingSphere.clone().applyMatrix4(matrix);
+          sphere.center.y+=B.heights[i];sphere.radius+=24;
+          Q.casters.push({matrix,sphere});Q.n++;
+        }
       }
     }
     B.n=B.list.length;B.keepShadow=B.shN;B.dirty=true;instanceCompact(B);
   }
-  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k]){B.m.count=B.n;treeUpload(B,B.n);}
+  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k]){B.selected=[];B.m.count=0;}
+}
+// A shadow caster can be behind the player or far beyond the visible ground it shades.
+// Cull its entire volume against the light, never its root against the player radius.
+function treeShadowFrame() {
+  if(!treesBuilt)return;
+  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k]){
+    const selected=[];
+    for(let i=0;i<B.casters.length;i++)if(SUN.frustum.intersectsSphere(B.casters[i].sphere))selected.push(i);
+    if(selected.length!==B.selected.length||selected.some((v,i)=>v!==B.selected[i])){
+      for(let i=0;i<selected.length;i++)B.m.setMatrixAt(i,B.casters[selected[i]].matrix);
+      treeUpload(B,selected.length);B.selected=selected;
+    }
+    B.m.count=selected.length;
+  }
 }
 // each frame: a tree you're chopping shudders with each blow
 function treesFrame() {
@@ -8110,7 +8135,7 @@ const SUN = (() => {
       vec4 mvPosition = viewMatrix * wpos; gl_Position = projectionMatrix * mvPosition;`);
   };
   LU.shMap.value = rt.depthTexture; LU.shP.value.set(0, 1.1 / N, 1.6 / 2590, 0);
-  return { N, R, rt, cam, mat, c: new V3(), v: new V3(), d: new V3() };
+  return { N, R, rt, cam, mat, c: new V3(), v: new V3(), d: new V3(), frustum: new THREE.Frustum() };
 })();
 // mark something as standing in the sun's light (a mesh, or a group and everything in it)
 function castsShadow(o) { o.traverse(q => q.layers.enable(1)); return o; }
@@ -8134,6 +8159,9 @@ function sunShadows() {
   sc.position.addScaledVector(right, -ox).addScaledVector(up, -oy); sc.updateMatrixWorld();
   LU.shM.value.multiplyMatrices(sc.projectionMatrix, sc.matrixWorldInverse);
   LU.shC.value.set(c.x, c.z, R * Rk, 1);
+  // Test complete caster bounds in light space, including casters outside the camera view.
+  SUN.frustum.setFromProjectionMatrix(LU.shM.value);
+  treeShadowFrame();
   // the depth from the sun's side: only things marked as casting
   const prevT = renderer.getRenderTarget();
   // only the trees and rocks near enough to land a shadow in the map (they're kept nearest first): the rest are left out of this pass
@@ -8145,9 +8173,9 @@ function sunShadows() {
   scene.overrideMaterial = null; renderer.setRenderTarget(prevT);
   for (const [m, n] of cut) m.count = n;
 }
-// how far from you anything can stand and still throw a shadow into the map: its reach round its centre, the centre's lead, and a
-// tall tree's long shadow at a low sun, with room for walking on before the woods are next re-laid
-function shadowReach() { const Rk = isoP() ? Math.max(1, (SET.isoZoom || 1.7) * 0.75) : 1; return SUN.R * Rk * 1.45 + SUN.R * 0.35 + 160; }
+// The tilted map projects much farther across the ground at sunrise/sunset than its
+// orthographic radius. Keep the loaded tree pool; the light frustum selects each frame.
+function shadowReach() { return drawR() + VIS.preload; }
 
 ;
 // ================= the woods' small things, built solid: rocks, posts, bushes, ferns, grass, flowers, pebbles, mushrooms =================

@@ -29,7 +29,7 @@ const treeMat = new THREE.ShaderMaterial({
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
-    uniform vec4 occ;
+    uniform vec4 occ; uniform sampler2D foliageT;
     float occluding(vec3 p) {   // from above: on the line between the camera and you, a tree thins away
       if (occ.w < 0.5 || p.y < occ.y - 4.0) return 0.0;
       vec3 ab = occ.xyz - camPos; float t = clamp(dot(p - camPos, ab) / dot(ab, ab), 0.0, 1.0);
@@ -44,12 +44,20 @@ const treeMat = new THREE.ShaderMaterial({
         float d = distance(vW, camPos), dz = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
         if (d < 34.0 && dz > smoothstep(16.0, 34.0, d)) discard;
         float up = smoothstep(-0.5, 0.9, N.y) * 0.55 + smoothstep(10.0, 110.0, vL.y) * 0.25;   // lit from above, darker underneath and inside
-        if (leaf) {   // dabs of paint: clumps of leaves, lighter ones catching the light
-          float a = vn(vG * 0.55), b = vn(vG * 1.7 + 7.0);
-          c = vC * (0.62 + 0.5 * up) * (0.78 + 0.32 * a) + vC * smoothstep(0.62, 0.8, b) * 0.35 * up;
-        } else {      // needles: short strokes raked down and out
-          float s = vn(vec3(vG.x * 1.6, vG.y * 0.35, vG.z * 1.6)), t = vn(vG * 0.4);
-          c = vC * (0.68 + 0.45 * up) * (0.75 + 0.35 * s) * (0.9 + 0.2 * t) + vec3(0.06, 0.12, 0.08) * smoothstep(0.7, 0.85, s) * up;   // (never quite black underneath: light comes in sideways under the canopy)
+        // Two stable local-space projections break up stretched patches. Mips soften fine
+        // blades in the distance; the canopy stays opaque so the solid pass keeps early depth rejection.
+        vec4 f=texture2D(foliageT,(vG.xy+vG.z*.37)/18.0);
+        vec4 broad=texture2D(foliageT,(vG.yz-vG.x*.29)/71.0+vec2(.31,.67));
+        float cluster=.89+.16*broad.b;
+        float back=pow(max(dot(normalize(camPos-vW),-sunDir),0.0),2.0)*sunK;
+        if (leaf) {
+          float blade=smoothstep(.23,.78,f.r),tip=smoothstep(.58,.86,f.r);
+          c=vC*(.64+.43*up)*cluster*mix(.86,1.14,blade);
+          c+=vC*vec3(.12,.16,.06)*(tip*up+back*.26);
+        } else {
+          float spray=smoothstep(.24,.79,f.g);
+          c=vC*(.69+.38*up)*cluster*mix(.87,1.12,spray);
+          c+=vec3(.035,.065,.035)*spray*up+vC*back*.035;
         }
       } else { paintH = vL.y; c = paint(vC, vM, vG, vW, N); }
       vec3 o = c * lightAt(vW, N, 1.0) * 1.05;
@@ -76,17 +84,25 @@ const treeEdge = new THREE.ShaderMaterial({
 
 // soft lumps for a crown, and a tier of a pine's skirt with a ragged, drooping hem
 const P_LUMP = (k = 0, lo = false) => prim('lump' + k + (lo ? 'lo' : ''), () => {
-  const g = lo ? new THREE.SphereGeometry(0.5, 8, 6) : new THREE.SphereGeometry(0.5, 12, 9), p = g.attributes.position, v = new V3();
-  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const n = 0.9 + 0.14 * Math.sin(v.x * 9 + k) * Math.sin(v.y * 8 + k * 2) * Math.sin(v.z * 10 + k * 3) + 0.07 * Math.sin(v.x * 27 + v.y * 13 + v.z * 21 + k); v.multiplyScalar(n); v.y *= 0.88; p.setXYZ(i, v.x, v.y, v.z); }
+  const g = new THREE.SphereGeometry(0.5, 8, 6), p = g.attributes.position, v = new V3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p,i);const a=Math.atan2(v.z,v.x),r=Math.hypot(v.x,v.z);
+    const lobes=1+.12*Math.sin(a*3+k*1.7)*Math.min(1,r*3)+.065*Math.cos(a*5-k+v.y*6);
+    const n=.94+.065*Math.sin(v.x*17+v.y*11+k)*Math.sin(v.z*19-k);
+    v.x*=lobes*n;v.z*=lobes*n;v.y=v.y*.86*n+.025*Math.sin(a*4+k)*Math.min(1,r*4);
+    p.setXYZ(i,v.x,v.y,v.z);
+  }
   g.computeVertexNormals(); return g;
 });
+const P_TREE_LEAF = () => prim('treeLeaf',()=>{const g=new THREE.OctahedronGeometry(.5,0),p=g.attributes.position,n=g.attributes.normal;for(let i=0;i<p.count;i++){n.setXYZ(i,p.getX(i)*2,p.getY(i)*2,p.getZ(i)*2);}return g;});
 const P_TIER = (k = 0, lo = false) => prim('tier' + k + (lo ? 'lo' : ''), () => {
   const n = lo ? 9 : 16, g = new THREE.ConeGeometry(0.5, 1, n, lo ? 1 : 2), p = g.attributes.position, v = new V3();
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i); if (v.y > 0.49) continue;
     const r = Math.hypot(v.x, v.z); if (r < 1e-4) continue;
-    const a = Math.atan2(v.z, v.x), f = r / 0.5, tuft = 0.5 + 0.5 * Math.cos(a * 9 + k * 1.7), jag = 1 + (0.16 * tuft + 0.07 * Math.sin(a * 23 + k)) * f;
-    p.setXYZ(i, v.x * jag, v.y - 0.12 * f * f * tuft, v.z * jag);
+    const a=Math.atan2(v.z,v.x),f=r/.5;
+    const tuft=.5+.5*Math.cos(a*(lo?4:8)+k*1.7),jag=1+(.24*tuft-.14+.045*Math.sin(a*3+k))*f;
+    p.setXYZ(i,v.x*jag,v.y-(.05+.18*tuft)*f*f,v.z*jag);
   }
   g.translate(0, 0.5, 0); g.computeVertexNormals(); return g;
 });
@@ -168,13 +184,26 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
     // the crown: soft lumps of leaf (or blossom), bigger and darker at the heart, smaller and lighter round the top and edges
     const G = ch ? ['#cc649c', '#e080b2', '#ee9ec4', '#d670a8'] : ['#2b5220', '#386628', '#477834', '#3d6c2b'];
     K.mt = 'plant';
+    // Spend the former high-resolution blob budget on solid folded leaves at its edge.
+    // The core and twelve eight-face leaves total 176 faces, below the former 192-face core.
+    const clump=(k,x,y,z,sx,sy,sz,col,yaw=0)=>{
+      K.add(P_LUMP_(k),x,y,z,sx,sy,sz,col,yaw,0,0,0,.32);
+      if(lo)return;
+      for(let j=0;j<12;j++){
+        const ny=1-2*(j+.5)/12,a=j*2.39996+k*1.7+vi,r=Math.sqrt(1-ny*ny);
+        const nx=Math.cos(a)*r,nz=Math.sin(a)*r;
+        const px=nx*Math.cos(yaw)+nz*Math.sin(yaw),pz=nz*Math.cos(yaw)-nx*Math.sin(yaw);
+        const tint=col.map(c=>c*(.94+.12*(j%3)/2));
+        K.add(P_TREE_LEAF(),x+px*sx*.48,y+ny*sy*.43,z+pz*sz*.48,sx*.19,sy*.045,sz*.105,tint,a+yaw,ny*.5,.2*Math.sin(a),0,.12);
+      }
+    };
     const lumps = ch ? 5 + vi % 2 : 8 + vi % 2;
     for (let i = 0; i < lumps; i++) {
       const a = i / lumps * 6.28 + R(), d = (ch ? 22 : 20) + R() * 12, r = (ch ? 32 : 38) + R() * 12, y = crownY + (R() - 0.3) * 18;
-      K.add(P_LUMP_(i % 5), Math.cos(a) * d, y, Math.sin(a) * d, r, r * 0.85, r, tone(G, i), R() * 6.28, 0, 0, 0, 0.32);
+      clump(i % 5,Math.cos(a)*d,y,Math.sin(a)*d,r,r*.85,r,tone(G,i),R()*6.28);
     }
-    K.add(P_LUMP_(5), 0, crownY + 16, 0, ch ? 34 : 40, 30, ch ? 34 : 40, tone(G, 2), 0, 0, 0, 0, 0.32);
-    if (ch) for (const [x, y, z] of tips) K.add(P_LUMP_(6), x, y + 4, z, 30, 24, 30, tone(G, 3), R() * 6.28, 0, 0, 0, 0.3);
+    clump(5,0,crownY+16,0,ch?34:40,30,ch?34:40,tone(G,2));
+    if (ch) for (const [x, y, z] of tips) clump(6,x,y+4,z,30,24,30,tone(G,3),R()*6.28);
     K.mt = null;
   } else {   // dead: a bare trunk, snapped at the top, its limbs forking into twigs
     K.mt = 'bark';

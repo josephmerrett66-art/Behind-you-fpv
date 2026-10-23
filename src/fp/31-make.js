@@ -929,7 +929,7 @@ const GHOST_D = [ghostMesh, planMesh].map(m => {
     const r = tf.apply(this, arguments);
     for (const [m, d] of GHOST_D) { d.geometry = m.geometry; d.visible = m.visible; }
     if (SWING.skip.size || SWING.had) {
-      if (!SWING.k) { SWING.k = new KitMesh(true); castsShadow(SWING.k.mesh); }
+      if (!SWING.k) { SWING.k = new KitMesh(true); SWING.k.mesh.material = buildRangeMat; castsShadow(SWING.k.mesh); }
       const K = new Kit(); for (const o of SWING.skip) if (S.day && S.day.bld.get(o.key) === o) pieceKit(K, o);
       SWING.k.set(K); SWING.had = K.pos.length > 0;
     }

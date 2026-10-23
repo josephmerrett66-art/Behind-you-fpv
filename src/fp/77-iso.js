@@ -59,5 +59,5 @@ const isoZoomName = () => (SET.isoZoom || 1.7) <= 1.05 ? 'close' : (SET.isoZoom 
 // pinch with two thumbs, or ctrl and the mouse wheel, to zoom from above
 function isoZoomBy(k) { SET.isoZoom = clamp((SET.isoZoom || 1.7) * k, 1, 3); saveSet(); }
 addEventListener('wheel', e => { if (isoP() && state === 'play' && e.ctrlKey) { e.preventDefault(); isoZoomBy(e.deltaY > 0 ? 1.08 : 1 / 1.08); } }, { passive: false });
-function isoOff() { LU.occ.value.w = 0; ISO.lastLook = undefined; if (ISO.fogAdd) { cam.fov = baseFov(); cam.far = 1400; cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; ISO.fogAdd = 0; } }
+function isoOff() { LU.occ.value.w = 0; ISO.lastLook = undefined; if (ISO.fogAdd) { cam.fov = baseFov(); cam.far = VIEW + 500; cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; ISO.fogAdd = 0; } }
 addEventListener('mousemove', e => { ISO.mx = e.clientX; ISO.my = e.clientY; });

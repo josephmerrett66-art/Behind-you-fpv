@@ -47,11 +47,12 @@ class Board {
           vNear = vec3(near > 0.0 && iDim.y * s > 70.0 ? clamp((d - near) / (near * 0.9), 0.0, 1.0) : 1.0, abs(lx) / s, ly / s);   // right beside a tree, all but its trunk melts away so it never fills the screen
           gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
         }`,
-      fragmentShader: LIGHT_GLSL + `uniform sampler2D map; varying vec2 vUv; varying vec3 vW; varying vec3 vNear; varying vec2 vSh;
+      fragmentShader: LIGHT_GLSL + `uniform sampler2D map; uniform float cull; varying vec2 vUv; varying vec3 vW; varying vec3 vNear; varying vec2 vSh;
         void main() {
           vec4 t = texture2D(map, vUv);
           float trunk = (vNear.y < 7.0 && vNear.z < 34.0) ? 1.0 : 0.0;
           float keep = max(vNear.x, trunk) * vSh.x;
+          keep *= 1.0 - smoothstep(cull - 120.0, cull, distance(vW.xz, fogC.xz));
           #ifdef A2C
             t.a *= keep * keep;
             if (t.a < 0.08) discard;
@@ -79,7 +80,7 @@ class Board {
     for (const k of ['iPos', 'iRect', 'iDim', 'iMisc']) { const a = this.g.attributes[k]; a.needsUpdate = true; if (a.clearUpdateRanges) { a.clearUpdateRanges(); a.addUpdateRange(0, this.n * 4); } else { a.updateRange.offset = 0; a.updateRange.count = this.n * 4; } }
   }
 }
-const tallB = new Board(2600, VIEW, 30, false), coverB = new Board(6000, 420, 0, true), plantB = new Board(6000, 420, 0, true), bushB = new Board(2000, 420, 0, true), nearB = new Board(900, 300, 0, true);
+const tallB = new Board(10400, VIEW, 30, false), coverB = new Board(24000, 840, 0, true), plantB = new Board(24000, 840, 0, true), bushB = new Board(8000, 840, 0, true), nearB = new Board(3600, 600, 0, true);
 
 // ---------------- the kit: solid things built from simple shapes, with the game's dark outline round them ----------------
 // Shapes are baked into one mesh per batch (vertex colours), drawn twice: once lit, once as a slightly fatter dark shell.
@@ -443,7 +444,7 @@ function pondPiece(P) {   // a pond's own meshes: a sheet at the water's level o
 }
 let pondMore = false, pondUse = 0;
 function pondsSync(px, py) {
-  const L = lakesNear(px, py, drawR() + 100), key = L.map(P => P.x | 0).join();
+  const L = lakesNear(px, py, drawR() + VIS.preload + 180), key = L.map(P => P.x | 0).join();
   if (key === pondKey) return L;
   // Each pond is built the first time it comes near and kept as its own meshes, so walking on past ponds only shows and hides
   // them. Far ones are built one a frame (worldSync calls again while pondMore): they come in out past the haze, and building
@@ -494,12 +495,14 @@ function worldSync(force) {
   if (!staticK) { const K = new Kit(); campKit(K); staticK = new KitMesh(); staticK.set(K); }
   const gen = D.felled.size * 7 + D.nodes.size * 3 + (D.bchunks ? D.bchunks.size : 0);
   if (pondMore) pondsSync(p.x, p.y);   // ponds still to build, one a frame
-  if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < 70 && gen === WORLD.gen && drawR() === WORLD.vr) return;
+  if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < VIS.worldStep && gen === WORLD.gen && drawR() === WORLD.vr) return;
   WORLD.x = p.x; WORLD.y = p.y; WORLD.gen = gen; WORLD.vr = drawR(); worldDirty = false;
+  // Terrain fields must be current before caching instance base heights.
+  terrLevelSync(p.x, p.y, WORLD.lakes);
   // trees, rocks, posts
   tallB.begin(); treesBegin(); propsW.begin(); shN = 0;
-  const props = propsNear(p.x, p.y, drawR() + 60); WORLD.props = props;
-  const far2 = (drawR() + 60) ** 2;   // propsNear gives a square: its corners are past the haze, so they're left undrawn
+  const props = propsNear(p.x, p.y, drawR() + VIS.preload); WORLD.props = props;
+  const far2 = (drawR() + VIS.preload) ** 2;   // propsNear gives a square: its corners are past the haze, so they're left undrawn
   for (const o of props) {
     if ((o.x - p.x) ** 2 + (o.y - p.y) ** 2 > far2) continue;
     if (o.kind === 'tree') {
@@ -517,8 +520,8 @@ function worldSync(force) {
   // ground cover
   // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's
   coverB.begin(); plantB.begin(); bushB.begin();
-  for (const d of decorNear(p.x, p.y, 430)) {
-    if ((d.x - p.x) ** 2 + (d.y - p.y) ** 2 > 450 * 450) continue;   // round you, not the square decorNear gives (its corners are past where plants fade)
+  for (const d of decorNear(p.x, p.y, VIS.decorLoad)) {
+    if ((d.x - p.x) ** 2 + (d.y - p.y) ** 2 > VIS.decorLoad * VIS.decorLoad) continue;   // round you, not the square decorNear gives (its corners are past where plants fade)
     const k = d.dk === 'log' ? 'log' : d.dk;
     if (!ATLAS.meta[k] && !PROP_KIND[k]) continue;   // (a sapling has only its model, no picture)
     if (k === 'log') {   // a fallen log lies flat on the ground as a solid log, with a broken branch or two

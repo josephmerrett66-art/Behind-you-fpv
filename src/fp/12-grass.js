@@ -3,22 +3,22 @@
 // horizon, blending into each other so there's no edge to see. Each blade keeps its own spot in the world (a field wraps
 // round as you walk, so nothing slides or pops underfoot), and blades thin out and shrink smoothly with distance.
 // A top-down mask keeps it off ponds, floors you've laid, fire pits and tent floors.
-const GR_N = 100000, GR_RINGS = [120, 360, 1080], GM_N = 512, GM_S = 2400;
+const GR_N = 100000, GR_RINGS = [120, 360, 1080, 2160], GM_N = 1024, GM_S = 4800;
 const grassMaskData = new Uint8Array(GM_N * GM_N).fill(255);
 const grassMaskTex = new THREE.DataTexture(grassMaskData, GM_N, GM_N, THREE.RedFormat, THREE.UnsignedByteType);
 grassMaskTex.magFilter = grassMaskTex.minFilter = THREE.LinearFilter; grassMaskTex.needsUpdate = true;
 const grassU = { mask: { value: grassMaskTex }, mo: { value: new THREE.Vector2(-GM_S / 2, -GM_S / 2) }, ms: { value: GM_S }, gmap: { value: floorTex } };
 const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms, ring; uniform vec2 mo; uniform sampler2D mask;
   varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
-  const float R0 = ${GR_RINGS[0].toFixed(1)}, R1 = ${GR_RINGS[1].toFixed(1)}, R2 = ${GR_RINGS[2].toFixed(1)};
+  const float R0 = ${GR_RINGS[0].toFixed(1)}, R1 = ${GR_RINGS[1].toFixed(1)}, R2 = ${GR_RINGS[2].toFixed(1)}, R3 = ${GR_RINGS[3].toFixed(1)};
   float fin(float R, float d) { return smoothstep(R, R * 0.7, d); }   // 1 well inside a field, 0 at its edge
   void main() {
-    float R = ring < 0.5 ? R0 : ring < 1.5 ? R1 : R2;
+    float R = ring < 0.5 ? R0 : ring < 1.5 ? R1 : ring < 2.5 ? R2 : R3;
     vec2 rt = camPos.xz + mod(bd.xy * R - camPos.xz + R, 2.0 * R) - R;   // its own spot in the world, the nearest copy to you
     float d = distance(rt, camPos.xz);
     // how thick the turf is out here, and this field's share of it: the shares add to one, so the fields meet without a seam
     float want = min(1.0, pow(40.0 / max(d, 1.0), 2.0)), dens = pow(R / R0, 2.0);
-    float share = ring < 0.5 ? fin(R0, d) : ring < 1.5 ? fin(R1, d) - fin(R0, d) : fin(R2, d) - fin(R1, d);
+    float share = ring < 0.5 ? fin(R0, d) : ring < 1.5 ? fin(R1, d) - fin(R0, d) : ring < 2.5 ? fin(R2, d) - fin(R1, d) : fin(R3, d) - fin(R2, d);
     float m = texture2D(mask, (rt - mo) / ms).r;
     float k = (bd.w < want * dens * share ? 1.0 : 0.0) * smoothstep(0.35, 0.7, m) * step(0.5, coastGrass(rt));
     vS = vec4(0.0);

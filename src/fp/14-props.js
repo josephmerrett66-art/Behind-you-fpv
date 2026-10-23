@@ -7,7 +7,7 @@ const PROP_PC = { value: new V3() };
 // the trees' own paint and light, with a gentler sway for things this small and a soft edge round you
 function propMats(sway, cullR) {
   const sw = `position.y * ${sway.toFixed(4)}`, cut = `uniform vec3 pc; uniform float cullR;
-    void main() { if (cullR > 0.0 && distance(vW.xz, pc.xz) > cullR - 60.0 * fract(sin(dot(gl_FragCoord.xy, vec2(41.31, 17.93))) * 4375.85)) discard;`;
+    void main() { if (cullR > 0.0 && distance(vW.xz, pc.xz) > cullR - 120.0 * fract(sin(dot(gl_FragCoord.xy, vec2(41.31, 17.93))) * 4375.85)) discard;`;
   const uni = () => Object.assign({}, LU, { pc: PROP_PC, cullR: { value: cullR } });
   const m = new THREE.ShaderMaterial({ uniforms: uni(), vertexShader: treeMat.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeMat.fragmentShader.replace('void main() {', cut) });
   const e = new THREE.ShaderMaterial({ uniforms: uni(), side: THREE.BackSide, vertexShader: treeEdge.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeEdge.fragmentShader.replace('void main() {', cut) });
@@ -15,7 +15,7 @@ function propMats(sway, cullR) {
 }
 const PROP_MAT = { still: null, plant: null, grass: null, sap: null };
 function propMat(k) {
-  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, 470); PROP_MAT.grass = propMats(0.035, 470); PROP_MAT.sap = propMats(0.011, 470); }
+  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, VIS.plants); PROP_MAT.grass = propMats(0.035, VIS.plants); PROP_MAT.sap = propMats(0.011, VIS.plants); }
   return PROP_MAT[k];
 }
 
@@ -220,19 +220,25 @@ function propModel(kind, vi) {
       for (let i = 0; i < 3; i++) { const q = a + i * 2.1; K.add(P_PEA(7, 5), cx + Math.cos(q) * 1.6, cy + (i - 1) * 1.2, cz + Math.sin(q) * 1.6, 3.4, 3.4, 3.4, hex(i === 1 ? '#a8182c' : '#dc2c3c'), 0, 0, 0, 0.12); }
     }
   } else return null;
-  return K.geometry();
+  return indexModel(K.geometry());
 }
 
 // one instanced draw (and its outline) per kind and way of building it; a set for the woods, and one for what you gather
 class PropSet {
-  constructor(cap) { this.cap = cap; this.k = {}; }
+  constructor(cap, range = 0) { this.cap = cap; this.k = {}; this.range = range; this.materials = {}; }
   _kind(kind) {
     let L = this.k[kind]; if (L !== undefined) return L;
     const P = PROP_KIND[kind]; if (!P) return (this.k[kind] = null);
-    const M = propMat(P.mat); L = [];
+    let M = propMat(P.mat);
+    const range = this.range || (['log', 'pebbles', 'shrooms'].includes(kind) ? VIS.plants : 0);
+    if (range) {
+      if (!this.materials[P.mat]) { const m = M.m.clone(); m.uniforms = Object.assign({}, M.m.uniforms, { cullR: { value: range } }); this.materials[P.mat] = { m, e: M.e }; }
+      M = this.materials[P.mat];
+    }
+    L = [];
     for (let v = 0; v < P.n; v++) {
-      const g = propModel(kind, v), m = new THREE.InstancedMesh(g, M.m, 1);   // made for one, then given room for cap: three sets every slot to a matrix as it makes one,
-      m.instanceMatrix = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 16), 16);   // and fifty shapes of rock at 2400 each was a tenth of a second the first time one came in sight
+      const g = propModel(kind, v), m = new THREE.InstancedMesh(terrainInstanceGeometry(g, this.cap), M.m, 1);   // made for one, then given room for cap: three sets every slot to a matrix as it makes one,
+      m.instanceMatrix = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 16), 16).setUsage(THREE.DynamicDrawUsage);   // and fifty shapes of rock at 2400 each was a tenth of a second the first time one came in sight
       m.count = 0; m.frustumCulled = false; scene.add(P.shadow ? castsShadow(m) : m);
       let e = null; if (P.edge) { e = new THREE.InstancedMesh(g, M.e, 1); e.count = 0; e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(e); }
       L.push({ m, e, n: 0, items: [], shN: 0, shadow: P.shadow });
@@ -248,17 +254,18 @@ class PropSet {
     const st = S.t - shakeT; if (st >= 0 && st < 0.45) { _tq2.setFromAxisAngle(_tax.set(Math.sin(seed * 9), 0, Math.cos(seed * 9)), Math.sin(st * 30) * 0.12 * (1 - st / 0.45)); _tq.premultiply(_tq2); }
     const M = _tm.compose(_tp.set(x, 0, y), _tq, _ts.set(s, s, s)), d = (x - S.p.x) ** 2 + (y - S.p.y) ** 2;
     let it = B.items[B.n]; if (!it) it = B.items[B.n] = { d: 0, m: new Float32Array(16) };
-    it.d = d; M.toArray(it.m); B.n++;
+    it.d = d; it.h = terrH(x, y); M.toArray(it.m); B.n++;
     return true;
   }
   end() {   // nearest first, so the sun's pass can draw only those inside its map
     const SR = shadowReach() ** 2;
     for (const kind in this.k) if (this.k[kind]) for (const B of this.k[kind]) {
-      const L = B.items.slice(0, B.n).sort((a, b) => a.d - b.d), arr = B.m.instanceMatrix.array; B.shN = 0;
-      for (let i = 0; i < L.length; i++) { arr.set(L[i].m, i * 16); if (L[i].d < SR) B.shN = i + 1; }
-      B.m.count = B.n; if (B.e) B.e.count = B.n; B.m.instanceMatrix.needsUpdate = true;
+      instanceSource(B);
+      const L = B.items.slice(0, B.n).sort((a, b) => a.d - b.d), arr = B.source; B.shN = 0;
+      for (let i = 0; i < L.length; i++) { arr.set(L[i].m, i * 16); B.heights[i] = L[i].h; if (L[i].d < SR) B.shN = i + 1; }
+      B.keepShadow = B.shadow ? B.shN : 0; B.dirty = true; instanceCompact(B);
     }
   }
 }
-const propsW = new PropSet(2400), propsN = new PropSet(300);
-function propsFrame() { PROP_PC.value.set(S.p.x, 0, S.p.y); }
+const propsW = new PropSet(9600), propsN = new PropSet(1200, VIS.nodes);
+function propsFrame() { PROP_PC.value.set(S.p.x, 0, S.p.y); for (const P of [propsW, propsN]) for (const k in P.k) if(P.k[k]) for(const B of P.k[k]) instanceCompact(B); }

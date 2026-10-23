@@ -56,17 +56,20 @@ const dropMat = new THREE.ShaderMaterial({
   fragmentShader: LIGHT_GLSL + `uniform sampler2D map; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
     void main() { vec4 t = texture2D(map, vUv); if (t.a < 0.5) discard; vec3 c = t.rgb * vS * lightAt(vW, normalize(vN), 1.0) * 1.12; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
 });
+const dropRangeMat = rangeMaterial(dropMat, VIS.drops);
 const dropPool = [];
 function dropMesh(i, geo) {
   let m = dropPool[i];
-  if (!m) { m = dropPool[i] = new THREE.Mesh(geo, dropMat); m.frustumCulled = false; scene.add(m); }
+  if (!m) { m = dropPool[i] = new THREE.Mesh(geo, dropRangeMat); m.frustumCulled = false; scene.add(m); }
   m.geometry = geo; m.visible = true; return m;
 }
-const dropB = new Board(400, 600, 0, true, iconTex, ISHEET);
-const nodeB = new Board(900, 560, 0, true);   // the grass and berry bushes you gather are the woods' own sprites
+const dropB = new Board(1600, VIS.drops, 0, true, iconTex, ISHEET);
+const nodeB = new Board(3600, VIS.nodes, 0, true);   // the grass and berry bushes you gather are the woods' own sprites
 
 // ---------------- the kits ----------------
 const thingsK = new KitMesh(true), dynK = new KitMesh(true);
+const buildRangeMat = rangeMaterial(kitMat, VIS.builds);
+thingsK.mesh.material = buildRangeMat; dynK.mesh.material = rangeMaterial(kitMat, VIS.drops);
 castsShadow(thingsK.mesh); castsShadow(dynK.mesh);   // what you build stands in the sun's light too: a roof shades the room under it (Joe: "the sun goes through")
 // a ghost: what you'd build, green where it fits and red where it won't; a blueprint glows like a plan
 const ghostMat = new THREE.ShaderMaterial({
@@ -77,7 +80,7 @@ const ghostMat = new THREE.ShaderMaterial({
     void main() { vec3 c = mix(vC, tint, 0.65) * (0.6 + 0.5 * max(dot(normalize(vN), vec3(0.3, 0.8, 0.2)), 0.0)) + tint * 0.25; gl_FragColor = vec4(c, alpha); }`,
 });
 const ghostMesh = new THREE.Mesh(new THREE.BufferGeometry(), ghostMat); ghostMesh.frustumCulled = false; ghostMesh.renderOrder = 6; scene.add(ghostMesh);
-const planMat = ghostMat.clone(); planMat.uniforms = Object.assign({ tint: { value: new V3(1, 0.8, 0.5) }, alpha: { value: 0.45 } }, LU);
+const planMat = rangeMaterial(ghostMat, VIS.builds); planMat.uniforms = Object.assign({ tint: { value: new V3(1, 0.8, 0.5) }, alpha: { value: 0.45 }, visualRange: planMat.uniforms.visualRange }, LU);
 const planMesh = new THREE.Mesh(new THREE.BufferGeometry(), planMat); planMesh.frustumCulled = false; planMesh.renderOrder = 6; scene.add(planMesh);
 function setGeo(mesh, kit) { const old = mesh.geometry; mesh.geometry = kit.geometry(); old.dispose(); }
 
@@ -95,7 +98,7 @@ const U = (a, f, s) => [Math.cos(a) * f - Math.sin(a) * s, Math.sin(a) * f + Mat
 // ---------------- keeping it all filled in round you ----------------
 let thingsKey = '', thingsT = 0, thingsAt = { x: 1e9, y: 1e9 };
 function thingsSmallSync(force) {
-  const D = S.day, p = S.p, R = 560;
+  const D = S.day, p = S.p, R = VIS.builds + 240;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size;
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.open ? 'O' : '') + (B.pen && B.inv.some(s => s && s.id === 'meat') ? 'm' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
@@ -115,7 +118,7 @@ const THING_CELLS = new Map(), THING_IDS = new WeakMap();
 let thingUid = 0, thingDay = null, thingCheck = 0, thingGen = -1, thingDoor = -1;
 function thingId(o) { if (!THING_IDS.has(o)) THING_IDS.set(o, ++thingUid); return THING_IDS.get(o); }
 function thingsSync(force) {
-  const D = S.day, p = S.p, R = 620, size = 280, cells = new Map(), now = performance.now();
+  const D = S.day, p = S.p, R = VIS.builds + 240, size = 280, cells = new Map(), now = performance.now();
   if (D.bld.size + D.builds.length < 64) {
     if (THING_CELLS.size) {
       for (const c of THING_CELLS.values()) { for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m); c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); }
@@ -151,6 +154,7 @@ function thingsSync(force) {
     let old = THING_CELLS.get(id);
     if (!old) {
       const solid = new KitMesh(true), plan = new THREE.Mesh(new THREE.BufferGeometry(), planMat);
+      solid.mesh.material = buildRangeMat;
       castsShadow(solid.mesh); plan.renderOrder = 6; scene.add(plan);
       const depth = new THREE.Mesh(plan.geometry, GHOST_D[1][1].material); depth.renderOrder = 5; scene.add(depth);
       THING_CELLS.set(id, old = { solid, plan, depth, key: null });
@@ -181,10 +185,10 @@ function thingsSync(force) {
   }
   // Keep recently visited cells resident, so turning back does not upload them again.
   // Bound the cache and evict only inactive cells, oldest first.
-  if (THING_CELLS.size > 64) {
+  if (THING_CELLS.size > VIS.buildCache) {
     const cold = [...THING_CELLS].filter(([id]) => !cells.has(id)).sort((a, b) => a[1].used - b[1].used);
     for (const [id, c] of cold) {
-      if (THING_CELLS.size <= 64) break;
+      if (THING_CELLS.size <= VIS.buildCache) break;
       for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m);
       c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); THING_CELLS.delete(id);
     }
@@ -200,8 +204,8 @@ function thingsFrame(now) {
   // what lies about to be gathered: sticks, stones, mushrooms as shapes; grass and bushes as the woods' own sprites
   nodeB.begin(); propsN.begin(); const K = new Kit();
   // what lies about to be gathered, each a solid model stood in place (14-props): sticks, stones, mushrooms, grass, bushes and their berries
-  for (const o of dayNodesNear(p.x, p.y, 540)) {
-    if (o.gone) continue;
+  for (const o of dayNodesNear(p.x, p.y, VIS.nodes + 80)) {
+    if (o.gone || (o.x - p.x) ** 2 + (o.y - p.y) ** 2 > (VIS.nodes + 80) ** 2) continue;
     const sh = o.shakeT !== undefined ? o.shakeT : -99, sd = o.seed || 0, v = sd * 9 | 0;
     if (o.t === 'grass') propsN.add('grass', v, o.x, o.y, 1.5, sd, sh);
     else if (o.t === 'bush') { propsN.add('bbush', v, o.x, o.y, 1.15, sd, sh); if (o.ber) { propsN.add('nberries', v, o.x, o.y, 1.15, sd, sh); } }
@@ -213,7 +217,7 @@ function thingsFrame(now) {
   // dropped things: their own pictures, bobbing; tools glint now and then so you find them again
   dropB.begin(); let dn = 0;
   for (const o of D.drops) {
-    if (Math.abs(o.x - p.x) > 600 || Math.abs(o.y - p.y) > 600) continue;
+    if (Math.abs(o.x - p.x) > VIS.drops + 60 || Math.abs(o.y - p.y) > VIS.drops + 60) continue;
     const bob = Math.sin(now * 3 + (o.seed || 0)) * 1.2, T = DIT[o.it];
     if (o.it === 'logs') { for (const s of [-1, 1]) K.rod(P_CYL(8), o.x - 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2, o.x + 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2 - 1, 2.4, hex('#7a5232')); }
     else { const geo = extrudeIcon(o.it);

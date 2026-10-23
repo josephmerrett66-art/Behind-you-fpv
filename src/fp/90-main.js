@@ -20,7 +20,7 @@ function envFrame() {
   const hor = mix3([0.035, 0.04, 0.06], mix3(dHor, [0.95, 0.56, 0.32], set), lt);
   SKY.top.set(...top); SKY.hor.set(...hor); SKY.set.value = set;
   LU.fogCol.value.set(...hor);
-  LU.fogR.value.set(lerp(150, 430, lt), lerp(560, 950, lt));
+  LU.fogR.value.set(lerp(300, 860, lt), lerp(1120, VIEW, lt));
   const tl = S ? S.torchLvl * (S.torchOn ? 1 : 0) : 0;
   LU.tCol.value.set(1.0 * tl, 0.88 * tl, 0.7 * tl);
   LU.colourK.value = COLOUR ? 1 : 0;
@@ -36,9 +36,9 @@ const _lights = [];
 function lightsFrame(now, dt) {
   const L = LU.pl.value, C = LU.plc.value, p = S.p, D = S.day, rg = S.rg, night = 1 - ENV.lt * 0.85;
   _lights.length = 0;
-  const add = (x, h, y, r, cr, cg, cb, pri = 0) => { const d = Math.hypot(x - p.x, y - p.y); if (d - r > 700) return; _lights.push({ x, h: h + terrH(x, y), y, r, cr, cg, cb, w: pri - d / (r + 1) }); };
+  const add = (x, h, y, r, cr, cg, cb, pri = 0) => { const d = Math.hypot(x - p.x, y - p.y); if (d - r > 1400) return; _lights.push({ x, h: h + terrH(x, y), y, r, cr, cg, cb, w: pri - d / (r + 1) }); };
   const fk = s => 0.85 + 0.1 * Math.sin(now * 7.3 + s) + 0.06 * Math.sin(now * 13.1 + s * 2) + 0.05 * Math.random();
-  const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 520 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
+  const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 1040 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
   // the camp's own fire, and your campfires
   if (!EX_FIRE.gone) { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); tongues(EX_FIRE.x, EX_FIRE.y, 1.05); }
   for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); tongues(B.x, B.y, 0.9); }
@@ -47,9 +47,9 @@ function lightsFrame(now, dt) {
   else if (B.t === 'furnace' && (B.fuel > 0 || B.lit || B.smelt)) { add(B.x, 10, B.y, 120, 0.8 * night, 0.4 * night, 0.15 * night, 0.5); }
   clanLights(add, fire);   // the clan's camp fires (74-clan2)
   // the woods' lamps and fires
-  for (const o of lightsNear(p.x, p.y, 700)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); tongues(o.x, o.y, 0.9); }
+  for (const o of lightsNear(p.x, p.y, 1400)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); tongues(o.x, o.y, 0.9); }
   // your lamps, sconces, braziers and candles, lit at dusk
-  if (ENV.lt < 0.85) for (const o of stNear(p.x, p.y, 700)) { const P = PC(o.id); if (!P.light || !o.done) continue; const f = fk(o.x) * (1 - ENV.lt);
+  if (ENV.lt < 0.85) for (const o of stNear(p.x, p.y, 1400)) { const P = PC(o.id); if (!P.light || !o.done) continue; const f = fk(o.x) * (1 - ENV.lt);
     const h = (o.z || 0) + (P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8), [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
     add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') { fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); tongues(lx, ly, P.k === 'brazier' ? 0.7 : 0.3, h - 2); } else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
   // a hand torch, held up

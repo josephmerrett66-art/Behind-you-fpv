@@ -4,6 +4,8 @@ Implemented against main commit `44364eaa69b9c22d1d9959c74cf1e97a3b76d776`. The 
 
 The subsequent frame-pacing follow-up identifies movement-driven buffer uploads and addresses them; see [FRAME-PACING.md](FRAME-PACING.md) for the latest measurements and remaining limits.
 
+The [extended render-distance update](RENDER-DISTANCE.md) records the subsequent visibility and detail-range work.
+
 ## Changes and identified causes
 
 ### Base performance

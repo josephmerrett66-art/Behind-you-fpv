@@ -19,15 +19,15 @@ const fs=require('fs'),http=require('http'),path=require('path');
    for(const [id,g] of buffers)if(THING_CELLS.get(id)?.solid.mesh.geometry!==g)replaced++;
   }
   check('walking through a medium base reuses every existing buffer',replaced===0,replaced);
-  S.p.x=-1600;S.p.y=0;thingsSync(true);
+  S.p.x=-3200;S.p.y=0;thingsSync(true);
   check('distant cached cells are hidden',[...buffers.keys()].every(id=>{const c=THING_CELLS.get(id);return !c.solid.visible&&!c.plan.visible&&!c.depth.visible}));
   S.p.x=0;thingsSync(true);
   check('returning reuses resident buffers',[...buffers].every(([id,g])=>THING_CELLS.get(id)?.solid.mesh.geometry===g));
   check('returning restores visible structures',[...THING_CELLS.values()].some(c=>c.solid.visible));
   S.day.bld.clear();stGen++;
-  for(let i=0;i<100;i++)stMake({id:'wallW',x:i*280,y:0,a:0,done:true});
-  let peak=0;for(let i=0;i<100;i++){S.p.x=i*280;thingsSync(true);peak=Math.max(peak,THING_CELLS.size)}
-  check('resident cache stays bounded while travelling',peak<=64,peak);
+  for(let i=0;i<240;i++)stMake({id:'wallW',x:i*280,y:0,a:0,done:true});
+  let peak=0;for(let i=0;i<240;i++){S.p.x=i*280;thingsSync(true);peak=Math.max(peak,THING_CELLS.size)}
+  check('resident cache stays bounded while travelling',peak<=VIS.buildCache,peak);
   newGame(true);S.running=false;S.p.x=S.p.y=0;thingsSync(true);
   check('new small game releases the cell cache',THING_CELLS.size===0,THING_CELLS.size);
   const sun=sunShadows,ink=inkRender;

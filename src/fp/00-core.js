@@ -18,9 +18,21 @@ try { Object.assign(SET, JSON.parse(localStorage.getItem('behind-you-fp') || '{}
 const saveSet = () => { try { localStorage.setItem('behind-you-fp', JSON.stringify(SET)); } catch (e) {} };
 COLOUR = SET.colour !== false;
 
+// A stable world-space dither removes distant details gradually without transparent sorting.
+function rangeMaterial(base, far, width = 120) {
+  const m = base.clone(); m.uniforms = Object.assign({}, base.uniforms, { visualRange: { value: new THREE.Vector2(far, width) } });
+  m.fragmentShader = 'uniform vec2 visualRange;\n' + base.fragmentShader.replace('void main() {', `void main() {
+    float vf = smoothstep(visualRange.x - visualRange.y, visualRange.x, distance(vW.xz, fogC.xz));
+    float vn = fract(sin(dot(floor(vW * 2.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    if (vf > 0.0 && (vf >= 1.0 || vn < vf)) discard;`);
+  return m;
+}
+
 // ---------------- the numbers that are the first-person view's own ----------------
-const EYE = 35, TREE_K = 1.75, ROCK_K = 1.5, VIEW = 950, VIEW_ISO = 1500;
+const EYE = 35, TREE_K = 1.75, ROCK_K = 1.5, VIEW = 1900, VIEW_ISO = 3000;
 const drawR = () => SET.view === 'iso' ? VIEW_ISO : VIEW;   // how far the woods are drawn: further from above, where you see more of them
+// Visual ranges only; interaction, collision, AI and audio distances keep their existing rules.
+const VIS = { plants: 940, plantFade: 120, decorLoad: 1120, nodes: 1080, drops: 1200, builds: 1240, buildCache: 192, preload: 260, worldStep: 70 };
 const FOE_SIZE = 1;   // figures are drawn at the game's own heights
 
 // ---------------- renderer ----------------
@@ -34,7 +46,7 @@ renderer.autoClear = false;
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;   // colours pass straight through, as in the 2D game
 const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
 const scene = new THREE.Scene(), vmScene = new THREE.Scene();
-const cam = new THREE.PerspectiveCamera(70, 1, 2, 1400), vmCam = new THREE.PerspectiveCamera(58, 1, 0.5, 100);
+const cam = new THREE.PerspectiveCamera(70, 1, 2, VIEW + 500), vmCam = new THREE.PerspectiveCamera(58, 1, 0.5, 100);
 cam.rotation.order = 'YXZ';
 const QCAP = TOUCH ? Math.min(DPR, 1.6) : Math.min(DPR, 2);
 let pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.5);
@@ -66,7 +78,7 @@ const LU = {
   sunDir: { value: new V3(-0.4, 0.75, -0.5).normalize() }, sunK: { value: 1 },
   shMap: { value: null }, shM: { value: new M4() }, shP: { value: new V4(0, 1 / 2048, 0.002, 0) }, shC: { value: new V4(0, 0, 1, 0) },
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
-  fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(420, 950) },
+  fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(840, VIEW) },
   landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
@@ -307,7 +319,11 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
 
 // ---------------- the ground ----------------
 {
-  const g = new THREE.PlaneGeometry(3400, 3400, 340, 340); g.rotateX(-Math.PI / 2);   // follows you, in 10-unit steps (90-main)
+  // Keep the original 10-unit ground grid underfoot; add a coarser outer apron.
+  const rim = 38, steps = 340 + rim * 2, g = new THREE.PlaneGeometry(1, 1, steps, steps);
+  const axis = i => i < rim ? -3600 + i * 50 : i <= rim + 340 ? -1700 + (i - rim) * 10 : 1700 + (i - rim - 340) * 50;
+  for (let j = 0; j <= steps; j++) for (let i = 0; i <= steps; i++) g.attributes.position.setXY(j * (steps + 1) + i, axis(i), -axis(j));
+  g.rotateX(-Math.PI / 2);   // follows you, in 10-unit steps (90-main)
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,

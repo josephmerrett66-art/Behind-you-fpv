@@ -6458,9 +6458,21 @@ try { Object.assign(SET, JSON.parse(localStorage.getItem('behind-you-fp') || '{}
 const saveSet = () => { try { localStorage.setItem('behind-you-fp', JSON.stringify(SET)); } catch (e) {} };
 COLOUR = SET.colour !== false;
 
+// A stable world-space dither removes distant details gradually without transparent sorting.
+function rangeMaterial(base, far, width = 120) {
+  const m = base.clone(); m.uniforms = Object.assign({}, base.uniforms, { visualRange: { value: new THREE.Vector2(far, width) } });
+  m.fragmentShader = 'uniform vec2 visualRange;\n' + base.fragmentShader.replace('void main() {', `void main() {
+    float vf = smoothstep(visualRange.x - visualRange.y, visualRange.x, distance(vW.xz, fogC.xz));
+    float vn = fract(sin(dot(floor(vW * 2.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    if (vf > 0.0 && (vf >= 1.0 || vn < vf)) discard;`);
+  return m;
+}
+
 // ---------------- the numbers that are the first-person view's own ----------------
-const EYE = 35, TREE_K = 1.75, ROCK_K = 1.5, VIEW = 950, VIEW_ISO = 1500;
+const EYE = 35, TREE_K = 1.75, ROCK_K = 1.5, VIEW = 1900, VIEW_ISO = 3000;
 const drawR = () => SET.view === 'iso' ? VIEW_ISO : VIEW;   // how far the woods are drawn: further from above, where you see more of them
+// Visual ranges only; interaction, collision, AI and audio distances keep their existing rules.
+const VIS = { plants: 940, plantFade: 120, decorLoad: 1120, nodes: 1080, drops: 1200, builds: 1240, buildCache: 192, preload: 260, worldStep: 70 };
 const FOE_SIZE = 1;   // figures are drawn at the game's own heights
 
 // ---------------- renderer ----------------
@@ -6474,7 +6486,7 @@ renderer.autoClear = false;
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;   // colours pass straight through, as in the 2D game
 const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
 const scene = new THREE.Scene(), vmScene = new THREE.Scene();
-const cam = new THREE.PerspectiveCamera(70, 1, 2, 1400), vmCam = new THREE.PerspectiveCamera(58, 1, 0.5, 100);
+const cam = new THREE.PerspectiveCamera(70, 1, 2, VIEW + 500), vmCam = new THREE.PerspectiveCamera(58, 1, 0.5, 100);
 cam.rotation.order = 'YXZ';
 const QCAP = TOUCH ? Math.min(DPR, 1.6) : Math.min(DPR, 2);
 let pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.5);
@@ -6506,7 +6518,7 @@ const LU = {
   sunDir: { value: new V3(-0.4, 0.75, -0.5).normalize() }, sunK: { value: 1 },
   shMap: { value: null }, shM: { value: new M4() }, shP: { value: new V4(0, 1 / 2048, 0.002, 0) }, shC: { value: new V4(0, 0, 1, 0) },
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
-  fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(420, 950) },
+  fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(840, VIEW) },
   landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
@@ -6747,7 +6759,11 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
 
 // ---------------- the ground ----------------
 {
-  const g = new THREE.PlaneGeometry(3400, 3400, 340, 340); g.rotateX(-Math.PI / 2);   // follows you, in 10-unit steps (90-main)
+  // Keep the original 10-unit ground grid underfoot; add a coarser outer apron.
+  const rim = 38, steps = 340 + rim * 2, g = new THREE.PlaneGeometry(1, 1, steps, steps);
+  const axis = i => i < rim ? -3600 + i * 50 : i <= rim + 340 ? -1700 + (i - rim) * 10 : 1700 + (i - rim - 340) * 50;
+  for (let j = 0; j <= steps; j++) for (let i = 0; i <= steps; i++) g.attributes.position.setXY(j * (steps + 1) + i, axis(i), -axis(j));
+  g.rotateX(-Math.PI / 2);   // follows you, in 10-unit steps (90-main)
   const m = new THREE.ShaderMaterial({
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
@@ -7125,11 +7141,12 @@ class Board {
           vNear = vec3(near > 0.0 && iDim.y * s > 70.0 ? clamp((d - near) / (near * 0.9), 0.0, 1.0) : 1.0, abs(lx) / s, ly / s);   // right beside a tree, all but its trunk melts away so it never fills the screen
           gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
         }`,
-      fragmentShader: LIGHT_GLSL + `uniform sampler2D map; varying vec2 vUv; varying vec3 vW; varying vec3 vNear; varying vec2 vSh;
+      fragmentShader: LIGHT_GLSL + `uniform sampler2D map; uniform float cull; varying vec2 vUv; varying vec3 vW; varying vec3 vNear; varying vec2 vSh;
         void main() {
           vec4 t = texture2D(map, vUv);
           float trunk = (vNear.y < 7.0 && vNear.z < 34.0) ? 1.0 : 0.0;
           float keep = max(vNear.x, trunk) * vSh.x;
+          keep *= 1.0 - smoothstep(cull - 120.0, cull, distance(vW.xz, fogC.xz));
           #ifdef A2C
             t.a *= keep * keep;
             if (t.a < 0.08) discard;
@@ -7157,7 +7174,7 @@ class Board {
     for (const k of ['iPos', 'iRect', 'iDim', 'iMisc']) { const a = this.g.attributes[k]; a.needsUpdate = true; if (a.clearUpdateRanges) { a.clearUpdateRanges(); a.addUpdateRange(0, this.n * 4); } else { a.updateRange.offset = 0; a.updateRange.count = this.n * 4; } }
   }
 }
-const tallB = new Board(2600, VIEW, 30, false), coverB = new Board(6000, 420, 0, true), plantB = new Board(6000, 420, 0, true), bushB = new Board(2000, 420, 0, true), nearB = new Board(900, 300, 0, true);
+const tallB = new Board(10400, VIEW, 30, false), coverB = new Board(24000, 840, 0, true), plantB = new Board(24000, 840, 0, true), bushB = new Board(8000, 840, 0, true), nearB = new Board(3600, 600, 0, true);
 
 // ---------------- the kit: solid things built from simple shapes, with the game's dark outline round them ----------------
 // Shapes are baked into one mesh per batch (vertex colours), drawn twice: once lit, once as a slightly fatter dark shell.
@@ -7521,7 +7538,7 @@ function pondPiece(P) {   // a pond's own meshes: a sheet at the water's level o
 }
 let pondMore = false, pondUse = 0;
 function pondsSync(px, py) {
-  const L = lakesNear(px, py, drawR() + 100), key = L.map(P => P.x | 0).join();
+  const L = lakesNear(px, py, drawR() + VIS.preload + 180), key = L.map(P => P.x | 0).join();
   if (key === pondKey) return L;
   // Each pond is built the first time it comes near and kept as its own meshes, so walking on past ponds only shows and hides
   // them. Far ones are built one a frame (worldSync calls again while pondMore): they come in out past the haze, and building
@@ -7572,12 +7589,14 @@ function worldSync(force) {
   if (!staticK) { const K = new Kit(); campKit(K); staticK = new KitMesh(); staticK.set(K); }
   const gen = D.felled.size * 7 + D.nodes.size * 3 + (D.bchunks ? D.bchunks.size : 0);
   if (pondMore) pondsSync(p.x, p.y);   // ponds still to build, one a frame
-  if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < 70 && gen === WORLD.gen && drawR() === WORLD.vr) return;
+  if (!force && !worldDirty && Math.hypot(p.x - WORLD.x, p.y - WORLD.y) < VIS.worldStep && gen === WORLD.gen && drawR() === WORLD.vr) return;
   WORLD.x = p.x; WORLD.y = p.y; WORLD.gen = gen; WORLD.vr = drawR(); worldDirty = false;
+  // Terrain fields must be current before caching instance base heights.
+  terrLevelSync(p.x, p.y, WORLD.lakes);
   // trees, rocks, posts
   tallB.begin(); treesBegin(); propsW.begin(); shN = 0;
-  const props = propsNear(p.x, p.y, drawR() + 60); WORLD.props = props;
-  const far2 = (drawR() + 60) ** 2;   // propsNear gives a square: its corners are past the haze, so they're left undrawn
+  const props = propsNear(p.x, p.y, drawR() + VIS.preload); WORLD.props = props;
+  const far2 = (drawR() + VIS.preload) ** 2;   // propsNear gives a square: its corners are past the haze, so they're left undrawn
   for (const o of props) {
     if ((o.x - p.x) ** 2 + (o.y - p.y) ** 2 > far2) continue;
     if (o.kind === 'tree') {
@@ -7595,8 +7614,8 @@ function worldSync(force) {
   // ground cover
   // plants are single pictures turned to face you; flowers sit low and small among the turf, bushes a little smaller than the main game's
   coverB.begin(); plantB.begin(); bushB.begin();
-  for (const d of decorNear(p.x, p.y, 430)) {
-    if ((d.x - p.x) ** 2 + (d.y - p.y) ** 2 > 450 * 450) continue;   // round you, not the square decorNear gives (its corners are past where plants fade)
+  for (const d of decorNear(p.x, p.y, VIS.decorLoad)) {
+    if ((d.x - p.x) ** 2 + (d.y - p.y) ** 2 > VIS.decorLoad * VIS.decorLoad) continue;   // round you, not the square decorNear gives (its corners are past where plants fade)
     const k = d.dk === 'log' ? 'log' : d.dk;
     if (!ATLAS.meta[k] && !PROP_KIND[k]) continue;   // (a sapling has only its model, no picture)
     if (k === 'log') {   // a fallen log lies flat on the ground as a solid log, with a broken branch or two
@@ -7619,7 +7638,11 @@ function worldSync(force) {
 const TREE_R3D = 1e9, TREE_NV = 3;   // every tree solid, near or far
 const treeMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
-  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
+  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; uniform vec3 fogC;
+      #ifdef USE_INSTANCING
+        attribute float baseHeight;
+      #endif
+      varying float vTreeD; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
     void main() {
       mat4 im = modelMatrix;
       #ifdef USE_INSTANCING
@@ -7627,8 +7650,16 @@ const treeMat = new THREE.ShaderMaterial({
       #endif
       vec4 w = im * vec4(position, 1.0);
       float k = max(0.0, position.y - 24.0) / 90.0, ph = im[3].x * 0.013 + im[3].z * 0.017;   // the crown sways in the breeze, the trunk stands
-      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0; w.y += terrH(im[3].xz);
-      vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
+      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0;
+      #ifdef USE_INSTANCING
+        #ifdef CAVES
+          if (im[3].x > ${CAVE_X0.toFixed(1)}) w.y += terrH(im[3].xz); else
+        #endif
+        w.y += baseHeight;
+      #else
+        w.y += terrH(im[3].xz);
+      #endif
+      vTreeD = distance(im[3].xz, fogC.xz); vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
   fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
@@ -7693,6 +7724,29 @@ const P_TIER = (k = 0, lo = false) => prim('tier' + k + (lo ? 'lo' : ''), () => 
   }
   g.translate(0, 0.5, 0); g.computeVertexNormals(); return g;
 });
+
+// Share identical model vertices, preserving every attribute bit-for-bit. The GPU then runs
+// terrain/wind/lighting setup once per shared vertex rather than for every triangle corner.
+function indexModel(g) {
+  const entries=Object.entries(g.attributes),n=g.attributes.position.count;
+  const bits=entries.map(([,a])=>new Uint32Array(a.array.buffer,a.array.byteOffset,a.array.length));
+  const heads=new Map(),next=[],original=[],indices=new Uint32Array(n);
+  for(let i=0;i<n;i++){
+    let hash=2166136261;
+    for(let a=0;a<entries.length;a++){const w=entries[a][1].itemSize;for(let k=0;k<w;k++)hash=Math.imul(hash^bits[a][i*w+k],16777619);}
+    let found=-1;
+    for(let j=heads.get(hash);j!==undefined&&j>=0;j=next[j]){
+      const other=original[j];let same=true;
+      for(let a=0;a<entries.length&&same;a++){const w=entries[a][1].itemSize;for(let k=0;k<w;k++)if(bits[a][i*w+k]!==bits[a][other*w+k]){same=false;break;}}
+      if(same){found=j;break;}
+    }
+    if(found<0){found=original.length;original.push(i);next.push(heads.get(hash)??-1);heads.set(hash,found);}
+    indices[i]=found;
+  }
+  for(const [name,a] of entries){const out=new a.array.constructor(original.length*a.itemSize);for(let j=0;j<original.length;j++)out.set(a.array.subarray(original[j]*a.itemSize,(original[j]+1)*a.itemSize),j*a.itemSize);g.setAttribute(name,new THREE.BufferAttribute(out,a.itemSize,a.normalized));}
+  g.setIndex(new THREE.BufferAttribute(original.length<=65535?new Uint16Array(indices):indices,1));
+  return g;
+}
 
 function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own units (a pine is about 112 high), its foot at the origin
   let s = 977 + vi * 131 + kind.length * 17; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
@@ -7769,7 +7823,7 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
     for (let i = 0; i < 4; i++) fork(0, 26 + i * 7, 0, i * 1.7 + R(), 0.35 + R() * 0.4, 20 + R() * 8, 1.25, 2);
     K.mt = null;
   }
-  return K.geometry();
+  return indexModel(K.geometry());
 }
 
 // one instanced draw (and its outline) per kind and way of building it
@@ -7777,23 +7831,48 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
 // seen from above, fade where they'd hide you; then the same trees drawn solid; then past TREE_LOD the plainer far-off
 // form, solid too. A shader that can throw away a pixel stops a phone skipping the hidden surfaces behind it, which in a
 // stand of trees is most of them, so only the few trees near enough to need it get that shader
-const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 700, TREE_LOD = 400, TREE_NEAR = 120;
+const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 2800, TREE_LOD = 800, TREE_LOD_END = 1000, TREE_NEAR = 120;
 const treeMatSolid = (() => {
   const a = 'if (occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;', b = 'if (d < 34.0 && dz > smoothstep(16.0, 34.0, d)) discard;';
   if (!treeMat.fragmentShader.includes(a) || !treeMat.fragmentShader.includes(b)) throw new Error('treeMatSolid: the tree shader changed');
   return new THREE.ShaderMaterial({ uniforms: treeMat.uniforms, vertexShader: treeMat.vertexShader, fragmentShader: treeMat.fragmentShader.replace(a, '').replace(b, '') });
 })();
+// Load both forms before the transition, then crossfade them per pixel as the player moves.
+function treeLodMaterial(high) {
+  const m = treeMatSolid.clone(); m.uniforms = treeMatSolid.uniforms;
+  m.fragmentShader = 'varying float vTreeD;\n' + treeMatSolid.fragmentShader.replace('void main() {', `void main() {
+    float lf = smoothstep(${TREE_LOD.toFixed(1)}, ${TREE_LOD_END.toFixed(1)}, vTreeD);
+    float ln = fract(sin(dot(floor(vW * 2.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    if (${high ? 'ln < lf || lf >= 1.0' : 'ln >= lf'}) discard;`);
+  return m;
+}
+const treeLodHigh = treeLodMaterial(true), treeLodLow = treeLodMaterial(false);
+const TREE_SHADOWS = {};
 const TREES = {};
 for (const k of TREE_KINDS) TREES[k] = [];
 let treesBuilt = false;
+function terrainInstanceGeometry(base, capacity) {
+  const g = new THREE.BufferGeometry();
+  for (const k in base.attributes) g.setAttribute(k, base.attributes[k]);
+  if (base.index) g.setIndex(base.index);
+  g.setAttribute('baseHeight', new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1).setUsage(THREE.DynamicDrawUsage));
+  g.boundingSphere = base.boundingSphere;
+  return g;
+}
 function treesBuild() {
   treesBuilt = true;
-  for (const k of TREE_KINDS) { const G = [];
-    for (let v = 0; v < TREE_NV * 3; v++) {   // TREES[k]: each way of building it up close, then solid, then far off
-    const band = Math.floor(v / TREE_NV), g = band === 1 ? G[v % TREE_NV] : (G[v] = treeModel(k, v % TREE_NV, band === 2)), m = new THREE.InstancedMesh(g, band ? treeMatSolid : treeMat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
-    m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
-    TREES[k].push({ m, e, list: [] });
-  } }
+  for (const k of TREE_KINDS) { const high = [], low = [];
+    for (let v = 0; v < TREE_NV * 5; v++) {
+      const band = Math.floor(v / TREE_NV), vi = v % TREE_NV;
+      const g = band < 3 ? (high[vi] || (high[vi] = treeModel(k, vi, false))) : (low[vi] || (low[vi] = treeModel(k, vi, true)));
+      const mat = [treeMat, treeMatSolid, treeLodHigh, treeLodLow, treeMatSolid][band];
+      const m = new THREE.InstancedMesh(terrainInstanceGeometry(g, TREE_CAP), mat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
+      TREES[k].push({ m, e, band, list: [] });
+    }
+    TREE_SHADOWS[k] = low.map(g => { const m = new THREE.InstancedMesh(g, SUN.mat, TREE_CAP); m.layers.set(1); m.count = 0; m.frustumCulled = false; m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(m); return { m, n: 0 }; });
+  }
 }
 const _tm = new M4(), _tq = new THREE.Quaternion(), _tq2 = new THREE.Quaternion(), _te = new THREE.Euler(), _tp = new V3(), _ts = new V3(), _tax = new V3();
 function treeMatrix(o, tilt, ta) {
@@ -7805,21 +7884,68 @@ function treeMatrix(o, tilt, ta) {
 function treesBegin() { if (!treesBuilt) treesBuild(); for (const k of TREE_KINDS) for (const B of TREES[k]) B.list.length = 0; }
 function treeAdd(o, kind, d) {   // near enough to stand solid? then it's ours, not a picture
   if (d > TREE_R3D) return false;
-  const near = isoP() ? TREE_LOD : TREE_NEAR;   // (from above, any tree might stand between you and the camera)
-  const B = TREES[kind][(o.seed * 997 | 0) % TREE_NV + (d > TREE_LOD ? 2 : d > near ? 1 : 0) * TREE_NV]; if (B.list.length >= TREE_CAP) return false;
-  B.list.push(o); return true;
+  const near = isoP() ? TREE_LOD : TREE_NEAR, vi = (o.seed * 997 | 0) % TREE_NV;
+  const add = band => { const B = TREES[kind][vi + band * TREE_NV]; if (B.list.length < TREE_CAP) B.list.push(o); };
+  const margin = VIS.worldStep + 10;
+  if (d < TREE_LOD - margin) add(d > near ? 1 : 0);
+  else if (d <= TREE_LOD_END + margin) { add(2); add(3); }
+  else add(4);
+  return true;
+}
+function treeUpload(B, count) {
+  if (!count) return;
+  const a = B.m.instanceMatrix; a.needsUpdate = true;
+  if (a.clearUpdateRanges) { a.clearUpdateRanges(); if (count) a.addUpdateRange(0, count * 16); }
+  else { a.updateRange.offset = 0; a.updateRange.count = count * 16; }
+  const h = B.m.geometry.attributes.baseHeight;
+  if (h) { h.needsUpdate = true; if (h.clearUpdateRanges) { h.clearUpdateRanges(); h.addUpdateRange(0, count); } else { h.updateRange.offset = 0; h.updateRange.count = count; } }
+}
+// Keep full model data on the CPU, uploading only instances in view or needed by nearby shadows.
+const INSTANCE_VIEW = new THREE.Frustum(), INSTANCE_M = new M4(), INSTANCE_SPHERE = new THREE.Sphere();
+let instanceCulling = true;
+function instanceView() { cam.updateMatrixWorld(); INSTANCE_M.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); INSTANCE_VIEW.setFromProjectionMatrix(INSTANCE_M); }
+function instanceSource(B) {
+  if (!B.source) { B.source = new Float32Array(B.m.instanceMatrix.array.length); B.heights = new Float32Array(B.m.instanceMatrix.count); B.selected = []; }
+}
+function instanceCompact(B) {
+  instanceSource(B);
+  const g = B.m.geometry; if (!g.boundingSphere) g.computeBoundingSphere();
+  const c = g.boundingSphere.center, radius = g.boundingSphere.radius, a = B.source, selected = [];
+  for (let i = 0; i < B.n; i++) {
+    const j = i * 16;
+    INSTANCE_SPHERE.center.set(a[j]*c.x+a[j+4]*c.y+a[j+8]*c.z+a[j+12], a[j+1]*c.x+a[j+5]*c.y+a[j+9]*c.z+a[j+13]+B.heights[i], a[j+2]*c.x+a[j+6]*c.y+a[j+10]*c.z+a[j+14]);
+    INSTANCE_SPHERE.radius = radius * Math.max(Math.hypot(a[j],a[j+1],a[j+2]),Math.hypot(a[j+4],a[j+5],a[j+6]),Math.hypot(a[j+8],a[j+9],a[j+10])) + 24;
+    if (!instanceCulling || S.p.x >= CAVE_X0 || i < (B.keepShadow || 0) || INSTANCE_VIEW.intersectsSphere(INSTANCE_SPHERE)) selected.push(i);
+  }
+  const changed = B.dirty || selected.length !== B.selected.length || selected.some((v,i)=>v!==B.selected[i]);
+  if (changed) {
+    const out=B.m.instanceMatrix.array,h=g.attributes.baseHeight;
+    for(let j=0;j<selected.length;j++){const i=selected[j];out.set(a.subarray(i*16,i*16+16),j*16);h.setX(j,B.heights[i]);}
+    treeUpload(B,selected.length); B.selected=selected; B.dirty=false;
+  }
+  B.m.count=selected.length;if(B.e)B.e.count=selected.length;
 }
 function treesEnd() {
+  const px=S.p.x,py=S.p.y,SR=shadowReach()**2,unique=new Set();
+  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k])B.n=0;
   for (const k of TREE_KINDS) for (const B of TREES[k]) {
-    // nearest first, so the sun's pass can draw only those inside its map (sunShadows): the far woods cast nothing you could see
-    const px = S.p.x, py = S.p.y, d2 = o => (o.x - px) * (o.x - px) + (o.y - py) * (o.y - py), SR = shadowReach() ** 2;
-    B.list.sort((a, b) => d2(a) - d2(b)); B.shN = 0; while (B.shN < B.list.length && d2(B.list[B.shN]) < SR) B.shN++;
-    B.list.forEach((o, i) => B.m.setMatrixAt(i, treeMatrix(o, 0)));
-    B.m.count = B.e.count = B.list.length; B.m.instanceMatrix.needsUpdate = true;
+    instanceSource(B);
+    const d2=o=>(o.x-px)**2+(o.y-py)**2;
+    B.list.sort((a,b)=>d2(a)-d2(b)); B.shN=0;
+    for(let i=0;i<B.list.length;i++){
+      const o=B.list[i],d=d2(o);treeMatrix(o,0).toArray(B.source,i*16);B.heights[i]=terrH(o.x,o.y);
+      if(B.band<2&&d<=400**2)B.shN=i+1;
+      if(d>400**2&&d<SR&&!unique.has(o)){
+        unique.add(o);const vi=(o.seed*997|0)%TREE_NV,Q=TREE_SHADOWS[k][vi];if(Q.n<TREE_CAP)Q.m.setMatrixAt(Q.n++,treeMatrix(o,0));
+      }
+    }
+    B.n=B.list.length;B.keepShadow=B.shN;B.dirty=true;instanceCompact(B);
   }
+  for(const k of TREE_KINDS)for(const B of TREE_SHADOWS[k]){B.m.count=B.n;treeUpload(B,B.n);}
 }
 // each frame: a tree you're chopping shudders with each blow
 function treesFrame() {
+  instanceView();
   if (!treesBuilt) return;
   for (const k of TREE_KINDS) for (const B of TREES[k]) {
     let dirty = false;
@@ -7827,18 +7953,18 @@ function treesFrame() {
       const t = S.t - (o.shakeT ?? -99); if (t > 0.7 && !o.fpShook) return;
       o.fpShook = t <= 0.7;
       const a = Math.atan2(o.y - S.p.y, o.x - S.p.x), tilt = t <= 0.7 ? Math.sin(t * 34) * Math.exp(-t * 6) * 0.05 : 0;
-      B.m.setMatrixAt(i, treeMatrix(o, tilt, a)); dirty = true;
+      treeMatrix(o, tilt, a).toArray(B.source, i * 16); dirty = true;
     });
     B.n = B.list.length;
-    if (dirty) B.m.instanceMatrix.needsUpdate = true;
+    if (dirty) B.dirty = true;
   }
   // the tree you just felled topples away from you, solid, the same tree it was
   for (const g of S.day.logs) if (g.kind === 'poof') {
     const kind = kindOfTree(g), B = TREES[kind][(g.seed * 997 | 0) % TREE_NV]; if (B.n >= TREE_CAP) continue;
     const u = Math.min(1, g.t / (g.T || POOF_T)), a = g.fa ?? (g.fa = Math.atan2(g.y - S.p.y, g.x - S.p.x));
-    B.m.setMatrixAt(B.n++, treeMatrix(g, u * u * 1.5, a)); B.m.instanceMatrix.needsUpdate = true;
+    B.heights[B.n] = terrH(g.x, g.y); treeMatrix(g, u * u * 1.5, a).toArray(B.source, B.n++ * 16); B.dirty = true;
   }
-  for (const k of TREE_KINDS) for (const B of TREES[k]) if (B.m.count !== B.n) { B.m.count = B.e.count = B.n; B.m.instanceMatrix.needsUpdate = true; }
+  for (const k of TREE_KINDS) for (const B of TREES[k]) instanceCompact(B);
 }
 
 ;
@@ -7847,22 +7973,22 @@ function treesFrame() {
 // horizon, blending into each other so there's no edge to see. Each blade keeps its own spot in the world (a field wraps
 // round as you walk, so nothing slides or pops underfoot), and blades thin out and shrink smoothly with distance.
 // A top-down mask keeps it off ponds, floors you've laid, fire pits and tent floors.
-const GR_N = 100000, GR_RINGS = [120, 360, 1080], GM_N = 512, GM_S = 2400;
+const GR_N = 100000, GR_RINGS = [120, 360, 1080, 2160], GM_N = 1024, GM_S = 4800;
 const grassMaskData = new Uint8Array(GM_N * GM_N).fill(255);
 const grassMaskTex = new THREE.DataTexture(grassMaskData, GM_N, GM_N, THREE.RedFormat, THREE.UnsignedByteType);
 grassMaskTex.magFilter = grassMaskTex.minFilter = THREE.LinearFilter; grassMaskTex.needsUpdate = true;
 const grassU = { mask: { value: grassMaskTex }, mo: { value: new THREE.Vector2(-GM_S / 2, -GM_S / 2) }, ms: { value: GM_S }, gmap: { value: floorTex } };
 const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos; uniform float time, ms, ring; uniform vec2 mo; uniform sampler2D mask;
   varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
-  const float R0 = ${GR_RINGS[0].toFixed(1)}, R1 = ${GR_RINGS[1].toFixed(1)}, R2 = ${GR_RINGS[2].toFixed(1)};
+  const float R0 = ${GR_RINGS[0].toFixed(1)}, R1 = ${GR_RINGS[1].toFixed(1)}, R2 = ${GR_RINGS[2].toFixed(1)}, R3 = ${GR_RINGS[3].toFixed(1)};
   float fin(float R, float d) { return smoothstep(R, R * 0.7, d); }   // 1 well inside a field, 0 at its edge
   void main() {
-    float R = ring < 0.5 ? R0 : ring < 1.5 ? R1 : R2;
+    float R = ring < 0.5 ? R0 : ring < 1.5 ? R1 : ring < 2.5 ? R2 : R3;
     vec2 rt = camPos.xz + mod(bd.xy * R - camPos.xz + R, 2.0 * R) - R;   // its own spot in the world, the nearest copy to you
     float d = distance(rt, camPos.xz);
     // how thick the turf is out here, and this field's share of it: the shares add to one, so the fields meet without a seam
     float want = min(1.0, pow(40.0 / max(d, 1.0), 2.0)), dens = pow(R / R0, 2.0);
-    float share = ring < 0.5 ? fin(R0, d) : ring < 1.5 ? fin(R1, d) - fin(R0, d) : fin(R2, d) - fin(R1, d);
+    float share = ring < 0.5 ? fin(R0, d) : ring < 1.5 ? fin(R1, d) - fin(R0, d) : ring < 2.5 ? fin(R2, d) - fin(R1, d) : fin(R3, d) - fin(R2, d);
     float m = texture2D(mask, (rt - mo) / ms).r;
     float k = (bd.w < want * dens * share ? 1.0 : 0.0) * smoothstep(0.35, 0.7, m) * step(0.5, coastGrass(rt));
     vS = vec4(0.0);
@@ -8033,7 +8159,7 @@ const PROP_PC = { value: new V3() };
 // the trees' own paint and light, with a gentler sway for things this small and a soft edge round you
 function propMats(sway, cullR) {
   const sw = `position.y * ${sway.toFixed(4)}`, cut = `uniform vec3 pc; uniform float cullR;
-    void main() { if (cullR > 0.0 && distance(vW.xz, pc.xz) > cullR - 60.0 * fract(sin(dot(gl_FragCoord.xy, vec2(41.31, 17.93))) * 4375.85)) discard;`;
+    void main() { if (cullR > 0.0 && distance(vW.xz, pc.xz) > cullR - 120.0 * fract(sin(dot(gl_FragCoord.xy, vec2(41.31, 17.93))) * 4375.85)) discard;`;
   const uni = () => Object.assign({}, LU, { pc: PROP_PC, cullR: { value: cullR } });
   const m = new THREE.ShaderMaterial({ uniforms: uni(), vertexShader: treeMat.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeMat.fragmentShader.replace('void main() {', cut) });
   const e = new THREE.ShaderMaterial({ uniforms: uni(), side: THREE.BackSide, vertexShader: treeEdge.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeEdge.fragmentShader.replace('void main() {', cut) });
@@ -8041,7 +8167,7 @@ function propMats(sway, cullR) {
 }
 const PROP_MAT = { still: null, plant: null, grass: null, sap: null };
 function propMat(k) {
-  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, 470); PROP_MAT.grass = propMats(0.035, 470); PROP_MAT.sap = propMats(0.011, 470); }
+  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, VIS.plants); PROP_MAT.grass = propMats(0.035, VIS.plants); PROP_MAT.sap = propMats(0.011, VIS.plants); }
   return PROP_MAT[k];
 }
 
@@ -8246,19 +8372,25 @@ function propModel(kind, vi) {
       for (let i = 0; i < 3; i++) { const q = a + i * 2.1; K.add(P_PEA(7, 5), cx + Math.cos(q) * 1.6, cy + (i - 1) * 1.2, cz + Math.sin(q) * 1.6, 3.4, 3.4, 3.4, hex(i === 1 ? '#a8182c' : '#dc2c3c'), 0, 0, 0, 0.12); }
     }
   } else return null;
-  return K.geometry();
+  return indexModel(K.geometry());
 }
 
 // one instanced draw (and its outline) per kind and way of building it; a set for the woods, and one for what you gather
 class PropSet {
-  constructor(cap) { this.cap = cap; this.k = {}; }
+  constructor(cap, range = 0) { this.cap = cap; this.k = {}; this.range = range; this.materials = {}; }
   _kind(kind) {
     let L = this.k[kind]; if (L !== undefined) return L;
     const P = PROP_KIND[kind]; if (!P) return (this.k[kind] = null);
-    const M = propMat(P.mat); L = [];
+    let M = propMat(P.mat);
+    const range = this.range || (['log', 'pebbles', 'shrooms'].includes(kind) ? VIS.plants : 0);
+    if (range) {
+      if (!this.materials[P.mat]) { const m = M.m.clone(); m.uniforms = Object.assign({}, M.m.uniforms, { cullR: { value: range } }); this.materials[P.mat] = { m, e: M.e }; }
+      M = this.materials[P.mat];
+    }
+    L = [];
     for (let v = 0; v < P.n; v++) {
-      const g = propModel(kind, v), m = new THREE.InstancedMesh(g, M.m, 1);   // made for one, then given room for cap: three sets every slot to a matrix as it makes one,
-      m.instanceMatrix = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 16), 16);   // and fifty shapes of rock at 2400 each was a tenth of a second the first time one came in sight
+      const g = propModel(kind, v), m = new THREE.InstancedMesh(terrainInstanceGeometry(g, this.cap), M.m, 1);   // made for one, then given room for cap: three sets every slot to a matrix as it makes one,
+      m.instanceMatrix = new THREE.InstancedBufferAttribute(new Float32Array(this.cap * 16), 16).setUsage(THREE.DynamicDrawUsage);   // and fifty shapes of rock at 2400 each was a tenth of a second the first time one came in sight
       m.count = 0; m.frustumCulled = false; scene.add(P.shadow ? castsShadow(m) : m);
       let e = null; if (P.edge) { e = new THREE.InstancedMesh(g, M.e, 1); e.count = 0; e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(e); }
       L.push({ m, e, n: 0, items: [], shN: 0, shadow: P.shadow });
@@ -8274,20 +8406,21 @@ class PropSet {
     const st = S.t - shakeT; if (st >= 0 && st < 0.45) { _tq2.setFromAxisAngle(_tax.set(Math.sin(seed * 9), 0, Math.cos(seed * 9)), Math.sin(st * 30) * 0.12 * (1 - st / 0.45)); _tq.premultiply(_tq2); }
     const M = _tm.compose(_tp.set(x, 0, y), _tq, _ts.set(s, s, s)), d = (x - S.p.x) ** 2 + (y - S.p.y) ** 2;
     let it = B.items[B.n]; if (!it) it = B.items[B.n] = { d: 0, m: new Float32Array(16) };
-    it.d = d; M.toArray(it.m); B.n++;
+    it.d = d; it.h = terrH(x, y); M.toArray(it.m); B.n++;
     return true;
   }
   end() {   // nearest first, so the sun's pass can draw only those inside its map
     const SR = shadowReach() ** 2;
     for (const kind in this.k) if (this.k[kind]) for (const B of this.k[kind]) {
-      const L = B.items.slice(0, B.n).sort((a, b) => a.d - b.d), arr = B.m.instanceMatrix.array; B.shN = 0;
-      for (let i = 0; i < L.length; i++) { arr.set(L[i].m, i * 16); if (L[i].d < SR) B.shN = i + 1; }
-      B.m.count = B.n; if (B.e) B.e.count = B.n; B.m.instanceMatrix.needsUpdate = true;
+      instanceSource(B);
+      const L = B.items.slice(0, B.n).sort((a, b) => a.d - b.d), arr = B.source; B.shN = 0;
+      for (let i = 0; i < L.length; i++) { arr.set(L[i].m, i * 16); B.heights[i] = L[i].h; if (L[i].d < SR) B.shN = i + 1; }
+      B.keepShadow = B.shadow ? B.shN : 0; B.dirty = true; instanceCompact(B);
     }
   }
 }
-const propsW = new PropSet(2400), propsN = new PropSet(300);
-function propsFrame() { PROP_PC.value.set(S.p.x, 0, S.p.y); }
+const propsW = new PropSet(9600), propsN = new PropSet(1200, VIS.nodes);
+function propsFrame() { PROP_PC.value.set(S.p.x, 0, S.p.y); for (const P of [propsW, propsN]) for (const k in P.k) if(P.k[k]) for(const B of P.k[k]) instanceCompact(B); }
 
 ;
 // ================= the sea round the island: its waves and foam, and the sound of it (Joe) =================
@@ -8435,7 +8568,7 @@ if (BEACH) {
 // shallows; low rocks; and tufts of marram grass where the woods give way to the dunes, leaning away from the wind off the sea.
 // Laid out in cells along the coast, the same every time you come back; the small things only near you.
 if (BEACH) {
-  const SH = { cell: 90, near: 560, step: 120 };
+  const SH = { cell: 90, near: 1120, step: 120 };
   // driftwood and rocks: inked like the logs in the woods, but only a little darker where they lie on the sand (all of a log
   // that low is "where it meets the ground", and it went dark grey instead of sea-bleached)
   const shoreK = new KitMesh(); castsShadow(shoreK.mesh);
@@ -8561,34 +8694,44 @@ if (BEACH) {
   // time cost a dropped frame)
   const ATT = [['position', 'pos', 3], ['normal', 'nor', 3], ['color', 'col', 3], ['em', 'em', 1], ['ew', 'ew', 1], ['gu', 'gu', 3], ['mt', 'mts', 1]];
   const pack = K => ({ n: K.em.length, a: ATT.map(([, f]) => new Float32Array(K[f])) });
-  function merge(list) {
-    const n = list.reduce((t, c) => t + c.n, 0);
-    return { geometry() {
-      const g = new THREE.BufferGeometry();
-      ATT.forEach(([name, , w], j) => { const a = new Float32Array(n * w); let o = 0; for (const c of list) { a.set(c.a[j], o); o += c.a[j].length; } g.setAttribute(name, new THREE.BufferAttribute(a, w)); });
-      return g;
-    } };
-  }
+  // Keep beach cells as resident batches; walking must not merge/upload the whole coast.
+  const shoreBatches = new Map(); shoreK.visible = shoreF.visible = false;
+  shoreF.mesh.material = rangeMaterial(shoreF.mesh.material, SH.near);
+  const cellMesh = (data, fine, id) => {
+    const g = new THREE.BufferGeometry();
+    ATT.forEach(([name,,w],j)=>g.setAttribute(name,new THREE.BufferAttribute(data.a[j],w)));
+    g.computeBoundingSphere(); if(g.boundingSphere)g.boundingSphere.radius+=128;
+    const m = new THREE.Mesh(g,fine?shoreF.mesh.material:shoreK.mesh.material);
+    m.frustumCulled=true;if(fine)m.renderOrder=1;else castsShadow(m);
+    m.userData.shoreCell=id;m.userData.fine=fine;scene.add(m);return m;
+  };
   function shoreSync() {
-    const p = S.p, vr = drawR(), key = Math.round(p.x / SH.step) + ',' + Math.round(p.y / SH.step) + ',' + vr;
-    if (key === shoreKey) return; shoreKey = key;
-    const BK = [], BF = []; budget = 4; let more = false;
-    if (coastS(p.x, p.y) > -vr - 400) {
-      const c0 = Math.floor((p.x - vr) / SH.cell), c1 = Math.floor((p.x + vr) / SH.cell), r0 = Math.floor((p.y - vr) / SH.cell), r1 = Math.floor((p.y + vr) / SH.cell);
-      const L = [];
-      for (let cj = r0; cj <= r1; cj++) for (let ci = c0; ci <= c1; ci++) {
-        const d = Math.hypot((ci + 0.5) * SH.cell - p.x, (cj + 0.5) * SH.cell - p.y); if (d > vr + 60) continue;
-        const s = coastS((ci + 0.5) * SH.cell, (cj + 0.5) * SH.cell); if (s < -330 || s > 150) continue;
-        L.push([d, ci, cj]);
-      }
-      L.sort((a, b) => a[0] - b[0]);   // nearest first
-      for (const [d, ci, cj] of L) {
-        const c = shoreCell(ci, cj); if (!c) { more = true; continue; }
-        BK.push(c.K); if (d < SH.near) BF.push(c.F);
+    const p=S.p,vr=drawR()+VIS.preload,key=Math.round(p.x/SH.step)+','+Math.round(p.y/SH.step)+','+vr;
+    if(key===shoreKey)return;shoreKey=key;budget=4;let more=false;const on=new Set();
+    if(coastS(p.x,p.y)>-vr-400){
+      const list=[];
+      for(let cj=Math.floor((p.y-vr)/SH.cell);cj<=Math.floor((p.y+vr)/SH.cell);cj++)
+        for(let ci=Math.floor((p.x-vr)/SH.cell);ci<=Math.floor((p.x+vr)/SH.cell);ci++){
+          const d=Math.hypot((ci+.5)*SH.cell-p.x,(cj+.5)*SH.cell-p.y);if(d>vr+60)continue;
+          const s=coastS((ci+.5)*SH.cell,(cj+.5)*SH.cell);if(s < -330 || s > 150)continue;list.push([d,ci,cj]);
+        }
+      list.sort((a,b)=>a[0]-b[0]);
+      for(const [d,ci,cj] of list){
+        const id=ci+','+cj;let q=shoreBatches.get(id);
+        if(!q){const c=shoreCell(ci,cj);if(!c){more=true;continue;}q={solid:cellMesh(c.K,false,id),fine:null,data:c,used:0};shoreBatches.set(id,q);}
+        q.solid.visible=true;
+        const fine=d<SH.near+SH.step+SH.cell;
+        if(fine&&!q.fine)q.fine=cellMesh(q.data.F,true,id);
+        if(q.fine)q.fine.visible=fine;q.used=performance.now();on.add(id);
       }
     }
-    shoreK.set(merge(BK)); shoreF.set(merge(BF));
-    if (more) shoreKey = '';   // the rest next frame
+    for(const [id,q] of shoreBatches)if(!on.has(id)){q.solid.visible=false;if(q.fine)q.fine.visible=false;}
+    const limit=Math.max(256,on.size+32);
+    if(shoreBatches.size>limit)for(const [id,q] of [...shoreBatches].filter(([id])=>!on.has(id)).sort((a,b)=>a[1].used-b[1].used)){
+      if(shoreBatches.size<=limit)break;
+      for(const m of [q.solid,q.fine])if(m){scene.remove(m);m.geometry.dispose();}shoreBatches.delete(id);
+    }
+    if(more)shoreKey='';
   }
   { const ws = worldSync; worldSync = function (f) { const r = ws(f); if (S && S.p) { if (f) shoreKey = ''; shoreSync(); } return r; }; }
 }
@@ -9504,17 +9647,20 @@ const dropMat = new THREE.ShaderMaterial({
   fragmentShader: LIGHT_GLSL + `uniform sampler2D map; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
     void main() { vec4 t = texture2D(map, vUv); if (t.a < 0.5) discard; vec3 c = t.rgb * vS * lightAt(vW, normalize(vN), 1.0) * 1.12; gl_FragColor = vec4(fogged(grey(c), vW), 1.0); }`,
 });
+const dropRangeMat = rangeMaterial(dropMat, VIS.drops);
 const dropPool = [];
 function dropMesh(i, geo) {
   let m = dropPool[i];
-  if (!m) { m = dropPool[i] = new THREE.Mesh(geo, dropMat); m.frustumCulled = false; scene.add(m); }
+  if (!m) { m = dropPool[i] = new THREE.Mesh(geo, dropRangeMat); m.frustumCulled = false; scene.add(m); }
   m.geometry = geo; m.visible = true; return m;
 }
-const dropB = new Board(400, 600, 0, true, iconTex, ISHEET);
-const nodeB = new Board(900, 560, 0, true);   // the grass and berry bushes you gather are the woods' own sprites
+const dropB = new Board(1600, VIS.drops, 0, true, iconTex, ISHEET);
+const nodeB = new Board(3600, VIS.nodes, 0, true);   // the grass and berry bushes you gather are the woods' own sprites
 
 // ---------------- the kits ----------------
 const thingsK = new KitMesh(true), dynK = new KitMesh(true);
+const buildRangeMat = rangeMaterial(kitMat, VIS.builds);
+thingsK.mesh.material = buildRangeMat; dynK.mesh.material = rangeMaterial(kitMat, VIS.drops);
 castsShadow(thingsK.mesh); castsShadow(dynK.mesh);   // what you build stands in the sun's light too: a roof shades the room under it (Joe: "the sun goes through")
 // a ghost: what you'd build, green where it fits and red where it won't; a blueprint glows like a plan
 const ghostMat = new THREE.ShaderMaterial({
@@ -9525,7 +9671,7 @@ const ghostMat = new THREE.ShaderMaterial({
     void main() { vec3 c = mix(vC, tint, 0.65) * (0.6 + 0.5 * max(dot(normalize(vN), vec3(0.3, 0.8, 0.2)), 0.0)) + tint * 0.25; gl_FragColor = vec4(c, alpha); }`,
 });
 const ghostMesh = new THREE.Mesh(new THREE.BufferGeometry(), ghostMat); ghostMesh.frustumCulled = false; ghostMesh.renderOrder = 6; scene.add(ghostMesh);
-const planMat = ghostMat.clone(); planMat.uniforms = Object.assign({ tint: { value: new V3(1, 0.8, 0.5) }, alpha: { value: 0.45 } }, LU);
+const planMat = rangeMaterial(ghostMat, VIS.builds); planMat.uniforms = Object.assign({ tint: { value: new V3(1, 0.8, 0.5) }, alpha: { value: 0.45 }, visualRange: planMat.uniforms.visualRange }, LU);
 const planMesh = new THREE.Mesh(new THREE.BufferGeometry(), planMat); planMesh.frustumCulled = false; planMesh.renderOrder = 6; scene.add(planMesh);
 function setGeo(mesh, kit) { const old = mesh.geometry; mesh.geometry = kit.geometry(); old.dispose(); }
 
@@ -9543,7 +9689,7 @@ const U = (a, f, s) => [Math.cos(a) * f - Math.sin(a) * s, Math.sin(a) * f + Mat
 // ---------------- keeping it all filled in round you ----------------
 let thingsKey = '', thingsT = 0, thingsAt = { x: 1e9, y: 1e9 };
 function thingsSmallSync(force) {
-  const D = S.day, p = S.p, R = 560;
+  const D = S.day, p = S.p, R = VIS.builds + 240;
   // a cheap key for "has anything been built, finished, opened, lit, harvested or taken": rebuild only when it changes
   let key = D.builds.length + ':' + D.bld.size;
   for (const B of D.builds) if (Math.abs(B.x - p.x) < R && Math.abs(B.y - p.y) < R) key += (B.openT > 0 ? 'o' : '') + (B.open ? 'O' : '') + (B.pen && B.inv.some(s => s && s.id === 'meat') ? 'm' : '') + (B.lit ? 'l' : '') + (B.crop || '') + (B.grown ? 'g' : '') + ((B.basket || B.comp) && B.inv.find(Boolean) ? 'h' : '') + (B.t === 'rainb' || B.t === 'tcol' ? Math.round((B.w || 0) * 2) : '') + (B.fuel > 0 ? 'f' : '') + (B.items ? B.items.length : '');
@@ -9563,7 +9709,7 @@ const THING_CELLS = new Map(), THING_IDS = new WeakMap();
 let thingUid = 0, thingDay = null, thingCheck = 0, thingGen = -1, thingDoor = -1;
 function thingId(o) { if (!THING_IDS.has(o)) THING_IDS.set(o, ++thingUid); return THING_IDS.get(o); }
 function thingsSync(force) {
-  const D = S.day, p = S.p, R = 620, size = 280, cells = new Map(), now = performance.now();
+  const D = S.day, p = S.p, R = VIS.builds + 240, size = 280, cells = new Map(), now = performance.now();
   if (D.bld.size + D.builds.length < 64) {
     if (THING_CELLS.size) {
       for (const c of THING_CELLS.values()) { for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m); c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); }
@@ -9599,6 +9745,7 @@ function thingsSync(force) {
     let old = THING_CELLS.get(id);
     if (!old) {
       const solid = new KitMesh(true), plan = new THREE.Mesh(new THREE.BufferGeometry(), planMat);
+      solid.mesh.material = buildRangeMat;
       castsShadow(solid.mesh); plan.renderOrder = 6; scene.add(plan);
       const depth = new THREE.Mesh(plan.geometry, GHOST_D[1][1].material); depth.renderOrder = 5; scene.add(depth);
       THING_CELLS.set(id, old = { solid, plan, depth, key: null });
@@ -9629,10 +9776,10 @@ function thingsSync(force) {
   }
   // Keep recently visited cells resident, so turning back does not upload them again.
   // Bound the cache and evict only inactive cells, oldest first.
-  if (THING_CELLS.size > 64) {
+  if (THING_CELLS.size > VIS.buildCache) {
     const cold = [...THING_CELLS].filter(([id]) => !cells.has(id)).sort((a, b) => a[1].used - b[1].used);
     for (const [id, c] of cold) {
-      if (THING_CELLS.size <= 64) break;
+      if (THING_CELLS.size <= VIS.buildCache) break;
       for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m);
       c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); THING_CELLS.delete(id);
     }
@@ -9648,8 +9795,8 @@ function thingsFrame(now) {
   // what lies about to be gathered: sticks, stones, mushrooms as shapes; grass and bushes as the woods' own sprites
   nodeB.begin(); propsN.begin(); const K = new Kit();
   // what lies about to be gathered, each a solid model stood in place (14-props): sticks, stones, mushrooms, grass, bushes and their berries
-  for (const o of dayNodesNear(p.x, p.y, 540)) {
-    if (o.gone) continue;
+  for (const o of dayNodesNear(p.x, p.y, VIS.nodes + 80)) {
+    if (o.gone || (o.x - p.x) ** 2 + (o.y - p.y) ** 2 > (VIS.nodes + 80) ** 2) continue;
     const sh = o.shakeT !== undefined ? o.shakeT : -99, sd = o.seed || 0, v = sd * 9 | 0;
     if (o.t === 'grass') propsN.add('grass', v, o.x, o.y, 1.5, sd, sh);
     else if (o.t === 'bush') { propsN.add('bbush', v, o.x, o.y, 1.15, sd, sh); if (o.ber) { propsN.add('nberries', v, o.x, o.y, 1.15, sd, sh); } }
@@ -9661,7 +9808,7 @@ function thingsFrame(now) {
   // dropped things: their own pictures, bobbing; tools glint now and then so you find them again
   dropB.begin(); let dn = 0;
   for (const o of D.drops) {
-    if (Math.abs(o.x - p.x) > 600 || Math.abs(o.y - p.y) > 600) continue;
+    if (Math.abs(o.x - p.x) > VIS.drops + 60 || Math.abs(o.y - p.y) > VIS.drops + 60) continue;
     const bob = Math.sin(now * 3 + (o.seed || 0)) * 1.2, T = DIT[o.it];
     if (o.it === 'logs') { for (const s of [-1, 1]) K.rod(P_CYL(8), o.x - 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2, o.x + 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2 - 1, 2.4, hex('#7a5232')); }
     else { const geo = extrudeIcon(o.it);
@@ -10636,7 +10783,7 @@ const GHOST_D = [ghostMesh, planMesh].map(m => {
     const r = tf.apply(this, arguments);
     for (const [m, d] of GHOST_D) { d.geometry = m.geometry; d.visible = m.visible; }
     if (SWING.skip.size || SWING.had) {
-      if (!SWING.k) { SWING.k = new KitMesh(true); castsShadow(SWING.k.mesh); }
+      if (!SWING.k) { SWING.k = new KitMesh(true); SWING.k.mesh.material = buildRangeMat; castsShadow(SWING.k.mesh); }
       const K = new Kit(); for (const o of SWING.skip) if (S.day && S.day.bld.get(o.key) === o) pieceKit(K, o);
       SWING.k.set(K); SWING.had = K.pos.length > 0;
     }
@@ -16720,7 +16867,7 @@ const isoZoomName = () => (SET.isoZoom || 1.7) <= 1.05 ? 'close' : (SET.isoZoom 
 // pinch with two thumbs, or ctrl and the mouse wheel, to zoom from above
 function isoZoomBy(k) { SET.isoZoom = clamp((SET.isoZoom || 1.7) * k, 1, 3); saveSet(); }
 addEventListener('wheel', e => { if (isoP() && state === 'play' && e.ctrlKey) { e.preventDefault(); isoZoomBy(e.deltaY > 0 ? 1.08 : 1 / 1.08); } }, { passive: false });
-function isoOff() { LU.occ.value.w = 0; ISO.lastLook = undefined; if (ISO.fogAdd) { cam.fov = baseFov(); cam.far = 1400; cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; ISO.fogAdd = 0; } }
+function isoOff() { LU.occ.value.w = 0; ISO.lastLook = undefined; if (ISO.fogAdd) { cam.fov = baseFov(); cam.far = VIEW + 500; cam.updateProjectionMatrix(); PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5]; ISO.fogAdd = 0; } }
 addEventListener('mousemove', e => { ISO.mx = e.clientX; ISO.my = e.clientY; });
 
 ;
@@ -21502,7 +21649,7 @@ function envFrame() {
   const hor = mix3([0.035, 0.04, 0.06], mix3(dHor, [0.95, 0.56, 0.32], set), lt);
   SKY.top.set(...top); SKY.hor.set(...hor); SKY.set.value = set;
   LU.fogCol.value.set(...hor);
-  LU.fogR.value.set(lerp(150, 430, lt), lerp(560, 950, lt));
+  LU.fogR.value.set(lerp(300, 860, lt), lerp(1120, VIEW, lt));
   const tl = S ? S.torchLvl * (S.torchOn ? 1 : 0) : 0;
   LU.tCol.value.set(1.0 * tl, 0.88 * tl, 0.7 * tl);
   LU.colourK.value = COLOUR ? 1 : 0;
@@ -21518,9 +21665,9 @@ const _lights = [];
 function lightsFrame(now, dt) {
   const L = LU.pl.value, C = LU.plc.value, p = S.p, D = S.day, rg = S.rg, night = 1 - ENV.lt * 0.85;
   _lights.length = 0;
-  const add = (x, h, y, r, cr, cg, cb, pri = 0) => { const d = Math.hypot(x - p.x, y - p.y); if (d - r > 700) return; _lights.push({ x, h: h + terrH(x, y), y, r, cr, cg, cb, w: pri - d / (r + 1) }); };
+  const add = (x, h, y, r, cr, cg, cb, pri = 0) => { const d = Math.hypot(x - p.x, y - p.y); if (d - r > 1400) return; _lights.push({ x, h: h + terrH(x, y), y, r, cr, cg, cb, w: pri - d / (r + 1) }); };
   const fk = s => 0.85 + 0.1 * Math.sin(now * 7.3 + s) + 0.06 * Math.sin(now * 13.1 + s * 2) + 0.05 * Math.random();
-  const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 520 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
+  const fire = (x, y, k, h = 5) => { if (Math.hypot(x - p.x, y - p.y) < 1040 && Math.random() < Math.min(1, dt * 50 * k)) flame(x, h, y, k); if (Math.random() < dt * 6 * k) spark(x, h + 8, y, (Math.random() - 0.5) * 14, 40 + Math.random() * 40, (Math.random() - 0.5) * 14, 1.2 + Math.random(), 1.5, 1, 0.6, 0.25, 1, 0, -6, 0.6); };
   // the camp's own fire, and your campfires
   if (!EX_FIRE.gone) { const f = fk(0); add(EX_FIRE.x, 24, EX_FIRE.y, 300, 1.05 * f * night, 0.62 * f * night, 0.3 * f * night, 2); fire(EX_FIRE.x, EX_FIRE.y, 1.05); tongues(EX_FIRE.x, EX_FIRE.y, 1.05); }
   for (const B of D.builds) if (B.t === 'fire') { const f = fk(B.x); add(B.x, 22, B.y, 230, 1.0 * f * night, 0.6 * f * night, 0.28 * f * night, 1.5); fire(B.x, B.y, 0.9); tongues(B.x, B.y, 0.9); }
@@ -21529,9 +21676,9 @@ function lightsFrame(now, dt) {
   else if (B.t === 'furnace' && (B.fuel > 0 || B.lit || B.smelt)) { add(B.x, 10, B.y, 120, 0.8 * night, 0.4 * night, 0.15 * night, 0.5); }
   clanLights(add, fire);   // the clan's camp fires (74-clan2)
   // the woods' lamps and fires
-  for (const o of lightsNear(p.x, p.y, 700)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); tongues(o.x, o.y, 0.9); }
+  for (const o of lightsNear(p.x, p.y, 1400)) if (o.kind === 'fire' && o !== EX_FIRE) { const f = fk(o.x); add(o.x, 22, o.y, 240, f * night, 0.6 * f * night, 0.28 * f * night, 1); fire(o.x, o.y, 0.9); tongues(o.x, o.y, 0.9); }
   // your lamps, sconces, braziers and candles, lit at dusk
-  if (ENV.lt < 0.85) for (const o of stNear(p.x, p.y, 700)) { const P = PC(o.id); if (!P.light || !o.done) continue; const f = fk(o.x) * (1 - ENV.lt);
+  if (ENV.lt < 0.85) for (const o of stNear(p.x, p.y, 1400)) { const P = PC(o.id); if (!P.light || !o.done) continue; const f = fk(o.x) * (1 - ENV.lt);
     const h = (o.z || 0) + (P.k === 'lamp' ? 41 : P.k === 'sconce' ? 32 : P.k === 'brazier' ? 14 : 8), [lx, ly] = P.k === 'lamp' ? [o.x + Math.cos(o.a) * 8, o.y + Math.sin(o.a) * 8] : P.k === 'sconce' ? [o.x - Math.sin(o.a) * 3, o.y + Math.cos(o.a) * 3] : [o.x, o.y];
     add(lx, h, ly, P.light * 1.6, 0.95 * f, 0.6 * f, 0.28 * f, 0.8); if (P.k !== 'lamp') { fire(lx, ly, P.k === 'brazier' ? 0.8 : 0.3, h); tongues(lx, ly, P.k === 'brazier' ? 0.7 : 0.3, h - 2); } else stat(lx, h, ly, 9, 1, 0.75, 0.4, 0.6 * f, 0); }
   // a hand torch, held up

@@ -2,6 +2,8 @@
 
 The priority is the reported swing from about 17 to 53 FPS. A moving-player profile found repeated building geometry uploads on otherwise unchanged bases. This update targets those long frames; it does not promise a fixed 60 FPS on every device.
 
+The later [render-distance update](RENDER-DISTANCE.md) expands the visible world and records its additional rendering cost and optimizations.
+
 ## Causes and fixes
 
 Bases below 256 construction pieces still used one merged building buffer. Walking 120 world units rebuilt and uploaded that entire buffer. In the 200-piece fixture, the rebuild took up to 18.6 ms; the subsequent shadow submission could block for another 63.1 ms. The full frame reached 87.2 ms. Those stalls are significant even when average CPU time is low.

@@ -5,7 +5,7 @@
 // shallows; low rocks; and tufts of marram grass where the woods give way to the dunes, leaning away from the wind off the sea.
 // Laid out in cells along the coast, the same every time you come back; the small things only near you.
 if (BEACH) {
-  const SH = { cell: 90, near: 560, step: 120 };
+  const SH = { cell: 90, near: 1120, step: 120 };
   // driftwood and rocks: inked like the logs in the woods, but only a little darker where they lie on the sand (all of a log
   // that low is "where it meets the ground", and it went dark grey instead of sea-bleached)
   const shoreK = new KitMesh(); castsShadow(shoreK.mesh);
@@ -131,34 +131,44 @@ if (BEACH) {
   // time cost a dropped frame)
   const ATT = [['position', 'pos', 3], ['normal', 'nor', 3], ['color', 'col', 3], ['em', 'em', 1], ['ew', 'ew', 1], ['gu', 'gu', 3], ['mt', 'mts', 1]];
   const pack = K => ({ n: K.em.length, a: ATT.map(([, f]) => new Float32Array(K[f])) });
-  function merge(list) {
-    const n = list.reduce((t, c) => t + c.n, 0);
-    return { geometry() {
-      const g = new THREE.BufferGeometry();
-      ATT.forEach(([name, , w], j) => { const a = new Float32Array(n * w); let o = 0; for (const c of list) { a.set(c.a[j], o); o += c.a[j].length; } g.setAttribute(name, new THREE.BufferAttribute(a, w)); });
-      return g;
-    } };
-  }
+  // Keep beach cells as resident batches; walking must not merge/upload the whole coast.
+  const shoreBatches = new Map(); shoreK.visible = shoreF.visible = false;
+  shoreF.mesh.material = rangeMaterial(shoreF.mesh.material, SH.near);
+  const cellMesh = (data, fine, id) => {
+    const g = new THREE.BufferGeometry();
+    ATT.forEach(([name,,w],j)=>g.setAttribute(name,new THREE.BufferAttribute(data.a[j],w)));
+    g.computeBoundingSphere(); if(g.boundingSphere)g.boundingSphere.radius+=128;
+    const m = new THREE.Mesh(g,fine?shoreF.mesh.material:shoreK.mesh.material);
+    m.frustumCulled=true;if(fine)m.renderOrder=1;else castsShadow(m);
+    m.userData.shoreCell=id;m.userData.fine=fine;scene.add(m);return m;
+  };
   function shoreSync() {
-    const p = S.p, vr = drawR(), key = Math.round(p.x / SH.step) + ',' + Math.round(p.y / SH.step) + ',' + vr;
-    if (key === shoreKey) return; shoreKey = key;
-    const BK = [], BF = []; budget = 4; let more = false;
-    if (coastS(p.x, p.y) > -vr - 400) {
-      const c0 = Math.floor((p.x - vr) / SH.cell), c1 = Math.floor((p.x + vr) / SH.cell), r0 = Math.floor((p.y - vr) / SH.cell), r1 = Math.floor((p.y + vr) / SH.cell);
-      const L = [];
-      for (let cj = r0; cj <= r1; cj++) for (let ci = c0; ci <= c1; ci++) {
-        const d = Math.hypot((ci + 0.5) * SH.cell - p.x, (cj + 0.5) * SH.cell - p.y); if (d > vr + 60) continue;
-        const s = coastS((ci + 0.5) * SH.cell, (cj + 0.5) * SH.cell); if (s < -330 || s > 150) continue;
-        L.push([d, ci, cj]);
-      }
-      L.sort((a, b) => a[0] - b[0]);   // nearest first
-      for (const [d, ci, cj] of L) {
-        const c = shoreCell(ci, cj); if (!c) { more = true; continue; }
-        BK.push(c.K); if (d < SH.near) BF.push(c.F);
+    const p=S.p,vr=drawR()+VIS.preload,key=Math.round(p.x/SH.step)+','+Math.round(p.y/SH.step)+','+vr;
+    if(key===shoreKey)return;shoreKey=key;budget=4;let more=false;const on=new Set();
+    if(coastS(p.x,p.y)>-vr-400){
+      const list=[];
+      for(let cj=Math.floor((p.y-vr)/SH.cell);cj<=Math.floor((p.y+vr)/SH.cell);cj++)
+        for(let ci=Math.floor((p.x-vr)/SH.cell);ci<=Math.floor((p.x+vr)/SH.cell);ci++){
+          const d=Math.hypot((ci+.5)*SH.cell-p.x,(cj+.5)*SH.cell-p.y);if(d>vr+60)continue;
+          const s=coastS((ci+.5)*SH.cell,(cj+.5)*SH.cell);if(s < -330 || s > 150)continue;list.push([d,ci,cj]);
+        }
+      list.sort((a,b)=>a[0]-b[0]);
+      for(const [d,ci,cj] of list){
+        const id=ci+','+cj;let q=shoreBatches.get(id);
+        if(!q){const c=shoreCell(ci,cj);if(!c){more=true;continue;}q={solid:cellMesh(c.K,false,id),fine:null,data:c,used:0};shoreBatches.set(id,q);}
+        q.solid.visible=true;
+        const fine=d<SH.near+SH.step+SH.cell;
+        if(fine&&!q.fine)q.fine=cellMesh(q.data.F,true,id);
+        if(q.fine)q.fine.visible=fine;q.used=performance.now();on.add(id);
       }
     }
-    shoreK.set(merge(BK)); shoreF.set(merge(BF));
-    if (more) shoreKey = '';   // the rest next frame
+    for(const [id,q] of shoreBatches)if(!on.has(id)){q.solid.visible=false;if(q.fine)q.fine.visible=false;}
+    const limit=Math.max(256,on.size+32);
+    if(shoreBatches.size>limit)for(const [id,q] of [...shoreBatches].filter(([id])=>!on.has(id)).sort((a,b)=>a[1].used-b[1].used)){
+      if(shoreBatches.size<=limit)break;
+      for(const m of [q.solid,q.fine])if(m){scene.remove(m);m.geometry.dispose();}shoreBatches.delete(id);
+    }
+    if(more)shoreKey='';
   }
   { const ws = worldSync; worldSync = function (f) { const r = ws(f); if (S && S.p) { if (f) shoreKey = ''; shoreSync(); } return r; }; }
 }

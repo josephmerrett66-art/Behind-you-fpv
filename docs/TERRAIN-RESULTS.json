@@ -1,0 +1,3870 @@
+{
+  "buildSha256": "6c7b6f1c35a44508c1edc23d4fdaab93bd2278bb7a689a30406747e40054367e",
+  "checks": {
+    "terrain-check": {
+      "checks": [
+        {
+          "name": "packed maps loaded at their intended resolution",
+          "pass": true
+        },
+        {
+          "name": "combined material texel storage below old 768 square texture",
+          "pass": true
+        },
+        {
+          "name": "detail packed channels survive browser decoding and GPU upload",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "regions packed channels survive browser decoding and GPU upload",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "CPU and GPU height fields agree across 48 world locations",
+          "pass": true,
+          "detail": 9.370638919925511e-05
+        },
+        {
+          "name": "analytic/sampled GPU normals match the actual terrain slopes",
+          "pass": true,
+          "detail": 0.004305494432243817
+        },
+        {
+          "name": "camp remains level across its build area",
+          "pass": true
+        }
+      ],
+      "sites": [
+        {
+          "name": "grove",
+          "x": -1091.4744612882787,
+          "y": -757.200383592397
+        },
+        {
+          "name": "deadwood",
+          "x": -2289.5889765144093,
+          "y": -962.115004214982
+        },
+        {
+          "name": "boulders",
+          "x": -2298.615604413848,
+          "y": 2644.844385249002
+        }
+      ],
+      "errors": []
+    },
+    "terrain-grounding-check": {
+      "checks": [
+        {
+          "name": "rock remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.6000000476837162
+          }
+        },
+        {
+          "name": "rockIron remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3113463122182569,
+            "maxLowestContact": -1.6000000476837162
+          }
+        },
+        {
+          "name": "post remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999997,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "bush remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.1208426917000214
+          }
+        },
+        {
+          "name": "fern remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.0726977313588488
+          }
+        },
+        {
+          "name": "grass remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3905090080918825,
+            "maxLowestContact": -1.0007706248700572
+          }
+        },
+        {
+          "name": "pebbles remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.29642368878562353,
+            "maxLowestContact": -1.1428968378533622
+          }
+        },
+        {
+          "name": "shrooms remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3987293750756164,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "flowerY remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "flowerB remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "flowerR remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "flowerW remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "flowerV remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "nsticks remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.1699023604393002
+          }
+        },
+        {
+          "name": "nstones remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.1915441176854067
+          }
+        },
+        {
+          "name": "nshroom1 remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.38902014261604356,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "nshroom2 remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3962695171428745,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "nshroom3 remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.398859981450119,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "bbush remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.120646279786346
+          }
+        },
+        {
+          "name": "log remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.2027946216528527
+          }
+        },
+        {
+          "name": "sapling remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "pine tree roots remain connected to terrain",
+          "pass": true,
+          "detail": -2.5881748497486115
+        },
+        {
+          "name": "oak tree roots remain connected to terrain",
+          "pass": true,
+          "detail": -3.3446889519691467
+        },
+        {
+          "name": "cherry tree roots remain connected to terrain",
+          "pass": true,
+          "detail": -2.9648993015289307
+        },
+        {
+          "name": "dead tree roots remain connected to terrain",
+          "pass": true,
+          "detail": -0.14580033719539642
+        },
+        {
+          "name": "berries keep exactly the same footing as their bush",
+          "pass": true
+        },
+        {
+          "name": "stationary gatherable reuses cached terrain fitting",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "dropped item visible edge rests on terrain",
+          "pass": true
+        },
+        {
+          "name": "dropped items no longer hover or spin",
+          "pass": true
+        },
+        {
+          "name": "dropped item rests on a built floor rather than sinking through it",
+          "pass": true,
+          "detail": 1.7614433806030476
+        },
+        {
+          "name": "grounded mineable rock still breaks with the normal pick interaction",
+          "pass": true
+        }
+      ],
+      "audit": [
+        {
+          "kind": "rock",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.6000000476837162
+        },
+        {
+          "kind": "rockIron",
+          "maxBaseGap": -0.3113463122182569,
+          "maxLowestContact": -1.6000000476837162
+        },
+        {
+          "kind": "post",
+          "maxBaseGap": -0.3999999999999997,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "bush",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.1208426917000214
+        },
+        {
+          "kind": "fern",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.0726977313588488
+        },
+        {
+          "kind": "grass",
+          "maxBaseGap": -0.3905090080918825,
+          "maxLowestContact": -1.0007706248700572
+        },
+        {
+          "kind": "pebbles",
+          "maxBaseGap": -0.29642368878562353,
+          "maxLowestContact": -1.1428968378533622
+        },
+        {
+          "kind": "shrooms",
+          "maxBaseGap": -0.3987293750756164,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "flowerY",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "flowerB",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "flowerR",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "flowerW",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "flowerV",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "nsticks",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.1699023604393002
+        },
+        {
+          "kind": "nstones",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.1915441176854067
+        },
+        {
+          "kind": "nshroom1",
+          "maxBaseGap": -0.38902014261604356,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "nshroom2",
+          "maxBaseGap": -0.3962695171428745,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "nshroom3",
+          "maxBaseGap": -0.398859981450119,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "bbush",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.120646279786346
+        },
+        {
+          "kind": "log",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.2027946216528527
+        },
+        {
+          "kind": "sapling",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -0.40000000000000036
+        }
+      ],
+      "fits": 324,
+      "worst": -0.2190540826206817,
+      "errors": []
+    },
+    "terrain-visual-after": {
+      "results": [
+        {
+          "name": "forest",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 136,
+          "triangles": 1809714
+        },
+        {
+          "name": "underfoot",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 138,
+          "triangles": 1756704
+        },
+        {
+          "name": "glade",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 144,
+          "triangles": 1759777
+        },
+        {
+          "name": "meadow",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 136,
+          "triangles": 1618954
+        },
+        {
+          "name": "coast",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 122,
+          "triangles": 1576663
+        },
+        {
+          "name": "night",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 147,
+          "triangles": 1848308
+        }
+      ],
+      "checks": [
+        {
+          "name": "unmasked turf produces visible pixels",
+          "pass": true,
+          "detail": 2344
+        },
+        {
+          "name": "floor/water exclusion mask suppresses turf completely",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "grass off removes turf completely",
+          "pass": true,
+          "detail": 0
+        }
+      ],
+      "errors": []
+    },
+    "terrain-distance-check": {
+      "checks": [
+        {
+          "name": "world and detailed ranges doubled",
+          "pass": true
+        },
+        {
+          "name": "first person far plane covers horizon",
+          "pass": true,
+          "detail": 2400
+        },
+        {
+          "name": "day fog doubled",
+          "pass": true,
+          "detail": [
+            860,
+            1900
+          ]
+        },
+        {
+          "name": "forest loaded throughout expanded visible radius",
+          "pass": true,
+          "detail": 358
+        },
+        {
+          "name": "trees do not silently hit instance capacity",
+          "pass": true
+        },
+        {
+          "name": "decor preloads beyond fade and next update",
+          "pass": true
+        },
+        {
+          "name": "plants fade at new distance",
+          "pass": true
+        },
+        {
+          "name": "logs and small solid decor fade before their load boundary",
+          "pass": true
+        },
+        {
+          "name": "large rocks retain the full world horizon",
+          "pass": true
+        },
+        {
+          "name": "gatherable nodes have their own extended fade",
+          "pass": true
+        },
+        {
+          "name": "gatherable outlines retain the original world material policy",
+          "pass": true
+        },
+        {
+          "name": "both tree detail levels preloaded in overlap",
+          "pass": true
+        },
+        {
+          "name": "tree transition spans 800 to 1000",
+          "pass": true
+        },
+        {
+          "name": "detailed tree retained past old 400 cutoff",
+          "pass": true
+        },
+        {
+          "name": "distant trees use solid low detail",
+          "pass": true
+        },
+        {
+          "name": "building geometry present at 1000 units",
+          "pass": true
+        },
+        {
+          "name": "building fade extends to 1240",
+          "pass": true
+        },
+        {
+          "name": "drop fade extends to 1200",
+          "pass": true
+        },
+        {
+          "name": "terrain reaches beyond horizon and preserves close grid",
+          "pass": true,
+          "detail": {
+            "min": -3600,
+            "max": 3600,
+            "has10": true
+          }
+        },
+        {
+          "name": "grass extends to 2160 with original near rings",
+          "pass": true
+        },
+        {
+          "name": "grass mask covers extended field at same texel size",
+          "pass": true
+        },
+        {
+          "name": "iso far plane covers expanded horizon",
+          "pass": true
+        },
+        {
+          "name": "returning to first retains extended far plane",
+          "pass": true
+        },
+        {
+          "name": "night fog remains proportionally limited",
+          "pass": true,
+          "detail": [
+            300,
+            1120
+          ]
+        },
+        {
+          "name": "instance culling preserves pixels and shadows at yaw 0",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "instance culling preserves pixels and shadows at yaw 1.1",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "instance culling preserves pixels and shadows at yaw 3",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "instance culling preserves pixels and shadows at yaw 4.5",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "indexed models preserve every triangle attribute",
+          "pass": true
+        },
+        {
+          "name": "indexing removes duplicate vertex work",
+          "pass": true,
+          "detail": {
+            "vertices": 1444,
+            "corners": 5940
+          }
+        },
+        {
+          "name": "high tree pixels fade gradually",
+          "pass": true,
+          "detail": [
+            5939,
+            3914,
+            0
+          ]
+        },
+        {
+          "name": "low tree pixels arrive gradually",
+          "pass": true,
+          "detail": [
+            0,
+            3656,
+            5781
+          ]
+        },
+        {
+          "name": "detail fade removes geometry gradually",
+          "pass": true,
+          "detail": [
+            11200,
+            6619,
+            0
+          ]
+        },
+        {
+          "name": "beach cells preload and retain fine detail",
+          "pass": true,
+          "detail": 85
+        },
+        {
+          "name": "walking along beach reuses existing buffers",
+          "pass": true
+        },
+        {
+          "name": "beach cell culling preserves pixels and shadows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "WebGL shaders linked",
+          "pass": true
+        }
+      ],
+      "errors": []
+    },
+    "terrain-smooth-check": {
+      "checks": [
+        {
+          "name": "medium base uses local batches",
+          "pass": true,
+          "detail": 9
+        },
+        {
+          "name": "walking through a medium base reuses every existing buffer",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "distant cached cells are hidden",
+          "pass": true
+        },
+        {
+          "name": "returning reuses resident buffers",
+          "pass": true
+        },
+        {
+          "name": "returning restores visible structures",
+          "pass": true
+        },
+        {
+          "name": "resident cache stays bounded while travelling",
+          "pass": true,
+          "detail": 192
+        },
+        {
+          "name": "new small game releases the cell cache",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "Auto lowers resolution under slow rendering",
+          "pass": true,
+          "detail": 0.7744
+        },
+        {
+          "name": "render wait excluded from simulation CPU budget",
+          "pass": true,
+          "detail": 0.0017000000001862645
+        },
+        {
+          "name": "Sharp remains under player control",
+          "pass": true,
+          "detail": 1
+        }
+      ],
+      "errors": []
+    },
+    "terrain-shadow-check": {
+      "checks": [
+        {
+          "name": "shadow pool retains roots beyond old 808-unit cutoff",
+          "pass": true
+        },
+        {
+          "name": "low morning light-frustum culling preserves shadow-map pixels",
+          "pass": true,
+          "detail": {
+            "changed": 0,
+            "selected": 252,
+            "pool": 1127
+          }
+        },
+        {
+          "name": "low sun retains distant casters whose shadows reach map",
+          "pass": true
+        },
+        {
+          "name": "noon light-frustum culling preserves shadow-map pixels",
+          "pass": true,
+          "detail": {
+            "changed": 0,
+            "selected": 68,
+            "pool": 1127
+          }
+        },
+        {
+          "name": "low evening light-frustum culling preserves shadow-map pixels",
+          "pass": true,
+          "detail": {
+            "changed": 0,
+            "selected": 174,
+            "pool": 1127
+          }
+        },
+        {
+          "name": "caster selection follows camera without world reload",
+          "pass": true
+        },
+        {
+          "name": "night disables sun-map coverage",
+          "pass": true
+        }
+      ],
+      "errors": []
+    },
+    "terrain-playtest-check": {
+      "checks": [
+        {
+          "name": "new game renders",
+          "pass": true
+        },
+        {
+          "name": "spatial query 0",
+          "pass": true
+        },
+        {
+          "name": "spatial query 1",
+          "pass": true
+        },
+        {
+          "name": "spatial query 2",
+          "pass": true
+        },
+        {
+          "name": "spatial query 3",
+          "pass": true
+        },
+        {
+          "name": "spatial query 4",
+          "pass": true
+        },
+        {
+          "name": "spatial query 5",
+          "pass": true
+        },
+        {
+          "name": "spatial query 6",
+          "pass": true
+        },
+        {
+          "name": "spatial query 7",
+          "pass": true
+        },
+        {
+          "name": "spatial query 8",
+          "pass": true
+        },
+        {
+          "name": "spatial query 9",
+          "pass": true
+        },
+        {
+          "name": "spatial query 10",
+          "pass": true
+        },
+        {
+          "name": "spatial query 11",
+          "pass": true
+        },
+        {
+          "name": "spatial query 12",
+          "pass": true
+        },
+        {
+          "name": "spatial query 13",
+          "pass": true
+        },
+        {
+          "name": "spatial query 14",
+          "pass": true
+        },
+        {
+          "name": "spatial query 15",
+          "pass": true
+        },
+        {
+          "name": "spatial query 16",
+          "pass": true
+        },
+        {
+          "name": "spatial query 17",
+          "pass": true
+        },
+        {
+          "name": "spatial query 18",
+          "pass": true
+        },
+        {
+          "name": "spatial query 19",
+          "pass": true
+        },
+        {
+          "name": "spatial query 20",
+          "pass": true
+        },
+        {
+          "name": "spatial query 21",
+          "pass": true
+        },
+        {
+          "name": "spatial query 22",
+          "pass": true
+        },
+        {
+          "name": "spatial query 23",
+          "pass": true
+        },
+        {
+          "name": "spatial query 24",
+          "pass": true
+        },
+        {
+          "name": "spatial query 25",
+          "pass": true
+        },
+        {
+          "name": "spatial query 26",
+          "pass": true
+        },
+        {
+          "name": "spatial query 27",
+          "pass": true
+        },
+        {
+          "name": "spatial query 28",
+          "pass": true
+        },
+        {
+          "name": "spatial query 29",
+          "pass": true
+        },
+        {
+          "name": "spatial query 30",
+          "pass": true
+        },
+        {
+          "name": "spatial query 31",
+          "pass": true
+        },
+        {
+          "name": "spatial query 32",
+          "pass": true
+        },
+        {
+          "name": "spatial query 33",
+          "pass": true
+        },
+        {
+          "name": "spatial query 34",
+          "pass": true
+        },
+        {
+          "name": "spatial query 35",
+          "pass": true
+        },
+        {
+          "name": "spatial query 36",
+          "pass": true
+        },
+        {
+          "name": "spatial query 37",
+          "pass": true
+        },
+        {
+          "name": "spatial query 38",
+          "pass": true
+        },
+        {
+          "name": "spatial query 39",
+          "pass": true
+        },
+        {
+          "name": "spatial query 40",
+          "pass": true
+        },
+        {
+          "name": "spatial query 41",
+          "pass": true
+        },
+        {
+          "name": "spatial query 42",
+          "pass": true
+        },
+        {
+          "name": "spatial query 43",
+          "pass": true
+        },
+        {
+          "name": "spatial query 44",
+          "pass": true
+        },
+        {
+          "name": "spatial query 45",
+          "pass": true
+        },
+        {
+          "name": "spatial query 46",
+          "pass": true
+        },
+        {
+          "name": "spatial query 47",
+          "pass": true
+        },
+        {
+          "name": "spatial query 48",
+          "pass": true
+        },
+        {
+          "name": "spatial query 49",
+          "pass": true
+        },
+        {
+          "name": "spatial query 50",
+          "pass": true
+        },
+        {
+          "name": "spatial query 51",
+          "pass": true
+        },
+        {
+          "name": "spatial query 52",
+          "pass": true
+        },
+        {
+          "name": "spatial query 53",
+          "pass": true
+        },
+        {
+          "name": "spatial query 54",
+          "pass": true
+        },
+        {
+          "name": "spatial query 55",
+          "pass": true
+        },
+        {
+          "name": "spatial query 56",
+          "pass": true
+        },
+        {
+          "name": "spatial query 57",
+          "pass": true
+        },
+        {
+          "name": "spatial query 58",
+          "pass": true
+        },
+        {
+          "name": "spatial query 59",
+          "pass": true
+        },
+        {
+          "name": "spatial query 60",
+          "pass": true
+        },
+        {
+          "name": "spatial query 61",
+          "pass": true
+        },
+        {
+          "name": "spatial query 62",
+          "pass": true
+        },
+        {
+          "name": "spatial query 63",
+          "pass": true
+        },
+        {
+          "name": "spatial query 64",
+          "pass": true
+        },
+        {
+          "name": "spatial query 65",
+          "pass": true
+        },
+        {
+          "name": "spatial query 66",
+          "pass": true
+        },
+        {
+          "name": "spatial query 67",
+          "pass": true
+        },
+        {
+          "name": "spatial query 68",
+          "pass": true
+        },
+        {
+          "name": "spatial query 69",
+          "pass": true
+        },
+        {
+          "name": "spatial query 70",
+          "pass": true
+        },
+        {
+          "name": "spatial query 71",
+          "pass": true
+        },
+        {
+          "name": "spatial query 72",
+          "pass": true
+        },
+        {
+          "name": "spatial query 73",
+          "pass": true
+        },
+        {
+          "name": "spatial query 74",
+          "pass": true
+        },
+        {
+          "name": "spatial query 75",
+          "pass": true
+        },
+        {
+          "name": "spatial query 76",
+          "pass": true
+        },
+        {
+          "name": "spatial query 77",
+          "pass": true
+        },
+        {
+          "name": "spatial query 78",
+          "pass": true
+        },
+        {
+          "name": "spatial query 79",
+          "pass": true
+        },
+        {
+          "name": "spatial query 80",
+          "pass": true
+        },
+        {
+          "name": "spatial query 81",
+          "pass": true
+        },
+        {
+          "name": "spatial query 82",
+          "pass": true
+        },
+        {
+          "name": "spatial query 83",
+          "pass": true
+        },
+        {
+          "name": "spatial query 84",
+          "pass": true
+        },
+        {
+          "name": "spatial query 85",
+          "pass": true
+        },
+        {
+          "name": "spatial query 86",
+          "pass": true
+        },
+        {
+          "name": "spatial query 87",
+          "pass": true
+        },
+        {
+          "name": "spatial query 88",
+          "pass": true
+        },
+        {
+          "name": "spatial query 89",
+          "pass": true
+        },
+        {
+          "name": "spatial query 90",
+          "pass": true
+        },
+        {
+          "name": "spatial query 91",
+          "pass": true
+        },
+        {
+          "name": "spatial query 92",
+          "pass": true
+        },
+        {
+          "name": "spatial query 93",
+          "pass": true
+        },
+        {
+          "name": "spatial query 94",
+          "pass": true
+        },
+        {
+          "name": "spatial query 95",
+          "pass": true
+        },
+        {
+          "name": "spatial query 96",
+          "pass": true
+        },
+        {
+          "name": "spatial query 97",
+          "pass": true
+        },
+        {
+          "name": "spatial query 98",
+          "pass": true
+        },
+        {
+          "name": "spatial query 99",
+          "pass": true
+        },
+        {
+          "name": "800-piece established save reloads",
+          "pass": true
+        },
+        {
+          "name": "culling preserves image at yaw 0",
+          "pass": true,
+          "detail": {
+            "different": 0
+          }
+        },
+        {
+          "name": "culling preserves image at yaw 1.1",
+          "pass": true,
+          "detail": {
+            "different": 0
+          }
+        },
+        {
+          "name": "culling preserves image at yaw 2.9",
+          "pass": true,
+          "detail": {
+            "different": 0
+          }
+        },
+        {
+          "name": "culling preserves image at yaw 4.5",
+          "pass": true,
+          "detail": {
+            "different": 0
+          }
+        },
+        {
+          "name": "roof inside/outside 100,80",
+          "pass": true,
+          "detail": {
+            "x": 100,
+            "y": 100,
+            "a": 0,
+            "snap": true
+          }
+        },
+        {
+          "name": "roof inside/outside 100,40",
+          "pass": true,
+          "detail": {
+            "x": 100,
+            "y": 100,
+            "a": 0,
+            "snap": true
+          }
+        },
+        {
+          "name": "roof inside/outside 80,100",
+          "pass": true,
+          "detail": {
+            "x": 100,
+            "y": 100,
+            "a": 0,
+            "snap": true
+          }
+        },
+        {
+          "name": "roof snap toggle preserved",
+          "pass": true
+        },
+        {
+          "name": "duplicate roof rejected",
+          "pass": true
+        },
+        {
+          "name": "table surface selected",
+          "pass": true,
+          "detail": {
+            "x": 9.000000000000002,
+            "y": 2.999835290677332,
+            "t": 42.485107421875,
+            "a": 0,
+            "z": 16,
+            "support": {
+              "id": "table",
+              "x": 0,
+              "y": 0,
+              "a": 0
+            },
+            "on": {
+              "kind": "dst",
+              "key": "b1603",
+              "id": "table",
+              "k": "table",
+              "x": 0,
+              "y": 0,
+              "a": 0,
+              "r": 10,
+              "need": {
+                "planks": 3,
+                "sticks": 2
+              },
+              "hp": 20,
+              "max": 20,
+              "done": true,
+              "open": 0,
+              "put": 0,
+              "seed": 6.556760671087156,
+              "rise": 1,
+              "clip": 0
+            },
+            "snap": false
+          }
+        },
+        {
+          "name": "table placement valid",
+          "pass": true,
+          "detail": true
+        },
+        {
+          "name": "ghost and placement match",
+          "pass": true,
+          "detail": {
+            "ghost": {
+              "kind": "dstg",
+              "id": "flowers",
+              "k": "flowers",
+              "clip": 0,
+              "x": 9.000000000000002,
+              "y": 2.999835290677332,
+              "a": 0,
+              "z": 16,
+              "support": {
+                "id": "table",
+                "x": 0,
+                "y": 0,
+                "a": 0
+              },
+              "ok": true,
+              "why": "",
+              "snap": false,
+              "r": 0,
+              "s": 1,
+              "need": {
+                "stones": 2,
+                "berries": 1
+              },
+              "done": false,
+              "open": 0,
+              "seed": 3
+            },
+            "pot": {
+              "kind": "dst",
+              "key": "b1604",
+              "id": "flowers",
+              "k": "flowers",
+              "x": 9.000000000000002,
+              "y": 2.999835290677332,
+              "a": 0,
+              "r": 10,
+              "need": {},
+              "hp": 4,
+              "max": 4,
+              "done": true,
+              "open": 0,
+              "put": 0,
+              "seed": 5.984146273418622,
+              "z": 16,
+              "support": {
+                "id": "table",
+                "x": 0,
+                "y": 0,
+                "a": 0
+              },
+              "on": "b1603",
+              "clip": 0,
+              "dropT": 0.7679000000003725
+            }
+          }
+        },
+        {
+          "name": "pot bottom equals tabletop",
+          "pass": true,
+          "detail": 16
+        },
+        {
+          "name": "existing bowl blocks placement",
+          "pass": true
+        },
+        {
+          "name": "different support height",
+          "pass": true,
+          "detail": {
+            "x": 50,
+            "y": -4.370777527640257e-05,
+            "t": 42.924560546875,
+            "a": 0,
+            "z": 10.15,
+            "support": {
+              "id": "stool",
+              "x": 50,
+              "y": 0,
+              "a": 0
+            },
+            "on": {
+              "kind": "dst",
+              "key": "b1605",
+              "id": "stool",
+              "k": "stool",
+              "x": 50,
+              "y": 0,
+              "a": 0,
+              "r": 10,
+              "need": {
+                "planks": 1,
+                "sticks": 2
+              },
+              "hp": 8,
+              "max": 8,
+              "done": true,
+              "open": 0,
+              "put": 0,
+              "seed": 0.28139594472327056,
+              "rise": 1,
+              "clip": 0
+            },
+            "snap": false
+          }
+        },
+        {
+          "name": "raised decoration can be targeted",
+          "pass": true
+        },
+        {
+          "name": "save includes support height",
+          "pass": true
+        },
+        {
+          "name": "support remapped after reload",
+          "pass": true
+        },
+        {
+          "name": "carried furniture carries contents",
+          "pass": true
+        },
+        {
+          "name": "cancel move restores contents",
+          "pass": true
+        },
+        {
+          "name": "contents follow moved furniture",
+          "pass": true
+        },
+        {
+          "name": "removing support removes dependent decoration",
+          "pass": true
+        },
+        {
+          "name": "legacy base loads",
+          "pass": true
+        },
+        {
+          "name": "local damage rebuilds one cell",
+          "pass": true,
+          "detail": {
+            "replaced": 1,
+            "cells": 17
+          }
+        },
+        {
+          "name": "moving door separated",
+          "pass": true
+        },
+        {
+          "name": "resting door returns to static batch",
+          "pass": true
+        }
+      ],
+      "audio": {
+        "maxVoices": 8,
+        "maxPlaced": 16,
+        "contexts": [
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running"
+        ],
+        "audibleSamples": 600,
+        "positionFollowsTurn": true,
+        "remaining": 0,
+        "audioTime": 76.75936507936508
+      },
+      "errors": []
+    }
+  },
+  "performance": {
+    "terrain-perf-before": {
+      "buildSha256": "94e2921cdb73284ee3fa42676ada02aba963d466b676ed2e4a0ce3dd3b4fe0f1",
+      "quality": "sharp",
+      "dpr": 1,
+      "ink": false,
+      "coast": true,
+      "errors": [],
+      "data": [
+        {
+          "n": 0,
+          "pixK": 1,
+          "metrics": {
+            "cpu": {
+              "mean": 13.701666666651144,
+              "p50": 13.799999999813735,
+              "p95": 23.300000000745058,
+              "p99": 28.800000000745058,
+              "max": 35.700000000186265
+            },
+            "gpuWait": {
+              "mean": 0.029666666680326064,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.19999999925494194,
+              "max": 0.2999999998137355
+            },
+            "interval": {
+              "mean": 31.665333333333333,
+              "p50": 33.29999999999927,
+              "p95": 66.70000000000073,
+              "p99": 100,
+              "max": 100
+            },
+            "triangles": {
+              "mean": 1864469.9,
+              "p50": 1882833,
+              "p95": 2162710,
+              "p99": 2167474,
+              "max": 2168297
+            },
+            "calls": {
+              "mean": 242.71333333333334,
+              "p50": 255,
+              "p95": 276,
+              "p99": 277,
+              "max": 277
+            },
+            "simStep": {
+              "mean": 1.1573333333308498,
+              "p50": 1.099999999627471,
+              "p95": 1.800000000745058,
+              "p99": 2.1000000005587935,
+              "max": 6
+            },
+            "beamStep": {
+              "mean": 0.0036666666685293116,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.01800000001055499,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "weatherFrame": {
+              "mean": 0.007333333330849807,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.054333333348234494,
+              "p50": 0,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "worldSync": {
+              "mean": 1.0049999999658514,
+              "p50": 0,
+              "p95": 9.199999999254942,
+              "p99": 12.599999999627471,
+              "max": 13.299999999813735
+            },
+            "thingsSync": {
+              "mean": 0.03033333332898716,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.7000000001862645
+            },
+            "grassMask": {
+              "mean": 0.11599999999627471,
+              "p50": 0,
+              "p95": 1,
+              "p99": 1.5,
+              "max": 1.599999999627471
+            },
+            "lightsFrame": {
+              "mean": 0.05466666668653488,
+              "p50": 0.09999999962747097,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "placeCamera": {
+              "mean": 0.12200000003601114,
+              "p50": 0.10000000055879354,
+              "p95": 0.2999999998137355,
+              "p99": 0.5,
+              "max": 0.900000000372529
+            },
+            "thingsFrame": {
+              "mean": 0.8389999999882033,
+              "p50": 0.7999999998137355,
+              "p95": 1.2999999998137355,
+              "p99": 1.7000000001862645,
+              "max": 2.400000000372529
+            },
+            "treesFrame": {
+              "mean": 0.23266666665673255,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.5,
+              "max": 0.6999999992549419
+            },
+            "hintsFrame": {
+              "mean": 0.48200000000186266,
+              "p50": 0.40000000037252903,
+              "p95": 0.8000000007450581,
+              "p99": 1.3999999994412065,
+              "max": 1.7000000001862645
+            },
+            "drawFigures": {
+              "mean": 0.7269999999832362,
+              "p50": 0.6000000005587935,
+              "p95": 1.5,
+              "p99": 2.099999999627471,
+              "max": 2.699999999254942
+            },
+            "fxFrame": {
+              "mean": 0.009666666674117247,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.01633333333147069,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.0069999999987582365,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.17800000002918145,
+              "p50": 0.19999999925494194,
+              "p95": 0.40000000037252903,
+              "p99": 0.599999999627471,
+              "max": 0.6000000005587935
+            },
+            "audioFrame": {
+              "mean": 0.20733333330601453,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.5,
+              "max": 0.6000000005587935
+            },
+            "sunShadows": {
+              "mean": 3.3730000000198683,
+              "p50": 3.2000000001862645,
+              "p95": 5.5,
+              "p99": 7.2000000001862645,
+              "max": 9.100000000558794
+            },
+            "inkRender": {
+              "mean": 4.138999999997517,
+              "p50": 3.900000000372529,
+              "p95": 7,
+              "p99": 8.599999999627471,
+              "max": 12
+            },
+            "stNear": {
+              "mean": 0.022999999998137354,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.024999999990686774,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.39999999944120646,
+              "max": 2.7000000001862645
+            },
+            "terrLevelSync": {
+              "mean": 0.0016666666666666668,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            }
+          },
+          "render": {
+            "frame": 1080,
+            "calls": 157,
+            "triangles": 1581094,
+            "points": 10,
+            "lines": 0
+          }
+        }
+      ]
+    },
+    "terrain-perf-after": {
+      "buildSha256": "6c7b6f1c35a44508c1edc23d4fdaab93bd2278bb7a689a30406747e40054367e",
+      "quality": "sharp",
+      "dpr": 1,
+      "ink": false,
+      "coast": true,
+      "errors": [],
+      "data": [
+        {
+          "n": 0,
+          "pixK": 1,
+          "metrics": {
+            "cpu": {
+              "mean": 13.876333333353202,
+              "p50": 13.5,
+              "p95": 25.5,
+              "p99": 32,
+              "max": 37.200000000186265
+            },
+            "gpuWait": {
+              "mean": 0.03199999999254942,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.6000000005587935
+            },
+            "interval": {
+              "mean": 30.88766666666667,
+              "p50": 33.29999999999927,
+              "p95": 66.69999999999891,
+              "p99": 100.09999999999854,
+              "max": 133.40000000000146
+            },
+            "triangles": {
+              "mean": 1791889.0733333332,
+              "p50": 1860026,
+              "p95": 2070852,
+              "p99": 2093156,
+              "max": 2095107
+            },
+            "calls": {
+              "mean": 240.4,
+              "p50": 253,
+              "p95": 273,
+              "p99": 274,
+              "max": 275
+            },
+            "simStep": {
+              "mean": 1.1816666666604578,
+              "p50": 1.099999999627471,
+              "p95": 2,
+              "p99": 3.099999999627471,
+              "max": 6.300000000745058
+            },
+            "beamStep": {
+              "mean": 0.0023333333370586236,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.02166666665424903,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "weatherFrame": {
+              "mean": 0.0036666666685293116,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.06333333334575096,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.40000000037252903
+            },
+            "worldSync": {
+              "mean": 1.0533333333426464,
+              "p50": 0,
+              "p95": 9.200000000186265,
+              "p99": 14.099999999627471,
+              "max": 18.100000000558794
+            },
+            "thingsSync": {
+              "mean": 0.02900000000372529,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.2999999998137355,
+              "max": 0.599999999627471
+            },
+            "grassMask": {
+              "mean": 0.16733333333705863,
+              "p50": 0,
+              "p95": 1.599999999627471,
+              "p99": 2.099999999627471,
+              "max": 2.5
+            },
+            "lightsFrame": {
+              "mean": 0.056999999980131784,
+              "p50": 0,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "placeCamera": {
+              "mean": 0.1259999999962747,
+              "p50": 0.10000000055879354,
+              "p95": 0.2999999998137355,
+              "p99": 0.30000000074505806,
+              "max": 0.39999999944120646
+            },
+            "thingsFrame": {
+              "mean": 0.9450000000062088,
+              "p50": 0.900000000372529,
+              "p95": 1.5,
+              "p99": 2.099999999627471,
+              "max": 3.2000000001862645
+            },
+            "treesFrame": {
+              "mean": 0.24366666668715575,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.5,
+              "max": 0.7999999998137355
+            },
+            "hintsFrame": {
+              "mean": 0.48199999998944504,
+              "p50": 0.40000000037252903,
+              "p95": 0.900000000372529,
+              "p99": 1.5,
+              "max": 1.800000000745058
+            },
+            "drawFigures": {
+              "mean": 0.6676666667064031,
+              "p50": 0.599999999627471,
+              "p95": 1.2000000001862645,
+              "p99": 1.7000000001862645,
+              "max": 4.2999999998137355
+            },
+            "fxFrame": {
+              "mean": 0.009666666661699613,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.016666666660457848,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.007666666662941376,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.19999999925494194
+            },
+            "drawHud": {
+              "mean": 0.16333333329608044,
+              "p50": 0.10000000055879354,
+              "p95": 0.39999999944120646,
+              "p99": 0.6000000005587935,
+              "max": 0.7999999998137355
+            },
+            "audioFrame": {
+              "mean": 0.2293333333544433,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.900000000372529,
+              "max": 1
+            },
+            "sunShadows": {
+              "mean": 3.1926666666536283,
+              "p50": 3,
+              "p95": 5.5,
+              "p99": 8.799999999813735,
+              "max": 9.899999999441206
+            },
+            "inkRender": {
+              "mean": 4.250000000037253,
+              "p50": 4,
+              "p95": 7.5,
+              "p99": 8.5,
+              "max": 9.299999999813735
+            },
+            "stNear": {
+              "mean": 0.03199999997392297,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.2000000011175871
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.022666666662941377,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.2999999998137355,
+              "max": 2.400000000372529
+            },
+            "terrLevelSync": {
+              "mean": 0.0029999999919285377,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.19999999925494194
+            }
+          },
+          "render": {
+            "frame": 1080,
+            "calls": 155,
+            "triangles": 1487884,
+            "points": 11,
+            "lines": 0
+          }
+        }
+      ]
+    },
+    "terrain-auto-before-final": {
+      "buildSha256": "94e2921cdb73284ee3fa42676ada02aba963d466b676ed2e4a0ce3dd3b4fe0f1",
+      "quality": "auto",
+      "dpr": 2,
+      "ink": false,
+      "coast": false,
+      "errors": [],
+      "data": [
+        {
+          "n": 0,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 14.53466666668343,
+              "p50": 12.599999999627471,
+              "p95": 22.09999999962747,
+              "p99": 109,
+              "max": 137.29999999981374
+            },
+            "gpuWait": {
+              "mean": 0.027666666650523742,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "interval": {
+              "mean": 29.276999999999994,
+              "p50": 33.20000000000073,
+              "p95": 66.60000000000218,
+              "p99": 116.60000000000036,
+              "max": 133.39999999999964
+            },
+            "triangles": {
+              "mean": 3010845.6766666668,
+              "p50": 3004495,
+              "p95": 3106216,
+              "p99": 3111524,
+              "max": 3114936
+            },
+            "calls": {
+              "mean": 187.33666666666667,
+              "p50": 186,
+              "p95": 193,
+              "p99": 193,
+              "max": 193
+            },
+            "simStep": {
+              "mean": 1.2296666667020568,
+              "p50": 1.2000000001862645,
+              "p95": 2,
+              "p99": 2.400000000372529,
+              "max": 6.2999999998137355
+            },
+            "beamStep": {
+              "mean": 0.005333333316569527,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.020333333341404795,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "weatherFrame": {
+              "mean": 0.0073333333246409895,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.07733333330911894,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 1.2999999998137355
+            },
+            "worldSync": {
+              "mean": 0.625666666670392,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 24,
+              "max": 25.40000000037253
+            },
+            "thingsSync": {
+              "mean": 0.036000000011796755,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 1,
+              "max": 1.400000000372529
+            },
+            "grassMask": {
+              "mean": 0.2086666666654249,
+              "p50": 0,
+              "p95": 3.1000000005587935,
+              "p99": 4.400000000372529,
+              "max": 4.900000000372529
+            },
+            "lightsFrame": {
+              "mean": 0.06499999997516473,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "placeCamera": {
+              "mean": 0.11500000002483526,
+              "p50": 0.10000000055879354,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 0.30000000074505806
+            },
+            "thingsFrame": {
+              "mean": 1.2710000000024835,
+              "p50": 1.2000000001862645,
+              "p95": 2,
+              "p99": 3,
+              "max": 4.5
+            },
+            "treesFrame": {
+              "mean": 0.6036666666499029,
+              "p50": 0.599999999627471,
+              "p95": 0.900000000372529,
+              "p99": 1.1000000005587935,
+              "max": 1.2000000001862645
+            },
+            "hintsFrame": {
+              "mean": 0.5073333332842836,
+              "p50": 0.5,
+              "p95": 0.8000000007450581,
+              "p99": 1.199999999254942,
+              "max": 1.2000000001862645
+            },
+            "drawFigures": {
+              "mean": 1.1423333333649983,
+              "p50": 1,
+              "p95": 2.1000000005587935,
+              "p99": 3.1000000005587935,
+              "max": 4.5
+            },
+            "fxFrame": {
+              "mean": 0.010999999993170301,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.01966666666790843,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.19999999925494194
+            },
+            "figuresEnd": {
+              "mean": 0.007000000011175871,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.17299999995157123,
+              "p50": 0.19999999925494194,
+              "p95": 0.40000000037252903,
+              "p99": 0.6999999992549419,
+              "max": 0.900000000372529
+            },
+            "audioFrame": {
+              "mean": 0.2143333333513389,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.599999999627471,
+              "max": 0.6999999992549419
+            },
+            "sunShadows": {
+              "mean": 2.782333333324641,
+              "p50": 2.599999999627471,
+              "p95": 5,
+              "p99": 5.8999999994412065,
+              "max": 7.599999999627471
+            },
+            "inkRender": {
+              "mean": 2.726999999998758,
+              "p50": 2.400000000372529,
+              "p95": 5.099999999627471,
+              "p99": 5.7999999998137355,
+              "max": 6
+            },
+            "stNear": {
+              "mean": 0.03366666667473813,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.2000000011175871
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.022333333333954215,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.20000000018626451,
+              "max": 5.7000000001862645
+            },
+            "terrLevelSync": {
+              "mean": 0.0016666666697710752,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            }
+          },
+          "render": {
+            "frame": 1080,
+            "calls": 185,
+            "triangles": 2921834,
+            "points": 26,
+            "lines": 0
+          }
+        },
+        {
+          "n": 200,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 12.702999999988824,
+              "p50": 12.100000000558794,
+              "p95": 17.799999999813735,
+              "p99": 37.299999999813735,
+              "max": 43.799999999813735
+            },
+            "gpuWait": {
+              "mean": 0.02466666666790843,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "interval": {
+              "mean": 29.776666666666667,
+              "p50": 33.29999999999927,
+              "p95": 50.10000000000218,
+              "p99": 83.29999999999927,
+              "max": 116.70000000000073
+            },
+            "triangles": {
+              "mean": 3138349.3366666664,
+              "p50": 3141054,
+              "p95": 3176591,
+              "p99": 3189061,
+              "max": 3191783
+            },
+            "calls": {
+              "mean": 199.70333333333335,
+              "p50": 199,
+              "p95": 206,
+              "p99": 206,
+              "max": 206
+            },
+            "simStep": {
+              "mean": 1.3463333333159486,
+              "p50": 1.2999999998137355,
+              "p95": 2.1000000005587935,
+              "p99": 2.7999999998137355,
+              "max": 3
+            },
+            "beamStep": {
+              "mean": 0.004333333338921269,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.011333333334575096,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "weatherFrame": {
+              "mean": 0.00933333333581686,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.07399999996957679,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "worldSync": {
+              "mean": 0.5910000000055879,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 23.799999999813735,
+              "max": 29.299999999813735
+            },
+            "thingsSync": {
+              "mean": 0.09666666666666666,
+              "p50": 0,
+              "p95": 0.5,
+              "p99": 0.7000000001862645,
+              "max": 0.7999999998137355
+            },
+            "grassMask": {
+              "mean": 0.20666666667287548,
+              "p50": 0,
+              "p95": 3.2000000001862645,
+              "p99": 4.2999999998137355,
+              "max": 4.3999999994412065
+            },
+            "lightsFrame": {
+              "mean": 0.0590000000068297,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "placeCamera": {
+              "mean": 0.1130000000136594,
+              "p50": 0.10000000055879354,
+              "p95": 0.20000000018626451,
+              "p99": 0.39999999944120646,
+              "max": 0.5
+            },
+            "thingsFrame": {
+              "mean": 1.205999999983857,
+              "p50": 1.1000000005587935,
+              "p95": 1.900000000372529,
+              "p99": 2.2999999998137355,
+              "max": 2.400000000372529
+            },
+            "treesFrame": {
+              "mean": 0.5830000000074506,
+              "p50": 0.5,
+              "p95": 0.900000000372529,
+              "p99": 1.1000000005587935,
+              "max": 2.5
+            },
+            "hintsFrame": {
+              "mean": 0.4886666666623205,
+              "p50": 0.5,
+              "p95": 0.8000000007450581,
+              "p99": 1,
+              "max": 1.400000000372529
+            },
+            "drawFigures": {
+              "mean": 1.0953333333289872,
+              "p50": 1,
+              "p95": 1.900000000372529,
+              "p99": 2.7000000001862645,
+              "max": 3
+            },
+            "fxFrame": {
+              "mean": 0.008999999997516474,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.022000000001862644,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "figuresEnd": {
+              "mean": 0.006333333340783914,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.19433333337306977,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.6000000005587935,
+              "max": 0.7000000001862645
+            },
+            "audioFrame": {
+              "mean": 0.20466666666480401,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.5,
+              "max": 0.6999999992549419
+            },
+            "sunShadows": {
+              "mean": 2.7603333332917344,
+              "p50": 2.5,
+              "p95": 4.7999999998137355,
+              "p99": 6,
+              "max": 6.2999999998137355
+            },
+            "inkRender": {
+              "mean": 2.66666666667598,
+              "p50": 2.400000000372529,
+              "p95": 5.199999999254942,
+              "p99": 6.2000000001862645,
+              "max": 6.7000000001862645
+            },
+            "stNear": {
+              "mean": 0.15899999998820324,
+              "p50": 0.10000000055879354,
+              "p95": 0.39999999944120646,
+              "p99": 0.5999999986961484,
+              "max": 0.8000000007450581
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.002999999998137355,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "terrLevelSync": {
+              "mean": 0.0016666666635622581,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.19999999925494194
+            }
+          },
+          "render": {
+            "frame": 2160,
+            "calls": 197,
+            "triangles": 3073668,
+            "points": 29,
+            "lines": 0
+          }
+        },
+        {
+          "n": 800,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 13.629333333385487,
+              "p50": 13.5,
+              "p95": 18.899999999441206,
+              "p99": 35.299999999813735,
+              "max": 37.5
+            },
+            "gpuWait": {
+              "mean": 0.01933333333581686,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "interval": {
+              "mean": 29.66533333333333,
+              "p50": 33.299999999995634,
+              "p95": 66.59999999999854,
+              "p99": 83.30000000000291,
+              "max": 100
+            },
+            "triangles": {
+              "mean": 3523513.526666667,
+              "p50": 3546436,
+              "p95": 3619242,
+              "p99": 3640203,
+              "max": 3643538
+            },
+            "calls": {
+              "mean": 225.16,
+              "p50": 226,
+              "p95": 234,
+              "p99": 234,
+              "max": 234
+            },
+            "simStep": {
+              "mean": 1.4509999999962746,
+              "p50": 1.5,
+              "p95": 2.2000000001862645,
+              "p99": 3,
+              "max": 3.599999999627471
+            },
+            "beamStep": {
+              "mean": 0.0036666666685293116,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.01133333332836628,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "weatherFrame": {
+              "mean": 0.010000000009313226,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.05766666669708987,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "worldSync": {
+              "mean": 0.5816666666635623,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 21.700000000186265,
+              "max": 24.399999999441206
+            },
+            "thingsSync": {
+              "mean": 0.4026666666784634,
+              "p50": 0,
+              "p95": 2.099999999627471,
+              "p99": 2.5,
+              "max": 3.5
+            },
+            "grassMask": {
+              "mean": 0.2563333333283663,
+              "p50": 0,
+              "p95": 3.599999999627471,
+              "p99": 4.599999999627471,
+              "max": 4.900000000372529
+            },
+            "lightsFrame": {
+              "mean": 0.045666666651765504,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "placeCamera": {
+              "mean": 0.0753333333476136,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "thingsFrame": {
+              "mean": 1.1686666666499028,
+              "p50": 1.099999999627471,
+              "p95": 1.7999999998137355,
+              "p99": 2.199999999254942,
+              "max": 2.2000000001862645
+            },
+            "treesFrame": {
+              "mean": 0.5753333333693444,
+              "p50": 0.5,
+              "p95": 0.900000000372529,
+              "p99": 1,
+              "max": 1.2000000001862645
+            },
+            "hintsFrame": {
+              "mean": 0.4883333332960804,
+              "p50": 0.5,
+              "p95": 0.7999999998137355,
+              "p99": 0.8999999994412065,
+              "max": 0.900000000372529
+            },
+            "drawFigures": {
+              "mean": 1.026999999989445,
+              "p50": 1,
+              "p95": 1.6000000005587935,
+              "p99": 1.7999999998137355,
+              "max": 2.2000000001862645
+            },
+            "fxFrame": {
+              "mean": 0.00800000000745058,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.013666666665424904,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.007000000008071462,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.1906666666766008,
+              "p50": 0.20000000018626451,
+              "p95": 0.39999999944120646,
+              "p99": 0.6000000005587935,
+              "max": 0.7000000001862645
+            },
+            "audioFrame": {
+              "mean": 0.20399999999441207,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.5,
+              "max": 0.7999999998137355
+            },
+            "sunShadows": {
+              "mean": 2.9973333333432675,
+              "p50": 2.900000000372529,
+              "p95": 5,
+              "p99": 5.300000000745058,
+              "max": 6
+            },
+            "inkRender": {
+              "mean": 3.09700000001428,
+              "p50": 2.7999999998137355,
+              "p95": 5.2999999998137355,
+              "p99": 7,
+              "max": 7.5
+            },
+            "stNear": {
+              "mean": 0.41699999999875825,
+              "p50": 0.30000000074505806,
+              "p95": 1.1000000005587935,
+              "p99": 1.400000000372529,
+              "max": 1.5999999986961484
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.002666666659836968,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.19999999925494194
+            },
+            "terrLevelSync": {
+              "mean": 0.0019999999987582364,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.20000000018626451
+            }
+          },
+          "render": {
+            "frame": 3240,
+            "calls": 218,
+            "triangles": 3388598,
+            "points": 36,
+            "lines": 0
+          }
+        }
+      ]
+    },
+    "terrain-auto-after-final": {
+      "buildSha256": "6c7b6f1c35a44508c1edc23d4fdaab93bd2278bb7a689a30406747e40054367e",
+      "quality": "auto",
+      "dpr": 2,
+      "ink": false,
+      "coast": false,
+      "errors": [],
+      "data": [
+        {
+          "n": 0,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 14.419333333332712,
+              "p50": 13.399999999441206,
+              "p95": 20.299999999813735,
+              "p99": 79.79999999981374,
+              "max": 98
+            },
+            "gpuWait": {
+              "mean": 0.025999999990065893,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.2999999998137355
+            },
+            "interval": {
+              "mean": 28.721000000000004,
+              "p50": 33.20000000000073,
+              "p95": 66.60000000000036,
+              "p99": 83.29999999999927,
+              "max": 83.39999999999964
+            },
+            "triangles": {
+              "mean": 2965066.1033333335,
+              "p50": 2966636,
+              "p95": 3068356,
+              "p99": 3074455,
+              "max": 3077658
+            },
+            "calls": {
+              "mean": 190.18333333333334,
+              "p50": 190,
+              "p95": 197,
+              "p99": 197,
+              "max": 197
+            },
+            "simStep": {
+              "mean": 1.306999999942879,
+              "p50": 1.2999999998137355,
+              "p95": 2.099999999627471,
+              "p99": 2.5,
+              "max": 4.7000000001862645
+            },
+            "beamStep": {
+              "mean": 0.0026666666629413765,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.021333333331470687,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.19999999925494194
+            },
+            "weatherFrame": {
+              "mean": 0.005666666670391957,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.08466666667722166,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 0.5
+            },
+            "worldSync": {
+              "mean": 0.6593333333265037,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 27.09999999962747,
+              "max": 33.69999999925494
+            },
+            "thingsSync": {
+              "mean": 0.04166666668529312,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.7999999998137355,
+              "max": 2.599999999627471
+            },
+            "grassMask": {
+              "mean": 0.25433333333581687,
+              "p50": 0,
+              "p95": 3.900000000372529,
+              "p99": 5.5,
+              "max": 6
+            },
+            "lightsFrame": {
+              "mean": 0.0656666666486611,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "placeCamera": {
+              "mean": 0.11400000002856056,
+              "p50": 0.10000000055879354,
+              "p95": 0.20000000018626451,
+              "p99": 0.30000000074505806,
+              "max": 0.7999999998137355
+            },
+            "thingsFrame": {
+              "mean": 1.2873333333215367,
+              "p50": 1.2000000001862645,
+              "p95": 2.099999999627471,
+              "p99": 3.7999999998137355,
+              "max": 4.5
+            },
+            "treesFrame": {
+              "mean": 0.6106666666890184,
+              "p50": 0.599999999627471,
+              "p95": 1,
+              "p99": 1.300000000745058,
+              "max": 2
+            },
+            "hintsFrame": {
+              "mean": 0.5499999999875823,
+              "p50": 0.5,
+              "p95": 0.900000000372529,
+              "p99": 1.2000000001862645,
+              "max": 1.3999999994412065
+            },
+            "drawFigures": {
+              "mean": 1.1600000000186264,
+              "p50": 1.099999999627471,
+              "p95": 2,
+              "p99": 2.5,
+              "max": 3.1000000005587935
+            },
+            "fxFrame": {
+              "mean": 0.011333333337679505,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.01566666666418314,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.006000000008692344,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.1626666666722546,
+              "p50": 0.19999999925494194,
+              "p95": 0.30000000074505806,
+              "p99": 0.40000000037252903,
+              "max": 0.6000000005587935
+            },
+            "audioFrame": {
+              "mean": 0.2210000000335276,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.599999999627471,
+              "max": 1.1000000005587935
+            },
+            "sunShadows": {
+              "mean": 2.6823333333277453,
+              "p50": 2.5,
+              "p95": 4.599999999627471,
+              "p99": 5.2000000001862645,
+              "max": 6.2999999998137355
+            },
+            "inkRender": {
+              "mean": 2.844666666695848,
+              "p50": 2.5,
+              "p95": 5.2999999998137355,
+              "p99": 5.900000000372529,
+              "max": 7.7000000001862645
+            },
+            "stNear": {
+              "mean": 0.03466666664928198,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.031666666669771075,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 8.799999999813735
+            },
+            "terrLevelSync": {
+              "mean": 0.0003333333320915699,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0.09999999962747097
+            }
+          },
+          "render": {
+            "frame": 1080,
+            "calls": 188,
+            "triangles": 2875163,
+            "points": 24,
+            "lines": 0
+          }
+        },
+        {
+          "n": 200,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 13.273999999997516,
+              "p50": 12.900000000372529,
+              "p95": 19.90000000037253,
+              "p99": 39.5,
+              "max": 45.90000000037253
+            },
+            "gpuWait": {
+              "mean": 0.029999999990686775,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "interval": {
+              "mean": 29.16533333333334,
+              "p50": 33.29999999999927,
+              "p95": 50.099999999998545,
+              "p99": 66.70000000000073,
+              "max": 83.29999999999927
+            },
+            "triangles": {
+              "mean": 3097914.43,
+              "p50": 3105791,
+              "p95": 3145310,
+              "p99": 3151010,
+              "max": 3154730
+            },
+            "calls": {
+              "mean": 202.36333333333334,
+              "p50": 202,
+              "p95": 210,
+              "p99": 210,
+              "max": 210
+            },
+            "simStep": {
+              "mean": 1.4456666666455567,
+              "p50": 1.400000000372529,
+              "p95": 2.2999999998137355,
+              "p99": 2.8999999994412065,
+              "max": 3.099999999627471
+            },
+            "beamStep": {
+              "mean": 0.004666666664804022,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.013000000007450581,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "weatherFrame": {
+              "mean": 0.008333333330228924,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.07899999999441207,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "worldSync": {
+              "mean": 0.6150000000403573,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 23.40000000037253,
+              "max": 30.200000000186265
+            },
+            "thingsSync": {
+              "mean": 0.08700000000807147,
+              "p50": 0,
+              "p95": 0.40000000037252903,
+              "p99": 0.599999999627471,
+              "max": 1
+            },
+            "grassMask": {
+              "mean": 0.24966666666480403,
+              "p50": 0,
+              "p95": 3.8999999994412065,
+              "p99": 5.2000000001862645,
+              "max": 5.6000000005587935
+            },
+            "lightsFrame": {
+              "mean": 0.06500000000310441,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.30000000074505806
+            },
+            "placeCamera": {
+              "mean": 0.10966666663686435,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 0.39999999944120646
+            },
+            "thingsFrame": {
+              "mean": 1.198000000032286,
+              "p50": 1.099999999627471,
+              "p95": 2,
+              "p99": 2.2000000001862645,
+              "max": 2.300000000745058
+            },
+            "treesFrame": {
+              "mean": 0.6046666666399687,
+              "p50": 0.599999999627471,
+              "p95": 1,
+              "p99": 1.2000000001862645,
+              "max": 2
+            },
+            "hintsFrame": {
+              "mean": 0.5689999999882033,
+              "p50": 0.5,
+              "p95": 0.900000000372529,
+              "p99": 1.1000000005587935,
+              "max": 1.300000000745058
+            },
+            "drawFigures": {
+              "mean": 1.1070000000298024,
+              "p50": 1,
+              "p95": 1.900000000372529,
+              "p99": 2.7000000001862645,
+              "max": 3.2000000001862645
+            },
+            "fxFrame": {
+              "mean": 0.01433333331719041,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.018333333327124515,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.004999999996895591,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.19700000000186266,
+              "p50": 0.20000000018626451,
+              "p95": 0.40000000037252903,
+              "p99": 0.6000000005587935,
+              "max": 0.6999999992549419
+            },
+            "audioFrame": {
+              "mean": 0.17700000001117588,
+              "p50": 0.19999999925494194,
+              "p95": 0.30000000074505806,
+              "p99": 0.5,
+              "max": 0.5
+            },
+            "sunShadows": {
+              "mean": 2.7323333333525808,
+              "p50": 2.5,
+              "p95": 4.5,
+              "p99": 6.099999999627471,
+              "max": 30.5
+            },
+            "inkRender": {
+              "mean": 2.96166666664804,
+              "p50": 2.7000000001862645,
+              "p95": 5.7000000001862645,
+              "p99": 6.5,
+              "max": 7.2999999998137355
+            },
+            "stNear": {
+              "mean": 0.17766666671261191,
+              "p50": 0.19999999925494194,
+              "p95": 0.4000000013038516,
+              "p99": 0.599999999627471,
+              "max": 0.6000000014901161
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.0030000000012417633,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "terrLevelSync": {
+              "mean": 0.0006666666672875484,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0.10000000055879354
+            }
+          },
+          "render": {
+            "frame": 2160,
+            "calls": 200,
+            "triangles": 3031319,
+            "points": 28,
+            "lines": 0
+          }
+        },
+        {
+          "n": 800,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 14.467666666666046,
+              "p50": 14.099999999627471,
+              "p95": 20.59999999962747,
+              "p99": 38.90000000037253,
+              "max": 52.200000000186265
+            },
+            "gpuWait": {
+              "mean": 0.03099999999627471,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "interval": {
+              "mean": 27.44333333333332,
+              "p50": 16.799999999995634,
+              "p95": 50.099999999998545,
+              "p99": 66.70000000000437,
+              "max": 83.30000000000291
+            },
+            "triangles": {
+              "mean": 3483216.44,
+              "p50": 3493225,
+              "p95": 3580021,
+              "p99": 3601277,
+              "max": 3604292
+            },
+            "calls": {
+              "mean": 227.74666666666667,
+              "p50": 228,
+              "p95": 237,
+              "p99": 237,
+              "max": 237
+            },
+            "simStep": {
+              "mean": 1.6000000000248353,
+              "p50": 1.599999999627471,
+              "p95": 2.5,
+              "p99": 3.7000000001862645,
+              "max": 4.2999999998137355
+            },
+            "beamStep": {
+              "mean": 0.0016666666666666668,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.013000000004346172,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 1.099999999627471
+            },
+            "weatherFrame": {
+              "mean": 0.008666666674738128,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "lifeFrame": {
+              "mean": 0.06633333335630595,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.8000000007450581
+            },
+            "worldSync": {
+              "mean": 0.6803333333227783,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 24.5,
+              "max": 36.799999999813735
+            },
+            "thingsSync": {
+              "mean": 0.43199999997702737,
+              "p50": 0,
+              "p95": 2.2000000001862645,
+              "p99": 3,
+              "max": 3.599999999627471
+            },
+            "grassMask": {
+              "mean": 0.3093333333420257,
+              "p50": 0,
+              "p95": 4.599999999627471,
+              "p99": 5.400000000372529,
+              "max": 6.599999999627471
+            },
+            "lightsFrame": {
+              "mean": 0.051000000011796755,
+              "p50": 0,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "placeCamera": {
+              "mean": 0.08899999998199443,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.40000000037252903,
+              "max": 0.599999999627471
+            },
+            "thingsFrame": {
+              "mean": 1.2379999999826152,
+              "p50": 1.2000000001862645,
+              "p95": 1.800000000745058,
+              "p99": 2.099999999627471,
+              "max": 3.2000000001862645
+            },
+            "treesFrame": {
+              "mean": 0.6123333333681027,
+              "p50": 0.599999999627471,
+              "p95": 1,
+              "p99": 1.300000000745058,
+              "max": 1.400000000372529
+            },
+            "hintsFrame": {
+              "mean": 0.6076666666598369,
+              "p50": 0.5,
+              "p95": 0.900000000372529,
+              "p99": 1.6000000005587935,
+              "max": 2.7000000001862645
+            },
+            "drawFigures": {
+              "mean": 1.033666666659216,
+              "p50": 0.900000000372529,
+              "p95": 1.7000000001862645,
+              "p99": 2,
+              "max": 2.900000000372529
+            },
+            "fxFrame": {
+              "mean": 0.006333333331470689,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.015666666657974324,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.007666666653628151,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.19466666663996876,
+              "p50": 0.20000000018626451,
+              "p95": 0.39999999944120646,
+              "p99": 0.5,
+              "max": 0.7999999998137355
+            },
+            "audioFrame": {
+              "mean": 0.17900000003476937,
+              "p50": 0.20000000018626451,
+              "p95": 0.30000000074505806,
+              "p99": 0.5,
+              "max": 0.599999999627471
+            },
+            "sunShadows": {
+              "mean": 2.979333333314086,
+              "p50": 2.900000000372529,
+              "p95": 4.900000000372529,
+              "p99": 5.900000000372529,
+              "max": 9.200000000186265
+            },
+            "inkRender": {
+              "mean": 3.3083333333643776,
+              "p50": 3,
+              "p95": 5.800000000745058,
+              "p99": 7.1000000005587935,
+              "max": 9.599999999627471
+            },
+            "stNear": {
+              "mean": 0.44266666669088106,
+              "p50": 0.30000000167638063,
+              "p95": 1.200000001117587,
+              "p99": 1.5000000018626451,
+              "max": 1.699999999254942
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.004666666664804022,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.20000000018626451,
+              "max": 0.2999999998137355
+            },
+            "terrLevelSync": {
+              "mean": 0.0009999999993791182,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            }
+          },
+          "render": {
+            "frame": 3240,
+            "calls": 221,
+            "triangles": 3346840,
+            "points": 23,
+            "lines": 0
+          }
+        }
+      ]
+    }
+  },
+  "textureBytesWithMips": {
+    "before": 3145720,
+    "after": 2796200
+  },
+  "downloadBytes": {
+    "before": 14077596,
+    "after": 15253212
+  }
+}

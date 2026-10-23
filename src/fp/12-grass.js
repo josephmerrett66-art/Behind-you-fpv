@@ -23,11 +23,12 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
     float k = (bd.w < want * dens * share ? 1.0 : 0.0) * smoothstep(0.35, 0.7, m) * step(0.5, coastGrass(rt));
     vS = vec4(0.0);
     if (k > 0.0) {                                                     // (only for the blades that stand: most are hidden)
-      vec4 sw = soilW(rt); vS = sw;
+      vec4 raw=soilRaw(rt),L=landW(rt),sw=soilWeights(raw,L);vS=sw;
       k *= step(sw.w * 0.85, fract(bd.w * 13.7));                       // thin on stony ground
       k *= 1.0 - 0.35 * sw.x + 0.4 * sw.y;
-      vec4 L = landW(rt); k *= step(L.r * 0.6, fract(bd.w * 5.3)) * (1.0 + 0.25 * L.a);
-      float cv = coverW(rt); k *= step(smoothstep(0.22, 0.6, cv + (sNoise(rt * 0.022 + 5.0) - 0.5) * 0.45) * 0.82, fract(bd.w * 3.71));   // thin on a stand's floor (the ground's own litter, 00-core)   // sparse in the thickets' shade, lush in the glades                              // short and dry on sand, long on loam
+      float wear=(1.0-smoothstep(.025,.055,abs(raw.r-raw.g)))*smoothstep(.38,.62,raw.b);k*=1.0-wear*.35;
+      k *= step(L.r * 0.6, fract(bd.w * 5.3)) * (1.0 + 0.25 * L.a);
+      float cv = coverW(rt); k *= step(smoothstep(0.22, 0.6, cv + (raw.b - 0.5) * 0.45) * 0.82, fract(bd.w * 3.71));   // thin on a stand's floor (the ground's own litter, 00-core)   // sparse in the thickets' shade, lush in the glades                              // short and dry on sand, long on loam
     }
     // Fully excluded blades must be clipped, rather than flattened into tiny slivers.
     // This also skips terrain and wind work for the majority outside each ring.
@@ -44,7 +45,7 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
   }`;
 const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; uniform float rainW; varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
   void main() {
-    vec3 g = texture2D(gmap, vW.xz / 384.0).rgb;
+    vec3 g = texture2D(gmap, vW.xz / 128.0).rgb;
     vec3 lo = vec3(0.27, 0.39, 0.19), hi = vec3(0.57, 0.66, 0.34);                // a short, slightly dry green...
     lo = mix(lo, vec3(0.43, 0.43, 0.23), vS.x); hi = mix(hi, vec3(0.69, 0.65, 0.38), vS.x);   // ...straw on dry ground
     lo = mix(lo, vec3(0.22, 0.36, 0.19), vS.y); hi = mix(hi, vec3(0.46, 0.61, 0.29), vS.y);   // ...deep green on loam

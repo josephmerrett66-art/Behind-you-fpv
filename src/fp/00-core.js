@@ -1,7 +1,7 @@
 // ================= the first-person view of Daylight =================
 // Everything here draws, hears and steers. What happens in the woods is the main game's own code (src/ported.js).
 // Ground coordinates are the game's (x, y); in 3D they are (x, height, y). A person is 38 tall; your eyes are at 35.
-const ATLAS_SRC = '/*ATLAS*/', ATLAS = /*ATLASMETA*/0, FLOOR_SRC = '/*FLOOR*/', SND = /*SND*/0, AMB_SRC = '/*AMB*/', VOX = /*VOX*/0;
+const ATLAS_SRC = '/*ATLAS*/', ATLAS = /*ATLASMETA*/0, FLOOR_SRC = '/*FLOOR*/', SOIL_SRC = '/*SOIL*/', SND = /*SND*/0, AMB_SRC = '/*AMB*/', VOX = /*VOX*/0;
 const V3 = THREE.Vector3, V4 = THREE.Vector4, M4 = THREE.Matrix4;
 const BEACH = /*BEACH*/true;   // the island's coast and the sea round it (Joe); BEACH=0 node build.js builds the old endless woods
 const NIGHT_FOES = false;   // the night's own monsters (the wanderers, the tall one in the deep, the raid on a pen): off (Joe)
@@ -129,7 +129,10 @@ LU.terrF = { value: Array.from({ length: TERR_N }, () => new V4(0, 0, 0, 0)) }; 
 LU.cavePl = { value: Array.from({ length: 6 }, () => new V4(0, 0, 0, 0)) };   // the cave you're in: the hollows its pools lie in, x, y, radius, depth (17-caves)
 function terrBase(x, z) { return coastH(terrBase0(x, z), x, z); }
 function terrBase0(x, z) {
-  return 24 * Math.sin(x * 0.0061 + 1.3) * Math.sin(z * 0.0053 + 0.4) + 11 * Math.sin(x * 0.013 + z * 0.0081) * Math.cos(z * 0.0117 - x * 0.004) + 3 * Math.sin(x * 0.031 + 2.0) * Math.sin(z * 0.027 + 1.0);
+  const a=Math.sin(x*.0061+1.3)*Math.sin(z*.0053+.4);
+  const b=Math.sin(x*.013+z*.0081)*Math.cos(z*.0117-x*.004);
+  const c=Math.sin(x*.031+2)*Math.sin(z*.027+1);
+  return 24*a+11*b+3*c+3*a*b-2*(1-a*a)*b*b;
 }
 const _sst = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
@@ -201,7 +204,12 @@ float caveBase(vec2 p) { float lx = p.x - ${CAVE_X0.toFixed(1)};
   return h; }
 float terrBase0(vec2 p);
 float terrBase(vec2 p) { return coastH(terrBase0(p), p); }
-float terrBase0(vec2 p) { return 24.0 * sin(p.x * 0.0061 + 1.3) * sin(p.y * 0.0053 + 0.4) + 11.0 * sin(p.x * 0.013 + p.y * 0.0081) * cos(p.y * 0.0117 - p.x * 0.004) + 3.0 * sin(p.x * 0.031 + 2.0) * sin(p.y * 0.027 + 1.0); }
+float terrBase0(vec2 p) {
+  float a=sin(p.x*.0061+1.3)*sin(p.y*.0053+.4);
+  float b=sin(p.x*.013+p.y*.0081)*cos(p.y*.0117-p.x*.004);
+  float c=sin(p.x*.031+2.0)*sin(p.y*.027+1.0);
+  return 24.0*a+11.0*b+3.0*c+3.0*a*b-2.0*(1.0-a*a)*b*b; }
+
 float terrLevel(vec2 p, inout float h) {   // pulls h onto any level place here; returns how level it is
   float lv = 0.0;
   for (int i = 0; i < ${TERR_N}; i++) { vec4 f = terrF[i]; if (f.z <= 0.0) continue; float k = smoothstep(f.z * 1.9, f.z, distance(p, f.xy)); h = mix(h, f.w, k); lv = max(lv, k); }
@@ -213,17 +221,21 @@ float terrH(vec2 p) {
 #endif
   float h = terrBase(p); terrLevel(p, h); return h; }
 // the ground's slope as a normal (from the swells themselves; flat where the land's been levelled)
-#ifdef BEACH
-vec3 terrN(vec2 p) { float hx = terrH(p + vec2(3.0, 0.0)) - terrH(p - vec2(3.0, 0.0)), hz = terrH(p + vec2(0.0, 3.0)) - terrH(p - vec2(0.0, 3.0)); return normalize(vec3(-hx / 6.0, 1.0, -hz / 6.0)); }
-vec3 terrN0(vec2 p) {
-#else
+vec3 terrNSampled(vec2 p) {float hx=terrH(p+vec2(3.0,0.0))-terrH(p-vec2(3.0,0.0)),hz=terrH(p+vec2(0.0,3.0))-terrH(p-vec2(0.0,3.0));return normalize(vec3(-hx/6.0,1.0,-hz/6.0));}
 vec3 terrN(vec2 p) {
+#ifdef CAVES
+  if(p.x>${CAVE_X0.toFixed(1)})return terrNSampled(p);
 #endif
-  float a = p.x * 0.0061 + 1.3, b = p.y * 0.0053 + 0.4, u = p.x * 0.013 + p.y * 0.0081, v = p.y * 0.0117 - p.x * 0.004, c = p.x * 0.031 + 2.0, d = p.y * 0.027 + 1.0;
-  float dx = 24.0 * 0.0061 * cos(a) * sin(b) + 11.0 * (0.013 * cos(u) * cos(v) + 0.004 * sin(u) * sin(v)) + 3.0 * 0.031 * cos(c) * sin(d);
-  float dz = 24.0 * 0.0053 * sin(a) * cos(b) + 11.0 * (0.0081 * cos(u) * cos(v) - 0.0117 * sin(u) * sin(v)) + 3.0 * 0.027 * sin(c) * cos(d);
-  float h = 0.0, lv = terrLevel(p, h);
-  return normalize(vec3(-dx * (1.0 - lv), 1.0, -dz * (1.0 - lv)));
+  for(int i=0;i<${TERR_N};i++){vec4 f=terrF[i];if(f.z<=0.0)continue;float d=distance(p,f.xy);if(d<f.z-3.0)return vec3(0.0,1.0,0.0);if(d<f.z*1.9+3.0)return terrNSampled(p);}
+#ifdef BEACH
+  if(coastS(p)>-380.0)return terrNSampled(p);
+#endif
+  vec3 angles=vec3(p.x*.0061+1.3,p.x*.013+p.y*.0081,p.x*.031+2.0),other=vec3(p.y*.0053+.4,p.y*.0117-p.x*.004,p.y*.027+1.0);
+  vec3 ss=sin(angles),cc=cos(angles),st=sin(other),ct=cos(other);
+  float a=ss.x*st.x,b=ss.y*ct.y,da=24.0+3.0*b+4.0*a*b*b,db=11.0+3.0*a-4.0*b*(1.0-a*a);
+  float dx=da*.0061*cc.x*st.x+db*(.013*cc.y*ct.y+.004*ss.y*st.y)+3.0*.031*cc.z*st.z;
+  float dz=da*.0053*ss.x*ct.x+db*(.0081*cc.y*ct.y-.0117*ss.y*st.y)+3.0*.027*ss.z*ct.z;
+  return normalize(vec3(-dx,1.0,-dz));
 }`;
 // The soil changes as you walk: broad patches of dry sandy ground, dark rich loam, a reddish clay and stony bare ground,
 // laid out by slow noise so each patch runs a long way. The bare ground and the turf over it (12-grass) read the same patches,
@@ -233,16 +245,13 @@ float coverW(vec2 p) { return texture2D(standT, p / ${AREA_P.toFixed(1)}).r; }  
 float sHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float sNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(sHash(i), sHash(i + vec2(1.0, 0.0)), f.x), mix(sHash(i + vec2(0.0, 1.0)), sHash(i + vec2(1.0)), f.x), f.y); }
-vec4 soilW(vec2 p) {   // how much of each soil is here: dry, loam, clay, stony
-  float a = sNoise(p * 0.0042) * 0.7 + sNoise(p * 0.013 + 5.1) * 0.3;
-  float b = sNoise(p * 0.0035 + 11.7) * 0.7 + sNoise(p * 0.011 + 2.3) * 0.3;
-  float c = sNoise(p * 0.0021 - 7.3) * 0.8 + sNoise(p * 0.009 + 1.7) * 0.2;
-  float e = sNoise(p * 0.0075 + 31.0) * 0.75 + sNoise(p * 0.03 + 8.0) * 0.25;
-  vec4 s = vec4(smoothstep(0.52, 0.72, a), smoothstep(0.54, 0.72, b), smoothstep(0.56, 0.76, c), smoothstep(0.6, 0.76, e));
-  vec4 L = landW(p);                                                   // the lie of the land (00-areas): dry ground, rocky ground, the thickets' dark loam
-  s.x = max(s.x, L.b * 0.95); s.y = max(s.y * (1.0 - L.b), L.r * 0.75); s.w = max(s.w, L.g * 0.9); s.z *= 1.0 - 0.6 * L.a;
-  return s;
-}`;
+uniform sampler2D soilT;
+vec4 soilRaw(vec2 p) { vec4 v=texture2D(soilT,p/${AREA_P.toFixed(1)});v.a=(v.a-128.0/255.0)*(255.0/127.0);return v; }
+vec4 soilWeights(vec4 raw,vec4 L) {
+  vec4 s=smoothstep(vec4(.52,.54,.56,.6),vec4(.72,.72,.76,.76),raw);
+  s.x=max(s.x,L.b*.95);s.y=max(s.y*(1.0-L.b),L.r*.75);s.w=max(s.w,L.g*.9);s.z*=1.0-.6*L.a;return s;
+}
+vec4 soilW(vec2 p) { return soilWeights(soilRaw(p),landW(p)); }`;
 // which places are level: the camp; ponds lie in the land's own hollows (08-ponds)
 function terrLevelSync(px, py, lakes) {
   const L = [];
@@ -253,7 +262,7 @@ function terrLevelSync(px, py, lakes) {
 
 
 // ---------------- textures ----------------
-let pending = 2, ready = false;
+let pending = 3, ready = false;
 function loaded() { if (--pending === 0) { ready = true; onReady(); } }
 function texFrom(src, repeat) {
   const t = new THREE.Texture(); const img = new Image();
@@ -264,7 +273,8 @@ function texFrom(src, repeat) {
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
 }
-const atlasTex = texFrom(ATLAS_SRC, false), floorTex = texFrom(FLOOR_SRC, true);
+const atlasTex = texFrom(ATLAS_SRC, false), floorTex = texFrom(FLOOR_SRC, true), soilTex = texFrom(SOIL_SRC, true);
+LU.soilT={value:soilTex};
 
 // ---------------- the sky: a dome that follows you, from haze at the horizon to clear overhead ----------------
 // Drawn round the camera wherever it goes (only its turn is used, never where it stands). Over the gradient: the sun with its
@@ -333,37 +343,41 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
     uniforms: Object.assign({ map: { value: floorTex } }, LU),
     vertexShader: TERR_GLSL + `varying vec3 vW, vTN; void main() { vec4 w = modelMatrix * vec4(position, 1.0); w.y = terrH(w.xz); vTN = terrN(w.xz); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: LIGHT_GLSL + SOIL_GLSL + `uniform sampler2D map, mask; uniform vec2 mo; uniform float ms, time, wet, rainW; varying vec3 vW, vTN;
-      void main() { vec3 t = texture2D(map, vW.xz / 384.0).rgb;
-        vec4 s = soilW(vW.xz);
-        t *= 0.86 + 0.28 * sNoise(vW.xz * 0.006 + 40.0);                              // broad light and dark, so the texture never reads as tiles
-        t = mix(t, t * vec3(1.22, 1.1, 0.8) + vec3(0.05, 0.04, 0.0), s.x);            // dry, sandy
-        t = mix(t, t * vec3(0.6, 0.55, 0.5), s.y);                                    // dark loam
-        t = mix(t, t * vec3(1.2, 0.8, 0.62) + vec3(0.03, 0.0, 0.0), s.z);             // reddish clay
-        float sp = sNoise(vW.xz * 0.45), sp2 = sNoise(vW.xz * 1.3 + 9.0);              // stony: pebbles and grit
-        t = mix(t, mix(t * 0.9, vec3(0.6, 0.57, 0.52) * (0.7 + 0.5 * sp2), smoothstep(0.55, 0.7, sp) * 0.75), s.w);
-        float st = 1.0 - normalize(vTN).y;                                             // the steeper slopes wear through to stone
-        t = mix(t, vec3(0.44, 0.41, 0.37) * (0.75 + 0.5 * sp2), smoothstep(0.02, 0.07, st) * 0.45);
-        vec4 L = landW(vW.xz);
-        t = mix(t, t * vec3(0.66, 0.56, 0.44) + vec3(0.03, 0.015, 0.0) * sNoise(vW.xz * 0.2), L.r * 0.65);   // leaf litter under the thickets
-        // the floor of a stand of trees: fallen needles and leaves, brown and patchy, with moss in the damp hollows. Its edge
-        // wanders, so a stand's floor runs out into the grass in tongues rather than a line
-        float cv = coverW(vW.xz), lf = sNoise(vW.xz * 0.11 + 3.0), ed = sNoise(vW.xz * 0.022 + 5.0);   // (two noises: the ground is most of a phone's screen)
-        float fl = smoothstep(0.22, 0.6, cv + (ed - 0.5) * 0.45);
-        vec3 litter = mix(vec3(0.30, 0.23, 0.16), vec3(0.49, 0.37, 0.23), lf) * (0.82 + 0.32 * sp2);
-        litter = mix(litter, vec3(0.27, 0.36, 0.19) * (0.85 + 0.3 * sp2), smoothstep(0.62, 0.82, ed) * 0.7);
-        t = mix(t, litter * (0.82 + 0.36 * t.r), fl * 0.85 * (1.0 - 0.6 * s.w));
-        float gm = texture2D(mask, (vW.xz - mo) / ms).r;   // under the turf the ground is green too, bare where the grass stops (ponds, floors, fires)
-        // Reuse the existing patch noise: mossy greens and exposed warm soil, without extra samples.
-        vec3 under = mix(vec3(0.29, 0.40, 0.20), vec3(0.48, 0.50, 0.28), smoothstep(0.28, 0.76, ed));
-        under = mix(under, vec3(0.53, 0.48, 0.28), s.x); under = mix(under, vec3(0.25, 0.37, 0.19), s.y);
-        t = mix(t, under * (0.8 + 0.4 * t.r), 0.76 * smoothstep(0.2, 0.8, gm) * (1.0 - 0.75 * s.w) * (1.0 - 0.8 * fl));
-        t *= 1.0 - 0.08 * cv;                                                           // the shade under the canopy
+      void main() {
+        vec4 raw=soilRaw(vW.xz),L=landW(vW.xz),s=soilWeights(raw,L);
+        vec2 detailUV=vW.xz/128.0+raw.gb*.32;
+        vec4 detail=texture2D(map,detailUV);
+        vec2 relief=detail.rr-vec2(texture2D(map,detailUV+vec2(1.0/512.0,0.0)).r,texture2D(map,detailUV+vec2(0.0,1.0/512.0)).r);
+        vec3 surfaceN=normalize(vTN+vec3(relief.x*.7,0.0,relief.y*.7));
+        float grit=(detail.a-128.0/255.0)*(255.0/127.0);
+        float grain=detail.r,leaf=smoothstep(.56,.72,detail.g),needle=smoothstep(.14,.36,detail.g)*(1.0-leaf);
+        float cv=coverW(vW.xz),fl=smoothstep(.22,.6,cv+(raw.b-.5)*.45);
+        float mossPatch=smoothstep(.32,.60,raw.g*.65+detail.b*.35);
+        float gm=texture2D(mask,(vW.xz-mo)/ms).r;
+        vec3 earth=mix(vec3(.37,.255,.15),vec3(.55,.395,.23),grain);
+        earth=mix(earth,vec3(.56,.46,.28)*(.8+.4*grain),s.x*.7);
+        earth=mix(earth,earth*vec3(.78,.84,.83),s.y*.55);
+        earth=mix(earth,vec3(.43,.255,.17)*(.8+.4*grain),s.z*.55);
+        vec3 moss=mix(vec3(.22,.365,.16),vec3(.40,.52,.245),detail.b);
+        float wear=(1.0-smoothstep(.025,.055,abs(raw.r-raw.g)))*smoothstep(.38,.62,raw.b);
+        float green=smoothstep(.22,.8,gm)*(1.0-s.w*.75)*(1.0-s.x*.65);
+        vec3 t=mix(earth,moss*(.88+.24*grain),green*mix(.25,1.0,mossPatch)*(1.0-fl*.6)*(1.0-wear*.45));
+        vec3 litter=mix(vec3(.34,.255,.155),vec3(.54,.39,.22),grain);
+        litter=mix(litter,vec3(.58,.405,.205)*(.85+.25*grain),leaf*.65);
+        litter=mix(litter,litter*.7,needle*.35);
+        litter=mix(litter,moss*.88,smoothstep(.48,.67,raw.g)*detail.b*.7);
+        t=mix(t,litter,fl*.9*(1.0-s.w*.6));
+        t=mix(t,mix(t*.86,vec3(.54,.49,.38),leaf*.42),leaf*.18*(1.0-fl));
+        float slope=1.0-normalize(vTN).y,stone=max(s.w,smoothstep(.025,.10,slope)*.75);
+        vec3 rock=mix(vec3(.34,.33,.27),vec3(.55,.50,.39),grain);
+        rock=mix(rock,vec3(.65,.61,.51),grit*.6);
+        t=mix(t,rock,stone*.78);t*=1.0+grit*.07*stone; t*=1.0-.06*cv;
         #ifdef BEACH
-        { float cs = coastS(vW.xz), n1 = sNoise(vW.xz * 0.035), n2 = sNoise(vW.xz * 0.6 + 3.0);
+        { float cs=coastS(vW.xz),n1=raw.r,n2=grain;
           float sandK = smoothstep(-205.0, -140.0, cs + 30.0 * sin(vW.x * 0.05) * sin(vW.z * 0.043) + (n1 - 0.5) * 40.0);   // 1 on the sand
           vec3 sand = vec3(0.92, 0.84, 0.66) * (0.9 + 0.14 * n1) * (0.94 + 0.1 * n2);
-          sand = mix(sand, sand * vec3(0.95, 0.9, 0.82), smoothstep(0.55, 0.8, sNoise(vW.xz * 0.012 + 7.0)) * 0.5);   // drifts of darker sand
-          float rip = sin((cs * 0.9 + 6.0 * sNoise(vW.xz * 0.02)) * 0.55);              // wind ripples across the dry sand
+          sand = mix(sand, sand * vec3(0.95, 0.9, 0.82), smoothstep(0.55, 0.8, raw.b) * 0.5);   // drifts of darker sand
+          float rip = sin((cs * 0.9 + 6.0 * detail.b) * 0.55);              // wind ripples across the dry sand
           sand *= 1.0 + 0.035 * rip * (1.0 - smoothstep(-40.0, 10.0, cs));
           t = mix(t, sand, sandK);
           float wl = SEA_Y + wet + 0.12 * sin(vW.z * 0.004 + vW.x * 0.003);              // how high the last waves washed
@@ -374,9 +388,9 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
         }
         #endif
         t = mix(t, t * vec3(0.66, 0.68, 0.7), rainW);                                  // soaked: the earth goes dark
-        { float pd = smoothstep(0.62, 0.72, sNoise(vW.xz * 0.018 + 17.0)) * (1.0 - smoothstep(0.03, 0.06, 1.0 - normalize(vTN).y)) * rainW;   // puddles in the flat dips
+        { float pd = smoothstep(0.57, 0.70, raw.g) * (1.0 - smoothstep(0.03, 0.06, 1.0 - normalize(vTN).y)) * rainW;   // puddles in the flat dips
           vec3 V = normalize(camPos - vW); t = mix(t, mix(t * 0.45, fogCol * 0.8, pow(1.0 - max(V.y, 0.0), 2.0)), pd * 0.85); }
-        gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(normalize(vTN))), vW), 1.0); }`,
+        gl_FragColor = vec4(fogged(grey(t * lightAt(vW, vec3(0.0, 1.0, 0.0), 0.0) * 1.12 * slopeLit(surfaceN)), vW), 1.0); }`,
   });
   var groundMesh = new THREE.Mesh(g, m); groundMesh.frustumCulled = false; scene.add(groundMesh);
 }

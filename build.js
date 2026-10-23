@@ -8,7 +8,8 @@ let game = [fs.readFileSync('src/shim.js', 'utf8').replace(/^'use strict';\n/, '
 const rep = (s, k, v) => s.split(k).join(v);
 game = rep(game, '/*ATLAS*/', 'data:image/png;base64,' + fs.readFileSync('assets/atlas.png').toString('base64'));
 game = rep(game, '/*ATLASMETA*/0', fs.readFileSync('assets/atlas.json', 'utf8'));
-game = rep(game, '/*FLOOR*/', 'data:image/jpeg;base64,' + fs.readFileSync('assets/floor.jpg').toString('base64'));
+game = rep(game, '/*FLOOR*/', 'data:image/png;base64,' + fs.readFileSync('assets/terrain-detail.png').toString('base64'));
+game = rep(game, '/*SOIL*/', 'data:image/png;base64,' + fs.readFileSync('assets/terrain-regions.png').toString('base64'));
 game = rep(game, '/*SND*/0', fs.readFileSync('assets/snd.json', 'utf8'));
 game = rep(game, '/*RAIN*/', fs.readFileSync('assets/rain.mp3').toString('base64'));
 game = rep(game, '/*VOX*/0', fs.readFileSync('assets/voices.json', 'utf8'));

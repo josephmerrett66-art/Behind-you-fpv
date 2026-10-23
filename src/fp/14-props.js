@@ -10,6 +10,11 @@ function propMats(sway, cullR) {
     void main() { if (cullR > 0.0 && distance(vW.xz, pc.xz) > cullR - 120.0 * fract(sin(dot(gl_FragCoord.xy, vec2(41.31, 17.93))) * 4375.85)) discard;`;
   const uni = () => Object.assign({}, LU, { pc: PROP_PC, cullR: { value: cullR } });
   const m = new THREE.ShaderMaterial({ uniforms: uni(), vertexShader: treeMat.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeMat.fragmentShader.replace('void main() {', cut) });
+  // Thin leaves receive light on both faces. Use a gentle upward normal only for
+  // living foliage; rocks, logs and other solid props keep their original lighting.
+  if (sway > 0) m.fragmentShader = m.fragmentShader
+    .replace('smoothstep(-0.5, 0.9, N.y)', 'smoothstep(-0.5, 0.9, abs(N.y))')
+    .replace('lightAt(vW, N, 1.0)', 'lightAt(vW, normalize(vec3(N.x * 0.45, abs(N.y) * 0.4 + 0.65, N.z * 0.45)), 0.65)');
   const e = new THREE.ShaderMaterial({ uniforms: uni(), side: THREE.BackSide, vertexShader: treeEdge.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeEdge.fragmentShader.replace('void main() {', cut) });
   return { m, e };
 }
@@ -139,11 +144,11 @@ function propModel(kind, vi) {
     }
     K.mt = null;
   } else if (kind === 'grass') {   // a tuft of curving blades springing from a dark base (16 wide, 13 high), green at the root, pale at the tips
-    const G = [['#2f5222', '#7aa84a'], ['#355a26', '#8db456'], ['#2a4a1e', '#6c9a40'], ['#3e5e28', '#b0ad5e']], blades = 18 + vi * 3;
+    const G = [['#3d542e', '#8ca95b'], ['#405d35', '#9ab96c'], ['#344e2c', '#799d56'], ['#4c6134', '#aca96b']], blades = 18 + vi * 3;
     K.mt = 'plant'; K.add(P_KNOB(vi), 0, 0.3, 0, 5, 1.4, 5, hex('#3a5a26'), 0, 0, 0, 0, 0.3);
     K.mt = 'plain';
     for (let i = 0; i < blades; i++) {
-      const a = i * 2.39996 + R() * 0.6, o = R() * 2.6, h = 7 + R() * 8 - (i % 4 === 3 ? 3 : 0), w = 1.5 + R() * 0.8, c = G[(i + vi) % 4];
+      const a = i * 2.39996 + R() * 0.6, o = R() * 2.6, h = 7 + R() * 8 - (i % 4 === 3 ? 3 : 0), w = 0.85 + R() * 0.65, c = G[(i + vi) % 4];
       kitGrad(K, () => K.add(P_CBLADE(i % 3), Math.cos(a) * o, 0, Math.sin(a) * o, w, h, h * (0.55 + R() * 0.5), hex(c[1]), -a + Math.PI / 2, 0, 0, 0, 0), hex(c[0]), hex(c[1]), 0.9);
     }
     K.mt = null;

@@ -6,7 +6,7 @@ const fs=require('fs'),http=require('http'),path=require('path');
  const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||undefined,headless:true,args:['--autoplay-policy=no-user-gesture-required']});
  const page=await browser.newPage({viewport:{width:1280,height:720},deviceScaleFactor:Number(process.env.BENCH_DPR||1)}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript((quality)=>{window.benchRAF=window.requestAnimationFrame.bind(window);window.requestAnimationFrame=()=>0;let seed=42;Math.random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);localStorage.setItem('behind-you-fp',JSON.stringify({quality,sound:false}));},process.env.BENCH_QUALITY||'sharp');
+ await page.addInitScript(({quality,ink})=>{window.benchRAF=window.requestAnimationFrame.bind(window);window.requestAnimationFrame=()=>0;let seed=42;Math.random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);localStorage.setItem('behind-you-fp',JSON.stringify({quality,sound:false,ink}));},{quality:process.env.BENCH_QUALITY||'sharp',ink:process.env.BENCH_INK!=='0'});
  await page.goto('http://localhost:8771');await page.waitForFunction(()=>ready);await page.evaluate(()=>startRun(true));
  const data=await page.evaluate(async({coast})=>{
   const scopes=['simStep','beamStep','envFrame','weatherFrame','lifeFrame','worldSync','thingsSync','grassMask','lightsFrame','placeCamera','thingsFrame','treesFrame','hintsFrame','drawFigures','fxFrame','combatFrame','figuresEnd','drawHud','audioFrame','sunShadows','inkRender','stNear','pieceKit','pondsSync','terrLevelSync'];
@@ -30,5 +30,5 @@ const fs=require('fs'),http=require('http'),path=require('path');
    results.push({n,pixK,metrics,slowest:samples.slice().sort((a,b)=>b.cpu-a.cpu).slice(0,8),render:{...renderer.info.render}});
   }return results;
  },{coast:process.env.BENCH_COAST==='1'});
- console.log(JSON.stringify({buildSha256:require('crypto').createHash('sha256').update(game).digest('hex'),quality:process.env.BENCH_QUALITY||'sharp',dpr:Number(process.env.BENCH_DPR||1),coast:process.env.BENCH_COAST==='1',data,errors},null,2));await browser.close();server.close();
+ console.log(JSON.stringify({buildSha256:require('crypto').createHash('sha256').update(game).digest('hex'),quality:process.env.BENCH_QUALITY||'sharp',dpr:Number(process.env.BENCH_DPR||1),ink:process.env.BENCH_INK!=='0',coast:process.env.BENCH_COAST==='1',data,errors},null,2));await browser.close();server.close();
 })().catch(e=>{console.error(e);process.exit(1)});

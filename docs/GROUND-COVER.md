@@ -6,6 +6,8 @@ The ground beneath it has more coherent mossy green patches and warm exposed ear
 
 Plant locations, instance counts, interaction rules, terrain geometry, exclusion masks, grass rings and fade ranges are preserved. Outlines are untouched; screenshots and performance comparisons use **outlines off**, as requested. Fully masked or out-of-ring blades now clip before terrain/wind work instead of flattening into degenerate triangles that could leave tiny raster slivers. No new textures, noise samples, draw calls or post-processing effects were added. The extra leaf normal arithmetic is offset in these measurements by reduced turf geometry and narrower tuft silhouettes.
 
+Follow-up tuning: turf wind displacement is reduced by about 95%, with slower oscillation. Modelled grass tufts (and the flowers sharing their material) use a sway coefficient of 0.006 instead of 0.035, making their squared wind displacement about 97% smaller. The performance measurements below describe the original visual pass before this amplitude-only follow-up.
+
 ## Visual review
 
 `tools/check-ground-cover.cjs` captures deterministic forest, underfoot, glade, meadow, coast and night views with outlines off, and checks shader/browser errors. It also renders turf alone on the GPU to verify that a filled exclusion mask removes every blade, that grass produces visible pixels without the mask, and that hiding grass removes every blade. Before/after screenshots are in the workspace outputs folders `ground-cover-before` and `ground-cover-after`.

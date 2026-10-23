@@ -20,7 +20,7 @@ function propMats(sway, cullR) {
 }
 const PROP_MAT = { still: null, plant: null, grass: null, sap: null };
 function propMat(k) {
-  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, VIS.plants); PROP_MAT.grass = propMats(0.035, VIS.plants); PROP_MAT.sap = propMats(0.011, VIS.plants); }
+  if (!PROP_MAT.still) { PROP_MAT.still = propMats(0, 0); PROP_MAT.plant = propMats(0.02, VIS.plants); PROP_MAT.grass = propMats(0.006, VIS.plants); PROP_MAT.sap = propMats(0.011, VIS.plants); }
   return PROP_MAT[k];
 }
 

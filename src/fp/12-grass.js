@@ -37,8 +37,8 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
     float c = cos(bd.z), s = sin(bd.z);
     vec3 w = vec3(rt.x + position.x * widen * c, up + terrH(rt), rt.y + position.x * widen * s); vTN = terrN(rt);
     // a breeze that runs across the turf, and a little shiver of its own
-    float br = sin(time * 1.3 + rt.x * 0.05 + rt.y * 0.035) * 0.5 + sin(time * 2.7 + rt.x * 0.3 + bd.w * 6.0) * 0.25;
-    w.x += br * 0.35 * up; w.z += br * 0.2 * up;
+    float br = sin(time * 0.65 + rt.x * 0.05 + rt.y * 0.035) * 0.5 + sin(time * 1.1 + rt.x * 0.3 + bd.w * 6.0) * 0.25;
+    w.x += br * 0.018 * up; w.z += br * 0.01 * up;
     vW = w; vUp = position.y / 6.6; vTone = fract(bd.w * 7.13); vRoot = position.y;
     gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
   }`;

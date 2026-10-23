@@ -25,7 +25,8 @@ const fs=require('fs'),http=require('http'),path=require('path');
   const checks=[],check=(name,pass,detail)=>{checks.push({name,pass:!!pass,detail});if(!pass)throw Error(name+': '+JSON.stringify(detail))};
   S.day.t=DAY_LEN*.25;S.p.x=0;S.p.y=200;envFrame();placeCamera(0,0,0);
   const testScene=new THREE.Scene(),testCam=new THREE.OrthographicCamera(-35,35,35,-35,1,300),rt=new THREE.WebGLRenderTarget(128,128);
-  testCam.position.set(0,150,200);testCam.up.set(0,0,-1);testCam.lookAt(0,0,200);testCam.updateMatrixWorld();
+  // An oblique view measures blade visibility without depending on how far wind bends them.
+  testCam.position.set(0,100,245);testCam.up.set(0,1,0);testCam.lookAt(0,0,200);testCam.updateMatrixWorld();
   const mesh=grassMesh.meshes[0],parent=mesh.parent,saved=grassMaskData.slice(),pixels=new Uint8Array(128*128*4);
   const read=()=>{renderer.setRenderTarget(rt);renderer.setClearColor(0,1);renderer.clear();renderer.render(testScene,testCam);renderer.readRenderTargetPixels(rt,0,0,128,128,pixels);let n=0;for(let i=0;i<pixels.length;i+=4)if(pixels[i]+pixels[i+1]+pixels[i+2]>0)n++;return n};
   testScene.add(mesh);grassMaskData.fill(255);grassMaskTex.needsUpdate=true;const visible=read();

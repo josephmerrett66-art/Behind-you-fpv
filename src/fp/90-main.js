@@ -313,10 +313,12 @@ function frame(t) {
   buildbarEl.hidden = hotbarEl.hidden || dayTool() !== 'build' || !craftEl.hidden;
   drawHud(); audioFrame();
   groundMesh.position.set(Math.round(S.p.x / 10) * 10, 0, Math.round(S.p.y / 10) * 10);   // the ground's grid rides along with you
+  // Rendering can block in the driver when the GPU is saturated. Counting that wait as
+  // simulation work prevented Auto from lowering quality precisely when it was needed.
+  AQ.cpu = (performance.now() - fT0) / 1000;
   sunShadows();
   inkRender();
   renderer.clearDepth(); renderer.render(vmScene, vmCam);
-  AQ.cpu = (performance.now() - fT0) / 1000;   // (autoQuality) how long the frame took on this side, in seconds
 }
 addEventListener('resize', resize);
 resize();

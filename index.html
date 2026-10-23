@@ -9564,7 +9564,7 @@ let thingUid = 0, thingDay = null, thingCheck = 0, thingGen = -1, thingDoor = -1
 function thingId(o) { if (!THING_IDS.has(o)) THING_IDS.set(o, ++thingUid); return THING_IDS.get(o); }
 function thingsSync(force) {
   const D = S.day, p = S.p, R = 620, size = 280, cells = new Map(), now = performance.now();
-  if (D.bld.size < 256) {
+  if (D.bld.size + D.builds.length < 64) {
     if (THING_CELLS.size) {
       for (const c of THING_CELLS.values()) { for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m); c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); }
       THING_CELLS.clear(); force = true; thingDay = null;
@@ -9576,15 +9576,17 @@ function thingsSync(force) {
   if (!force && thingDay === D && thingGen === stGen && thingDoor === doorV && now < thingCheck) return;
   thingCheck = now + 100; thingGen = stGen; thingDoor = doorV;
   const add = (o, type, state) => {
-    if (Math.abs(o.x - p.x) >= R || Math.abs(o.y - p.y) >= R) return;
-    const id = Math.floor(o.x / size) + ',' + Math.floor(o.y / size);
+    // Whole cells retain their membership while you walk. Clipping individual pieces at the
+    // view boundary rebuilt/uploaded an otherwise unchanged cell whenever one crossed it.
+    const cx = Math.floor(o.x / size), cy = Math.floor(o.y / size);
+    if (cx * size > p.x + R || (cx + 1) * size < p.x - R || cy * size > p.y + R || (cy + 1) * size < p.y - R) return;
+    const id = cx + ',' + cy;
     let c = cells.get(id); if (!c) cells.set(id, c = { key: '', items: [] });
     c.key += '|' + thingId(o) + ':' + state; c.items.push([o, type]);
   };
   if (!EX_FIRE.gone) add(EX_FIRE, 'pit', EX_FIRE.x + ',' + EX_FIRE.y);
   for (const B of D.builds) add(B, 'build', JSON.stringify([B.x, B.y, B.a, B.openT > 0, B.open, B.pen && B.inv.some(s => s && s.id === 'meat'), B.lit, B.crop, B.grown, (B.basket || B.comp) && !!B.inv.find(Boolean), Math.round((B.w || 0) * 2), B.fuel > 0, B.items && B.items.length]));
-  for (const o of stNear(p.x, p.y, R)) {
-    if (Math.abs(o.x - p.x) >= 560 || Math.abs(o.y - p.y) >= 560) continue;
+  for (const o of stNear(p.x, p.y, R + size)) {
     const P = PC(o.id);
     // Moving doors remain in their existing dynamic batch, independent of all static cells.
     if (o.done && !o.del && stDoorish(P) && (o.open || 0) !== (o.ajar || 0)) { if (SWING.next) SWING.next.add(o); continue; }
@@ -9601,6 +9603,9 @@ function thingsSync(force) {
       const depth = new THREE.Mesh(plan.geometry, GHOST_D[1][1].material); depth.renderOrder = 5; scene.add(depth);
       THING_CELLS.set(id, old = { solid, plan, depth, key: null });
     }
+    old.used = now;
+    old.solid.visible = old.solid.mesh.geometry.attributes.position?.count > 0;
+    old.plan.visible = old.depth.visible = old.plan.geometry.attributes.position?.count > 0;
     if (old.key === c.key && !changed) continue;
     const K = new Kit(), PK = new Kit();
     for (const [o, type] of c.items) {
@@ -9620,11 +9625,20 @@ function thingsSync(force) {
     old.key = c.key; thingsKey += '.';
   }
   for (const [id, c] of THING_CELLS) if (!cells.has(id)) {
-    for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m);
-    c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); THING_CELLS.delete(id); thingsKey += '.';
+    c.solid.visible = c.plan.visible = c.depth.visible = false;
+  }
+  // Keep recently visited cells resident, so turning back does not upload them again.
+  // Bound the cache and evict only inactive cells, oldest first.
+  if (THING_CELLS.size > 64) {
+    const cold = [...THING_CELLS].filter(([id]) => !cells.has(id)).sort((a, b) => a[1].used - b[1].used);
+    for (const [id, c] of cold) {
+      if (THING_CELLS.size <= 64) break;
+      for (const m of [c.solid.mesh, c.solid.edge, c.plan, c.depth]) scene.remove(m);
+      c.solid.mesh.geometry.dispose(); c.plan.geometry.dispose(); THING_CELLS.delete(id);
+    }
   }
   // A door can start/finish swinging without changing any remaining static cell.
-  thingsKey = 'cells:' + [...THING_CELLS.values()].map(c => c.key).join(';') + '|s:' + [...(SWING.next || [])].map(thingId).join(',');
+  thingsKey = 'cells:' + [...cells.keys()].map(id => THING_CELLS.get(id).key).join(';') + '|s:' + [...(SWING.next || [])].map(thingId).join(',');
 }
 
 // ---------------- each frame: nodes, drops, ghosts, what's flying, the tree you just felled ----------------
@@ -21781,10 +21795,12 @@ function frame(t) {
   buildbarEl.hidden = hotbarEl.hidden || dayTool() !== 'build' || !craftEl.hidden;
   drawHud(); audioFrame();
   groundMesh.position.set(Math.round(S.p.x / 10) * 10, 0, Math.round(S.p.y / 10) * 10);   // the ground's grid rides along with you
+  // Rendering can block in the driver when the GPU is saturated. Counting that wait as
+  // simulation work prevented Auto from lowering quality precisely when it was needed.
+  AQ.cpu = (performance.now() - fT0) / 1000;
   sunShadows();
   inkRender();
   renderer.clearDepth(); renderer.render(vmScene, vmCam);
-  AQ.cpu = (performance.now() - fT0) / 1000;   // (autoQuality) how long the frame took on this side, in seconds
 }
 addEventListener('resize', resize);
 resize();

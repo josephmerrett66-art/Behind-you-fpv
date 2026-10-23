@@ -2,6 +2,8 @@
 
 Implemented against main commit `44364eaa69b9c22d1d9959c74cf1e97a3b76d776`. The rebuilt `index.html` is included. No cave source files or enemy decision/movement logic were edited.
 
+The subsequent frame-pacing follow-up identifies movement-driven buffer uploads and addresses them; see [FRAME-PACING.md](FRAME-PACING.md) for the latest measurements and remaining limits.
+
 ## Changes and identified causes
 
 ### Base performance
@@ -53,7 +55,7 @@ Final before/after run in headless Chrome on this machine, 1280×720, sharp qual
 | 800-piece render triangles | 1,298,791 | 1,216,911 |
 | 800-piece render draw calls | 109 | 132 |
 
-The changed-roof rebuild is about 98% faster in the large fixture, and local-query work is about 38% lower. Culling reduces submitted triangles by 6.3%, but separate cells add draw calls. The full-frame benchmark includes GPU completion and shows substantial timing variability. The 200-piece case is slower even with the original small-base render path and identical geometry/draw counts; the cause remains unresolved. These results do **not** establish a general FPS improvement or stable performance on the user's device. Treat the build as a playtest candidate, with the medium-base slowdown an outstanding performance issue before release.
+The changed-roof rebuild is about 98% faster in the large fixture, and local-query work is about 38% lower. Culling reduces submitted triangles by 6.3%, but separate cells add draw calls. The full-frame benchmark includes GPU completion and shows substantial timing variability. The 200-piece case is slower even with the original small-base render path and identical geometry/draw counts; the cause remains unresolved. These results do **not** establish a general FPS improvement or stable performance on the user's device. These initial measurements prompted the moving-player investigation documented in [FRAME-PACING.md](FRAME-PACING.md); see that report for the follow-up changes and current results.
 
 ## Verification
 

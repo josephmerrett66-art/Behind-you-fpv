@@ -222,7 +222,7 @@ function terrainInstanceGeometry(base, capacity) {
   for (const k in base.attributes) g.setAttribute(k, base.attributes[k]);
   if (base.index) g.setIndex(base.index);
   g.setAttribute('baseHeight', new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1).setUsage(THREE.DynamicDrawUsage));
-  g.boundingSphere = base.boundingSphere;
+  g.boundingSphere = base.boundingSphere; g.userData = base.userData;
   return g;
 }
 function treesBuild() {

@@ -7863,7 +7863,7 @@ function terrainInstanceGeometry(base, capacity) {
   for (const k in base.attributes) g.setAttribute(k, base.attributes[k]);
   if (base.index) g.setIndex(base.index);
   g.setAttribute('baseHeight', new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1).setUsage(THREE.DynamicDrawUsage));
-  g.boundingSphere = base.boundingSphere;
+  g.boundingSphere = base.boundingSphere; g.userData = base.userData;
   return g;
 }
 function treesBuild() {
@@ -8304,16 +8304,22 @@ PROP_KIND.sapling = { n: 3, mat: 'sap', edge: true, shadow: true };
 function propModel(kind, vi) {
   let s = 4211 + vi * 337 + kind.length * 59; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
   const pick = (list, j) => hex(list[((j % list.length) + list.length) % list.length]);
+  // Seat separate stones independently; a small side stone must not define the main boulder's foot.
+  const seat = (start, inset = 0.35) => {
+    let bottom=Infinity;for(let i=start+1;i<K.pos.length;i+=3)bottom=Math.min(bottom,K.pos[i]);
+    const dy=-bottom-inset;for(let i=start+1;i<K.pos.length;i+=3)K.pos[i]+=dy;return dy;
+  };
   if (kind === 'rock' || kind === 'rockIron') {   // a big dark boulder (36 wide, 26 high as drawn) with a stone or two leaning on it
     const iron = kind === 'rockIron';   // out past where iron is found: warmer, rust-streaked stone studded with orange lumps of ore
     K.mt = 'stone';
     K.add(P_BOULDER(vi), 0, 9, 0, 32, 24, 26, pick(iron ? ['#6a5850', '#725e54', '#64534b'] : ['#5c5e63', '#65676c', '#56585d'], vi), R() * 6.28, (R() - 0.5) * 0.2, (R() - 0.5) * 0.2, 0, 0.55);
+    const rockY = seat(0, 0.6);
     const n = 1 + vi % 2;
-    for (let i = 0; i < n; i++) { const a = R() * 6.28, d = 15 + R() * 4, r = 7 + R() * 5; K.add(P_BOULDER(vi + 3 + i), Math.cos(a) * d, r * 0.3, Math.sin(a) * d, r * 1.3, r, r * 1.1, pick(iron ? ['#76625a', '#6a5a52'] : ['#6a6c70', '#5e6064'], i), R() * 6.28, 0, 0, 0, 0.45); }
+    for (let i = 0; i < n; i++) { const a = R() * 6.28, d = 15 + R() * 4, r = 7 + R() * 5, start=K.pos.length; K.add(P_BOULDER(vi + 3 + i), Math.cos(a) * d, r * 0.3, Math.sin(a) * d, r * 1.3, r, r * 1.1, pick(iron ? ['#76625a', '#6a5a52'] : ['#6a6c70', '#5e6064'], i), R() * 6.28, 0, 0, 0, 0.45); seat(start); }
     K.mt = null;
     if (iron) for (let i = 0; i < 9; i++) {   // the ore: rusty knobs breaking the surface all round, a few with a bright glint
       const a = i * 2.4 + vi, e = 0.15 + (i % 3) * 0.38, cx = Math.cos(a) * Math.cos(e), cz = Math.sin(a) * Math.cos(e), sz = 4.2 + (i % 4) * 1.1;
-      K.add(P_PEA(7, 5), cx * 14.5, 9 + Math.sin(e) * 11.5, cz * 12, sz, sz * 0.8, sz, hex(i % 3 ? '#b8622c' : '#d4823a'), a, 0, 0, i % 4 === 0 ? 0.25 : 0, 0.4);
+      K.add(P_PEA(7, 5), cx * 14.5, 9 + rockY + Math.sin(e) * 11.5, cz * 12, sz, sz * 0.8, sz, hex(i % 3 ? '#b8622c' : '#d4823a'), a, 0, 0, i % 4 === 0 ? 0.25 : 0, 0.4);
     }
   } else if (kind === 'post') {   // a squared-off stake with a strap of rope round it
     K.mt = 'bark'; K.add(P_CYL(6), 0, 0, 0, 8, 38, 8, hex(vi ? '#5a3e2a' : '#634530'), 0.3 * vi, 0, 0, 0, 0.5);
@@ -8415,12 +8421,50 @@ function propModel(kind, vi) {
       for (let i = 0; i < 3; i++) { const q = a + i * 2.1; K.add(P_PEA(7, 5), cx + Math.cos(q) * 1.6, cy + (i - 1) * 1.2, cz + Math.sin(q) * 1.6, 3.4, 3.4, 3.4, hex(i === 1 ? '#a8182c' : '#dc2c3c'), 0, 0, 0, 0.12); }
     }
   } else return null;
-  return indexModel(K.geometry());
+  const g=indexModel(K.geometry());g.computeBoundingBox();
+  if(kind!=='nberries'&&g.boundingBox.min.y>0.05){g.translate(0,-g.boundingBox.min.y,0);g.computeBoundingBox();g.computeBoundingSphere();}
+  const p=g.attributes.position,limit=g.boundingBox.min.y+0.65,points=[],seen=new Set();
+  if(kind!=='nberries')for(let i=0;i<p.count;i++)if(p.getY(i)<=limit){
+    const key=Math.round(p.getX(i)*2)+','+Math.round(p.getZ(i)*2);
+    if(!seen.has(key)){seen.add(key);points.push(new V3().fromBufferAttribute(p,i));}
+  }
+  // Cover the footprint with a small fixed set, computed once per reusable model.
+  const contacts=[];if(points.length)contacts.push(points.shift());
+  while(points.length&&contacts.length<12){let best=0,dist=-1;for(let i=0;i<points.length;i++){
+    let d=Infinity;for(const q of contacts)d=Math.min(d,(q.x-points[i].x)**2+(q.z-points[i].z)**2);
+    if(d>dist){dist=d;best=i;}
+  }contacts.push(points.splice(best,1)[0]);}
+  g.userData.groundContacts=contacts;
+  g.userData.groundRigid=['rock','rockIron','log','pebbles','nstones','nsticks'].includes(kind);
+  return g;
+}
+
+// Fit once per stationary placement, reusing the result while it stays loaded.
+// The rigid model follows the local slope, then its lowest contacts settle into the surface.
+const PROP_GROUND_FIELDS={key:'',gen:0};
+function propGroundGeneration(){
+  let key='';for(const fields of [LU.terrF.value,LU.cavePl.value])for(const v of fields)key+=v.x+','+v.y+','+v.z+','+v.w+';';
+  if(key!==PROP_GROUND_FIELDS.key){PROP_GROUND_FIELDS.key=key;PROP_GROUND_FIELDS.gen++;}
+  return PROP_GROUND_FIELDS.gen;
+}
+function propGroundFit(g,x,y,s,seed,h) {
+  const r=Math.max(4,Math.min(24,g.boundingSphere.radius*s*0.45));
+  const dx=(terrH(x+r,y)-terrH(x-r,y))/(2*r),dz=(terrH(x,y+r)-terrH(x,y-r))/(2*r);
+  const q=new THREE.Quaternion();
+  if(g.userData.groundRigid)q.setFromUnitVectors(new V3(0,1,0),new V3(-dx,1,-dz).normalize());
+  q.multiply(new THREE.Quaternion().setFromAxisAngle(new V3(0,1,0),(seed*7919%1)*6.283+x*0.013));
+  const m=new M4().compose(new V3(x,0,y),q,new V3(s,s,s)),v=new V3();let gap=0;
+  // Plants and posts keep growing upright; only their footprint follows the ground plane.
+  if(!g.userData.groundRigid){const a=m.elements;for(const i of [0,4,8])a[i+1]+=dx*a[i]+dz*a[i+2];}
+  for(const p of g.userData.groundContacts){v.copy(p).applyMatrix4(m);gap=Math.max(gap,h+v.y-terrH(v.x,v.z));}
+  const offset=-gap-0.4;m.elements[13]=offset;
+  return {m,offset};
 }
 
 // one instanced draw (and its outline) per kind and way of building it; a set for the woods, and one for what you gather
+const PROP_SHAKE_M=new M4();
 class PropSet {
-  constructor(cap, range = 0) { this.cap = cap; this.k = {}; this.range = range; this.materials = {}; }
+  constructor(cap, range = 0) { this.cap = cap; this.k = {}; this.range = range; this.materials = {}; this.groundFits = new Map(); this.groundFrame=0; }
   _kind(kind) {
     let L = this.k[kind]; if (L !== undefined) return L;
     const P = PROP_KIND[kind]; if (!P) return (this.k[kind] = null);
@@ -8440,19 +8484,30 @@ class PropSet {
     }
     return (this.k[kind] = L);
   }
-  begin() { for (const kind in this.k) if (this.k[kind]) for (const B of this.k[kind]) B.n = 0; }
+  begin() { this.groundFrame++; const gen=propGroundGeneration();if(this.groundTerrainGen!==gen){this.groundFits.clear();this.groundTerrainGen=gen;} for (const kind in this.k) if (this.k[kind]) for (const B of this.k[kind]) B.n = 0; }
   // one thing: its kind and variant, its foot at (x, y), sized as its picture was, turned by its seed; tilt a beat when struck
   add(kind, v, x, y, s, seed = 0, shakeT = -99) {
     const L = this._kind(kind); if (!L) return false;
     const B = L[((v % L.length) + L.length) % L.length]; if (B.n >= this.cap) return true;
-    _tq.setFromEuler(_te.set(0, (seed * 7919 % 1) * 6.283 + x * 0.013, 0));
-    const st = S.t - shakeT; if (st >= 0 && st < 0.45) { _tq2.setFromAxisAngle(_tax.set(Math.sin(seed * 9), 0, Math.cos(seed * 9)), Math.sin(st * 30) * 0.12 * (1 - st / 0.45)); _tq.premultiply(_tq2); }
-    const M = _tm.compose(_tp.set(x, 0, y), _tq, _ts.set(s, s, s)), d = (x - S.p.x) ** 2 + (y - S.p.y) ** 2;
     let it = B.items[B.n]; if (!it) it = B.items[B.n] = { d: 0, m: new Float32Array(16) };
-    it.d = d; it.h = terrH(x, y); M.toArray(it.m); B.n++;
+    const h=terrH(x,y);let fit=it.fit;
+    // Stationary gatherables retain their fit directly: no string key or Map lookup each frame.
+    if(!fit||it.fitX!==x||it.fitY!==y||it.fitS!==s||it.fitSeed!==seed||it.fitGen!==this.groundTerrainGen||fit.h!==h){
+      const fitKind=kind==='nberries'?'bbush':kind,fitB=kind==='nberries'?this._kind('bbush')[((v%3)+3)%3]:B;
+      const key=fitKind+','+v+','+x+','+y+','+s+','+seed;
+      fit=this.groundFits.get(key);
+      if(!fit||fit.h!==h){fit=Object.assign(propGroundFit(fitB.m.geometry,x,y,s,seed,h),{h});this.groundFits.set(key,fit);}
+      Object.assign(it,{fit,fitX:x,fitY:y,fitS:s,fitSeed:seed,fitGen:this.groundTerrainGen});
+    }
+    fit.seen=this.groundFrame;
+    const M=_tm.copy(fit.m),st=S.t-shakeT;
+    if(st>=0&&st<0.45){_tq2.setFromAxisAngle(_tax.set(Math.sin(seed*9),0,Math.cos(seed*9)),Math.sin(st*30)*0.12*(1-st/0.45));M.multiply(PROP_SHAKE_M.makeRotationFromQuaternion(_tq2));}
+    const d=(x-S.p.x)**2+(y-S.p.y)**2;
+    it.d = d; it.h = h; M.toArray(it.m); B.n++;
     return true;
   }
   end() {   // nearest first, so the sun's pass can draw only those inside its map
+    if(this.groundFits.size>this.cap)for(const [key,fit] of this.groundFits)if(fit.seen!==this.groundFrame)this.groundFits.delete(key);
     const SR = shadowReach() ** 2;
     for (const kind in this.k) if (this.k[kind]) for (const B of this.k[kind]) {
       instanceSource(B);
@@ -9636,7 +9691,7 @@ function figuresEnd() { for (const k in PT) PT[k].done(); }
 // All of it is the main game's own state (S.day): this only stands it up in 3D in the game's colours.
 
 // ---------------- item pictures: every item's own icon from the pack, painted once into a sheet ----------------
-// Dropped things lie on the ground as their picture, standing up and bobbing a little, as in the 2D game.
+// Dropped things lie on the ground as their picture, standing on their visible bottom edge.
 const ISHEET = { W: 2048, H: 2048, meta: {}, ok: {} };
 const iconCv = document.createElement('canvas'); iconCv.width = ISHEET.W; iconCv.height = ISHEET.H;
 const iconTex = new THREE.CanvasTexture(iconCv);
@@ -9667,9 +9722,9 @@ function extrudeIcon(id) {
   const L = -XSZ / 2, R = XSZ / 2;
   quad([L, 0, h], [R, 0, h], [R, XSZ, h], [L, XSZ, h], [0, 0, 1], [uvAt(0, 1), uvAt(1, 1), uvAt(1, 0), uvAt(0, 0)], 1);
   quad([R, 0, -h], [L, 0, -h], [L, XSZ, -h], [R, XSZ, -h], [0, 0, -1], [uvAt(1, 1), uvAt(0, 1), uvAt(0, 0), uvAt(1, 0)], 0.92);
-  let any = false;
+  let any = false, groundY=XSZ;
   for (let j = 0; j < XNN; j++) for (let i = 0; i < XNN; i++) {
-    if (!on(i, j)) continue; any = true;
+    if (!on(i, j)) continue; any = true; groundY=Math.min(groundY,XSZ-(j+1)*c);
     const x0 = L + i * c, x1 = x0 + c, y1 = XSZ - j * c, y0 = y1 - c, m = uvAt((i + 0.5) / XNN, (j + 0.5) / XNN), uv = [m, m, m, m];
     if (!on(i - 1, j)) quad([x0, y0, -h], [x0, y0, h], [x0, y1, h], [x0, y1, -h], [-1, 0, 0], uv, 0.68);
     if (!on(i + 1, j)) quad([x1, y0, h], [x1, y0, -h], [x1, y1, -h], [x1, y1, h], [1, 0, 0], uv, 0.68);
@@ -9680,7 +9735,7 @@ function extrudeIcon(id) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nn, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('sd', new THREE.Float32BufferAttribute(SD, 1));
-  g.computeBoundingSphere(); XGEO.set(id, g); return g;
+  g.userData.groundY=groundY; g.computeBoundingSphere(); XGEO.set(id, g); return g;
 }
 const XGLSL_V = TERR_GLSL + `attribute float sd; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
   void main() { vUv = uv; vS = sd; vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`;
@@ -9831,6 +9886,27 @@ function thingsSync(force) {
   thingsKey = 'cells:' + [...cells.keys()].map(id => THING_CELLS.get(id).key).join(';') + '|s:' + [...(SWING.next || [])].map(thingId).join(',');
 }
 
+// A grounded drop can sit on a built floor as well as on bare terrain. Cache the
+// exact floor triangles until placement/building state changes; no per-frame raycasts.
+const DROP_SUPPORT=new WeakMap();
+function dropSupport(o) {
+  const h=terrH(o.x,o.y),old=DROP_SUPPORT.get(o);
+  if(old&&old.gen===stGen&&old.terrain===PROP_GROUND_FIELDS.gen&&old.x===o.x&&old.y===o.y&&old.h===h)return old.z;
+  let z=0;
+  for(const floor of stNear(o.x,o.y,GRID)){
+    const P=PC(floor.id);if(!P||P.lay!=='floor'||!floor.done||floor.del||floor.gone)continue;
+    const K=new Kit();pieceKit(K,floor);const p=K.pos;
+    for(let i=0;i<p.length;i+=9){
+      const ax=p[i],az=p[i+2],bx=p[i+3],bz=p[i+5],cx=p[i+6],cz=p[i+8];
+      const den=(bz-cz)*(ax-cx)+(cx-bx)*(az-cz);if(Math.abs(den)<1e-8)continue;
+      const u=((bz-cz)*(o.x-cx)+(cx-bx)*(o.y-cz))/den,v=((cz-az)*(o.x-cx)+(ax-cx)*(o.y-cz))/den;
+      if(u<-.0001||v<-.0001||u+v>1.0001)continue;
+      z=Math.max(z,u*(p[i+1]+terrH(ax,az))+v*(p[i+4]+terrH(bx,bz))+(1-u-v)*(p[i+7]+terrH(cx,cz))-h);
+    }
+  }
+  DROP_SUPPORT.set(o,{gen:stGen,terrain:PROP_GROUND_FIELDS.gen,x:o.x,y:o.y,h,z});return z;
+}
+
 // ---------------- each frame: nodes, drops, ghosts, what's flying, the tree you just felled ----------------
 const _gk = { k: null };
 function thingsFrame(now) {
@@ -9848,17 +9924,17 @@ function thingsFrame(now) {
     else if (o.t === 'shroom') propsN.add('nshroom' + clamp(o.n || 1, 1, 3), v, o.x, o.y, 1, sd);
   }
   nodeB.end(); propsN.end();
-  // dropped things: their own pictures, bobbing; tools glint now and then so you find them again
+  // dropped things rest on their visible feet; tools still glint so you can find them
   dropB.begin(); let dn = 0;
   for (const o of D.drops) {
     if (Math.abs(o.x - p.x) > VIS.drops + 60 || Math.abs(o.y - p.y) > VIS.drops + 60) continue;
-    const bob = Math.sin(now * 3 + (o.seed || 0)) * 1.2, T = DIT[o.it];
-    if (o.it === 'logs') { for (const s of [-1, 1]) K.rod(P_CYL(8), o.x - 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2, o.x + 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2 - 1, 2.4, hex('#7a5232')); }
+    const support=dropSupport(o),T=DIT[o.it];
+    if (o.it === 'logs') { for (const s of [-1, 1]) K.rod(P_CYL(8), o.x - 7, support + 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2, o.x + 7, support + 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2 - 1, 2.4, hex('#7a5232')); }
     else { const geo = extrudeIcon(o.it);
-      if (geo) { const m = dropMesh(dn++, geo); m.position.set(o.x, 2.4 + bob, o.y); m.rotation.set(0, now * 1.1 + (o.seed || 0) * 7, 0); m.scale.setScalar(1.1); }
-      else dropB.add(o.it, 0, o.x, o.y, 1, 1, 0, -99, 0, 2 + bob); }
+      if (geo) { const m = dropMesh(dn++, geo); m.position.set(o.x, support - geo.userData.groundY * 1.1 - 0.05, o.y); m.rotation.set(0, (o.seed || 0) * 7, 0); m.scale.setScalar(1.1); }
+      else dropB.add(o.it, 0, o.x, o.y, 1, 1, 0, -99, 0, support); }
     shadow(o.x, o.y, 6, 0);
-    if (T && (T.dur || T.k === 'place' || T.k === 'gear')) { const g = (now * 0.7 + (o.seed || 0)) % 2.2; if (g < 0.35) stat(o.x, 12 + bob, o.y, 4 + 6 * Math.sin(g / 0.35 * Math.PI), 1, 0.97, 0.86, 0.9, 1); }
+    if (T && (T.dur || T.k === 'place' || T.k === 'gear')) { const g = (now * 0.7 + (o.seed || 0)) % 2.2; if (g < 0.35) stat(o.x, support + 12, o.y, 4 + 6 * Math.sin(g / 0.35 * Math.PI), 1, 0.97, 0.86, 0.9, 1); }
   }
   dropB.end(); for (let i = dn; i < dropPool.length; i++) dropPool[i].visible = false;
   // the tree you just felled, toppling

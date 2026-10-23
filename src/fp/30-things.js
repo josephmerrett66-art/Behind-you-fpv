@@ -2,7 +2,7 @@
 // All of it is the main game's own state (S.day): this only stands it up in 3D in the game's colours.
 
 // ---------------- item pictures: every item's own icon from the pack, painted once into a sheet ----------------
-// Dropped things lie on the ground as their picture, standing up and bobbing a little, as in the 2D game.
+// Dropped things lie on the ground as their picture, standing on their visible bottom edge.
 const ISHEET = { W: 2048, H: 2048, meta: {}, ok: {} };
 const iconCv = document.createElement('canvas'); iconCv.width = ISHEET.W; iconCv.height = ISHEET.H;
 const iconTex = new THREE.CanvasTexture(iconCv);
@@ -33,9 +33,9 @@ function extrudeIcon(id) {
   const L = -XSZ / 2, R = XSZ / 2;
   quad([L, 0, h], [R, 0, h], [R, XSZ, h], [L, XSZ, h], [0, 0, 1], [uvAt(0, 1), uvAt(1, 1), uvAt(1, 0), uvAt(0, 0)], 1);
   quad([R, 0, -h], [L, 0, -h], [L, XSZ, -h], [R, XSZ, -h], [0, 0, -1], [uvAt(1, 1), uvAt(0, 1), uvAt(0, 0), uvAt(1, 0)], 0.92);
-  let any = false;
+  let any = false, groundY=XSZ;
   for (let j = 0; j < XNN; j++) for (let i = 0; i < XNN; i++) {
-    if (!on(i, j)) continue; any = true;
+    if (!on(i, j)) continue; any = true; groundY=Math.min(groundY,XSZ-(j+1)*c);
     const x0 = L + i * c, x1 = x0 + c, y1 = XSZ - j * c, y0 = y1 - c, m = uvAt((i + 0.5) / XNN, (j + 0.5) / XNN), uv = [m, m, m, m];
     if (!on(i - 1, j)) quad([x0, y0, -h], [x0, y0, h], [x0, y1, h], [x0, y1, -h], [-1, 0, 0], uv, 0.68);
     if (!on(i + 1, j)) quad([x1, y0, h], [x1, y0, -h], [x1, y1, -h], [x1, y1, h], [1, 0, 0], uv, 0.68);
@@ -46,7 +46,7 @@ function extrudeIcon(id) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(Nn, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('sd', new THREE.Float32BufferAttribute(SD, 1));
-  g.computeBoundingSphere(); XGEO.set(id, g); return g;
+  g.userData.groundY=groundY; g.computeBoundingSphere(); XGEO.set(id, g); return g;
 }
 const XGLSL_V = TERR_GLSL + `attribute float sd; varying vec2 vUv; varying vec3 vW, vN; varying float vS;
   void main() { vUv = uv; vS = sd; vec4 w = modelMatrix * vec4(position, 1.0); w.y += terrH(w.xz); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`;
@@ -197,6 +197,27 @@ function thingsSync(force) {
   thingsKey = 'cells:' + [...cells.keys()].map(id => THING_CELLS.get(id).key).join(';') + '|s:' + [...(SWING.next || [])].map(thingId).join(',');
 }
 
+// A grounded drop can sit on a built floor as well as on bare terrain. Cache the
+// exact floor triangles until placement/building state changes; no per-frame raycasts.
+const DROP_SUPPORT=new WeakMap();
+function dropSupport(o) {
+  const h=terrH(o.x,o.y),old=DROP_SUPPORT.get(o);
+  if(old&&old.gen===stGen&&old.terrain===PROP_GROUND_FIELDS.gen&&old.x===o.x&&old.y===o.y&&old.h===h)return old.z;
+  let z=0;
+  for(const floor of stNear(o.x,o.y,GRID)){
+    const P=PC(floor.id);if(!P||P.lay!=='floor'||!floor.done||floor.del||floor.gone)continue;
+    const K=new Kit();pieceKit(K,floor);const p=K.pos;
+    for(let i=0;i<p.length;i+=9){
+      const ax=p[i],az=p[i+2],bx=p[i+3],bz=p[i+5],cx=p[i+6],cz=p[i+8];
+      const den=(bz-cz)*(ax-cx)+(cx-bx)*(az-cz);if(Math.abs(den)<1e-8)continue;
+      const u=((bz-cz)*(o.x-cx)+(cx-bx)*(o.y-cz))/den,v=((cz-az)*(o.x-cx)+(ax-cx)*(o.y-cz))/den;
+      if(u<-.0001||v<-.0001||u+v>1.0001)continue;
+      z=Math.max(z,u*(p[i+1]+terrH(ax,az))+v*(p[i+4]+terrH(bx,bz))+(1-u-v)*(p[i+7]+terrH(cx,cz))-h);
+    }
+  }
+  DROP_SUPPORT.set(o,{gen:stGen,terrain:PROP_GROUND_FIELDS.gen,x:o.x,y:o.y,h,z});return z;
+}
+
 // ---------------- each frame: nodes, drops, ghosts, what's flying, the tree you just felled ----------------
 const _gk = { k: null };
 function thingsFrame(now) {
@@ -214,17 +235,17 @@ function thingsFrame(now) {
     else if (o.t === 'shroom') propsN.add('nshroom' + clamp(o.n || 1, 1, 3), v, o.x, o.y, 1, sd);
   }
   nodeB.end(); propsN.end();
-  // dropped things: their own pictures, bobbing; tools glint now and then so you find them again
+  // dropped things rest on their visible feet; tools still glint so you can find them
   dropB.begin(); let dn = 0;
   for (const o of D.drops) {
     if (Math.abs(o.x - p.x) > VIS.drops + 60 || Math.abs(o.y - p.y) > VIS.drops + 60) continue;
-    const bob = Math.sin(now * 3 + (o.seed || 0)) * 1.2, T = DIT[o.it];
-    if (o.it === 'logs') { for (const s of [-1, 1]) K.rod(P_CYL(8), o.x - 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2, o.x + 7, 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2 - 1, 2.4, hex('#7a5232')); }
+    const support=dropSupport(o),T=DIT[o.it];
+    if (o.it === 'logs') { for (const s of [-1, 1]) K.rod(P_CYL(8), o.x - 7, support + 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2, o.x + 7, support + 2.6 + (s > 0 ? 4.4 : 0), o.y + s * 2.2 - 1, 2.4, hex('#7a5232')); }
     else { const geo = extrudeIcon(o.it);
-      if (geo) { const m = dropMesh(dn++, geo); m.position.set(o.x, 2.4 + bob, o.y); m.rotation.set(0, now * 1.1 + (o.seed || 0) * 7, 0); m.scale.setScalar(1.1); }
-      else dropB.add(o.it, 0, o.x, o.y, 1, 1, 0, -99, 0, 2 + bob); }
+      if (geo) { const m = dropMesh(dn++, geo); m.position.set(o.x, support - geo.userData.groundY * 1.1 - 0.05, o.y); m.rotation.set(0, (o.seed || 0) * 7, 0); m.scale.setScalar(1.1); }
+      else dropB.add(o.it, 0, o.x, o.y, 1, 1, 0, -99, 0, support); }
     shadow(o.x, o.y, 6, 0);
-    if (T && (T.dur || T.k === 'place' || T.k === 'gear')) { const g = (now * 0.7 + (o.seed || 0)) % 2.2; if (g < 0.35) stat(o.x, 12 + bob, o.y, 4 + 6 * Math.sin(g / 0.35 * Math.PI), 1, 0.97, 0.86, 0.9, 1); }
+    if (T && (T.dur || T.k === 'place' || T.k === 'gear')) { const g = (now * 0.7 + (o.seed || 0)) % 2.2; if (g < 0.35) stat(o.x, support + 12, o.y, 4 + 6 * Math.sin(g / 0.35 * Math.PI), 1, 0.97, 0.86, 0.9, 1); }
   }
   dropB.end(); for (let i = dn; i < dropPool.length; i++) dropPool[i].visible = false;
   // the tree you just felled, toppling

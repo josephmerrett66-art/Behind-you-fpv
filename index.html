@@ -604,6 +604,7 @@ body.fallen .rb, body.fallen #stick, body.fallen #prompt, body.fallen #guide { d
         <button class="tab" id="sInk">Outlines</button>
         <button class="tab" id="sGrass">Grass</button>
         <button class="tab" id="sFilm">Film grain</button>
+        <button class="tab" id="sBob">View bob</button>
         <button class="tab" id="sInv">Invert look</button>
         <button class="tab" id="sFps">Show FPS</button>
         <button class="tab" id="sSnd">Sound</button>
@@ -13587,7 +13588,7 @@ function lvStep(dt, px, py) {
   p.jvz -= JUMP.g * dt; p.jz = Math.max(g, z + p.jvz * dt);
   if (p.jz <= g && p.jvz <= 0) {   // down: both feet, and the view gives a little (a long drop more)
     const hard = clamp(-p.jvz / JUMP.v, 0, 1.4); p.jvz = 0; p.jair = 0; p.jz = g;
-    VIEW_FX.dip = Math.max(VIEW_FX.dip, 3.2 * hard); FPX.step(true, -1); if (g > 0 || stepKind(p.x, p.y)[0] !== 'water_wade') snd('jump_land', { v: 0.35 + 0.35 * hard }); setTimeout(() => FPX.step(true, 1), 45);
+    feelLand(hard); FPX.step(true, -1); if (g > 0 || stepKind(p.x, p.y)[0] !== 'water_wade') snd('jump_land', { v: 0.35 + 0.35 * hard }); setTimeout(() => FPX.step(true, 1), 45);
     if (hard > 1.2) addShake(0.25);
   }
   p.lvX = p.x; p.lvY = p.y;
@@ -21847,6 +21848,92 @@ function xbHoldTP(G, chest, ty, D, s) {   // the model where xbArms put it, and 
 }
 
 ;
+// ================= how it feels to move about in first person =================
+// Joe: "some things could be improved, like the movement ... the jumping, and maybe ... a little bit of camera bobbing for the
+// steps ... look into other games, how they make first person movement feel really good. It's not so much ... changing the
+// physics of it ... more about adding those kind of game feel elements". How you move is as it was; what the camera does
+// as you move is what first-person games lean on to make it feel like a body carrying you about:
+//   - the step: your head is lowest just after each foot comes down (when the footfall is heard) and highest as you pass
+//     over that foot, a sharper dip and a rounder top the harder you go, and it sways side to side once every two steps,
+//     tipping a touch with it. Walking it's gentle, running more, sprinting most; crouched it's smaller
+//   - each footfall gives the view a small jolt of its own, a little more when you run
+//   - your weight: setting off, the view tips back a touch and settles; pulling up, it nods forward. Stepping sideways
+//     you lean into it, and running round a bend you lean into the turn
+//   - your breath: standing still the view rises and falls a little with it, slower and deeper when you're worn out
+//   - the jump: the view tips up as you push off and drifts down as you come down, your hands lagging behind the rise
+//     and floating at the top; landing, you sink into your knees with a nod and come back up, more from higher up
+// Settings → View bob turns the step, the sway and the breathing off for anyone they don't sit well with.
+SET.bob = SET.bob !== false;
+const FEEL = {
+  k: 0, br: 0, tired: 0, fA: 0, sA: 0, lastF: 0, lastS: 0, yawR: 0, lastYaw: null, air: false, airP: 0, handJ: 0,
+  land: { y: 0, vy: 0, p: 0, vp: 0, r: 0, vr: 0 },   // the give in your knees, and the nod with it, after a landing (or a push off)
+  foot: { y: 0, v: 0 },   // a footfall's jolt
+  lean: { r: 0, v: 0 }, tip: { p: 0, v: 0 },   // leaning into a sidestep or a turn; tipping back and forward as you set off and pull up
+  o: { x: 0, y: 0, pitch: 0, roll: 0, hx: 0, hy: 0 },
+};
+// a damped spring, pulled back to (or towards) a target: w how quick, z how damped (under 1 it overshoots a little and settles)
+function feelSpr(o, x, v, to, w, z, dt) {
+  for (let n = Math.max(1, Math.ceil(dt / (1 / 120))), h = dt / n; n > 0; n--) { o[v] += (-w * w * (o[x] - to) - 2 * z * w * o[v]) * h; o[x] += o[v] * h; }
+}
+function feelLand(hard) {   // down: into your knees, and a nod (68-lift)
+  if (outsideP()) { VIEW_FX.dip = Math.max(VIEW_FX.dip, 3.2 * hard); return; }
+  const L = FEEL.land, k = SET.bob ? 1 : 0.6;
+  L.vy -= (55 + 45 * hard) * k; L.vp -= (0.16 + 0.2 * hard) * k; L.vr += (Math.random() - 0.5) * 0.08 * hard * k;
+  if (hard > 1.2) VIEW_FX.dip = Math.max(VIEW_FX.dip, 2 * (hard - 1));
+}
+function feelFoot(running) { if (SET.bob && !outsideP()) FEEL.foot.v -= running ? 11 : 6; }
+// how far round the stride you are: 0 as a foot comes down (the footfalls are on the stride's half turns, 40-sim), 1 at the next
+const feelU = ph => { const u = (ph - Math.PI / 2) / Math.PI; return u - Math.floor(u); };
+function feelStep(dt, now, v) {
+  const p = S.p, D = S.day, rg = S.rg, o = FEEL.o;
+  if (outsideP()) {   // seen from outside: the camera bobs as it always has
+    o.x = Math.cos(p.phase) * 0.7 * VIEW_FX.bobAmt; o.y = Math.sin(p.phase * 2) * 1.1 * VIEW_FX.bobAmt; o.pitch = o.roll = o.hx = o.hy = 0;
+    FEEL.lastYaw = null; return o;
+  }
+  if (!(dt > 0)) return o; dt = Math.min(dt, 0.05);   // (a frame with no time in it, paused or held: nothing moves)
+  const air = lvAir(p), dead = rg.phase === 'dead', on = SET.bob ? 1 : 0, cr = D.crK || 0;
+  // how hard you're going: 1 at your usual pace, about 1.45 sprinting, less pushing a stick part way; nothing in the air or when you've fallen
+  FEEL.k += ((air || dead ? 0 : Math.min(1.6, v / (RUN * rgSpeed()))) - FEEL.k) * Math.min(1, dt * 7);
+  const K = FEEL.k, g = Math.min(1, K / 0.25) * on * (1 - 0.35 * cr) * (D.draw ? 0.35 : 1);   // steadier with a bow drawn or a crossbow up
+  // the step
+  const w = feelU(p.phase) - 0.06, cusp = 0.35 + 0.4 * Math.min(1, K);
+  const vert = (1 - cusp) * -Math.cos(TAU * w) + cusp * (2 * Math.abs(Math.sin(Math.PI * w)) - 1);   // -1 just after a footfall, 1 over the foot
+  const sway = -Math.cos(p.phase - 0.15);   // side to side, once every two steps
+  const Ay = g * (0.15 + 0.65 * K), Ax = g * (0.25 + 0.25 * K), Ar = g * (0.003 + 0.003 * K), Ap = g * (0.002 + 0.003 * K);
+  // the footfall's jolt
+  feelSpr(FEEL.foot, 'y', 'v', 0, 30, 0.7, dt);
+  // your breath: deeper and quicker when you're spent, most of it lost under your stride
+  FEEL.tired += (clamp(1 - D.st / STA_MAX, 0, 1) ** 1.5 + 0.5 * SPR.k - FEEL.tired) * Math.min(1, dt * 0.8);
+  const T = Math.min(1, FEEL.tired); FEEL.br += dt * TAU * (0.22 + 0.28 * T);
+  const bk = on * (dead ? 0 : 1) * (1 - 0.6 * Math.min(1, K / 0.3)), By = bk * (0.12 + 0.32 * T), Bp = bk * (0.0012 + 0.0035 * T);
+  // your weight: the view swings against a change of speed, and leans into a sidestep and a turn
+  const a = S.aimW || 0, fv = p.vx * Math.cos(a) + p.vy * Math.sin(a), sv = -p.vx * Math.sin(a) + p.vy * Math.cos(a);
+  FEEL.fA += (clamp((fv - FEEL.lastF) / dt, -2000, 2000) - FEEL.fA) * Math.min(1, dt * 12); FEEL.lastF = fv;
+  if (FEEL.lastYaw === null) FEEL.lastYaw = look.yaw;
+  FEEL.yawR += (clamp(angDiff(look.yaw, FEEL.lastYaw) / dt, -8, 8) - FEEL.yawR) * Math.min(1, dt * 8); FEEL.lastYaw = look.yaw;
+  feelSpr(FEEL.tip, 'p', 'v', on * (air ? 0 : clamp(FEEL.fA * 1.2e-5, -0.014, 0.014)), 10, 0.6, dt);
+  feelSpr(FEEL.lean, 'r', 'v', on * (-sv / (RUN * rgSpeed()) * 0.016 + clamp(FEEL.yawR * 0.0035, -0.01, 0.01) * Math.min(1, K)), 9, 0.8, dt);
+  // the jump: off the ground the view tips with how you're going up or down, and your hands lag behind
+  if (air && !FEEL.air && p.jvz > 0) { FEEL.land.vp += 0.1 * (0.6 + 0.4 * on); FEEL.land.vy += 18 * on; VIEW_FX.fov += 1.2; }   // pushing off
+  FEEL.air = air;
+  FEEL.airP += ((air ? clamp((p.jvz || 0) * 6e-5, -0.012, 0.008) : 0) - FEEL.airP) * Math.min(1, dt * 10);
+  FEEL.handJ += ((air ? clamp(-(p.jvz || 0) * 0.012, -1.6, 1.6) : 0) - FEEL.handJ) * Math.min(1, dt * 9);
+  const L = FEEL.land; feelSpr(L, 'y', 'vy', 0, 16, 0.5, dt); feelSpr(L, 'p', 'vp', 0, 14, 0.55, dt); feelSpr(L, 'r', 'vr', 0, 12, 0.6, dt);
+  o.x = Ax * sway;
+  o.y = Ay * vert + FEEL.foot.y + By * Math.sin(FEEL.br) + L.y;
+  o.pitch = Ap * vert + FEEL.foot.y * 0.0025 + Bp * Math.sin(FEEL.br - 0.5) + FEEL.tip.p + FEEL.airP + L.p;
+  o.roll = -Ar * sway + FEEL.lean.r + L.r;
+  // your hands: the same stride a beat behind, and the jump and the landing in them
+  const wh = feelU(p.phase) - 0.16, vh = -Math.cos(TAU * wh);
+  o.hx = Math.cos(p.phase - 0.4) * 0.45 * Math.min(1, K) * (on ? 1 : 0.5);
+  o.hy = vh * 0.5 * Math.min(1.3, K) * (on ? 1 : 0.5) + FEEL.handJ + L.y * 0.25 + FEEL.foot.y * 0.6;
+  return o;
+}
+{ const st = FPX.step; FPX.step = function (running) { const r = st.apply(this, arguments); if (S && S.p && !lvAir(S.p)) feelFoot(running); return r; }; }
+{ const ss = syncSet; syncSet = function () { ss.apply(this, arguments); const b = $('sBob'); if (b) b.setAttribute('aria-pressed', SET.bob ? 'true' : 'false'); }; }
+$('sBob').addEventListener('click', () => { SET.bob = !SET.bob; saveSet(); syncSet(); });
+
+;
 // ================= the sun and the dark, the lights, the camera, the frame =================
 
 // ---------------- the sky through the day ----------------
@@ -21958,14 +22045,14 @@ function placeCamera(dt, rdt, now) {
   const crouch = (D.crK || 0) * 10 + (D.butK || 0) * 9;   // knelt at a body you're cutting up (88-meat)
   const v = Math.hypot(p.vx, p.vy);
   VIEW_FX.bobAmt = lerp(VIEW_FX.bobAmt, p.roll > 0 ? 0 : Math.min(1, v / RUN), Math.min(1, rdt * 8));
-  const bobY = Math.sin(p.phase * 2) * 1.1 * VIEW_FX.bobAmt, bobX = Math.cos(p.phase) * 0.7 * VIEW_FX.bobAmt;
+  const F = feelStep(rdt, now, v), bobY = F.y, bobX = F.x;   // the step, the sway, your breath, your weight, the jump (90-feel)
   const yaw = look.yaw, RX = Math.cos(yaw), RZ = -Math.sin(yaw);
   const kx = S.kick ? S.kick.x * 0.4 : 0, ky = S.kick ? S.kick.y * 0.4 : 0;
   // fallen: the view drops to the ground and tips over onto its side
   const fallK = rg.phase === 'dead' ? smooth(Math.min(1, (rg.deadT || 0) / 1.1)) : 0;
   cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, terrH(p.x, p.y) + EYE + (p.jz || 0) - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
   const side = (p.vx * -Math.sin(S.aimW) + p.vy * Math.cos(S.aimW)) / RUN;
-  cam.rotation.set(lerp(look.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + nz(6) * sh * 0.06 - side * 0.012 + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
+  cam.rotation.set(lerp(look.pitch + F.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + F.roll + nz(6) * sh * 0.06 - (outsideP() ? side * 0.012 : 0) + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
   aimZoomStep(rdt); cam.fov = (baseFov() + VIEW_FX.fov) * (1 - AIM.z); cam.updateProjectionMatrix();   // v124: a drawn bow brings the view in (66-aim) cam.updateMatrixWorld();
   LU.camPos.value.copy(cam.position); LU.fogC.value.copy(cam.position); LU.camRight.value.set(RX, 0, RZ);
   // the torch's light comes from your left hand and aims where you look, a beat behind
@@ -21980,7 +22067,7 @@ function placeCamera(dt, rdt, now) {
   const ly = angDiff(look.tYaw, look.yaw), lp = look.tPitch - look.pitch;
   if (thirdFrame(rdt, now, cam.position.y)) return;
   handG.visible = torchG.visible = fallK < 0.3; if (fallK >= 0.3) { bowRig.visible = false; return; }
-  placeHands(rdt, now, [Math.cos(p.phase) * 0.45 * VIEW_FX.bobAmt, Math.sin(p.phase * 2) * 0.55 * VIEW_FX.bobAmt], [ly, lp]);
+  placeHands(rdt, now, [F.hx, F.hy], [ly, lp]);
 }
 
 // ---------------- film grain, as in the 2D game's film look ----------------

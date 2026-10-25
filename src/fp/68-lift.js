@@ -136,7 +136,7 @@ function lvStep(dt, px, py) {
   p.jvz -= JUMP.g * dt; p.jz = Math.max(g, z + p.jvz * dt);
   if (p.jz <= g && p.jvz <= 0) {   // down: both feet, and the view gives a little (a long drop more)
     const hard = clamp(-p.jvz / JUMP.v, 0, 1.4); p.jvz = 0; p.jair = 0; p.jz = g;
-    VIEW_FX.dip = Math.max(VIEW_FX.dip, 3.2 * hard); FPX.step(true, -1); if (g > 0 || stepKind(p.x, p.y)[0] !== 'water_wade') snd('jump_land', { v: 0.35 + 0.35 * hard }); setTimeout(() => FPX.step(true, 1), 45);
+    feelLand(hard); FPX.step(true, -1); if (g > 0 || stepKind(p.x, p.y)[0] !== 'water_wade') snd('jump_land', { v: 0.35 + 0.35 * hard }); setTimeout(() => FPX.step(true, 1), 45);
     if (hard > 1.2) addShake(0.25);
   }
   p.lvX = p.x; p.lvY = p.y;

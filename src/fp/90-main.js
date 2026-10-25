@@ -109,14 +109,14 @@ function placeCamera(dt, rdt, now) {
   const crouch = (D.crK || 0) * 10 + (D.butK || 0) * 9;   // knelt at a body you're cutting up (88-meat)
   const v = Math.hypot(p.vx, p.vy);
   VIEW_FX.bobAmt = lerp(VIEW_FX.bobAmt, p.roll > 0 ? 0 : Math.min(1, v / RUN), Math.min(1, rdt * 8));
-  const bobY = Math.sin(p.phase * 2) * 1.1 * VIEW_FX.bobAmt, bobX = Math.cos(p.phase) * 0.7 * VIEW_FX.bobAmt;
+  const F = feelStep(rdt, now, v), bobY = F.y, bobX = F.x;   // the step, the sway, your breath, your weight, the jump (90-feel)
   const yaw = look.yaw, RX = Math.cos(yaw), RZ = -Math.sin(yaw);
   const kx = S.kick ? S.kick.x * 0.4 : 0, ky = S.kick ? S.kick.y * 0.4 : 0;
   // fallen: the view drops to the ground and tips over onto its side
   const fallK = rg.phase === 'dead' ? smooth(Math.min(1, (rg.deadT || 0) / 1.1)) : 0;
   cam.position.set(p.x + RX * bobX + nz(1) * sh * 2 + kx, terrH(p.x, p.y) + EYE + (p.jz || 0) - crouch + bobY - VIEW_FX.dip + nz(2) * sh * 2 - fallK * (EYE - 7), p.y + RZ * bobX + nz(3) * sh * 2 + ky);
   const side = (p.vx * -Math.sin(S.aimW) + p.vy * Math.cos(S.aimW)) / RUN;
-  cam.rotation.set(lerp(look.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + nz(6) * sh * 0.06 - side * 0.012 + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
+  cam.rotation.set(lerp(look.pitch + F.pitch, 0.15, fallK) + nz(4) * sh * 0.05, yaw + nz(5) * sh * 0.05, fallK * 1.35 + VIEW_FX.roll + F.roll + nz(6) * sh * 0.06 - (outsideP() ? side * 0.012 : 0) + (rollU >= 0 ? Math.sin(rollU * Math.PI) * 0.05 * (p.rollBack ? 0 : 1) : 0));
   aimZoomStep(rdt); cam.fov = (baseFov() + VIEW_FX.fov) * (1 - AIM.z); cam.updateProjectionMatrix();   // v124: a drawn bow brings the view in (66-aim) cam.updateMatrixWorld();
   LU.camPos.value.copy(cam.position); LU.fogC.value.copy(cam.position); LU.camRight.value.set(RX, 0, RZ);
   // the torch's light comes from your left hand and aims where you look, a beat behind
@@ -131,7 +131,7 @@ function placeCamera(dt, rdt, now) {
   const ly = angDiff(look.tYaw, look.yaw), lp = look.tPitch - look.pitch;
   if (thirdFrame(rdt, now, cam.position.y)) return;
   handG.visible = torchG.visible = fallK < 0.3; if (fallK >= 0.3) { bowRig.visible = false; return; }
-  placeHands(rdt, now, [Math.cos(p.phase) * 0.45 * VIEW_FX.bobAmt, Math.sin(p.phase * 2) * 0.55 * VIEW_FX.bobAmt], [ly, lp]);
+  placeHands(rdt, now, [F.hx, F.hy], [ly, lp]);
 }
 
 // ---------------- film grain, as in the 2D game's film look ----------------

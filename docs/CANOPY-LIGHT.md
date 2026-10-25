@@ -1,5 +1,8 @@
 # Light through the canopy
 
+Current implementation: [fine canopy cutouts](POROUS-CANOPY.md). The earlier report below is retained as history.
+
+
 The canopies now have real openings between solid leaf tufts and conifer boughs. Sky and sun can pass through these spaces. The same geometry is used by the existing depth and shadow rendering, so the openings also break up the ground shadows. Trunks remain solid. This is distinct from the distance LOD transition's temporary dither pattern, which can affect the whole tree.
 
 Each former 80-triangle broadleaf crown core becomes four 20-triangle tufts, with the folded edge leaves attached to the smaller tufts. Crown triangle counts stay unchanged and indexed vertex counts fall. Conifer tiers use separate closed boughs: 64 triangles nearby and 24 at distance, replacing 80 and 27. Complete detailed conifer models use 13–16% fewer triangles. No model gains triangles or indexed vertices. There are no new draws, texture allocations, blending layers, per-pixel cutouts or frame callbacks. These openings remain present in both high and low detail models; the existing distance crossfade is retained.

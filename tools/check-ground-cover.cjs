@@ -7,7 +7,7 @@ const fs=require('fs'),http=require('http'),path=require('path');
  try{
  const page=await browser.newPage({viewport:{width:1280,height:800}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
- await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;let seed=42;Math.random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);localStorage.setItem('behind-you-fp',JSON.stringify({quality:'sharp',sound:false,ink:false}));});
+ await page.addInitScript(({quality})=>{window.requestAnimationFrame=()=>0;let seed=42;Math.random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);localStorage.setItem('behind-you-fp',JSON.stringify({quality,sound:false,ink:false}));},{quality:process.env.CHECK_QUALITY||'sharp'});
  await page.goto('http://localhost:8775/?debug');await page.waitForFunction(()=>ready);await page.evaluate(()=>startRun(true));
  const out=process.env.TEST_OUTPUT||'../../outputs/ground-cover';fs.mkdirSync(out,{recursive:true});
  const results=[];

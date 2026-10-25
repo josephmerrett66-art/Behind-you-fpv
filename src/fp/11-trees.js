@@ -2,6 +2,12 @@
 // Each kind is modelled a few ways over (trunk, limbs, and a crown of soft lumps or drooping tiers of needles), in the
 // pictures' own colours with the same dark outline, then stood about the woods many times over in one draw per model.
 const TREE_R3D = 1e9, TREE_NV = 3;   // every tree solid, near or far
+// Shared by visible foliage and the sun-depth pass. A binary cutout leaves real,
+// leaf-shaped sky gaps; local coordinates keep them fixed while a tree sways.
+const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;
+vec4 foliageField(vec3 g){return texture2D(foliageT,g.xy/18.0);}
+bool foliageGap(vec4 f){return max(f.r,f.g)<.25;}
+`;
 const treeMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
   vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; uniform vec3 fogC;
@@ -28,25 +34,29 @@ const treeMat = new THREE.ShaderMaterial({
       vTreeD = distance(im[3].xz, fogC.xz); vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
-  fragmentShader: LIGHT_GLSL + PAINT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
-    uniform vec4 occ; uniform sampler2D foliageT;
+  fragmentShader: LIGHT_GLSL + PAINT_GLSL + FOLIAGE_CUT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM, vTreeD;
+    uniform vec4 occ;
     float occluding(vec3 p) {   // from above: on the line between the camera and you, a tree thins away
       if (occ.w < 0.5 || p.y < occ.y - 4.0) return 0.0;
       vec3 ab = occ.xyz - camPos; float t = clamp(dot(p - camPos, ab) / dot(ab, ab), 0.0, 1.0);
       return 1.0 - smoothstep(26.0, 46.0, distance(p, camPos + ab * t));
     }
     void main() {
-      if (occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;
+      if (occ.w > 0.5 && occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;
       vec3 N = normalize(vN), c;
       bool leaf = vM > 4.5 && vM < 5.5, needle = vM > 7.5;
       if (leaf || needle) {
         // right beside you, the leaves thin out so a tree never blinds you
-        float d = distance(vW, camPos), dz = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
-        if (d < 34.0 && dz > smoothstep(16.0, 34.0, d)) discard;
+        float d = distance(vW, camPos);
+        if (d < 34.0) { float dz = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453); if (dz > smoothstep(16.0, 34.0, d)) discard; }
         float up = smoothstep(-0.5, 0.9, N.y) * 0.55 + smoothstep(10.0, 110.0, vL.y) * 0.25;   // lit from above, darker underneath and inside
-        // Two stable local-space projections break up stretched patches. Mips soften fine
-        // blades in the distance; the canopy stays opaque so the solid pass keeps early depth rejection.
-        vec4 f=texture2D(foliageT,(vG.xy+vG.z*.37)/18.0);
+        vec4 f=foliageField(vG);
+        #ifndef TREE_OPAQUE
+          // Fine gaps merge into solid coverage once they become subpixel.
+          float pore=1.0-smoothstep(leafRange.x,leafRange.y,vTreeD);
+          if(max(f.r,f.g)<.25*pore)discard;
+        #endif
+        // Mipmapped local-space detail: fine pores merge gradually with distance.
         vec4 broad=texture2D(foliageT,(vG.yz-vG.x*.29)/71.0+vec2(.31,.67));
         float cluster=.89+.16*broad.b;
         float back=pow(max(dot(normalize(camPos-vW),-sunDir),0.0),2.0)*sunK;
@@ -83,36 +93,28 @@ const treeEdge = new THREE.ShaderMaterial({
 });
 
 // soft lumps for a crown, and a tier of a pine's skirt with a ragged, drooping hem
-// Four smaller closed tufts leave real openings through each crown clump. Their
-// 4 x 20 faces replace the old 80-face shell, so holes work in depth and shadows too.
-const P_LUMP = (k=0,lo=false)=>prim('lump'+k+(lo?'lo':''),()=>{
-  const base=new THREE.IcosahedronGeometry(.5,0),bp=base.attributes.position,pos=[],nor=[];
-  const centers=[[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]],a=k*1.37,cs=Math.cos(a),sn=Math.sin(a);
-  for(let j=0;j<4;j++){
-    const [cx,cy,cz]=centers[j];
-    for(let i=0;i<bp.count;i++){
-      const x=bp.getX(i),y=bp.getY(i),z=bp.getZ(i),r=Math.hypot(x,y,z);
-      const px=x*.56+cx*.20,py=y*.49+cy*.16,pz=z*.56+cz*.20;
-      pos.push(px*cs+pz*sn,py,pz*cs-px*sn);
-      nor.push((x*cs+z*sn)/r,y/r,(z*cs-x*sn)/r);
-    }
+const P_LUMP = (k = 0, lo = false) => prim('lump' + k + (lo ? 'lo' : ''), () => {
+  const g = new THREE.SphereGeometry(0.5, 8, 6), p = g.attributes.position, v = new V3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p,i);const a=Math.atan2(v.z,v.x),r=Math.hypot(v.x,v.z);
+    const lobes=1+.12*Math.sin(a*3+k*1.7)*Math.min(1,r*3)+.065*Math.cos(a*5-k+v.y*6);
+    const n=.94+.065*Math.sin(v.x*17+v.y*11+k)*Math.sin(v.z*19-k);
+    v.x*=lobes*n;v.z*=lobes*n;v.y=v.y*.86*n+.025*Math.sin(a*4+k)*Math.min(1,r*4);
+    p.setXYZ(i,v.x,v.y,v.z);
   }
-  base.dispose();const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));return g;
+  g.computeVertexNormals();g.setAttribute('leafUV',g.attributes.uv);return g;
 });
-const P_TREE_LEAF=()=>prim('treeLeaf',()=>{const g=new THREE.OctahedronGeometry(.5,0),p=g.attributes.position,n=g.attributes.normal;for(let i=0;i<p.count;i++)n.setXYZ(i,p.getX(i)*2,p.getY(i)*2,p.getZ(i)*2);return g;});
-// Separate solid boughs replace a continuous cone. Nothing is alpha blended or
-// discarded: sky, sun and shadow rays pass through the spaces between the boughs.
-const P_TIER=(k=0,lo=false)=>prim('tier'+k+(lo?'lo':''),()=>{
-  const pos=[],idx=[],count=lo?6:8;
-  for(let j=0;j<count;j++){
-    const a=j/count*Math.PI*2+k*1.17,cs=Math.cos(a),sn=Math.sin(a),scale=.94+.07*Math.sin(j*2.3+k);
-    const points=lo?[[.02,.88,0],[.55*scale,-.12,0],[.25,.30,.135],[.25,.30,-.135]]:[[.02,.88,0],[.55*scale,-.12,0],[.25,.32,.135],[.25,.32,-.135],[.24,.54,0],[.26,.17,0]];
-    const off=pos.length/3;
-    for(const [x,y,z] of points)pos.push(x*cs+z*sn,y,z*cs-x*sn);
-    const faces=lo?[0,2,1,0,1,3,0,3,2,1,2,3]:[0,2,4,2,1,4,1,3,4,3,0,4,2,0,5,1,2,5,3,1,5,0,3,5];
-    for(const i of faces)idx.push(off+i);
+const P_TREE_LEAF = () => prim('treeLeaf',()=>{const g=new THREE.OctahedronGeometry(.5,0),p=g.attributes.position,n=g.attributes.normal;for(let i=0;i<p.count;i++){n.setXYZ(i,p.getX(i)*2,p.getY(i)*2,p.getZ(i)*2);}return g;});
+const P_TIER = (k = 0, lo = false) => prim('tier' + k + (lo ? 'lo' : ''), () => {
+  const n = lo ? 8 : 12, g = new THREE.ConeGeometry(0.5, 1, n, 1), p = g.attributes.position, v = new V3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i); if (v.y > 0.49) continue;
+    const r = Math.hypot(v.x, v.z); if (r < 1e-4) continue;
+    const a=Math.atan2(v.z,v.x),f=r/.5;
+    const tuft=.5+.5*Math.cos(a*(lo?4:8)+k*1.7),jag=1+(.24*tuft-.14+.045*Math.sin(a*3+k))*f;
+    p.setXYZ(i,v.x*jag,v.y-(.05+.18*tuft)*f*f,v.z*jag);
   }
-  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setIndex(idx);g.computeVertexNormals();return g;
+  g.translate(0, 0.5, 0);g.computeVertexNormals();g.setAttribute('leafUV',g.attributes.uv);return g;
 });
 
 // Share identical model vertices, preserving every attribute bit-for-bit. The GPU then runs
@@ -138,8 +140,20 @@ function indexModel(g) {
   return g;
 }
 
+// Keep each canopy primitive's own UVs, including duplicated seam/apex vertices.
+// Projecting onto a flat plane stretches pinholes into slits around curved crowns.
+class TreeKit extends Kit {
+  add(geo,x,y,z,sx,sy,sz,col,...rest){
+    const first=this.gu.length;super.add(geo,x,y,z,sx,sy,sz,col,...rest);
+    const mt=this._mat(col),uv=geo.attributes.leafUV;
+    if(!uv||!((mt>4.5&&mt<5.5)||mt>7.5))return;
+    const width=Math.PI*(sx+sz)*.5,height=Math.max(sy,Math.min(sx,sz)*.7),offset=(x*.37+z*.61)%97;
+    for(let i=0;i<uv.count;i++){const j=first+i*3;this.gu[j]=uv.getX(i)*width+offset;this.gu[j+1]=uv.getY(i)*height+offset*.3;this.gu[j+2]=0;}
+  }
+}
+
 function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own units (a pine is about 112 high), its foot at the origin
-  let s = 977 + vi * 131 + kind.length * 17; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
+  let s = 977 + vi * 131 + kind.length * 17; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new TreeKit();
   const tone = (list, j) => hex(list[j % list.length]);
   // lo: the same tree for the far woods, in fewer faces and without the twigs you couldn't see from there (TREE_LOD)
   const roots = (r, n, col) => { for (let i = 0; i < n; i++) { const a = i / n * 6.283 + R() * 0.6; K.rod(P_CYL_(5), Math.cos(a) * r * 0.4, r * 1.6, Math.sin(a) * r * 0.4, Math.cos(a) * r * 2.3, -0.6, Math.sin(a) * r * 2.3, r * 0.34, col); } };   // roots running out into the ground (bark)
@@ -192,21 +206,7 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
     // the crown: soft lumps of leaf (or blossom), bigger and darker at the heart, smaller and lighter round the top and edges
     const G = ch ? ['#cc649c', '#e080b2', '#ee9ec4', '#d670a8'] : ['#2b5220', '#386628', '#477834', '#3d6c2b'];
     K.mt = 'plant';
-    // Spend the former high-resolution blob budget on solid folded leaves at its edge.
-    // The core and twelve eight-face leaves total 176 faces, below the former 192-face core.
-    const clump=(k,x,y,z,sx,sy,sz,col,yaw=0)=>{
-      K.add(P_LUMP_(k),x,y,z,sx,sy,sz,col,yaw,0,0,0,.32);
-      if(lo)return;
-      for(let j=0;j<12;j++){
-        const centers=[[1,1,1],[-1,-1,1],[1,-1,-1],[-1,1,-1]],ct=centers[Math.floor(j/3)];
-        const a=j*2.39996+k*1.7+vi,ny=ct[1]*.55+(j%3-1)*.22,r=Math.sqrt(1-ny*ny);
-        const nx=Math.cos(a)*r,nz=Math.sin(a)*r,turn=k*1.37+yaw,cs=Math.cos(turn),sn=Math.sin(turn);
-        const lx=ct[0]*.20+nx*.24,lz=ct[2]*.20+nz*.24;
-        const px=lx*cs+lz*sn,pz=lz*cs-lx*sn;
-        const tint=col.map(c=>c*(.94+.12*(j%3)/2));
-        K.add(P_TREE_LEAF(),x+px*sx,y+(ct[1]*.16+ny*.22)*sy,z+pz*sz,sx*.19,sy*.045,sz*.105,tint,a+turn,ny*.5,.2*Math.sin(a),0,.12);
-      }
-    };
+    const clump=(k,x,y,z,sx,sy,sz,col,yaw=0)=>K.add(P_LUMP_(k),x,y,z,sx,sy,sz,col,yaw,0,0,0,.32);
     const lumps = ch ? 5 + vi % 2 : 8 + vi % 2;
     for (let i = 0; i < lumps; i++) {
       const a = i / lumps * 6.28 + R(), d = (ch ? 22 : 20) + R() * 12, r = (ch ? 32 : 38) + R() * 12, y = crownY + (R() - 0.3) * 18;
@@ -228,7 +228,10 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
     for (let i = 0; i < 4; i++) fork(0, 26 + i * 7, 0, i * 1.7 + R(), 0.35 + R() * 0.4, 20 + R() * 8, 1.25, 2);
     K.mt = null;
   }
-  return indexModel(K.geometry());
+  const g=indexModel(K.geometry());
+  // Alias the existing material buffer for the shared shadow pass: no extra vertex data.
+  g.setAttribute('canopy',g.attributes.mt);
+  return g;
 }
 
 // one instanced draw (and its outline) per kind and way of building it
@@ -236,16 +239,16 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
 // seen from above, fade where they'd hide you; then the same trees drawn solid; then past TREE_LOD the plainer far-off
 // form, solid too. A shader that can throw away a pixel stops a phone skipping the hidden surfaces behind it, which in a
 // stand of trees is most of them, so only the few trees near enough to need it get that shader
-const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 2800, TREE_LOD = 800, TREE_LOD_END = 1000, TREE_NEAR = 120;
+const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 2800, TREE_LOD = 800, TREE_LOD_END = 1000, TREE_NEAR = 420;
 const treeMatSolid = (() => {
-  const a = 'if (occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;', b = 'if (d < 34.0 && dz > smoothstep(16.0, 34.0, d)) discard;';
+  const a = 'if (occ.w > 0.5 && occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;', b = 'if (d < 34.0) { float dz = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453); if (dz > smoothstep(16.0, 34.0, d)) discard; }';
   if (!treeMat.fragmentShader.includes(a) || !treeMat.fragmentShader.includes(b)) throw new Error('treeMatSolid: the tree shader changed');
-  return new THREE.ShaderMaterial({ uniforms: treeMat.uniforms, vertexShader: treeMat.vertexShader, fragmentShader: treeMat.fragmentShader.replace(a, '').replace(b, '') });
+  return new THREE.ShaderMaterial({ defines:{TREE_OPAQUE:1},uniforms: treeMat.uniforms, vertexShader: treeMat.vertexShader, fragmentShader: treeMat.fragmentShader.replace(a, '').replace(b, '') });
 })();
 // Load both forms before the transition, then crossfade them per pixel as the player moves.
 function treeLodMaterial(high) {
   const m = treeMatSolid.clone(); m.uniforms = treeMatSolid.uniforms;
-  m.fragmentShader = 'varying float vTreeD;\n' + treeMatSolid.fragmentShader.replace('void main() {', `void main() {
+  m.fragmentShader = treeMatSolid.fragmentShader.replace('void main() {', `void main() {
     float lf = smoothstep(${TREE_LOD.toFixed(1)}, ${TREE_LOD_END.toFixed(1)}, vTreeD);
     float ln = fract(sin(dot(floor(vW * 2.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
     if (${high ? 'ln < lf || lf >= 1.0' : 'ln >= lf'}) discard;`);
@@ -272,6 +275,7 @@ function treesBuild() {
       const g = band < 3 ? (high[vi] || (high[vi] = treeModel(k, vi, false))) : (low[vi] || (low[vi] = treeModel(k, vi, true)));
       const mat = [treeMat, treeMatSolid, treeLodHigh, treeLodLow, treeMatSolid][band];
       const m = new THREE.InstancedMesh(terrainInstanceGeometry(g, TREE_CAP), mat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
+      m.renderOrder=1;
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
       TREES[k].push({ m, e, band, list: [] });
@@ -289,7 +293,7 @@ function treeMatrix(o, tilt, ta) {
 function treesBegin() { if (!treesBuilt) treesBuild(); for (const k of TREE_KINDS) for (const B of TREES[k]) B.list.length = 0; }
 function treeAdd(o, kind, d) {   // near enough to stand solid? then it's ours, not a picture
   if (d > TREE_R3D) return false;
-  const near = isoP() ? TREE_LOD : TREE_NEAR, vi = (o.seed * 997 | 0) % TREE_NV;
+  const near = isoP() ? TREE_LOD : LU.leafRange.value.y * .8, vi = (o.seed * 997 | 0) % TREE_NV;
   const add = band => { const B = TREES[kind][vi + band * TREE_NV]; if (B.list.length < TREE_CAP) B.list.push(o); };
   const margin = VIS.worldStep + 10;
   if (d < TREE_LOD - margin) add(d > near ? 1 : 0);
@@ -368,10 +372,33 @@ function treeShadowFrame() {
     B.m.count=selected.length;
   }
 }
+// Refresh only the close/opaque assignment between world updates. Moving cached
+// matrices preserves the shadow prefix and avoids rebuilding trees or terrain fits.
+const _treeTransfer=new Float32Array(16);
+function treeMoveBand(from,to,i){
+  if(to.list.length>=TREE_CAP)return false;
+  const o=from.list[i],shadow=i<from.shN,height=from.heights[i],n=from.list.length;
+  for(let k=0;k<16;k++)_treeTransfer[k]=from.source[i*16+k];
+  from.source.copyWithin(i*16,(i+1)*16,n*16);from.heights.copyWithin(i,i+1,n);from.list.splice(i,1);if(shadow)from.shN--;
+  const at=shadow?to.shN:to.list.length,m=to.list.length;
+  to.source.copyWithin((at+1)*16,at*16,m*16);to.heights.copyWithin(at+1,at,m);to.source.set(_treeTransfer,at*16);to.heights[at]=height;to.list.splice(at,0,o);if(shadow)to.shN++;
+  from.n=from.list.length;to.n=to.list.length;from.keepShadow=from.shN;to.keepShadow=to.shN;from.dirty=to.dirty=true;
+  return true;
+}
+function treeCloseBands(){
+  if(isoP())return;
+  const enter=(LU.leafRange.value.y*.8)**2,leave=(LU.leafRange.value.y*.82)**2,px=S.p.x,py=S.p.y;
+  for(const kind of TREE_KINDS)for(let vi=0;vi<TREE_NV;vi++){
+    const near=TREES[kind][vi],far=TREES[kind][vi+TREE_NV];
+    for(let i=near.list.length-1;i>=0;i--){const o=near.list[i];if((o.x-px)**2+(o.y-py)**2>leave)treeMoveBand(near,far,i);}
+    for(let i=far.list.length-1;i>=0;i--){const o=far.list[i];if((o.x-px)**2+(o.y-py)**2<enter)treeMoveBand(far,near,i);}
+  }
+}
 // each frame: a tree you're chopping shudders with each blow
 function treesFrame() {
   instanceView();
   if (!treesBuilt) return;
+  treeCloseBands();
   for (const k of TREE_KINDS) for (const B of TREES[k]) {
     let dirty = false;
     B.list.forEach((o, i) => {

@@ -49,7 +49,7 @@ const scene = new THREE.Scene(), vmScene = new THREE.Scene();
 const cam = new THREE.PerspectiveCamera(70, 1, 2, VIEW + 500), vmCam = new THREE.PerspectiveCamera(58, 1, 0.5, 100);
 cam.rotation.order = 'YXZ';
 const QCAP = TOUCH ? Math.min(DPR, 1.6) : Math.min(DPR, 2);
-let pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.5);
+let pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.0);
 let VW = 1, VH = 1, vmX = 1;
 // field of view: the setting is how wide you see across a landscape screen; held upright, the same setting widens the view up and down
 const baseFov = () => cam.aspect >= 1 ? 2 * Math.atan(Math.tan(SET.fov / 2 * Math.PI / 180) / cam.aspect) * 180 / Math.PI : clamp(78 + (SET.fov - 96) * 0.6, 62, 96);
@@ -61,6 +61,9 @@ function resize() {
   cam.fov = baseFov(); vmCam.fov = asp >= 1 ? 56 : 98;
   vmX = clamp(16 * Math.tan(vmCam.fov * Math.PI / 360) * asp / 18.4, 0.42, 1);   // held upright, the hands come in toward the middle so both stay on screen
   cam.updateProjectionMatrix(); vmCam.updateProjectionMatrix();
+  // Fine foliage holes need a fast opaque path once smaller than a rendered pixel.
+  const leafEnd=clamp(VH*pixK*cam.projectionMatrix.elements[5]*.28,120,420);
+  LU.leafRange.value.set(leafEnd*.62,leafEnd);
   if (typeof inkResize === 'function') inkResize();
   PU.uScale.value = VH * pixK * 0.5 * cam.projectionMatrix.elements[5];
   ovResize();
@@ -79,6 +82,7 @@ const LU = {
   shMap: { value: null }, shM: { value: new M4() }, shP: { value: new V4(0, 1 / 2048, 0.002, 0) }, shC: { value: new V4(0, 0, 1, 0) },
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(840, VIEW) },
+  leafRange:{value:new THREE.Vector2(260,420)},
   landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
@@ -105,11 +109,14 @@ float sunShade(vec3 p) {
 vec3 lightAt(vec3 p, vec3 n, float useN) {
   float sun = mix(1.0, 0.7 + 0.45 * max(dot(n, sunDir), 0.0), useN * sunK);
   vec3 c = amb * sun * sunShade(p + n * 0.6);
-  vec3 L = p - tPos; float d = length(L); vec3 l = L / max(d, 0.001);
-  float cone = smoothstep(tCone.x, tCone.y, dot(l, tDir));
-  float fall = clamp(1.0 - 0.5 * d / tRange, 0.0, 1.0) * smoothstep(tRange, tRange * 0.62, d);
-  float lam = mix(1.0, clamp(dot(n, -l) * 0.55 + 0.6, 0.0, 1.0), useN);
-  c += tCol * (cone * fall * lam);
+  // With the torch off, skip its cone and falloff work for every shaded pixel.
+  if (dot(tCol,tCol)>0.0) {
+    vec3 L = p - tPos; float d = length(L); vec3 l = L / max(d, 0.001);
+    float cone = smoothstep(tCone.x, tCone.y, dot(l, tDir));
+    float fall = clamp(1.0 - 0.5 * d / tRange, 0.0, 1.0) * smoothstep(tRange, tRange * 0.62, d);
+    float lam = mix(1.0, clamp(dot(n, -l) * 0.55 + 0.6, 0.0, 1.0), useN);
+    c += tCol * (cone * fall * lam);
+  }
   if (plN > 0.5) for (int i = 0; i < ${NL}; i++) { vec4 q = pl[i]; float k = clamp(1.0 - distance(p, q.xyz) / q.w, 0.0, 1.0); c += plc[i] * (k * k) * mix(1.0, 0.3 + 0.9 * max(dot(n, normalize(q.xyz - p)), 0.0), useN); }   // a firelit side and a dark side
   return c;
 }

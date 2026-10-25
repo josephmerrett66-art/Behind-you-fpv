@@ -1,0 +1,4293 @@
+{
+  "buildSha256": "7d50655177a0db1b2d5365bc13cc5c919eb67c8f975cd43eba0e5266870bda08",
+  "checks": {
+    "porous-verified": {
+      "checks": [
+        {
+          "name": "pine high visible canopy has fine cutouts",
+          "pass": true,
+          "detail": {
+            "full": 9673,
+            "visible": 9403
+          }
+        },
+        {
+          "name": "pine high sun-depth pass lets light through",
+          "pass": true,
+          "detail": {
+            "full": 9673,
+            "shadow": 9602
+          }
+        },
+        {
+          "name": "pine high trunk stays solid in both passes",
+          "pass": true,
+          "detail": {
+            "full": 256,
+            "visible": 256,
+            "shadow": 256
+          }
+        },
+        {
+          "name": "pine low visible canopy has fine cutouts",
+          "pass": true,
+          "detail": {
+            "full": 9552,
+            "visible": 9274
+          }
+        },
+        {
+          "name": "pine low sun-depth pass lets light through",
+          "pass": true,
+          "detail": {
+            "full": 9552,
+            "shadow": 9482
+          }
+        },
+        {
+          "name": "pine low trunk stays solid in both passes",
+          "pass": true,
+          "detail": {
+            "full": 262,
+            "visible": 262,
+            "shadow": 262
+          }
+        },
+        {
+          "name": "oak high visible canopy has fine cutouts",
+          "pass": true,
+          "detail": {
+            "full": 15166,
+            "visible": 14992
+          }
+        },
+        {
+          "name": "oak high sun-depth pass lets light through",
+          "pass": true,
+          "detail": {
+            "full": 15166,
+            "shadow": 15137
+          }
+        },
+        {
+          "name": "oak high trunk stays solid in both passes",
+          "pass": true,
+          "detail": {
+            "full": 356,
+            "visible": 356,
+            "shadow": 356
+          }
+        },
+        {
+          "name": "oak low visible canopy has fine cutouts",
+          "pass": true,
+          "detail": {
+            "full": 15144,
+            "visible": 14970
+          }
+        },
+        {
+          "name": "oak low sun-depth pass lets light through",
+          "pass": true,
+          "detail": {
+            "full": 15144,
+            "shadow": 15115
+          }
+        },
+        {
+          "name": "oak low trunk stays solid in both passes",
+          "pass": true,
+          "detail": {
+            "full": 356,
+            "visible": 356,
+            "shadow": 356
+          }
+        },
+        {
+          "name": "cherry high visible canopy has fine cutouts",
+          "pass": true,
+          "detail": {
+            "full": 13226,
+            "visible": 13000
+          }
+        },
+        {
+          "name": "cherry high sun-depth pass lets light through",
+          "pass": true,
+          "detail": {
+            "full": 13226,
+            "shadow": 13183
+          }
+        },
+        {
+          "name": "cherry high trunk stays solid in both passes",
+          "pass": true,
+          "detail": {
+            "full": 294,
+            "visible": 294,
+            "shadow": 294
+          }
+        },
+        {
+          "name": "cherry low visible canopy has fine cutouts",
+          "pass": true,
+          "detail": {
+            "full": 13256,
+            "visible": 13030
+          }
+        },
+        {
+          "name": "cherry low sun-depth pass lets light through",
+          "pass": true,
+          "detail": {
+            "full": 13256,
+            "shadow": 13213
+          }
+        },
+        {
+          "name": "cherry low trunk stays solid in both passes",
+          "pass": true,
+          "detail": {
+            "full": 294,
+            "visible": 294,
+            "shadow": 294
+          }
+        },
+        {
+          "name": "fine cutouts merge without a depth-coverage jump at the far material boundary",
+          "pass": true,
+          "detail": {
+            "fading": {
+              "total": 15166,
+              "trunk": 356
+            },
+            "opaqueDistant": {
+              "total": 15166,
+              "trunk": 356
+            }
+          }
+        },
+        {
+          "name": "non-tree shadow casters remain opaque after tree draws",
+          "pass": true,
+          "detail": {
+            "opaque": {
+              "total": 6280,
+              "trunk": 720
+            },
+            "nonTree": {
+              "total": 6280,
+              "trunk": 720
+            }
+          }
+        },
+        {
+          "name": "sun pass restores every scene material",
+          "pass": true
+        },
+        {
+          "name": "close foliage assignment follows movement without a world reload",
+          "pass": true
+        },
+        {
+          "name": "close-band transfers preserve cached transforms, height and shadow prefix",
+          "pass": true
+        },
+        {
+          "name": "close-band transfers do not resample terrain",
+          "pass": true,
+          "detail": 0
+        }
+      ],
+      "samples": [
+        {
+          "kind": "pine",
+          "low": false,
+          "full": {
+            "total": 9673,
+            "trunk": 256
+          },
+          "visible": {
+            "total": 9403,
+            "trunk": 256
+          },
+          "shadow": {
+            "total": 9602,
+            "trunk": 256
+          }
+        },
+        {
+          "kind": "pine",
+          "low": true,
+          "full": {
+            "total": 9552,
+            "trunk": 262
+          },
+          "visible": {
+            "total": 9274,
+            "trunk": 262
+          },
+          "shadow": {
+            "total": 9482,
+            "trunk": 262
+          }
+        },
+        {
+          "kind": "oak",
+          "low": false,
+          "full": {
+            "total": 15166,
+            "trunk": 356
+          },
+          "visible": {
+            "total": 14992,
+            "trunk": 356
+          },
+          "shadow": {
+            "total": 15137,
+            "trunk": 356
+          }
+        },
+        {
+          "kind": "oak",
+          "low": true,
+          "full": {
+            "total": 15144,
+            "trunk": 356
+          },
+          "visible": {
+            "total": 14970,
+            "trunk": 356
+          },
+          "shadow": {
+            "total": 15115,
+            "trunk": 356
+          }
+        },
+        {
+          "kind": "cherry",
+          "low": false,
+          "full": {
+            "total": 13226,
+            "trunk": 294
+          },
+          "visible": {
+            "total": 13000,
+            "trunk": 294
+          },
+          "shadow": {
+            "total": 13183,
+            "trunk": 294
+          }
+        },
+        {
+          "kind": "cherry",
+          "low": true,
+          "full": {
+            "total": 13256,
+            "trunk": 294
+          },
+          "visible": {
+            "total": 13030,
+            "trunk": 294
+          },
+          "shadow": {
+            "total": 13213,
+            "trunk": 294
+          }
+        }
+      ],
+      "errors": []
+    },
+    "porous-models": {
+      "models": [
+        {
+          "kind": "pine",
+          "vi": 0,
+          "lo": false,
+          "triangles": 436,
+          "vertices": 573,
+          "finite": true
+        },
+        {
+          "kind": "pine",
+          "vi": 0,
+          "lo": true,
+          "triangles": 296,
+          "vertices": 401,
+          "finite": true
+        },
+        {
+          "kind": "pine",
+          "vi": 1,
+          "lo": false,
+          "triangles": 400,
+          "vertices": 522,
+          "finite": true
+        },
+        {
+          "kind": "pine",
+          "vi": 1,
+          "lo": true,
+          "triangles": 272,
+          "vertices": 366,
+          "finite": true
+        },
+        {
+          "kind": "pine",
+          "vi": 2,
+          "lo": false,
+          "triangles": 579,
+          "vertices": 722,
+          "finite": true
+        },
+        {
+          "kind": "pine",
+          "vi": 2,
+          "lo": true,
+          "triangles": 356,
+          "vertices": 463,
+          "finite": true
+        },
+        {
+          "kind": "oak",
+          "vi": 0,
+          "lo": false,
+          "triangles": 972,
+          "vertices": 841,
+          "finite": true
+        },
+        {
+          "kind": "oak",
+          "vi": 0,
+          "lo": true,
+          "triangles": 884,
+          "vertices": 753,
+          "finite": true
+        },
+        {
+          "kind": "oak",
+          "vi": 1,
+          "lo": false,
+          "triangles": 1052,
+          "vertices": 902,
+          "finite": true
+        },
+        {
+          "kind": "oak",
+          "vi": 1,
+          "lo": true,
+          "triangles": 964,
+          "vertices": 814,
+          "finite": true
+        },
+        {
+          "kind": "oak",
+          "vi": 2,
+          "lo": false,
+          "triangles": 972,
+          "vertices": 841,
+          "finite": true
+        },
+        {
+          "kind": "oak",
+          "vi": 2,
+          "lo": true,
+          "triangles": 884,
+          "vertices": 753,
+          "finite": true
+        },
+        {
+          "kind": "cherry",
+          "vi": 0,
+          "lo": false,
+          "triangles": 1160,
+          "vertices": 997,
+          "finite": true
+        },
+        {
+          "kind": "cherry",
+          "vi": 0,
+          "lo": true,
+          "triangles": 1060,
+          "vertices": 897,
+          "finite": true
+        },
+        {
+          "kind": "cherry",
+          "vi": 1,
+          "lo": false,
+          "triangles": 1240,
+          "vertices": 1058,
+          "finite": true
+        },
+        {
+          "kind": "cherry",
+          "vi": 1,
+          "lo": true,
+          "triangles": 1140,
+          "vertices": 958,
+          "finite": true
+        },
+        {
+          "kind": "cherry",
+          "vi": 2,
+          "lo": false,
+          "triangles": 1160,
+          "vertices": 997,
+          "finite": true
+        },
+        {
+          "kind": "cherry",
+          "vi": 2,
+          "lo": true,
+          "triangles": 1060,
+          "vertices": 897,
+          "finite": true
+        },
+        {
+          "kind": "dead",
+          "vi": 0,
+          "lo": false,
+          "triangles": 653,
+          "vertices": 740,
+          "finite": true
+        },
+        {
+          "kind": "dead",
+          "vi": 0,
+          "lo": true,
+          "triangles": 236,
+          "vertices": 291,
+          "finite": true
+        },
+        {
+          "kind": "dead",
+          "vi": 1,
+          "lo": false,
+          "triangles": 653,
+          "vertices": 740,
+          "finite": true
+        },
+        {
+          "kind": "dead",
+          "vi": 1,
+          "lo": true,
+          "triangles": 236,
+          "vertices": 291,
+          "finite": true
+        },
+        {
+          "kind": "dead",
+          "vi": 2,
+          "lo": false,
+          "triangles": 653,
+          "vertices": 740,
+          "finite": true
+        },
+        {
+          "kind": "dead",
+          "vi": 2,
+          "lo": true,
+          "triangles": 236,
+          "vertices": 291,
+          "finite": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "all 24 species/variant/LOD geometries have finite attributes",
+          "pass": true
+        },
+        {
+          "name": "all tree variants retain indexed geometry",
+          "pass": true
+        }
+      ],
+      "errors": []
+    },
+    "porous-scenes": {
+      "results": [
+        {
+          "name": "forest",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 142,
+          "triangles": 1689850
+        },
+        {
+          "name": "underfoot",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 145,
+          "triangles": 1649990
+        },
+        {
+          "name": "glade",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 143,
+          "triangles": 1706821
+        },
+        {
+          "name": "meadow",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 135,
+          "triangles": 1568076
+        },
+        {
+          "name": "coast",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 123,
+          "triangles": 1487738
+        },
+        {
+          "name": "night",
+          "grassTriangles": 240000,
+          "maxHeight": 6.550087928771973,
+          "calls": 153,
+          "triangles": 1728778
+        }
+      ],
+      "checks": [
+        {
+          "name": "unmasked turf produces visible pixels",
+          "pass": true,
+          "detail": 2344
+        },
+        {
+          "name": "floor/water exclusion mask suppresses turf completely",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "grass off removes turf completely",
+          "pass": true,
+          "detail": 0
+        }
+      ],
+      "errors": []
+    },
+    "porous-distance": {
+      "checks": [
+        {
+          "name": "world and detailed ranges doubled",
+          "pass": true
+        },
+        {
+          "name": "first person far plane covers horizon",
+          "pass": true,
+          "detail": 2400
+        },
+        {
+          "name": "day fog doubled",
+          "pass": true,
+          "detail": [
+            860,
+            1900
+          ]
+        },
+        {
+          "name": "forest loaded throughout expanded visible radius",
+          "pass": true,
+          "detail": 358
+        },
+        {
+          "name": "trees do not silently hit instance capacity",
+          "pass": true
+        },
+        {
+          "name": "decor preloads beyond fade and next update",
+          "pass": true
+        },
+        {
+          "name": "plants fade at new distance",
+          "pass": true
+        },
+        {
+          "name": "logs and small solid decor fade before their load boundary",
+          "pass": true
+        },
+        {
+          "name": "large rocks retain the full world horizon",
+          "pass": true
+        },
+        {
+          "name": "gatherable nodes have their own extended fade",
+          "pass": true
+        },
+        {
+          "name": "gatherable outlines retain the original world material policy",
+          "pass": true
+        },
+        {
+          "name": "both tree detail levels preloaded in overlap",
+          "pass": true
+        },
+        {
+          "name": "tree transition spans 800 to 1000",
+          "pass": true
+        },
+        {
+          "name": "detailed tree retained past old 400 cutoff",
+          "pass": true
+        },
+        {
+          "name": "distant trees use solid low detail",
+          "pass": true
+        },
+        {
+          "name": "building geometry present at 1000 units",
+          "pass": true
+        },
+        {
+          "name": "building fade extends to 1240",
+          "pass": true
+        },
+        {
+          "name": "drop fade extends to 1200",
+          "pass": true
+        },
+        {
+          "name": "terrain reaches beyond horizon and preserves close grid",
+          "pass": true,
+          "detail": {
+            "min": -3600,
+            "max": 3600,
+            "has10": true
+          }
+        },
+        {
+          "name": "grass extends to 2160 with original near rings",
+          "pass": true
+        },
+        {
+          "name": "grass mask covers extended field at same texel size",
+          "pass": true
+        },
+        {
+          "name": "iso far plane covers expanded horizon",
+          "pass": true
+        },
+        {
+          "name": "returning to first retains extended far plane",
+          "pass": true
+        },
+        {
+          "name": "night fog remains proportionally limited",
+          "pass": true,
+          "detail": [
+            300,
+            1120
+          ]
+        },
+        {
+          "name": "instance culling preserves pixels and shadows at yaw 0",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "instance culling preserves pixels and shadows at yaw 1.1",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "instance culling preserves pixels and shadows at yaw 3",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "instance culling preserves pixels and shadows at yaw 4.5",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "indexed models preserve every triangle attribute",
+          "pass": true
+        },
+        {
+          "name": "indexing removes duplicate vertex work",
+          "pass": true,
+          "detail": {
+            "vertices": 841,
+            "corners": 2916
+          }
+        },
+        {
+          "name": "high tree pixels fade gradually",
+          "pass": true,
+          "detail": [
+            5217,
+            3469,
+            0
+          ]
+        },
+        {
+          "name": "low tree pixels arrive gradually",
+          "pass": true,
+          "detail": [
+            0,
+            3409,
+            5152
+          ]
+        },
+        {
+          "name": "detail fade removes geometry gradually",
+          "pass": true,
+          "detail": [
+            11200,
+            6619,
+            0
+          ]
+        },
+        {
+          "name": "beach cells preload and retain fine detail",
+          "pass": true,
+          "detail": 85
+        },
+        {
+          "name": "walking along beach reuses existing buffers",
+          "pass": true
+        },
+        {
+          "name": "beach cell culling preserves pixels and shadows",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "WebGL shaders linked",
+          "pass": true
+        }
+      ],
+      "errors": []
+    },
+    "porous-shadows": {
+      "checks": [
+        {
+          "name": "shadow pool retains roots beyond old 808-unit cutoff",
+          "pass": true
+        },
+        {
+          "name": "low morning light-frustum culling preserves shadow-map pixels",
+          "pass": true,
+          "detail": {
+            "changed": 0,
+            "selected": 253,
+            "pool": 1127
+          }
+        },
+        {
+          "name": "low sun retains distant casters whose shadows reach map",
+          "pass": true
+        },
+        {
+          "name": "noon light-frustum culling preserves shadow-map pixels",
+          "pass": true,
+          "detail": {
+            "changed": 0,
+            "selected": 68,
+            "pool": 1127
+          }
+        },
+        {
+          "name": "low evening light-frustum culling preserves shadow-map pixels",
+          "pass": true,
+          "detail": {
+            "changed": 0,
+            "selected": 176,
+            "pool": 1127
+          }
+        },
+        {
+          "name": "caster selection follows camera without world reload",
+          "pass": true
+        },
+        {
+          "name": "night disables sun-map coverage",
+          "pass": true
+        }
+      ],
+      "errors": []
+    },
+    "porous-grounding": {
+      "checks": [
+        {
+          "name": "rock remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.6000000476837162
+          }
+        },
+        {
+          "name": "rockIron remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3113463122182569,
+            "maxLowestContact": -1.6000000476837162
+          }
+        },
+        {
+          "name": "post remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999997,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "bush remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.1208426917000214
+          }
+        },
+        {
+          "name": "fern remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.0726977313588488
+          }
+        },
+        {
+          "name": "grass remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3905090080918825,
+            "maxLowestContact": -1.0007706248700572
+          }
+        },
+        {
+          "name": "pebbles remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.29642368878562353,
+            "maxLowestContact": -1.1428968378533622
+          }
+        },
+        {
+          "name": "shrooms remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3987293750756164,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "flowerY remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "flowerB remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "flowerR remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "flowerW remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "flowerV remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.2190540826206817,
+            "maxLowestContact": -0.61504090949893
+          }
+        },
+        {
+          "name": "nsticks remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.1699023604393002
+          }
+        },
+        {
+          "name": "nstones remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.1915441176854067
+          }
+        },
+        {
+          "name": "nshroom1 remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.38902014261604356,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "nshroom2 remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3962695171428745,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "nshroom3 remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.398859981450119,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "bbush remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.120646279786346
+          }
+        },
+        {
+          "name": "log remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -1.2027946216528527
+          }
+        },
+        {
+          "name": "sapling remains seated on flat/sloping/coastal terrain",
+          "pass": true,
+          "detail": {
+            "maxBaseGap": -0.3999999999999986,
+            "maxLowestContact": -0.40000000000000036
+          }
+        },
+        {
+          "name": "pine tree roots remain connected to terrain",
+          "pass": true,
+          "detail": -2.5881748497486115
+        },
+        {
+          "name": "oak tree roots remain connected to terrain",
+          "pass": true,
+          "detail": -3.3446889519691467
+        },
+        {
+          "name": "cherry tree roots remain connected to terrain",
+          "pass": true,
+          "detail": -2.9648993015289307
+        },
+        {
+          "name": "dead tree roots remain connected to terrain",
+          "pass": true,
+          "detail": -0.14580033719539642
+        },
+        {
+          "name": "berries keep exactly the same footing as their bush",
+          "pass": true
+        },
+        {
+          "name": "stationary gatherable reuses cached terrain fitting",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "dropped item visible edge rests on terrain",
+          "pass": true
+        },
+        {
+          "name": "dropped items no longer hover or spin",
+          "pass": true
+        },
+        {
+          "name": "dropped item rests on a built floor rather than sinking through it",
+          "pass": true,
+          "detail": 1.7614433806030476
+        },
+        {
+          "name": "grounded mineable rock still breaks with the normal pick interaction",
+          "pass": true
+        }
+      ],
+      "audit": [
+        {
+          "kind": "rock",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.6000000476837162
+        },
+        {
+          "kind": "rockIron",
+          "maxBaseGap": -0.3113463122182569,
+          "maxLowestContact": -1.6000000476837162
+        },
+        {
+          "kind": "post",
+          "maxBaseGap": -0.3999999999999997,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "bush",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.1208426917000214
+        },
+        {
+          "kind": "fern",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.0726977313588488
+        },
+        {
+          "kind": "grass",
+          "maxBaseGap": -0.3905090080918825,
+          "maxLowestContact": -1.0007706248700572
+        },
+        {
+          "kind": "pebbles",
+          "maxBaseGap": -0.29642368878562353,
+          "maxLowestContact": -1.1428968378533622
+        },
+        {
+          "kind": "shrooms",
+          "maxBaseGap": -0.3987293750756164,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "flowerY",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "flowerB",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "flowerR",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "flowerW",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "flowerV",
+          "maxBaseGap": -0.2190540826206817,
+          "maxLowestContact": -0.61504090949893
+        },
+        {
+          "kind": "nsticks",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.1699023604393002
+        },
+        {
+          "kind": "nstones",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.1915441176854067
+        },
+        {
+          "kind": "nshroom1",
+          "maxBaseGap": -0.38902014261604356,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "nshroom2",
+          "maxBaseGap": -0.3962695171428745,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "nshroom3",
+          "maxBaseGap": -0.398859981450119,
+          "maxLowestContact": -0.40000000000000036
+        },
+        {
+          "kind": "bbush",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.120646279786346
+        },
+        {
+          "kind": "log",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -1.2027946216528527
+        },
+        {
+          "kind": "sapling",
+          "maxBaseGap": -0.3999999999999986,
+          "maxLowestContact": -0.40000000000000036
+        }
+      ],
+      "fits": 324,
+      "worst": -0.2190540826206817,
+      "errors": []
+    },
+    "porous-smooth": {
+      "checks": [
+        {
+          "name": "medium base uses local batches",
+          "pass": true,
+          "detail": 9
+        },
+        {
+          "name": "walking through a medium base reuses every existing buffer",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "distant cached cells are hidden",
+          "pass": true
+        },
+        {
+          "name": "returning reuses resident buffers",
+          "pass": true
+        },
+        {
+          "name": "returning restores visible structures",
+          "pass": true
+        },
+        {
+          "name": "resident cache stays bounded while travelling",
+          "pass": true,
+          "detail": 192
+        },
+        {
+          "name": "new small game releases the cell cache",
+          "pass": true,
+          "detail": 0
+        },
+        {
+          "name": "Auto lowers resolution under slow rendering",
+          "pass": true,
+          "detail": 0.7744
+        },
+        {
+          "name": "render wait excluded from simulation CPU budget",
+          "pass": true,
+          "detail": 0.0017000000001862645
+        },
+        {
+          "name": "Sharp remains under player control",
+          "pass": true,
+          "detail": 1
+        }
+      ],
+      "errors": []
+    },
+    "porous-playtest": {
+      "checks": [
+        {
+          "name": "new game renders",
+          "pass": true
+        },
+        {
+          "name": "spatial query 0",
+          "pass": true
+        },
+        {
+          "name": "spatial query 1",
+          "pass": true
+        },
+        {
+          "name": "spatial query 2",
+          "pass": true
+        },
+        {
+          "name": "spatial query 3",
+          "pass": true
+        },
+        {
+          "name": "spatial query 4",
+          "pass": true
+        },
+        {
+          "name": "spatial query 5",
+          "pass": true
+        },
+        {
+          "name": "spatial query 6",
+          "pass": true
+        },
+        {
+          "name": "spatial query 7",
+          "pass": true
+        },
+        {
+          "name": "spatial query 8",
+          "pass": true
+        },
+        {
+          "name": "spatial query 9",
+          "pass": true
+        },
+        {
+          "name": "spatial query 10",
+          "pass": true
+        },
+        {
+          "name": "spatial query 11",
+          "pass": true
+        },
+        {
+          "name": "spatial query 12",
+          "pass": true
+        },
+        {
+          "name": "spatial query 13",
+          "pass": true
+        },
+        {
+          "name": "spatial query 14",
+          "pass": true
+        },
+        {
+          "name": "spatial query 15",
+          "pass": true
+        },
+        {
+          "name": "spatial query 16",
+          "pass": true
+        },
+        {
+          "name": "spatial query 17",
+          "pass": true
+        },
+        {
+          "name": "spatial query 18",
+          "pass": true
+        },
+        {
+          "name": "spatial query 19",
+          "pass": true
+        },
+        {
+          "name": "spatial query 20",
+          "pass": true
+        },
+        {
+          "name": "spatial query 21",
+          "pass": true
+        },
+        {
+          "name": "spatial query 22",
+          "pass": true
+        },
+        {
+          "name": "spatial query 23",
+          "pass": true
+        },
+        {
+          "name": "spatial query 24",
+          "pass": true
+        },
+        {
+          "name": "spatial query 25",
+          "pass": true
+        },
+        {
+          "name": "spatial query 26",
+          "pass": true
+        },
+        {
+          "name": "spatial query 27",
+          "pass": true
+        },
+        {
+          "name": "spatial query 28",
+          "pass": true
+        },
+        {
+          "name": "spatial query 29",
+          "pass": true
+        },
+        {
+          "name": "spatial query 30",
+          "pass": true
+        },
+        {
+          "name": "spatial query 31",
+          "pass": true
+        },
+        {
+          "name": "spatial query 32",
+          "pass": true
+        },
+        {
+          "name": "spatial query 33",
+          "pass": true
+        },
+        {
+          "name": "spatial query 34",
+          "pass": true
+        },
+        {
+          "name": "spatial query 35",
+          "pass": true
+        },
+        {
+          "name": "spatial query 36",
+          "pass": true
+        },
+        {
+          "name": "spatial query 37",
+          "pass": true
+        },
+        {
+          "name": "spatial query 38",
+          "pass": true
+        },
+        {
+          "name": "spatial query 39",
+          "pass": true
+        },
+        {
+          "name": "spatial query 40",
+          "pass": true
+        },
+        {
+          "name": "spatial query 41",
+          "pass": true
+        },
+        {
+          "name": "spatial query 42",
+          "pass": true
+        },
+        {
+          "name": "spatial query 43",
+          "pass": true
+        },
+        {
+          "name": "spatial query 44",
+          "pass": true
+        },
+        {
+          "name": "spatial query 45",
+          "pass": true
+        },
+        {
+          "name": "spatial query 46",
+          "pass": true
+        },
+        {
+          "name": "spatial query 47",
+          "pass": true
+        },
+        {
+          "name": "spatial query 48",
+          "pass": true
+        },
+        {
+          "name": "spatial query 49",
+          "pass": true
+        },
+        {
+          "name": "spatial query 50",
+          "pass": true
+        },
+        {
+          "name": "spatial query 51",
+          "pass": true
+        },
+        {
+          "name": "spatial query 52",
+          "pass": true
+        },
+        {
+          "name": "spatial query 53",
+          "pass": true
+        },
+        {
+          "name": "spatial query 54",
+          "pass": true
+        },
+        {
+          "name": "spatial query 55",
+          "pass": true
+        },
+        {
+          "name": "spatial query 56",
+          "pass": true
+        },
+        {
+          "name": "spatial query 57",
+          "pass": true
+        },
+        {
+          "name": "spatial query 58",
+          "pass": true
+        },
+        {
+          "name": "spatial query 59",
+          "pass": true
+        },
+        {
+          "name": "spatial query 60",
+          "pass": true
+        },
+        {
+          "name": "spatial query 61",
+          "pass": true
+        },
+        {
+          "name": "spatial query 62",
+          "pass": true
+        },
+        {
+          "name": "spatial query 63",
+          "pass": true
+        },
+        {
+          "name": "spatial query 64",
+          "pass": true
+        },
+        {
+          "name": "spatial query 65",
+          "pass": true
+        },
+        {
+          "name": "spatial query 66",
+          "pass": true
+        },
+        {
+          "name": "spatial query 67",
+          "pass": true
+        },
+        {
+          "name": "spatial query 68",
+          "pass": true
+        },
+        {
+          "name": "spatial query 69",
+          "pass": true
+        },
+        {
+          "name": "spatial query 70",
+          "pass": true
+        },
+        {
+          "name": "spatial query 71",
+          "pass": true
+        },
+        {
+          "name": "spatial query 72",
+          "pass": true
+        },
+        {
+          "name": "spatial query 73",
+          "pass": true
+        },
+        {
+          "name": "spatial query 74",
+          "pass": true
+        },
+        {
+          "name": "spatial query 75",
+          "pass": true
+        },
+        {
+          "name": "spatial query 76",
+          "pass": true
+        },
+        {
+          "name": "spatial query 77",
+          "pass": true
+        },
+        {
+          "name": "spatial query 78",
+          "pass": true
+        },
+        {
+          "name": "spatial query 79",
+          "pass": true
+        },
+        {
+          "name": "spatial query 80",
+          "pass": true
+        },
+        {
+          "name": "spatial query 81",
+          "pass": true
+        },
+        {
+          "name": "spatial query 82",
+          "pass": true
+        },
+        {
+          "name": "spatial query 83",
+          "pass": true
+        },
+        {
+          "name": "spatial query 84",
+          "pass": true
+        },
+        {
+          "name": "spatial query 85",
+          "pass": true
+        },
+        {
+          "name": "spatial query 86",
+          "pass": true
+        },
+        {
+          "name": "spatial query 87",
+          "pass": true
+        },
+        {
+          "name": "spatial query 88",
+          "pass": true
+        },
+        {
+          "name": "spatial query 89",
+          "pass": true
+        },
+        {
+          "name": "spatial query 90",
+          "pass": true
+        },
+        {
+          "name": "spatial query 91",
+          "pass": true
+        },
+        {
+          "name": "spatial query 92",
+          "pass": true
+        },
+        {
+          "name": "spatial query 93",
+          "pass": true
+        },
+        {
+          "name": "spatial query 94",
+          "pass": true
+        },
+        {
+          "name": "spatial query 95",
+          "pass": true
+        },
+        {
+          "name": "spatial query 96",
+          "pass": true
+        },
+        {
+          "name": "spatial query 97",
+          "pass": true
+        },
+        {
+          "name": "spatial query 98",
+          "pass": true
+        },
+        {
+          "name": "spatial query 99",
+          "pass": true
+        },
+        {
+          "name": "800-piece established save reloads",
+          "pass": true
+        },
+        {
+          "name": "culling preserves image at yaw 0",
+          "pass": true,
+          "detail": {
+            "different": 0
+          }
+        },
+        {
+          "name": "culling preserves image at yaw 1.1",
+          "pass": true,
+          "detail": {
+            "different": 0
+          }
+        },
+        {
+          "name": "culling preserves image at yaw 2.9",
+          "pass": true,
+          "detail": {
+            "different": 0
+          }
+        },
+        {
+          "name": "culling preserves image at yaw 4.5",
+          "pass": true,
+          "detail": {
+            "different": 0
+          }
+        },
+        {
+          "name": "roof inside/outside 100,80",
+          "pass": true,
+          "detail": {
+            "x": 100,
+            "y": 100,
+            "a": 0,
+            "snap": true
+          }
+        },
+        {
+          "name": "roof inside/outside 100,40",
+          "pass": true,
+          "detail": {
+            "x": 100,
+            "y": 100,
+            "a": 0,
+            "snap": true
+          }
+        },
+        {
+          "name": "roof inside/outside 80,100",
+          "pass": true,
+          "detail": {
+            "x": 100,
+            "y": 100,
+            "a": 0,
+            "snap": true
+          }
+        },
+        {
+          "name": "roof snap toggle preserved",
+          "pass": true
+        },
+        {
+          "name": "duplicate roof rejected",
+          "pass": true
+        },
+        {
+          "name": "table surface selected",
+          "pass": true,
+          "detail": {
+            "x": 9.000000000000002,
+            "y": 2.999835290677332,
+            "t": 42.485107421875,
+            "a": 0,
+            "z": 16,
+            "support": {
+              "id": "table",
+              "x": 0,
+              "y": 0,
+              "a": 0
+            },
+            "on": {
+              "kind": "dst",
+              "key": "b1603",
+              "id": "table",
+              "k": "table",
+              "x": 0,
+              "y": 0,
+              "a": 0,
+              "r": 10,
+              "need": {
+                "planks": 3,
+                "sticks": 2
+              },
+              "hp": 20,
+              "max": 20,
+              "done": true,
+              "open": 0,
+              "put": 0,
+              "seed": 2.1125486769109205,
+              "rise": 1,
+              "clip": 0
+            },
+            "snap": false
+          }
+        },
+        {
+          "name": "table placement valid",
+          "pass": true,
+          "detail": true
+        },
+        {
+          "name": "ghost and placement match",
+          "pass": true,
+          "detail": {
+            "ghost": {
+              "kind": "dstg",
+              "id": "flowers",
+              "k": "flowers",
+              "clip": 0,
+              "x": 9.000000000000002,
+              "y": 2.999835290677332,
+              "a": 0,
+              "z": 16,
+              "support": {
+                "id": "table",
+                "x": 0,
+                "y": 0,
+                "a": 0
+              },
+              "ok": true,
+              "why": "",
+              "snap": false,
+              "r": 0,
+              "s": 1,
+              "need": {
+                "stones": 2,
+                "berries": 1
+              },
+              "done": false,
+              "open": 0,
+              "seed": 3
+            },
+            "pot": {
+              "kind": "dst",
+              "key": "b1604",
+              "id": "flowers",
+              "k": "flowers",
+              "x": 9.000000000000002,
+              "y": 2.999835290677332,
+              "a": 0,
+              "r": 10,
+              "need": {},
+              "hp": 4,
+              "max": 4,
+              "done": true,
+              "open": 0,
+              "put": 0,
+              "seed": 3.6478014383953075,
+              "z": 16,
+              "support": {
+                "id": "table",
+                "x": 0,
+                "y": 0,
+                "a": 0
+              },
+              "on": "b1603",
+              "clip": 0,
+              "dropT": 0.5837000000001863
+            }
+          }
+        },
+        {
+          "name": "pot bottom equals tabletop",
+          "pass": true,
+          "detail": 16
+        },
+        {
+          "name": "existing bowl blocks placement",
+          "pass": true
+        },
+        {
+          "name": "different support height",
+          "pass": true,
+          "detail": {
+            "x": 50,
+            "y": -4.370777527640257e-05,
+            "t": 42.924560546875,
+            "a": 0,
+            "z": 10.15,
+            "support": {
+              "id": "stool",
+              "x": 50,
+              "y": 0,
+              "a": 0
+            },
+            "on": {
+              "kind": "dst",
+              "key": "b1605",
+              "id": "stool",
+              "k": "stool",
+              "x": 50,
+              "y": 0,
+              "a": 0,
+              "r": 10,
+              "need": {
+                "planks": 1,
+                "sticks": 2
+              },
+              "hp": 8,
+              "max": 8,
+              "done": true,
+              "open": 0,
+              "put": 0,
+              "seed": 5.258756795700046,
+              "rise": 1,
+              "clip": 0
+            },
+            "snap": false
+          }
+        },
+        {
+          "name": "raised decoration can be targeted",
+          "pass": true
+        },
+        {
+          "name": "save includes support height",
+          "pass": true
+        },
+        {
+          "name": "support remapped after reload",
+          "pass": true
+        },
+        {
+          "name": "carried furniture carries contents",
+          "pass": true
+        },
+        {
+          "name": "cancel move restores contents",
+          "pass": true
+        },
+        {
+          "name": "contents follow moved furniture",
+          "pass": true
+        },
+        {
+          "name": "removing support removes dependent decoration",
+          "pass": true
+        },
+        {
+          "name": "legacy base loads",
+          "pass": true
+        },
+        {
+          "name": "local damage rebuilds one cell",
+          "pass": true,
+          "detail": {
+            "replaced": 1,
+            "cells": 17
+          }
+        },
+        {
+          "name": "moving door separated",
+          "pass": true
+        },
+        {
+          "name": "resting door returns to static batch",
+          "pass": true
+        }
+      ],
+      "audio": {
+        "maxVoices": 8,
+        "maxPlaced": 16,
+        "contexts": [
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running",
+          "running"
+        ],
+        "audibleSamples": 600,
+        "positionFollowsTurn": true,
+        "remaining": 0,
+        "audioTime": 74.46639455782314
+      },
+      "errors": []
+    }
+  },
+  "performance": {
+    "porous-balanced-before": {
+      "lockDay": true,
+      "warmup": 60,
+      "fixedStep": false,
+      "gpuInfo": {
+        "renderer": "ANGLE (AMD, ANGLE Metal Renderer: AMD Radeon Pro 555X, Unspecified Version)",
+        "samples": 4,
+        "timerAvailable": true
+      },
+      "buildSha256": "ad6fef4a015305cfa50d7114bf80c7e1e5be89ff12d11319c64a46c3c74719bf",
+      "quality": "auto",
+      "dpr": 2,
+      "ink": false,
+      "coast": false,
+      "errors": [],
+      "data": [
+        {
+          "n": 0,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 9.381333333350097,
+              "p50": 6.599999999627471,
+              "p95": 14.400000000372529,
+              "p99": 66.3999999994412,
+              "max": 95.59999999962747
+            },
+            "gpuWait": {
+              "mean": 0.01800000000745058,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "interval": {
+              "mean": 22.110333333333333,
+              "p50": 16.699999999999818,
+              "p95": 50,
+              "p99": 66.70000000000073,
+              "max": 100
+            },
+            "triangles": {
+              "mean": 2880514.716666667,
+              "p50": 2898653,
+              "p95": 2989919,
+              "p99": 3000310,
+              "max": 3002359
+            },
+            "calls": {
+              "mean": 188.29,
+              "p50": 187,
+              "p95": 194,
+              "p99": 194,
+              "max": 194
+            },
+            "simStep": {
+              "mean": 0.8500000000217308,
+              "p50": 0.7000000001862645,
+              "p95": 1.599999999627471,
+              "p99": 1.900000000372529,
+              "max": 2.3999999994412065
+            },
+            "beamStep": {
+              "mean": 0.0033333333271245162,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.017666666647419334,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "weatherFrame": {
+              "mean": 0.00400000000372529,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.043999999988203246,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "worldSync": {
+              "mean": 0.4513333333438883,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 17.300000000745058,
+              "max": 19.100000000558794
+            },
+            "thingsSync": {
+              "mean": 0.028333333333333332,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.7999999998137355,
+              "max": 1.2999999998137355
+            },
+            "grassMask": {
+              "mean": 0.18800000000124176,
+              "p50": 0,
+              "p95": 3.199999999254942,
+              "p99": 4,
+              "max": 4.400000000372529
+            },
+            "lightsFrame": {
+              "mean": 0.04466666664617757,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "placeCamera": {
+              "mean": 0.07133333335941036,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.20000000018626451,
+              "max": 0.30000000074505806
+            },
+            "thingsFrame": {
+              "mean": 0.9350000000031045,
+              "p50": 0.7999999998137355,
+              "p95": 1.6000000005587935,
+              "p99": 1.900000000372529,
+              "max": 2.300000000745058
+            },
+            "treesFrame": {
+              "mean": 0.45366666668094696,
+              "p50": 0.40000000037252903,
+              "p95": 0.7999999998137355,
+              "p99": 0.8999999994412065,
+              "max": 0.900000000372529
+            },
+            "hintsFrame": {
+              "mean": 0.4033333333333333,
+              "p50": 0.39999999944120646,
+              "p95": 0.7000000001862645,
+              "p99": 0.8999999994412065,
+              "max": 0.900000000372529
+            },
+            "drawFigures": {
+              "mean": 0.7613333333500971,
+              "p50": 0.7000000001862645,
+              "p95": 1.2000000001862645,
+              "p99": 1.6000000005587935,
+              "max": 1.7000000001862645
+            },
+            "fxFrame": {
+              "mean": 0.006000000005587936,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.013333333327124516,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.0029999999950329464,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.09433333334823449,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.30000000074505806,
+              "max": 0.40000000037252903
+            },
+            "audioFrame": {
+              "mean": 0.14000000000310442,
+              "p50": 0.10000000055879354,
+              "p95": 0.2999999998137355,
+              "p99": 0.39999999944120646,
+              "max": 0.40000000037252903
+            },
+            "sunShadows": {
+              "mean": 1.6533333333271245,
+              "p50": 1.2999999998137355,
+              "p95": 3.300000000745058,
+              "p99": 3.7999999998137355,
+              "max": 4.7000000001862645
+            },
+            "inkRender": {
+              "mean": 1.4836666666467984,
+              "p50": 1.2000000001862645,
+              "p95": 2.8999999994412065,
+              "p99": 3.7999999998137355,
+              "max": 4.2000000001862645
+            },
+            "stNear": {
+              "mean": 0.01899999998509884,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.02100000000248353,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 5.8999999994412065
+            },
+            "terrLevelSync": {
+              "mean": 0.0003333333351959785,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0.10000000055879354
+            },
+            "gpuMs": {
+              "mean": 18.14237860666667,
+              "p50": 17.311519,
+              "p95": 23.963732,
+              "p99": 31.592639,
+              "max": 44.3744
+            }
+          },
+          "render": {
+            "frame": 1080,
+            "calls": 186,
+            "triangles": 2770066,
+            "points": 31,
+            "lines": 0
+          }
+        },
+        {
+          "n": 200,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 7.3020000000111756,
+              "p50": 6.199999999254942,
+              "p95": 12.5,
+              "p99": 21.100000000558794,
+              "max": 25.200000000186265
+            },
+            "gpuWait": {
+              "mean": 0.01033333333209157,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "interval": {
+              "mean": 21.11033333333333,
+              "p50": 16.700000000000728,
+              "p95": 33.400000000001455,
+              "p99": 66.70000000000073,
+              "max": 133.39999999999782
+            },
+            "triangles": {
+              "mean": 2902296.3266666667,
+              "p50": 2899678,
+              "p95": 2936108,
+              "p99": 2957778,
+              "max": 2959702
+            },
+            "calls": {
+              "mean": 200.78666666666666,
+              "p50": 200,
+              "p95": 207,
+              "p99": 208,
+              "max": 208
+            },
+            "simStep": {
+              "mean": 0.8236666666716337,
+              "p50": 0.7000000001862645,
+              "p95": 1.400000000372529,
+              "p99": 1.7999999998137355,
+              "max": 2
+            },
+            "beamStep": {
+              "mean": 0.0013333333345750967,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.009666666674117247,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "weatherFrame": {
+              "mean": 0.0033333333364377418,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.04100000003042321,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "worldSync": {
+              "mean": 0.3953333333383004,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 14.299999999813735,
+              "max": 16.600000000558794
+            },
+            "thingsSync": {
+              "mean": 0.04533333331346512,
+              "p50": 0,
+              "p95": 0.2999999998137355,
+              "p99": 0.40000000037252903,
+              "max": 0.5
+            },
+            "grassMask": {
+              "mean": 0.20466666667101283,
+              "p50": 0,
+              "p95": 3.3999999994412065,
+              "p99": 4,
+              "max": 4.7999999998137355
+            },
+            "lightsFrame": {
+              "mean": 0.03299999999503295,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.19999999925494194,
+              "max": 0.20000000018626451
+            },
+            "placeCamera": {
+              "mean": 0.051666666651144624,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "thingsFrame": {
+              "mean": 0.8180000000384947,
+              "p50": 0.7999999998137355,
+              "p95": 1.300000000745058,
+              "p99": 2,
+              "max": 2.1000000005587935
+            },
+            "treesFrame": {
+              "mean": 0.40766666661327083,
+              "p50": 0.39999999944120646,
+              "p95": 0.6999999992549419,
+              "p99": 0.8000000007450581,
+              "max": 1.1000000005587935
+            },
+            "hintsFrame": {
+              "mean": 0.3706666666424523,
+              "p50": 0.30000000074505806,
+              "p95": 0.599999999627471,
+              "p99": 0.7999999998137355,
+              "max": 0.900000000372529
+            },
+            "drawFigures": {
+              "mean": 0.6693333333948006,
+              "p50": 0.6000000005587935,
+              "p95": 1,
+              "p99": 1.2999999998137355,
+              "max": 2.2999999998137355
+            },
+            "fxFrame": {
+              "mean": 0.0036666666685293116,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.009999999990686775,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.003666666659216086,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.10599999996833503,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.30000000074505806,
+              "max": 0.40000000037252903
+            },
+            "audioFrame": {
+              "mean": 0.12033333333519598,
+              "p50": 0.10000000055879354,
+              "p95": 0.20000000018626451,
+              "p99": 0.30000000074505806,
+              "max": 0.39999999944120646
+            },
+            "sunShadows": {
+              "mean": 1.4246666666772216,
+              "p50": 1.2999999998137355,
+              "p95": 2.7999999998137355,
+              "p99": 3.2999999998137355,
+              "max": 3.7999999998137355
+            },
+            "inkRender": {
+              "mean": 1.2256666666610787,
+              "p50": 1.099999999627471,
+              "p95": 2.2000000001862645,
+              "p99": 2.5,
+              "max": 5.400000000372529
+            },
+            "stNear": {
+              "mean": 0.11166666665424903,
+              "p50": 0.09999999962747097,
+              "p95": 0.2999999998137355,
+              "p99": 0.39999999944120646,
+              "max": 0.40000000037252903
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.0013333333345750967,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.20000000018626451
+            },
+            "terrLevelSync": {
+              "mean": 0.000666666670391957,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0.10000000055879354
+            },
+            "gpuMs": {
+              "mean": 18.76835381666667,
+              "p50": 18.6376,
+              "p95": 19.570559,
+              "p99": 21.085784,
+              "max": 40.10016
+            }
+          },
+          "render": {
+            "frame": 2160,
+            "calls": 199,
+            "triangles": 2879911,
+            "points": 35,
+            "lines": 0
+          }
+        },
+        {
+          "n": 800,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 6.889333333286146,
+              "p50": 5.800000000745058,
+              "p95": 11.700000000186265,
+              "p99": 19.399999999441206,
+              "max": 25
+            },
+            "gpuWait": {
+              "mean": 0.009666666664804022,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "interval": {
+              "mean": 18.721333333333327,
+              "p50": 16.700000000000728,
+              "p95": 33.29999999999927,
+              "p99": 66.79999999999927,
+              "max": 99.90000000000146
+            },
+            "triangles": {
+              "mean": 3321049.79,
+              "p50": 3341012,
+              "p95": 3405014,
+              "p99": 3434320,
+              "max": 3436244
+            },
+            "calls": {
+              "mean": 226.64666666666668,
+              "p50": 227,
+              "p95": 235,
+              "p99": 236,
+              "max": 236
+            },
+            "simStep": {
+              "mean": 0.7803333333134651,
+              "p50": 0.7000000001862645,
+              "p95": 1.2000000001862645,
+              "p99": 1.7000000001862645,
+              "max": 1.7000000001862645
+            },
+            "beamStep": {
+              "mean": 0.0006666666641831398,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0.09999999962747097
+            },
+            "envFrame": {
+              "mean": 0.005000000003104408,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "weatherFrame": {
+              "mean": 0.003000000004346172,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.025333333338300387,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "worldSync": {
+              "mean": 0.3596666666710128,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 12.900000000372529,
+              "max": 16.5
+            },
+            "thingsSync": {
+              "mean": 0.1609999999931703,
+              "p50": 0,
+              "p95": 1,
+              "p99": 1.7000000001862645,
+              "max": 1.7999999998137355
+            },
+            "grassMask": {
+              "mean": 0.2303333333414048,
+              "p50": 0,
+              "p95": 3.599999999627471,
+              "p99": 4.099999999627471,
+              "max": 4.2999999998137355
+            },
+            "lightsFrame": {
+              "mean": 0.017000000020489098,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "placeCamera": {
+              "mean": 0.03599999997764826,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.19999999925494194,
+              "max": 0.20000000018626451
+            },
+            "thingsFrame": {
+              "mean": 0.7399999999813736,
+              "p50": 0.7000000001862645,
+              "p95": 1.099999999627471,
+              "p99": 1.599999999627471,
+              "max": 1.900000000372529
+            },
+            "treesFrame": {
+              "mean": 0.3766666667163372,
+              "p50": 0.39999999944120646,
+              "p95": 0.5,
+              "p99": 0.7999999998137355,
+              "max": 0.900000000372529
+            },
+            "hintsFrame": {
+              "mean": 0.3426666667095075,
+              "p50": 0.2999999998137355,
+              "p95": 0.5,
+              "p99": 0.7000000001862645,
+              "max": 0.7999999998137355
+            },
+            "drawFigures": {
+              "mean": 0.5866666666697711,
+              "p50": 0.599999999627471,
+              "p95": 0.7999999998137355,
+              "p99": 1,
+              "max": 1
+            },
+            "fxFrame": {
+              "mean": 0.0009999999962747098,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.09999999962747097
+            },
+            "combatFrame": {
+              "mean": 0.006333333337679505,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.004666666658595204,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.09333333333643774,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 0.2999999998137355
+            },
+            "audioFrame": {
+              "mean": 0.09800000003539026,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 0.40000000037252903
+            },
+            "sunShadows": {
+              "mean": 1.2563333333159485,
+              "p50": 1.099999999627471,
+              "p95": 2.5,
+              "p99": 3.2000000001862645,
+              "max": 3.7999999998137355
+            },
+            "inkRender": {
+              "mean": 1.2783333333581686,
+              "p50": 1.2000000001862645,
+              "p95": 2.1000000005587935,
+              "p99": 3.099999999627471,
+              "max": 3.199999999254942
+            },
+            "stNear": {
+              "mean": 0.19666666665735344,
+              "p50": 0.19999999925494194,
+              "p95": 0.5,
+              "p99": 0.6000000014901161,
+              "max": 1.0000000009313226
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.0023333333308498063,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "terrLevelSync": {
+              "mean": 0.0003333333351959785,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0.10000000055879354
+            },
+            "gpuMs": {
+              "mean": 15.987659650000001,
+              "p50": 15.49056,
+              "p95": 17.732319,
+              "p99": 43.23968,
+              "max": 45.097293
+            }
+          },
+          "render": {
+            "frame": 3240,
+            "calls": 221,
+            "triangles": 3195275,
+            "points": 40,
+            "lines": 0
+          }
+        }
+      ]
+    },
+    "porous-balanced-after": {
+      "lockDay": true,
+      "warmup": 60,
+      "fixedStep": false,
+      "gpuInfo": {
+        "renderer": "ANGLE (AMD, ANGLE Metal Renderer: AMD Radeon Pro 555X, Unspecified Version)",
+        "samples": 4,
+        "timerAvailable": true
+      },
+      "buildSha256": "7d50655177a0db1b2d5365bc13cc5c919eb67c8f975cd43eba0e5266870bda08",
+      "quality": "auto",
+      "dpr": 2,
+      "ink": false,
+      "coast": false,
+      "errors": [],
+      "data": [
+        {
+          "n": 0,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 8.044333333304772,
+              "p50": 5.7000000001862645,
+              "p95": 12.5,
+              "p99": 89.5,
+              "max": 96.40000000037253
+            },
+            "gpuWait": {
+              "mean": 0.009999999990686775,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "interval": {
+              "mean": 21.277,
+              "p50": 16.699999999999818,
+              "p95": 49.900000000001455,
+              "p99": 83.30000000000109,
+              "max": 183.39999999999964
+            },
+            "triangles": {
+              "mean": 2836937.1033333335,
+              "p50": 2872137,
+              "p95": 2905541,
+              "p99": 2915880,
+              "max": 2917015
+            },
+            "calls": {
+              "mean": 188.18,
+              "p50": 187,
+              "p95": 194,
+              "p99": 194,
+              "max": 194
+            },
+            "simStep": {
+              "mean": 0.7026666666474193,
+              "p50": 0.6000000005587935,
+              "p95": 1.2000000001862645,
+              "p99": 1.6000000005587935,
+              "max": 2.6000000005587935
+            },
+            "beamStep": {
+              "mean": 0.0016666666635622581,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.008666666674738128,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "weatherFrame": {
+              "mean": 0.003333333342646559,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.03733333330911895,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "worldSync": {
+              "mean": 0.4113333333314707,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 14.900000000372529,
+              "max": 21.5
+            },
+            "thingsSync": {
+              "mean": 0.020333333338300386,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.599999999627471,
+              "max": 0.7999999998137355
+            },
+            "grassMask": {
+              "mean": 0.18166666666356227,
+              "p50": 0,
+              "p95": 3.2999999998137355,
+              "p99": 3.7999999998137355,
+              "max": 4.2000000001862645
+            },
+            "lightsFrame": {
+              "mean": 0.03433333333271245,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "placeCamera": {
+              "mean": 0.06200000001428028,
+              "p50": 0.09999999962747097,
+              "p95": 0.19999999925494194,
+              "p99": 0.20000000018626451,
+              "max": 0.30000000074505806
+            },
+            "thingsFrame": {
+              "mean": 0.8080000000136593,
+              "p50": 0.7000000001862645,
+              "p95": 1.2999999998137355,
+              "p99": 1.8999999994412065,
+              "max": 3.5
+            },
+            "treesFrame": {
+              "mean": 0.3833333333271245,
+              "p50": 0.39999999944120646,
+              "p95": 0.599999999627471,
+              "p99": 0.8000000007450581,
+              "max": 1
+            },
+            "hintsFrame": {
+              "mean": 0.35533333328862987,
+              "p50": 0.2999999998137355,
+              "p95": 0.6000000005587935,
+              "p99": 0.8000000007450581,
+              "max": 1
+            },
+            "drawFigures": {
+              "mean": 0.6863333333532016,
+              "p50": 0.6000000005587935,
+              "p95": 1.199999999254942,
+              "p99": 1.5,
+              "max": 2.300000000745058
+            },
+            "fxFrame": {
+              "mean": 0.004333333332712451,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.008000000004346171,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.0036666666654249034,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.06833333339542151,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 0.2999999998137355
+            },
+            "audioFrame": {
+              "mean": 0.1053333332731078,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.30000000074505806,
+              "max": 0.39999999944120646
+            },
+            "sunShadows": {
+              "mean": 1.3120000000235934,
+              "p50": 1.1000000005587935,
+              "p95": 2.699999999254942,
+              "p99": 3.2000000001862645,
+              "max": 3.6000000005587935
+            },
+            "inkRender": {
+              "mean": 1.2189999999757857,
+              "p50": 1.099999999627471,
+              "p95": 2,
+              "p99": 2.5,
+              "max": 2.7000000001862645
+            },
+            "stNear": {
+              "mean": 0.01599999999627471,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.023666666665424902,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 6.7000000001862645
+            },
+            "terrLevelSync": {
+              "mean": 0.0013333333314706883,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.20000000018626451
+            },
+            "gpuMs": {
+              "mean": 17.309609879999996,
+              "p50": 15.392319,
+              "p95": 24.17808,
+              "p99": 41.266239,
+              "max": 47.277759
+            }
+          },
+          "render": {
+            "frame": 1080,
+            "calls": 185,
+            "triangles": 2845244,
+            "points": 19,
+            "lines": 0
+          }
+        },
+        {
+          "n": 200,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 7.287333333330849,
+              "p50": 6.2000000001862645,
+              "p95": 12.400000000372529,
+              "p99": 21.200000000186265,
+              "max": 26.5
+            },
+            "gpuWait": {
+              "mean": 0.011333333337679505,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "interval": {
+              "mean": 21.554666666666666,
+              "p50": 16.700000000000728,
+              "p95": 50,
+              "p99": 83.30000000000109,
+              "max": 99.90000000000146
+            },
+            "triangles": {
+              "mean": 2879402.6233333335,
+              "p50": 2877659,
+              "p95": 2911271,
+              "p99": 2930422,
+              "max": 2932854
+            },
+            "calls": {
+              "mean": 200.77,
+              "p50": 200,
+              "p95": 207,
+              "p99": 208,
+              "max": 208
+            },
+            "simStep": {
+              "mean": 0.8036666666871558,
+              "p50": 0.7000000001862645,
+              "p95": 1.400000000372529,
+              "p99": 1.8999999994412065,
+              "max": 2.1000000005587935
+            },
+            "beamStep": {
+              "mean": 0.002333333333954215,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.007333333330849807,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "weatherFrame": {
+              "mean": 0.002666666659836968,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.0383333333581686,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "worldSync": {
+              "mean": 0.3973333333277454,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 14.299999999813735,
+              "max": 16.59999999962747
+            },
+            "thingsSync": {
+              "mean": 0.04333333333954215,
+              "p50": 0,
+              "p95": 0.20000000018626451,
+              "p99": 0.30000000074505806,
+              "max": 0.40000000037252903
+            },
+            "grassMask": {
+              "mean": 0.20033333333519598,
+              "p50": 0,
+              "p95": 3.2999999998137355,
+              "p99": 4.2000000001862645,
+              "max": 4.3999999994412065
+            },
+            "lightsFrame": {
+              "mean": 0.02766666665673256,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "placeCamera": {
+              "mean": 0.05699999998944501,
+              "p50": 0.09999999962747097,
+              "p95": 0.19999999925494194,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "thingsFrame": {
+              "mean": 0.7800000000093132,
+              "p50": 0.7000000001862645,
+              "p95": 1.2000000001862645,
+              "p99": 1.599999999627471,
+              "max": 1.6000000005587935
+            },
+            "treesFrame": {
+              "mean": 0.38266666665052373,
+              "p50": 0.39999999944120646,
+              "p95": 0.599999999627471,
+              "p99": 0.7999999998137355,
+              "max": 0.8999999994412065
+            },
+            "hintsFrame": {
+              "mean": 0.363000000026077,
+              "p50": 0.30000000074505806,
+              "p95": 0.5,
+              "p99": 0.7000000001862645,
+              "max": 0.900000000372529
+            },
+            "drawFigures": {
+              "mean": 0.6766666666977108,
+              "p50": 0.6000000005587935,
+              "p95": 1.099999999627471,
+              "p99": 1.400000000372529,
+              "max": 2.099999999627471
+            },
+            "fxFrame": {
+              "mean": 0.00566666666418314,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.012333333318432171,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.0036666666654249034,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.10500000003104408,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 0.5
+            },
+            "audioFrame": {
+              "mean": 0.1096666666554908,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 0.39999999944120646
+            },
+            "sunShadows": {
+              "mean": 1.5356666666766008,
+              "p50": 1.400000000372529,
+              "p95": 2.800000000745058,
+              "p99": 3.7000000001862645,
+              "max": 4.2999999998137355
+            },
+            "inkRender": {
+              "mean": 1.2229999999888241,
+              "p50": 1.1000000005587935,
+              "p95": 2.1000000005587935,
+              "p99": 2.6000000005587935,
+              "max": 2.7999999998137355
+            },
+            "stNear": {
+              "mean": 0.11066666669833164,
+              "p50": 0.10000000055879354,
+              "p95": 0.2999999998137355,
+              "p99": 0.40000000037252903,
+              "max": 0.4000000013038516
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.002333333333954215,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "terrLevelSync": {
+              "mean": 0.0006666666641831398,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0.09999999962747097
+            },
+            "gpuMs": {
+              "mean": 18.22713146333333,
+              "p50": 18.09712,
+              "p95": 19.27168,
+              "p99": 36.707679,
+              "max": 38.13264
+            }
+          },
+          "render": {
+            "frame": 2160,
+            "calls": 199,
+            "triangles": 2834587,
+            "points": 22,
+            "lines": 0
+          }
+        },
+        {
+          "n": 800,
+          "pixK": 0.55,
+          "metrics": {
+            "cpu": {
+              "mean": 7.60166666667598,
+              "p50": 6.3999999994412065,
+              "p95": 13.099999999627471,
+              "p99": 21,
+              "max": 26.59999999962747
+            },
+            "gpuWait": {
+              "mean": 0.007666666678463419,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "interval": {
+              "mean": 20.44366666666666,
+              "p50": 16.700000000000728,
+              "p95": 33.400000000001455,
+              "p99": 50.099999999998545,
+              "max": 83.40000000000146
+            },
+            "triangles": {
+              "mean": 3267478.716666667,
+              "p50": 3293809,
+              "p95": 3347746,
+              "p99": 3377428,
+              "max": 3380132
+            },
+            "calls": {
+              "mean": 226.62333333333333,
+              "p50": 227,
+              "p95": 235,
+              "p99": 236,
+              "max": 236
+            },
+            "simStep": {
+              "mean": 0.8563333333687236,
+              "p50": 0.7999999998137355,
+              "p95": 1.5,
+              "p99": 2,
+              "max": 2.2000000001862645
+            },
+            "beamStep": {
+              "mean": 0.0009999999993791182,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.09999999962747097,
+              "max": 0.10000000055879354
+            },
+            "envFrame": {
+              "mean": 0.005999999993170301,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "weatherFrame": {
+              "mean": 0.005333333341404796,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "lifeFrame": {
+              "mean": 0.029666666652386386,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "worldSync": {
+              "mean": 0.38700000000186263,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 13.400000000372529,
+              "max": 16.5
+            },
+            "thingsSync": {
+              "mean": 0.19400000000993411,
+              "p50": 0,
+              "p95": 1.2000000001862645,
+              "p99": 1.7999999998137355,
+              "max": 1.900000000372529
+            },
+            "grassMask": {
+              "mean": 0.24100000000869234,
+              "p50": 0,
+              "p95": 3.6000000005587935,
+              "p99": 4.3999999994412065,
+              "max": 4.5
+            },
+            "lightsFrame": {
+              "mean": 0.021333333315948645,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "placeCamera": {
+              "mean": 0.04,
+              "p50": 0,
+              "p95": 0.10000000055879354,
+              "p99": 0.20000000018626451,
+              "max": 0.20000000018626451
+            },
+            "thingsFrame": {
+              "mean": 0.7656666666890184,
+              "p50": 0.7000000001862645,
+              "p95": 1.1000000005587935,
+              "p99": 1.5,
+              "max": 1.900000000372529
+            },
+            "treesFrame": {
+              "mean": 0.37799999996709327,
+              "p50": 0.39999999944120646,
+              "p95": 0.5,
+              "p99": 0.7000000001862645,
+              "max": 0.8000000007450581
+            },
+            "hintsFrame": {
+              "mean": 0.35133333332215744,
+              "p50": 0.2999999998137355,
+              "p95": 0.599999999627471,
+              "p99": 0.8000000007450581,
+              "max": 1
+            },
+            "drawFigures": {
+              "mean": 0.6413333333345751,
+              "p50": 0.599999999627471,
+              "p95": 1.099999999627471,
+              "p99": 1.5,
+              "max": 1.5
+            },
+            "fxFrame": {
+              "mean": 0.004000000006829699,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "combatFrame": {
+              "mean": 0.007333333337058623,
+              "p50": 0,
+              "p95": 0.09999999962747097,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "figuresEnd": {
+              "mean": 0.0030000000012417633,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.10000000055879354
+            },
+            "drawHud": {
+              "mean": 0.09900000000372529,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.2999999998137355,
+              "max": 0.30000000074505806
+            },
+            "audioFrame": {
+              "mean": 0.10299999997330209,
+              "p50": 0.09999999962747097,
+              "p95": 0.20000000018626451,
+              "p99": 0.39999999944120646,
+              "max": 0.5
+            },
+            "sunShadows": {
+              "mean": 1.6400000000186266,
+              "p50": 1.400000000372529,
+              "p95": 3,
+              "p99": 3.599999999627471,
+              "max": 3.699999999254942
+            },
+            "inkRender": {
+              "mean": 1.3226666666474194,
+              "p50": 1.2000000001862645,
+              "p95": 2.2999999998137355,
+              "p99": 2.699999999254942,
+              "max": 2.8999999994412065
+            },
+            "stNear": {
+              "mean": 0.2140000000440826,
+              "p50": 0.20000000018626451,
+              "p95": 0.5000000009313226,
+              "p99": 0.9000000013038516,
+              "max": 1.2000000001862645
+            },
+            "pieceKit": {
+              "mean": 0,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0
+            },
+            "pondsSync": {
+              "mean": 0.002000000001862645,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0.10000000055879354,
+              "max": 0.20000000018626451
+            },
+            "terrLevelSync": {
+              "mean": 0.0006666666641831398,
+              "p50": 0,
+              "p95": 0,
+              "p99": 0,
+              "max": 0.09999999962747097
+            },
+            "gpuMs": {
+              "mean": 16.33851537000002,
+              "p50": 14.313599,
+              "p95": 21.37632,
+              "p99": 23.432254,
+              "max": 39.064959
+            }
+          },
+          "render": {
+            "frame": 3240,
+            "calls": 220,
+            "triangles": 3149871,
+            "points": 31,
+            "lines": 0
+          }
+        }
+      ]
+    }
+  },
+  "beforeModels": [
+    {
+      "kind": "pine",
+      "vi": 0,
+      "lo": false,
+      "triangles": 660,
+      "vertices": 549,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 0,
+      "lo": true,
+      "triangles": 296,
+      "vertices": 313,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 1,
+      "lo": false,
+      "triangles": 596,
+      "vertices": 501,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 1,
+      "lo": true,
+      "triangles": 272,
+      "vertices": 289,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 2,
+      "lo": false,
+      "triangles": 775,
+      "vertices": 701,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 2,
+      "lo": true,
+      "triangles": 356,
+      "vertices": 386,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 0,
+      "lo": false,
+      "triangles": 1836,
+      "vertices": 1372,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 0,
+      "lo": true,
+      "triangles": 884,
+      "vertices": 636,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 1,
+      "lo": false,
+      "triangles": 2012,
+      "vertices": 1492,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 1,
+      "lo": true,
+      "triangles": 964,
+      "vertices": 684,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 2,
+      "lo": false,
+      "triangles": 1836,
+      "vertices": 1372,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 2,
+      "lo": true,
+      "triangles": 884,
+      "vertices": 636,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 0,
+      "lo": false,
+      "triangles": 2216,
+      "vertices": 1646,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 0,
+      "lo": true,
+      "triangles": 1060,
+      "vertices": 754,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 1,
+      "lo": false,
+      "triangles": 2392,
+      "vertices": 1766,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 1,
+      "lo": true,
+      "triangles": 1140,
+      "vertices": 802,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 2,
+      "lo": false,
+      "triangles": 2216,
+      "vertices": 1646,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 2,
+      "lo": true,
+      "triangles": 1060,
+      "vertices": 754,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 0,
+      "lo": false,
+      "triangles": 653,
+      "vertices": 740,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 0,
+      "lo": true,
+      "triangles": 236,
+      "vertices": 291,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 1,
+      "lo": false,
+      "triangles": 653,
+      "vertices": 740,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 1,
+      "lo": true,
+      "triangles": 236,
+      "vertices": 291,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 2,
+      "lo": false,
+      "triangles": 653,
+      "vertices": 740,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 2,
+      "lo": true,
+      "triangles": 236,
+      "vertices": 291,
+      "finite": true
+    }
+  ],
+  "afterModels": [
+    {
+      "kind": "pine",
+      "vi": 0,
+      "lo": false,
+      "triangles": 436,
+      "vertices": 573,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 0,
+      "lo": true,
+      "triangles": 296,
+      "vertices": 401,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 1,
+      "lo": false,
+      "triangles": 400,
+      "vertices": 522,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 1,
+      "lo": true,
+      "triangles": 272,
+      "vertices": 366,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 2,
+      "lo": false,
+      "triangles": 579,
+      "vertices": 722,
+      "finite": true
+    },
+    {
+      "kind": "pine",
+      "vi": 2,
+      "lo": true,
+      "triangles": 356,
+      "vertices": 463,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 0,
+      "lo": false,
+      "triangles": 972,
+      "vertices": 841,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 0,
+      "lo": true,
+      "triangles": 884,
+      "vertices": 753,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 1,
+      "lo": false,
+      "triangles": 1052,
+      "vertices": 902,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 1,
+      "lo": true,
+      "triangles": 964,
+      "vertices": 814,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 2,
+      "lo": false,
+      "triangles": 972,
+      "vertices": 841,
+      "finite": true
+    },
+    {
+      "kind": "oak",
+      "vi": 2,
+      "lo": true,
+      "triangles": 884,
+      "vertices": 753,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 0,
+      "lo": false,
+      "triangles": 1160,
+      "vertices": 997,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 0,
+      "lo": true,
+      "triangles": 1060,
+      "vertices": 897,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 1,
+      "lo": false,
+      "triangles": 1240,
+      "vertices": 1058,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 1,
+      "lo": true,
+      "triangles": 1140,
+      "vertices": 958,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 2,
+      "lo": false,
+      "triangles": 1160,
+      "vertices": 997,
+      "finite": true
+    },
+    {
+      "kind": "cherry",
+      "vi": 2,
+      "lo": true,
+      "triangles": 1060,
+      "vertices": 897,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 0,
+      "lo": false,
+      "triangles": 653,
+      "vertices": 740,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 0,
+      "lo": true,
+      "triangles": 236,
+      "vertices": 291,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 1,
+      "lo": false,
+      "triangles": 653,
+      "vertices": 740,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 1,
+      "lo": true,
+      "triangles": 236,
+      "vertices": 291,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 2,
+      "lo": false,
+      "triangles": 653,
+      "vertices": 740,
+      "finite": true
+    },
+    {
+      "kind": "dead",
+      "vi": 2,
+      "lo": true,
+      "triangles": 236,
+      "vertices": 291,
+      "finite": true
+    }
+  ]
+}

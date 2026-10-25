@@ -14,7 +14,7 @@ const fs=require('fs'),http=require('http'),path=require('path');
  for(const [name,kind,vi,close] of [['oak','oak',0,false],['cherry','cherry',1,false],['spruce','pine',0,false],['fir','pine',1,false],['pine','pine',2,false],['oak-detail','oak',0,true],['needles-detail','pine',0,true]]){
   await page.evaluate(({kind,vi,close})=>{
    S.running=false;S.day.t=DAY_LEN*.25;S.t=100;S.p.x=0;S.p.y=0;envFrame();LU.time.value=0;LU.shP.value.x=0;LU.occ.value.w=0;
-   const sc=new THREE.Scene();sc.background=new THREE.Color('#a5bac1');const g=treeModel(kind,vi,false),mesh=new THREE.Mesh(g,treeMatSolid);sc.add(mesh);
+   const sc=new THREE.Scene();sc.background=new THREE.Color('#a5bac1');const g=treeModel(kind,vi,false),mesh=new THREE.Mesh(g,treeMat);sc.add(mesh);
    const h=terrH(0,0),c=new THREE.PerspectiveCamera(40,1280/800,1,3000);c.position.set(close?28:105,h+(close?65:72),close?70:190);c.lookAt(0,h+(close?67:65),0);c.updateMatrixWorld();LU.camPos.value.copy(c.position);LU.fogC.value.copy(c.position);
    renderer.setRenderTarget(null);renderer.render(sc,c);g.dispose();
   },{kind,vi,close});

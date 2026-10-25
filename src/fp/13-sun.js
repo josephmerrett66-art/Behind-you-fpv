@@ -4,22 +4,30 @@
 // can reach it. So a pine lays down a long jagged shadow, a raider's shadow swings its arms, and your own runs along beside
 // you. They lengthen and warm as the sun goes down and fade out at dusk; past the edge of the map the old soft pools take over.
 const SUN = (() => {
-  const fast = SET.quality === 'fast', N = fast || TOUCH ? 1024 : 2048, R = fast ? 260 : TOUCH ? 300 : 360;   // a phone gets a lighter map
+  const fast = SET.quality === 'fast', N = fast || TOUCH ? 1024 : SET.quality==='auto'?1536:2048, R = fast ? 260 : TOUCH ? 300 : 360;   // a phone gets a lighter map
   const rt = new THREE.WebGLRenderTarget(N, N, { depthBuffer: true, stencilBuffer: false });
   rt.depthTexture = new THREE.DepthTexture(N, N); rt.depthTexture.minFilter = rt.depthTexture.magFilter = THREE.NearestFilter;
   const cam = new THREE.OrthographicCamera(-R, R, R, -R, 10, 2600); cam.layers.set(1);
   const mat = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide });
-  mat.onBeforeCompile = sh => {   // lifted onto the hills, as everything is in its own shader
-    sh.uniforms.terrF = LU.terrF;
-    sh.vertexShader = TERR_GLSL + '\n' + sh.vertexShader.replace('#include <project_vertex>', `vec4 wpos = vec4(transformed, 1.0);
+  const treeMat=mat.clone();treeMat.defaultAttributeValues={canopy:[0],gu:[0,0,0]};
+  for(const material of [mat,treeMat])material.onBeforeCompile=sh=>{
+    sh.uniforms.terrF=LU.terrF;
+    sh.vertexShader=TERR_GLSL+'\n'+sh.vertexShader.replace('#include <project_vertex>',`vec4 wpos=vec4(transformed,1.0);
       #ifdef USE_INSTANCING
-        wpos = instanceMatrix * wpos;
+        wpos=instanceMatrix*wpos;
       #endif
-      wpos = modelMatrix * wpos; wpos.y += terrH(wpos.xz);
-      vec4 mvPosition = viewMatrix * wpos; gl_Position = projectionMatrix * mvPosition;`);
+      wpos=modelMatrix*wpos;wpos.y+=terrH(wpos.xz);
+      vec4 mvPosition=viewMatrix*wpos;gl_Position=projectionMatrix*mvPosition;`);
+    if(material===treeMat){
+      sh.uniforms.foliageT=LU.foliageT;
+      sh.vertexShader='attribute vec3 gu;attribute float canopy;varying vec3 vCanopyG;varying float vCanopyM;\n'+sh.vertexShader.replace('vec4 wpos=','vCanopyG=gu;vCanopyM=canopy;vec4 wpos=');
+      sh.fragmentShader=FOLIAGE_CUT_GLSL+'varying vec3 vCanopyG;varying float vCanopyM;\n'+sh.fragmentShader.replace('void main() {','void main() {if(((vCanopyM>4.5&&vCanopyM<5.5)||vCanopyM>7.5)&&foliageGap(foliageField(vCanopyG)))discard;');
+    }
   };
+  // Distinct cache keys: the opaque depth-only program must not acquire foliage cutouts.
+  mat.customProgramCacheKey=()=> 'sun-opaque';treeMat.customProgramCacheKey=()=> 'sun-foliage';
   LU.shMap.value = rt.depthTexture; LU.shP.value.set(0, 1.1 / N, 1.6 / 2590, 0);
-  return { N, R, rt, cam, mat, c: new V3(), v: new V3(), d: new V3(), frustum: new THREE.Frustum() };
+  return { N, R, rt, cam, mat, treeMat, materials:[], c: new V3(), v: new V3(), d: new V3(), frustum: new THREE.Frustum() };
 })();
 // mark something as standing in the sun's light (a mesh, or a group and everything in it)
 function castsShadow(o) { o.traverse(q => q.layers.enable(1)); return o; }
@@ -52,9 +60,13 @@ function sunShadows() {
   const cut = [];
   if (typeof TREES !== 'undefined') for (const k of TREE_KINDS) for (const B of TREES[k]) if (B.shN !== undefined && B.m.count > B.shN) { cut.push([B.m, B.m.count]); B.m.count = B.shN; }
   for (const P of [propsW]) for (const kind in P.k) if (P.k[kind]) for (const B of P.k[kind]) if (B.shadow && B.m.count > B.shN) { cut.push([B.m, B.m.count]); B.m.count = B.shN; }
-  scene.overrideMaterial = SUN.mat;
-  renderer.setRenderTarget(SUN.rt); renderer.clear(false, true, false); renderer.render(scene, sc);
-  scene.overrideMaterial = null; renderer.setRenderTarget(prevT);
+  // Keep ordinary casters on their fast opaque depth program. Only trees need
+  // the leaf mask; assigning materials preserves the existing one-draw-per-mesh pass.
+  const materials=SUN.materials;materials.length=0;
+  scene.traverseVisible(o=>{if(o.material&&o.layers.test(sc.layers)){materials.push(o,o.material);o.material=o.geometry?.attributes.canopy?SUN.treeMat:SUN.mat;}});
+  const prevOverride=scene.overrideMaterial;scene.overrideMaterial=null;
+  try{renderer.setRenderTarget(SUN.rt);renderer.clear(false,true,false);renderer.render(scene,sc);}
+  finally{for(let i=0;i<materials.length;i+=2)materials[i].material=materials[i+1];materials.length=0;scene.overrideMaterial=prevOverride;renderer.setRenderTarget(prevT);}
   for (const [m, n] of cut) m.count = n;
 }
 // The tilted map projects much farther across the ground at sunrise/sunset than its

@@ -19,8 +19,17 @@ const SUN = (() => {
       wpos=modelMatrix*wpos;wpos.y+=terrH(wpos.xz);
       vec4 mvPosition=viewMatrix*wpos;gl_Position=projectionMatrix*mvPosition;`);
     if(material===treeMat){
-      sh.uniforms.foliageT=LU.foliageT;
-      sh.vertexShader='attribute vec3 gu;attribute float canopy;varying vec3 vCanopyG;varying float vCanopyM;\n'+sh.vertexShader.replace('vec4 wpos=','vCanopyG=gu;vCanopyM=canopy;vec4 wpos=');
+      sh.uniforms.foliageT=LU.foliageT;sh.uniforms.leafT=LU.time;sh.uniforms.leafRange=LU.leafRange;
+      // the crowns sway in the breeze as they do in view (11-trees), so their shadows sway with them
+      sh.uniforms.gustC=LU.fogC;
+      sh.vertexShader='attribute vec3 gu;attribute float canopy;uniform float leafT;uniform vec3 gustC;varying vec3 vCanopyG;varying float vCanopyM;\n'+GUST_GLSL+sh.vertexShader.replace('vec4 wpos=','vCanopyG=gu;vCanopyM=canopy;vec4 wpos=').replace('wpos=modelMatrix*wpos;wpos.y+=terrH(wpos.xz);',`wpos=modelMatrix*wpos;
+      { mat4 im=modelMatrix;
+        #ifdef USE_INSTANCING
+          im=modelMatrix*instanceMatrix;
+        #endif
+        float k=max(0.0,transformed.y-24.0)/90.0,ph=im[3].x*0.013+im[3].z*0.017;k*=k*(1.0+1.4*gustAt(im[3].xz,gustC.xz,leafT));
+        wpos.x+=(sin(leafT*0.9+ph)*0.6+sin(leafT*2.3+ph*3.0)*0.25+sin(leafT*4.1+ph*5.0)*0.08)*k*6.0;wpos.z+=sin(leafT*0.7+ph*1.7)*k*3.0; }
+      wpos.y+=terrH(wpos.xz);`);
       sh.fragmentShader=FOLIAGE_CUT_GLSL+'varying vec3 vCanopyG;varying float vCanopyM;\n'+sh.fragmentShader.replace('void main() {','void main() {if(((vCanopyM>4.5&&vCanopyM<5.5)||vCanopyM>7.5)&&foliageGap(foliageField(vCanopyG)))discard;');
     }
   };

@@ -6524,10 +6524,11 @@ const LU = {
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(840, VIEW) },
   leafRange:{value:new THREE.Vector2(260,420)},
+  haze: { value: new V4(0, 0, 0, 0) }, hazeCol: { value: new V3(0.8, 0.82, 0.8) },   // the forest air (92-forest): density, how low it lies, the sun's glow in it, on · its colour
   landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
-uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK;
+uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC, hazeCol; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK; uniform vec4 haze;
 uniform vec4 pl[${NL}]; uniform vec3 plc[${NL}];
 uniform sampler2D shMap; uniform mat4 shM; uniform vec4 shP, shC;
 // the sun's shadow (13-sun.js): 1 in the open, down toward shP.x's share in the shade of whatever stands between here and the sun
@@ -6565,7 +6566,16 @@ vec3 lightAtS(vec3 p, vec3 n, float useN, float sh) {
 vec3 lightAt(vec3 p, vec3 n, float useN) { return lightAtS(p, n, useN, sunShade(p + n * 0.6)); }
 float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
 vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)); return mix(vec3(g), c, colourK); }
-vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, distance(p.xz, fogC.xz))); }`;   // the haze is measured from you (from above, not from the camera)
+// the forest air first (92-forest): a light haze that thickens with distance, lying low among the trunks and thinning
+// up into the crowns, glowing where you look toward the sun; then the haze at the edge of what you can see
+vec3 fogged(vec3 c, vec3 p) {
+  float d = distance(p.xz, fogC.xz);
+  if (haze.w > 0.0) {
+    float low = exp(-max(0.0, p.y - fogC.y + 20.0) / haze.y), h = (1.0 - exp(-d * haze.x)) * (0.35 + 0.65 * low) * haze.w;
+    float sun = pow(max(dot(normalize(p - camPos), sunDir), 0.0), 6.0);
+    c = mix(c, hazeCol * (1.0 + haze.z * sun), h);
+  }
+  return mix(c, fogCol, smoothstep(fogR.x, fogR.y, d)); }`;   // the haze is measured from you (from above, not from the camera)
 
 // ---------------- the lie of the land: rolling hills ----------------
 // One height for every point of the woods, worked out the same way here and on the graphics card, so the ground, the grass,
@@ -6995,13 +7005,20 @@ function tpTorchTongue() {
 // Pause > Options > Outlines turns it off, along with every other line in the game (91-outline).
 const INK = { rt: null, scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 INK.mat = new THREE.ShaderMaterial({
-  uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) } },
+  uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) },
+    inkOn: { value: 1 }, tShaft: { value: null }, shaftPx: { value: new THREE.Vector2(1, 1) }, shaftCol: { value: new THREE.Vector3() } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `#include <packing>
-    uniform sampler2D tCol, tDep; uniform vec2 px; uniform float rad, near, far, fz; uniform vec2 fr; varying vec2 vUv;
+    uniform sampler2D tCol, tDep, tShaft; uniform vec2 px, shaftPx; uniform float rad, near, far, fz, inkOn; uniform vec2 fr; uniform vec3 shaftCol; varying vec2 vUv;
     float W(vec2 o) { float d = texture2D(tDep, vUv + o * px * rad).x; return 1.0 / max(1e-3, -perspectiveDepthToViewZ(d, near, far)); }
     void main() {
       vec4 c4 = texture2D(tCol, vUv); vec3 c = c4.rgb;
+      // the sun's light caught in the air (92-forest), worked out at a quarter of the size and softened here
+      vec3 air = vec3(0.0);
+      if (shaftCol.r > 0.0) { float a = texture2D(tShaft, vUv).r * 0.4;
+        a += (texture2D(tShaft, vUv + vec2(shaftPx.x, 0.0)).r + texture2D(tShaft, vUv - vec2(shaftPx.x, 0.0)).r + texture2D(tShaft, vUv + vec2(0.0, shaftPx.y)).r + texture2D(tShaft, vUv - vec2(0.0, shaftPx.y)).r) * 0.15;
+        air = shaftCol * a; }
+      if (inkOn < 0.5) { gl_FragColor = vec4(c + air, 1.0); return; }
       float w = W(vec2(0.0)), k = 0.0;
       // a plane is straight in 1/depth across the screen, so its second difference is nothing; an edge is a kink in it.
       // Only the nearer side of the kink takes the line, so it sits on the outside of the thing in front. Two rings of
@@ -7016,7 +7033,7 @@ INK.mat = new THREE.ShaderMaterial({
       // a tree's leaves (drawn with no alpha, 11-trees) are full of little gaps, each with its edge: beyond the nearest trees
       // their lines fade sooner, or a crown further off would be more line than leaf
       ink *= 1.0 - (1.0 - c4.a) * 0.7 * smoothstep(fz - 100.0, fz + 160.0, z);
-      gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink), 1.0);
+      gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink) + air, 1.0);
     }`,
   depthTest: false, depthWrite: false,
 });
@@ -7030,12 +7047,15 @@ function inkResize() {
   INK.mat.uniforms.tCol.value = INK.rt.texture; INK.mat.uniforms.tDep.value = INK.rt.depthTexture;
   INK.mat.uniforms.px.value.set(1 / w, 1 / h); INK.mat.uniforms.rad.value = Math.max(2, 2.6 * pixK);
 }
-function inkRender() {   // the world, with its lines if they're on
-  if (!SET.ink || !INK.rt) { renderer.clear(); renderer.render(scene, cam); return; }
+function inkRender() {   // the world, with its lines if they're on (and the light in the air, 92-forest)
+  const air = shaftsOn();
+  if ((!SET.ink && !air) || !INK.rt) { renderer.clear(); renderer.render(scene, cam); return; }
+  INK.mat.uniforms.inkOn.value = SET.ink ? 1 : 0;
   INK.mat.uniforms.near.value = cam.near; INK.mat.uniforms.far.value = cam.far;
   INK.mat.uniforms.fz.value = S && S.p ? Math.max(220, Math.hypot(cam.position.x - S.p.x, cam.position.z - S.p.y) + 200) : 220;   // from high up (isometric) the lines reach further
   INK.mat.uniforms.fr.value.copy(LU.fogR.value); if (isoP()) INK.mat.uniforms.fr.value.addScalar(INK.mat.uniforms.fz.value);
   renderer.setRenderTarget(INK.rt); renderer.clear(); renderer.render(scene, cam);
+  shaftsRender(air);
   renderer.setRenderTarget(null); renderer.clear(); renderer.render(INK.scene, INK.cam);
 }
 
@@ -7679,18 +7699,27 @@ const TREE_R3D = 1e9, TREE_NV = 3;   // every tree solid, near or far
 // one between more leaves the further off it is, as the gaps you see in a real far-off crown are between whole sprays of
 // them. A tree is read at its own distance, so it never changes across one crown; between one size and the next the two
 // are blended, the cut raised to keep the share of sky the same (its dip in the middle of the blend measured offline).
-const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;
-vec4 foliageField(vec3 g){return texture2D(foliageT,g.xy/18.0);}
+// The leaves stir: the pattern wavers a little, a different way across each part of a crown, so the gaps flicker as
+// leaves move in the breeze, and the flecks of sun they let through onto the ground flicker with them (13-sun).
+const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;uniform float leafT;
+vec3 leafStir(vec3 g){return g+vec3(.24*sin(leafT*2.3+g.y*.83+g.x*.21)+.1*sin(leafT*5.1+g.x*1.7),.2*sin(leafT*1.9+g.x*.71-g.y*.33)+.08*sin(leafT*4.3+g.y*1.9),0.0);}
+vec4 foliageField(vec3 g){return texture2D(foliageT,leafStir(g).xy/18.0);}
 bool foliageGap(vec4 f){return max(f.r,f.g)<.25;}
 vec4 foliageAt(vec3 g,float d,out float cut){
-  float L=max(0.0,log2(d/leafRange.x)),o=floor(L),t=L-o;vec2 q=g.xy/(18.0*exp2(o));
+  float L=max(0.0,log2(d/leafRange.x)),o=floor(L),t=L-o;vec2 q=leafStir(g).xy/(18.0*exp2(o));
   vec4 a=texture2D(foliageT,q+fract(o*vec2(.37,.61))),b=texture2D(foliageT,q*.5+fract((o+1.0)*vec2(.37,.61)));
   cut=.25+.157*pow(4.0*t*(1.0-t),3.3);return mix(a,b,t);
 }
 `;
+LU.leafT = LU.time;
+// Gusts: now and then the wind gets up and a gust comes through the woods, the crowns tossing harder as it passes and their
+// shadows with them, timed so it reaches you as the leaves come down in it (86-life's gust, from the same clock).
+const GUST_GLSL = `float gustAt(vec2 p, vec2 c, float t) { float s = t - dot(p - c, vec2(0.92, 0.39)) / 150.0;   // blowing the way the leaves drift
+  float g = sin(s * 0.061) * 0.5 + sin(s * 0.137 + 1.7) * 0.3 + sin(s * 0.29 + 4.1) * 0.2; return smoothstep(0.42, 0.62, g); }
+`;
 const treeMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
-  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; uniform vec3 fogC;
+  vertexShader: TERR_GLSL + GUST_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; uniform vec3 fogC;
       #ifdef USE_INSTANCING
         attribute float baseHeight;
       #endif
@@ -7702,7 +7731,8 @@ const treeMat = new THREE.ShaderMaterial({
       #endif
       vec4 w = im * vec4(position, 1.0);
       float k = max(0.0, position.y - 24.0) / 90.0, ph = im[3].x * 0.013 + im[3].z * 0.017;   // the crown sways in the breeze, the trunk stands
-      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0;
+      k *= k * (1.0 + 1.4 * gustAt(im[3].xz, fogC.xz, time));
+      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25 + sin(time * 4.1 + ph * 5.0) * 0.08) * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * 3.0;
       #ifdef USE_INSTANCING
         #ifdef CAVES
           if (im[3].x > ${CAVE_X0.toFixed(1)}) w.y += terrH(im[3].xz); else
@@ -7749,7 +7779,17 @@ const treeMat = new THREE.ShaderMaterial({
           c=vC*(.69+.38*up)*cluster*mix(.87,1.12,spray);
           c+=vec3(.035,.065,.035)*spray*up+vC*back*.035;
         }
-      } else { paintH = vL.y; c = paint(vC, vM, vG, vW, N); }
+      } else {
+        paintH = vL.y; c = paint(vC, vM, vG, vW, N);
+        if (vM > 6.5 && vM < 7.5) {   // bark: moss up the foot of the trunk, over the roots and along the tops of the limbs, most on the shady side; pale lichen higher up
+          float mn = vn(vL * 0.13) * 0.6 + vn(vL * 0.45) * 0.4;
+          float low = 1.0 - smoothstep(4.0, 30.0, vL.y + (mn - 0.5) * 18.0), shady = 0.5 + 0.5 * N.z;
+          float m = smoothstep(0.5, 0.88, mn * (0.45 + 0.5 * low + 0.25 * shady) + 0.25 * max(N.y, 0.0));
+          c = mix(c, vec3(0.22, 0.31, 0.12) * (0.85 + 0.3 * mn), m * 0.6);
+          float lic = smoothstep(0.84, 0.9, vn(vL * vec3(0.9, 0.35, 0.9))) * smoothstep(18.0, 36.0, vL.y);
+          c = mix(c, vec3(0.46, 0.48, 0.4), lic * 0.3);
+        }
+      }
       float sh = sunShade(vW + N * 0.6);
       vec3 o = c * lightAtS(vW, N, 1.0, sh) * 1.05;
       if (leaf || needle) {   // the sun through the leaves: with it behind them they glow, most at a crown's edge where it has the fewest to get through
@@ -8262,8 +8302,17 @@ const SUN = (() => {
       wpos=modelMatrix*wpos;wpos.y+=terrH(wpos.xz);
       vec4 mvPosition=viewMatrix*wpos;gl_Position=projectionMatrix*mvPosition;`);
     if(material===treeMat){
-      sh.uniforms.foliageT=LU.foliageT;
-      sh.vertexShader='attribute vec3 gu;attribute float canopy;varying vec3 vCanopyG;varying float vCanopyM;\n'+sh.vertexShader.replace('vec4 wpos=','vCanopyG=gu;vCanopyM=canopy;vec4 wpos=');
+      sh.uniforms.foliageT=LU.foliageT;sh.uniforms.leafT=LU.time;sh.uniforms.leafRange=LU.leafRange;
+      // the crowns sway in the breeze as they do in view (11-trees), so their shadows sway with them
+      sh.uniforms.gustC=LU.fogC;
+      sh.vertexShader='attribute vec3 gu;attribute float canopy;uniform float leafT;uniform vec3 gustC;varying vec3 vCanopyG;varying float vCanopyM;\n'+GUST_GLSL+sh.vertexShader.replace('vec4 wpos=','vCanopyG=gu;vCanopyM=canopy;vec4 wpos=').replace('wpos=modelMatrix*wpos;wpos.y+=terrH(wpos.xz);',`wpos=modelMatrix*wpos;
+      { mat4 im=modelMatrix;
+        #ifdef USE_INSTANCING
+          im=modelMatrix*instanceMatrix;
+        #endif
+        float k=max(0.0,transformed.y-24.0)/90.0,ph=im[3].x*0.013+im[3].z*0.017;k*=k*(1.0+1.4*gustAt(im[3].xz,gustC.xz,leafT));
+        wpos.x+=(sin(leafT*0.9+ph)*0.6+sin(leafT*2.3+ph*3.0)*0.25+sin(leafT*4.1+ph*5.0)*0.08)*k*6.0;wpos.z+=sin(leafT*0.7+ph*1.7)*k*3.0; }
+      wpos.y+=terrH(wpos.xz);`);
       sh.fragmentShader=FOLIAGE_CUT_GLSL+'varying vec3 vCanopyG;varying float vCanopyM;\n'+sh.fragmentShader.replace('void main() {','void main() {if(((vCanopyM>4.5&&vCanopyM<5.5)||vCanopyM>7.5)&&foliageGap(foliageField(vCanopyG)))discard;');
     }
   };
@@ -22365,6 +22414,109 @@ function outlineSet(on) { SET.ink = !!on; saveSet(); syncSet(); }
 // anything else made later (a new hand when you change what you hold) picks the setting up within a moment
 { const f = inkRender; inkRender = function () { if (performance.now() - OUTLINE.t > 700) outlineSync(); return f.apply(this, arguments); }; }
 outlineSync();
+
+;
+// ================= the forest's air: haze among the trunks, the sun's shafts through the crowns, motes in the light =================
+// Joe: "my goal now is to make the whole forest really feel like a forest. So do whatever you can to do a full in depth pass
+// on just making the forest look better with more detail and atmosphere". What makes a wood feel deep is mostly the air in it:
+//   - the haze: the trunks further off go paler and bluer, layer behind layer, thickest in a close stand and lying low among
+//     the trunks rather than up in the crowns, glowing toward the sun (fogged, 00-core; set here each frame)
+//   - the shafts: where the sun gets through the crowns it lights the air on its way down, so you see the beams, warm when the
+//     sun is low. Each pixel walks its line of sight through the sun's own shadow map, so a beam is exactly where a gap in the
+//     leaves lets the light through, and moves when they do. Worked out at a quarter of the screen's size
+//   - motes: dust and pollen hanging in the air round you, only seen where the sun catches them
+// On Fast the shafts are left out; the haze and the motes cost next to nothing.
+
+// ---- the haze ----
+const FOREST = { cover: 0 };
+{ const wl = weatherLight; weatherLight = function () {
+    wl.apply(this, arguments);
+    const D = S && S.p, H = LU.haze.value;
+    if (!D || caveIn()) { H.w = 0; return; }
+    // how close the trees stand round you, looked at a little way off on each side too, eased so it never jumps
+    const p = S.p; let c = landCover(p.x, p.y) * 0.4;
+    for (let k = 0; k < 4; k++) c += landCover(p.x + Math.cos(k * 1.57) * 160, p.y + Math.sin(k * 1.57) * 160) * 0.15;
+    FOREST.cover += (c - FOREST.cover) * 0.02;
+    const cv = FOREST.cover, f = WXV.fog, r = WXV.rain;
+    H.set((0.00045 + 0.00055 * cv) * (1 + 0.6 * f + 0.3 * r), 55 + 25 * f, 1.3 * LU.sunK.value, isoP() ? 0.4 : 1);
+    // the air is the sky's own colour at the horizon, greener and dimmer in under the trees, where less light reaches it
+    const g = cv * (1 - 0.6 * Math.max(f, r));
+    LU.hazeCol.value.copy(LU.fogCol.value).multiply(_hzT.set(1 - 0.4 * g, 1 - 0.27 * g, 1 - 0.37 * g));
+  }; }
+const _hzT = new V3();
+
+// ---- the shafts ----
+const SHAFT = { rt: null, scene: new THREE.Scene(), max: 320 };
+SHAFT.mat = new THREE.ShaderMaterial({
+  uniforms: { tDep: { value: null }, shMap: LU.shMap, shM: LU.shM, shP: LU.shP, camPos: LU.camPos, sunDir: LU.sunDir,
+    projInv: { value: new M4() }, camWorld: { value: new M4() }, maxD: { value: SHAFT.max } },
+  vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: `uniform sampler2D tDep, shMap; uniform mat4 projInv, camWorld, shM; uniform vec4 shP; uniform vec3 camPos, sunDir; uniform float maxD; varying vec2 vUv;
+    float lit(vec3 p) {   // can the sun reach this point in the air? (off the edge of its map, yes)
+      vec3 s = (shM * vec4(p, 1.0)).xyz * 0.5 + 0.5;
+      if (s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0 || s.z > 1.0) return 1.0;
+      return step(s.z - shP.z, texture2D(shMap, s.xy).r);
+    }
+    void main() {
+      float z = texture2D(tDep, vUv).x;
+      vec4 v = projInv * vec4(vUv * 2.0 - 1.0, z * 2.0 - 1.0, 1.0); v.xyz /= v.w;
+      vec3 rd = (camWorld * vec4(v.xyz, 1.0)).xyz - camPos; float L = length(rd); rd /= max(L, 0.001);
+      float Lm = min(L, maxD), j = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))), a = 0.0;
+      for (int i = 0; i < 14; i++) a += lit(camPos + rd * (Lm * (float(i) + j) / 14.0));
+      // most of the light is thrown on forward: the beams stand out looking toward the sun, faint looking away
+      float ph = 0.1 + pow(max(dot(rd, sunDir), 0.0), 5.0);
+      gl_FragColor = vec4(a / 14.0 * ph * Lm / maxD, 0.0, 0.0, 1.0);
+    }`,
+  depthTest: false, depthWrite: false,
+});
+SHAFT.scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), SHAFT.mat));
+function shaftsOn() {
+  return SET.quality !== 'fast' && state === 'play' && !isoP() && !caveIn() && LU.shC.value.w > 0 && LU.sunK.value > 0.05;
+}
+function shaftsRender(on) {
+  const U = INK.mat.uniforms;
+  if (!on) { U.shaftCol.value.set(0, 0, 0); return; }
+  const w = Math.max(1, Math.ceil(INK.rt.width / 4)), h = Math.max(1, Math.ceil(INK.rt.height / 4));
+  if (!SHAFT.rt) { SHAFT.rt = new THREE.WebGLRenderTarget(w, h, { depthBuffer: false, stencilBuffer: false }); SHAFT.rt.texture.minFilter = SHAFT.rt.texture.magFilter = THREE.LinearFilter; }
+  else if (SHAFT.rt.width !== w || SHAFT.rt.height !== h) SHAFT.rt.setSize(w, h);
+  const M = SHAFT.mat.uniforms; M.tDep.value = INK.rt.depthTexture; M.projInv.value.copy(cam.projectionMatrixInverse); M.camWorld.value.copy(cam.matrixWorld);
+  renderer.setRenderTarget(SHAFT.rt); renderer.render(SHAFT.scene, INK.cam);
+  // warm, and stronger, with the sun low; more of it in a close stand, where there's shade for the beams to stand out against
+  const sk = LU.sunK.value, low = 1 - clamp((LU.sunDir.value.y - 0.25) / 0.5, 0, 1), a = LU.amb.value;
+  const k = (0.2 + 0.22 * FOREST.cover + 0.12 * low) * Math.min(1, sk * 1.5) * (1 + 0.8 * WXV.fog) * (1 - 0.7 * WXV.rain);
+  U.shaftCol.value.set(a.x * k * (1 + 0.15 * low), a.y * k, a.z * k * (1 - 0.25 * low));
+  U.tShaft.value = SHAFT.rt.texture; U.shaftPx.value.set(1 / w, 1 / h);
+}
+
+// ---- motes ----
+const MOTE = { N: TOUCH ? 200 : 420, B: 70 };
+{
+  const g = new THREE.BufferGeometry(), a = new Float32Array(MOTE.N * 3);
+  for (let i = 0; i < a.length; i++) a[i] = Math.random();
+  g.setAttribute('position', new THREE.BufferAttribute(a, 3)); g.boundingSphere = new THREE.Sphere(new V3(), 1e9);
+  MOTE.mat = new THREE.ShaderMaterial({
+    uniforms: Object.assign({}, LU, { uScale: PU.uScale, B: { value: MOTE.B } }), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    // (the sun test is in the fragment: a depth map read in a vertex shader isn't to be relied on everywhere)
+    vertexShader: TERR_GLSL + `uniform float time, uScale, B, rainW, sunK; uniform vec3 camPos, sunDir; varying float vA; varying vec3 vW;
+      void main() {
+        vec3 sd = position;
+        // drifting on the air, settling slowly, each on its own wander; wrapped round you so there are always some about
+        vec3 drift = vec3(time * 1.1, -time * 0.5, time * 0.6) + vec3(sin(time * 0.31 + sd.x * 40.0) * 3.0, sin(time * 0.23 + sd.y * 31.0) * 2.0, cos(time * 0.27 + sd.z * 27.0) * 3.0);
+        vec3 rel = mod(sd * B + drift - camPos + B * 0.5, B) - B * 0.5, w = camPos + rel;
+        float d = length(rel), ph = 0.3 + 1.4 * pow(max(dot(rel / max(d, 0.01), sunDir), 0.0), 4.0);
+        vA = sunK * ph * smoothstep(2.0, 7.0, d) * (1.0 - smoothstep(24.0, 35.0, d)) * (0.55 + 0.45 * sin(time * 1.7 + sd.x * 60.0)) * (1.0 - rainW)
+           * step(terrH(w.xz) + 1.0, w.y);
+        vW = w;
+        gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
+        gl_PointSize = vA < 0.01 ? 0.0 : clamp(uScale * 0.3 / gl_Position.w, 1.0, 3.5);
+      }`,
+    fragmentShader: LIGHT_GLSL + `varying float vA; varying vec3 vW;
+      void main() { float r = length(gl_PointCoord - 0.5) * 2.0, a = vA * smoothstep(0.6, 0.9, sunShade(vW)); if (r > 1.0 || a < 0.01) discard;
+        gl_FragColor = vec4(vec3(1.0, 0.94, 0.78) * a * (1.0 - r * r) * 0.55, 1.0); }`,
+  });
+  MOTE.pts = new THREE.Points(g, MOTE.mat); MOTE.pts.frustumCulled = false; MOTE.pts.renderOrder = 6; scene.add(MOTE.pts);
+}
+{ const lf = lifeFrame; lifeFrame = function (rdt) { lf.apply(this, arguments); MOTE.pts.visible = !caveIn() && LU.sunK.value > 0.05; }; }
 </script>
 </body>
 </html>

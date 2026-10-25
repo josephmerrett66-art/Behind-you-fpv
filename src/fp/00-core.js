@@ -83,10 +83,11 @@ const LU = {
   pl: { value: Array.from({ length: NL }, () => new V4(0, -999, 0, 1)) }, plc: { value: Array.from({ length: NL }, () => new V3()) }, plN: { value: 0 },
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(840, VIEW) },
   leafRange:{value:new THREE.Vector2(260,420)},
+  haze: { value: new V4(0, 0, 0, 0) }, hazeCol: { value: new V3(0.8, 0.82, 0.8) },   // the forest air (92-forest): density, how low it lies, the sun's glow in it, on · its colour
   landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
-uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK;
+uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC, hazeCol; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK; uniform vec4 haze;
 uniform vec4 pl[${NL}]; uniform vec3 plc[${NL}];
 uniform sampler2D shMap; uniform mat4 shM; uniform vec4 shP, shC;
 // the sun's shadow (13-sun.js): 1 in the open, down toward shP.x's share in the shade of whatever stands between here and the sun
@@ -124,7 +125,16 @@ vec3 lightAtS(vec3 p, vec3 n, float useN, float sh) {
 vec3 lightAt(vec3 p, vec3 n, float useN) { return lightAtS(p, n, useN, sunShade(p + n * 0.6)); }
 float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
 vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)); return mix(vec3(g), c, colourK); }
-vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, distance(p.xz, fogC.xz))); }`;   // the haze is measured from you (from above, not from the camera)
+// the forest air first (92-forest): a light haze that thickens with distance, lying low among the trunks and thinning
+// up into the crowns, glowing where you look toward the sun; then the haze at the edge of what you can see
+vec3 fogged(vec3 c, vec3 p) {
+  float d = distance(p.xz, fogC.xz);
+  if (haze.w > 0.0) {
+    float low = exp(-max(0.0, p.y - fogC.y + 20.0) / haze.y), h = (1.0 - exp(-d * haze.x)) * (0.35 + 0.65 * low) * haze.w;
+    float sun = pow(max(dot(normalize(p - camPos), sunDir), 0.0), 6.0);
+    c = mix(c, hazeCol * (1.0 + haze.z * sun), h);
+  }
+  return mix(c, fogCol, smoothstep(fogR.x, fogR.y, d)); }`;   // the haze is measured from you (from above, not from the camera)
 
 // ---------------- the lie of the land: rolling hills ----------------
 // One height for every point of the woods, worked out the same way here and on the graphics card, so the ground, the grass,

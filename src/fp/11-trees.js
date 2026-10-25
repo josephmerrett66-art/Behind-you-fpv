@@ -10,18 +10,27 @@ const TREE_R3D = 1e9, TREE_NV = 3;   // every tree solid, near or far
 // one between more leaves the further off it is, as the gaps you see in a real far-off crown are between whole sprays of
 // them. A tree is read at its own distance, so it never changes across one crown; between one size and the next the two
 // are blended, the cut raised to keep the share of sky the same (its dip in the middle of the blend measured offline).
-const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;
-vec4 foliageField(vec3 g){return texture2D(foliageT,g.xy/18.0);}
+// The leaves stir: the pattern wavers a little, a different way across each part of a crown, so the gaps flicker as
+// leaves move in the breeze, and the flecks of sun they let through onto the ground flicker with them (13-sun).
+const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;uniform float leafT;
+vec3 leafStir(vec3 g){return g+vec3(.24*sin(leafT*2.3+g.y*.83+g.x*.21)+.1*sin(leafT*5.1+g.x*1.7),.2*sin(leafT*1.9+g.x*.71-g.y*.33)+.08*sin(leafT*4.3+g.y*1.9),0.0);}
+vec4 foliageField(vec3 g){return texture2D(foliageT,leafStir(g).xy/18.0);}
 bool foliageGap(vec4 f){return max(f.r,f.g)<.25;}
 vec4 foliageAt(vec3 g,float d,out float cut){
-  float L=max(0.0,log2(d/leafRange.x)),o=floor(L),t=L-o;vec2 q=g.xy/(18.0*exp2(o));
+  float L=max(0.0,log2(d/leafRange.x)),o=floor(L),t=L-o;vec2 q=leafStir(g).xy/(18.0*exp2(o));
   vec4 a=texture2D(foliageT,q+fract(o*vec2(.37,.61))),b=texture2D(foliageT,q*.5+fract((o+1.0)*vec2(.37,.61)));
   cut=.25+.157*pow(4.0*t*(1.0-t),3.3);return mix(a,b,t);
 }
 `;
+LU.leafT = LU.time;
+// Gusts: now and then the wind gets up and a gust comes through the woods, the crowns tossing harder as it passes and their
+// shadows with them, timed so it reaches you as the leaves come down in it (86-life's gust, from the same clock).
+const GUST_GLSL = `float gustAt(vec2 p, vec2 c, float t) { float s = t - dot(p - c, vec2(0.92, 0.39)) / 150.0;   // blowing the way the leaves drift
+  float g = sin(s * 0.061) * 0.5 + sin(s * 0.137 + 1.7) * 0.3 + sin(s * 0.29 + 4.1) * 0.2; return smoothstep(0.42, 0.62, g); }
+`;
 const treeMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
-  vertexShader: TERR_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; uniform vec3 fogC;
+  vertexShader: TERR_GLSL + GUST_GLSL + `attribute vec3 color, gu; attribute float em, mt; uniform float time; uniform vec3 fogC;
       #ifdef USE_INSTANCING
         attribute float baseHeight;
       #endif
@@ -33,7 +42,8 @@ const treeMat = new THREE.ShaderMaterial({
       #endif
       vec4 w = im * vec4(position, 1.0);
       float k = max(0.0, position.y - 24.0) / 90.0, ph = im[3].x * 0.013 + im[3].z * 0.017;   // the crown sways in the breeze, the trunk stands
-      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25) * k * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * k * 3.0;
+      k *= k * (1.0 + 1.4 * gustAt(im[3].xz, fogC.xz, time));
+      w.x += (sin(time * 0.9 + ph) * 0.6 + sin(time * 2.3 + ph * 3.0) * 0.25 + sin(time * 4.1 + ph * 5.0) * 0.08) * k * 6.0; w.z += sin(time * 0.7 + ph * 1.7) * k * 3.0;
       #ifdef USE_INSTANCING
         #ifdef CAVES
           if (im[3].x > ${CAVE_X0.toFixed(1)}) w.y += terrH(im[3].xz); else
@@ -80,7 +90,17 @@ const treeMat = new THREE.ShaderMaterial({
           c=vC*(.69+.38*up)*cluster*mix(.87,1.12,spray);
           c+=vec3(.035,.065,.035)*spray*up+vC*back*.035;
         }
-      } else { paintH = vL.y; c = paint(vC, vM, vG, vW, N); }
+      } else {
+        paintH = vL.y; c = paint(vC, vM, vG, vW, N);
+        if (vM > 6.5 && vM < 7.5) {   // bark: moss up the foot of the trunk, over the roots and along the tops of the limbs, most on the shady side; pale lichen higher up
+          float mn = vn(vL * 0.13) * 0.6 + vn(vL * 0.45) * 0.4;
+          float low = 1.0 - smoothstep(4.0, 30.0, vL.y + (mn - 0.5) * 18.0), shady = 0.5 + 0.5 * N.z;
+          float m = smoothstep(0.5, 0.88, mn * (0.45 + 0.5 * low + 0.25 * shady) + 0.25 * max(N.y, 0.0));
+          c = mix(c, vec3(0.22, 0.31, 0.12) * (0.85 + 0.3 * mn), m * 0.6);
+          float lic = smoothstep(0.84, 0.9, vn(vL * vec3(0.9, 0.35, 0.9))) * smoothstep(18.0, 36.0, vL.y);
+          c = mix(c, vec3(0.46, 0.48, 0.4), lic * 0.3);
+        }
+      }
       float sh = sunShade(vW + N * 0.6);
       vec3 o = c * lightAtS(vW, N, 1.0, sh) * 1.05;
       if (leaf || needle) {   // the sun through the leaves: with it behind them they glow, most at a crown's edge where it has the fewest to get through

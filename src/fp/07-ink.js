@@ -6,13 +6,20 @@
 // Pause > Options > Outlines turns it off, along with every other line in the game (91-outline).
 const INK = { rt: null, scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 INK.mat = new THREE.ShaderMaterial({
-  uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) } },
+  uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) },
+    inkOn: { value: 1 }, tShaft: { value: null }, shaftPx: { value: new THREE.Vector2(1, 1) }, shaftCol: { value: new THREE.Vector3() } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `#include <packing>
-    uniform sampler2D tCol, tDep; uniform vec2 px; uniform float rad, near, far, fz; uniform vec2 fr; varying vec2 vUv;
+    uniform sampler2D tCol, tDep, tShaft; uniform vec2 px, shaftPx; uniform float rad, near, far, fz, inkOn; uniform vec2 fr; uniform vec3 shaftCol; varying vec2 vUv;
     float W(vec2 o) { float d = texture2D(tDep, vUv + o * px * rad).x; return 1.0 / max(1e-3, -perspectiveDepthToViewZ(d, near, far)); }
     void main() {
       vec4 c4 = texture2D(tCol, vUv); vec3 c = c4.rgb;
+      // the sun's light caught in the air (92-forest), worked out at a quarter of the size and softened here
+      vec3 air = vec3(0.0);
+      if (shaftCol.r > 0.0) { float a = texture2D(tShaft, vUv).r * 0.4;
+        a += (texture2D(tShaft, vUv + vec2(shaftPx.x, 0.0)).r + texture2D(tShaft, vUv - vec2(shaftPx.x, 0.0)).r + texture2D(tShaft, vUv + vec2(0.0, shaftPx.y)).r + texture2D(tShaft, vUv - vec2(0.0, shaftPx.y)).r) * 0.15;
+        air = shaftCol * a; }
+      if (inkOn < 0.5) { gl_FragColor = vec4(c + air, 1.0); return; }
       float w = W(vec2(0.0)), k = 0.0;
       // a plane is straight in 1/depth across the screen, so its second difference is nothing; an edge is a kink in it.
       // Only the nearer side of the kink takes the line, so it sits on the outside of the thing in front. Two rings of
@@ -27,7 +34,7 @@ INK.mat = new THREE.ShaderMaterial({
       // a tree's leaves (drawn with no alpha, 11-trees) are full of little gaps, each with its edge: beyond the nearest trees
       // their lines fade sooner, or a crown further off would be more line than leaf
       ink *= 1.0 - (1.0 - c4.a) * 0.7 * smoothstep(fz - 100.0, fz + 160.0, z);
-      gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink), 1.0);
+      gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink) + air, 1.0);
     }`,
   depthTest: false, depthWrite: false,
 });
@@ -41,11 +48,14 @@ function inkResize() {
   INK.mat.uniforms.tCol.value = INK.rt.texture; INK.mat.uniforms.tDep.value = INK.rt.depthTexture;
   INK.mat.uniforms.px.value.set(1 / w, 1 / h); INK.mat.uniforms.rad.value = Math.max(2, 2.6 * pixK);
 }
-function inkRender() {   // the world, with its lines if they're on
-  if (!SET.ink || !INK.rt) { renderer.clear(); renderer.render(scene, cam); return; }
+function inkRender() {   // the world, with its lines if they're on (and the light in the air, 92-forest)
+  const air = shaftsOn();
+  if ((!SET.ink && !air) || !INK.rt) { renderer.clear(); renderer.render(scene, cam); return; }
+  INK.mat.uniforms.inkOn.value = SET.ink ? 1 : 0;
   INK.mat.uniforms.near.value = cam.near; INK.mat.uniforms.far.value = cam.far;
   INK.mat.uniforms.fz.value = S && S.p ? Math.max(220, Math.hypot(cam.position.x - S.p.x, cam.position.z - S.p.y) + 200) : 220;   // from high up (isometric) the lines reach further
   INK.mat.uniforms.fr.value.copy(LU.fogR.value); if (isoP()) INK.mat.uniforms.fr.value.addScalar(INK.mat.uniforms.fz.value);
   renderer.setRenderTarget(INK.rt); renderer.clear(); renderer.render(scene, cam);
+  shaftsRender(air);
   renderer.setRenderTarget(null); renderer.clear(); renderer.render(INK.scene, INK.cam);
 }

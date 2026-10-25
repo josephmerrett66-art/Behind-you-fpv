@@ -4,9 +4,20 @@
 const TREE_R3D = 1e9, TREE_NV = 3;   // every tree solid, near or far
 // Shared by visible foliage and the sun-depth pass. A binary cutout leaves real,
 // leaf-shaped sky gaps; local coordinates keep them fixed while a tree sways.
+// Joe: "more detailed trees leaves with lights coming through in every tree as opposed to just up close so every tree that
+// you can see". Past leafRange.x the finest gaps would shrink under a pixel and close up, so further off the same pattern
+// is read at twice its size, then four times, and so on: the gaps stay a few pixels across on every tree in sight, each
+// one between more leaves the further off it is, as the gaps you see in a real far-off crown are between whole sprays of
+// them. A tree is read at its own distance, so it never changes across one crown; between one size and the next the two
+// are blended, the cut raised to keep the share of sky the same (its dip in the middle of the blend measured offline).
 const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;
 vec4 foliageField(vec3 g){return texture2D(foliageT,g.xy/18.0);}
 bool foliageGap(vec4 f){return max(f.r,f.g)<.25;}
+vec4 foliageAt(vec3 g,float d,out float cut){
+  float L=max(0.0,log2(d/leafRange.x)),o=floor(L),t=L-o;vec2 q=g.xy/(18.0*exp2(o));
+  vec4 a=texture2D(foliageT,q+fract(o*vec2(.37,.61))),b=texture2D(foliageT,q*.5+fract((o+1.0)*vec2(.37,.61)));
+  cut=.25+.157*pow(4.0*t*(1.0-t),3.3);return mix(a,b,t);
+}
 `;
 const treeMat = new THREE.ShaderMaterial({
   uniforms: Object.assign({}, LU),
@@ -50,16 +61,16 @@ const treeMat = new THREE.ShaderMaterial({
         float d = distance(vW, camPos);
         if (d < 34.0) { float dz = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453); if (dz > smoothstep(16.0, 34.0, d)) discard; }
         float up = smoothstep(-0.5, 0.9, N.y) * 0.55 + smoothstep(10.0, 110.0, vL.y) * 0.25;   // lit from above, darker underneath and inside
-        vec4 f=foliageField(vG);
+        vec3 V=normalize(camPos-vW);float cut,rim=1.0-abs(dot(N,V));
+        vec4 f=foliageAt(vG,vTreeD,cut);
         #ifndef TREE_OPAQUE
-          // Fine gaps merge into solid coverage once they become subpixel.
-          float pore=1.0-smoothstep(leafRange.x,leafRange.y,vTreeD);
-          if(max(f.r,f.g)<.25*pore)discard;
+          // thinner toward a crown's edge, where you look along the leaves and the pattern smears together
+          if(max(f.r,f.g)<cut+.07*rim*rim)discard;
         #endif
         // Mipmapped local-space detail: fine pores merge gradually with distance.
         vec4 broad=texture2D(foliageT,(vG.yz-vG.x*.29)/71.0+vec2(.31,.67));
         float cluster=.89+.16*broad.b;
-        float back=pow(max(dot(normalize(camPos-vW),-sunDir),0.0),2.0)*sunK;
+        float back=pow(max(dot(V,-sunDir),0.0),2.0)*sunK;
         if (leaf) {
           float blade=smoothstep(.23,.78,f.r),tip=smoothstep(.58,.86,f.r);
           c=vC*(.64+.43*up)*cluster*mix(.86,1.14,blade);
@@ -70,8 +81,13 @@ const treeMat = new THREE.ShaderMaterial({
           c+=vec3(.035,.065,.035)*spray*up+vC*back*.035;
         }
       } else { paintH = vL.y; c = paint(vC, vM, vG, vW, N); }
-      vec3 o = c * lightAt(vW, N, 1.0) * 1.05;
-      gl_FragColor = vec4(fogged(grey(o), vW), 1.0);
+      float sh = sunShade(vW + N * 0.6);
+      vec3 o = c * lightAtS(vW, N, 1.0, sh) * 1.05;
+      if (leaf || needle) {   // the sun through the leaves: with it behind them they glow, most at a crown's edge where it has the fewest to get through
+        float tr = pow(max(dot(normalize(camPos - vW), -sunDir), 0.0), 4.0) * sunK * sh * (0.35 + 0.65 * (1.0 - abs(dot(N, normalize(camPos - vW)))));
+        o += vC * amb * tr * (leaf ? vec3(1.1, 1.2, 0.65) : vec3(0.8, 0.95, 0.55));
+      }
+      gl_FragColor = vec4(fogged(grey(o), vW), leaf || needle ? 0.0 : 1.0);   // (alpha: leaves, for the ink, 07-ink)
     }`,
 });
 const treeEdge = new THREE.ShaderMaterial({
@@ -236,14 +252,15 @@ function treeModel(kind, vi, lo = false) {   // one tree, in the pictures' own u
 
 // one instanced draw (and its outline) per kind and way of building it
 // Three bands round you, each its own draw: up close (TREE_NEAR) the trees whose leaves thin away as you brush past and,
-// seen from above, fade where they'd hide you; then the same trees drawn solid; then past TREE_LOD the plainer far-off
-// form, solid too. A shader that can throw away a pixel stops a phone skipping the hidden surfaces behind it, which in a
-// stand of trees is most of them, so only the few trees near enough to need it get that shader
+// seen from above, fade where they'd hide you; then the same trees without that; then past TREE_LOD the plainer far-off
+// form. All of them have the gaps in their leaves (FOLIAGE_CUT_GLSL). A shader that can throw away a pixel stops a phone
+// skipping the hidden surfaces behind it, so on Fast the trees past the near ones are drawn solid, as they all were before
+// (treeLeafSync); the trees are drawn nearest first, so whatever is hidden behind a near crown is still skipped
 const TREE_KINDS = ['pine', 'oak', 'cherry', 'dead'], TREE_CAP = 2800, TREE_LOD = 800, TREE_LOD_END = 1000, TREE_NEAR = 420;
 const treeMatSolid = (() => {
   const a = 'if (occ.w > 0.5 && occluding(vW) > fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) * 0.999) discard;', b = 'if (d < 34.0) { float dz = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453); if (dz > smoothstep(16.0, 34.0, d)) discard; }';
   if (!treeMat.fragmentShader.includes(a) || !treeMat.fragmentShader.includes(b)) throw new Error('treeMatSolid: the tree shader changed');
-  return new THREE.ShaderMaterial({ defines:{TREE_OPAQUE:1},uniforms: treeMat.uniforms, vertexShader: treeMat.vertexShader, fragmentShader: treeMat.fragmentShader.replace(a, '').replace(b, '') });
+  return new THREE.ShaderMaterial({ defines:{},uniforms: treeMat.uniforms, vertexShader: treeMat.vertexShader, fragmentShader: treeMat.fragmentShader.replace(a, '').replace(b, '') });
 })();
 // Load both forms before the transition, then crossfade them per pixel as the player moves.
 function treeLodMaterial(high) {
@@ -255,6 +272,11 @@ function treeLodMaterial(high) {
   return m;
 }
 const treeLodHigh = treeLodMaterial(true), treeLodLow = treeLodMaterial(false);
+function treeLeafSync() {   // Fast: the gaps in the leaves only on the near trees
+  const solid = SET.quality === 'fast';
+  for (const m of [treeMatSolid, treeLodHigh, treeLodLow]) if (!!m.defines.TREE_OPAQUE !== solid) { if (solid) m.defines.TREE_OPAQUE = 1; else delete m.defines.TREE_OPAQUE; m.needsUpdate = true; }
+}
+treeLeafSync();
 const TREE_SHADOWS = {};
 const TREES = {};
 for (const k of TREE_KINDS) TREES[k] = [];
@@ -275,7 +297,7 @@ function treesBuild() {
       const g = band < 3 ? (high[vi] || (high[vi] = treeModel(k, vi, false))) : (low[vi] || (low[vi] = treeModel(k, vi, true)));
       const mat = [treeMat, treeMatSolid, treeLodHigh, treeLodLow, treeMatSolid][band];
       const m = new THREE.InstancedMesh(terrainInstanceGeometry(g, TREE_CAP), mat, TREE_CAP), e = new THREE.InstancedMesh(g, treeEdge, TREE_CAP);
-      m.renderOrder=1;
+      m.renderOrder=1+[0,1,2,2,3][band];   // after everything else, and nearest band first, so a crown hides what's behind it before that's drawn
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       m.count = e.count = 0; m.frustumCulled = e.frustumCulled = false; e.instanceMatrix = m.instanceMatrix; scene.add(castsShadow(m)); scene.add(e);
       TREES[k].push({ m, e, band, list: [] });

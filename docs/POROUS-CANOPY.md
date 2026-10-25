@@ -35,3 +35,13 @@ Run `node build.js index.html`. `node tools/check-porous-canopy.cjs` checks actu
 For a comparable Auto profile, use BENCH_LOCK_DAY=1, BENCH_QUALITY=auto, BENCH_DPR=2 and BENCH_INK=0 with tools/profile-smooth.cjs. GAME_FILE selects the baseline packed build. The profiler records GPU renderer, render scale and timer availability. BENCH_WARM can extend warm-up; BENCH_FIXED_STEP is reserved for non-Auto simulation comparisons because a synthetic frame cadence would hide the load from Auto.
 
 Grass sway, gameplay, save format, collision positions and cave mechanics are unchanged.
+
+## Every tree in sight
+
+Joe asked for the leaf gaps on every tree he can see, not only the nearest. Past `leafRange.x` the gaps are no longer closed up: the same packed field is read at twice its size, then four times, and so on, chosen by each tree's own distance, so the gaps stay a few pixels across on every tree and never shift within one crown. Between one size and the next the two are blended with the cut raised to keep the same share of sky; that correction was measured offline from the field (`cut = .25 + .157·(4t(1−t))^3.3`). Crown edges seen edge-on cut a little more, where the pattern would otherwise smear solid. Leaves lit from behind by the sun now glow, most at a crown's edge, using the sun visibility the lighting already computes (`lightAtS`).
+
+The further bands lose their opaque program except on Fast, which keeps the previous behaviour (`treeLeafSync`). Tree bands now draw nearest first (render order by band) rather than by material, so a near crown's depth is in place before the trees behind it. Counting the tree fragments that pass the depth test as drawn (`tools/count-tree-fragments.cjs`, 320×180, Sharp), the new build shades 6–34% fewer tree fragments than the previous one across four forest views (1.70–2.45 → 1.46–1.78 per covered pixel); the per-fragment cut test and any lost early-depth efficiency on real GPUs are not captured by that count, and no real-GPU profile was run here.
+
+With outlines on, the ink pass reads leaf pixels from the colour target's alpha (trees write 0 on leaves) and fades lines inside crowns beyond the nearest trees, so a far crown isn't more line than leaf. The canvas has no alpha, so nothing else sees it.
+
+check-porous-canopy.cjs now checks that the close and further materials cut identical gaps at the hand-over, that trees 600, 1200 and 1800 away keep gaps, and that Fast still draws the further trees solid: 28 of 28 pass.

@@ -61,7 +61,7 @@ function resize() {
   cam.fov = baseFov(); vmCam.fov = asp >= 1 ? 56 : 98;
   vmX = clamp(16 * Math.tan(vmCam.fov * Math.PI / 360) * asp / 18.4, 0.42, 1);   // held upright, the hands come in toward the middle so both stay on screen
   cam.updateProjectionMatrix(); vmCam.updateProjectionMatrix();
-  // Fine foliage holes need a fast opaque path once smaller than a rendered pixel.
+  // leafRange.x: how far off the finest gaps in the leaves are still a few pixels across (past it they're read bigger, 11-trees)
   const leafEnd=clamp(VH*pixK*cam.projectionMatrix.elements[5]*.28,120,420);
   LU.leafRange.value.set(leafEnd*.62,leafEnd);
   if (typeof inkResize === 'function') inkResize();
@@ -106,9 +106,10 @@ float sunShade(vec3 p) {
   k += step(texture2D(shMap, s.xy + vec2(-o * 0.4, o)).r, d); k += step(texture2D(shMap, s.xy - vec2(-o * 0.4, o)).r, d);
   return 1.0 - shP.x * e * k * 0.2;
 }
-vec3 lightAt(vec3 p, vec3 n, float useN) {
+// sh: how much of the sun reaches here (sunShade), for a shader that wants it for something else too (the trees' leaves)
+vec3 lightAtS(vec3 p, vec3 n, float useN, float sh) {
   float sun = mix(1.0, 0.7 + 0.45 * max(dot(n, sunDir), 0.0), useN * sunK);
-  vec3 c = amb * sun * sunShade(p + n * 0.6);
+  vec3 c = amb * sun * sh;
   // With the torch off, skip its cone and falloff work for every shaded pixel.
   if (dot(tCol,tCol)>0.0) {
     vec3 L = p - tPos; float d = length(L); vec3 l = L / max(d, 0.001);
@@ -120,6 +121,7 @@ vec3 lightAt(vec3 p, vec3 n, float useN) {
   if (plN > 0.5) for (int i = 0; i < ${NL}; i++) { vec4 q = pl[i]; float k = clamp(1.0 - distance(p, q.xyz) / q.w, 0.0, 1.0); c += plc[i] * (k * k) * mix(1.0, 0.3 + 0.9 * max(dot(n, normalize(q.xyz - p)), 0.0), useN); }   // a firelit side and a dark side
   return c;
 }
+vec3 lightAt(vec3 p, vec3 n, float useN) { return lightAtS(p, n, useN, sunShade(p + n * 0.6)); }
 float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
 vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)); return mix(vec3(g), c, colourK); }
 vec3 fogged(vec3 c, vec3 p) { return mix(c, fogCol, smoothstep(fogR.x, fogR.y, distance(p.xz, fogC.xz))); }`;   // the haze is measured from you (from above, not from the camera)

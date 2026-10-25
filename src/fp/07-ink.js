@@ -12,7 +12,7 @@ INK.mat = new THREE.ShaderMaterial({
     uniform sampler2D tCol, tDep; uniform vec2 px; uniform float rad, near, far, fz; uniform vec2 fr; varying vec2 vUv;
     float W(vec2 o) { float d = texture2D(tDep, vUv + o * px * rad).x; return 1.0 / max(1e-3, -perspectiveDepthToViewZ(d, near, far)); }
     void main() {
-      vec3 c = texture2D(tCol, vUv).rgb;
+      vec4 c4 = texture2D(tCol, vUv); vec3 c = c4.rgb;
       float w = W(vec2(0.0)), k = 0.0;
       // a plane is straight in 1/depth across the screen, so its second difference is nothing; an edge is a kink in it.
       // Only the nearer side of the kink takes the line, so it sits on the outside of the thing in front. Two rings of
@@ -24,6 +24,9 @@ INK.mat = new THREE.ShaderMaterial({
       }
       k /= w;
       float z = 1.0 / w, ink = smoothstep(0.025, 0.07, k) * (1.0 - smoothstep(fz, fz + 450.0, z)) * (1.0 - 0.85 * smoothstep(fr.x * 0.7, fr.y * 0.75, z));   // and thin out as the haze swallows things
+      // a tree's leaves (drawn with no alpha, 11-trees) are full of little gaps, each with its edge: beyond the nearest trees
+      // their lines fade sooner, or a crown further off would be more line than leaf
+      ink *= 1.0 - (1.0 - c4.a) * 0.7 * smoothstep(fz - 100.0, fz + 160.0, z);
       gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink), 1.0);
     }`,
   depthTest: false, depthWrite: false,

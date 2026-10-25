@@ -36,7 +36,13 @@ const {chromium}=require('playwright'),fs=require('fs'),http=require('http'),pat
    }
    const distantGeometry=treeModel('oak',0,false),distantMesh=new THREE.Mesh(distantGeometry,treeMat);sc.add(distantMesh);LU.fogC.value.set(0,0,LU.leafRange.value.y*.8);
    const fading=read(distantMesh,treeMat),opaqueDistant=read(distantMesh,treeMatSolid);
-   check('fine cutouts merge without a depth-coverage jump at the far material boundary',fading.total===opaqueDistant.total&&fading.trunk===opaqueDistant.trunk,{fading,opaqueDistant});
+   check('close and further tree materials cut the same gaps where trees pass between them',fading.total===opaqueDistant.total&&fading.trunk===opaqueDistant.trunk,{fading,opaqueDistant});
+   // Every tree in sight keeps gaps: past the close band the pattern is read coarser rather than closed up.
+   const distantFull=read(distantMesh,shiftedSolid);
+   for(const d of [600,1200,1800]){LU.fogC.value.set(0,0,d);const far=read(distantMesh,treeMatSolid);
+    check('a tree '+d+' away still has gaps in its leaves',far.total<distantFull.total-20&&far.total>distantFull.total*.4&&far.trunk===distantFull.trunk,{full:distantFull.total,far:far.total});}
+   const q0=SET.quality;SET.quality='fast';treeLeafSync();const fastFar=read(distantMesh,treeMatSolid);SET.quality=q0;treeLeafSync();
+   check('Fast draws the further trees solid, as before',fastFar.total===distantFull.total,{full:distantFull.total,fast:fastFar.total});
    sc.remove(distantMesh);distantGeometry.dispose();
    // A non-tree caster must not inherit the preceding tree's canopy attribute or texture mask.
    const box=new THREE.Mesh(new THREE.BoxGeometry(20,80,20),solid);box.position.y=40;sc.add(box);

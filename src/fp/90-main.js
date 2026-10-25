@@ -206,7 +206,7 @@ $('sFov').addEventListener('input', e => { SET.fov = +e.target.value; $('sFovV')
 for (const b of document.querySelectorAll('#sQual .tab')) b.addEventListener('click', () => {
   SET.quality = b.dataset.q; saveSet();
   pixK = SET.quality === 'fast' ? Math.min(DPR, 0.8) : SET.quality === 'sharp' ? QCAP : Math.min(QCAP, TOUCH ? 1.25 : 1.5);
-  resize(); syncSet();
+  resize(); syncSet(); treeLeafSync();
 });
 $('sView').addEventListener('click', () => { SET.view = nextView(); saveSet(); syncSet(); });
 $('sInk').addEventListener('click', () => { SET.ink = !SET.ink; saveSet(); syncSet(); });

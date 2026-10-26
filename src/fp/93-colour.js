@@ -14,18 +14,18 @@
 //     than its depths (11-trees), and the turf and the grass a fresher green (00-core, 12-grass)
 const TINT = {
   // [sun, shade] for each part of the day, each kept to the same brightness (the shade a touch lifted, as if by bounced light)
-  day: [[1.05, 1.0, 0.9], [0.86, 0.97, 1.16]], morn: [[1.03, 1.0, 0.95], [0.87, 0.97, 1.15]],
+  day: [[1.03, 1.0, 0.95], [0.86, 0.97, 1.16]], morn: [[1.03, 1.0, 0.95], [0.87, 0.97, 1.15]],
   gold: [[1.13, 0.98, 0.74], [0.84, 0.92, 1.26]], set: [[1.16, 0.95, 0.7], [0.86, 0.88, 1.28]],
   // in under a canopy the shade is lit by light come through the leaves, a warm green, so a trunk or the leaf litter in
   // the shade stays a rich brown rather than going grey under a cold blue
   leaves: [0.98, 1.05, 0.78],
   lift: 1.06, liftCover: 0.2, vib: 0.35,
   expo: 0.22,   // in under the trees the eye opens up: everything a little brighter, the closer the crowns overhead
-  canopy: 0, acc: 0,   // how much crown is over and round you (the trees gathered in near you, 10-world), eased
+  canopy: 0, acc: 0, accN: 4,   // how much crown is over and round you (the trees gathered in near you, 10-world), eased
 };
 // the crowns round you, counted as the trees near you are gathered in, each by how close it stands
 { const tb = treesBegin; treesBegin = function () { TINT.acc = 0; return tb.apply(this, arguments); }; }
-{ const ta = treeAdd; treeAdd = function (o, kind, d) { if (d < 110 && kind !== 'dead') TINT.acc += (1 - d / 110) * (1 - d / 110); return ta.apply(this, arguments); }; }
+{ const ta = treeAdd; treeAdd = function (o, kind, d) { if (d < 160 && kind !== 'dead') TINT.acc += (1 - d / 160) * (1 - d / 160); return ta.apply(this, arguments); }; }
 {
   const lum = v => v.x * 0.3 + v.y * 0.55 + v.z * 0.15, a = new V3(), b = new V3(), t = new V3();
   const blend = (v, pair, i, k) => v.lerp(t.set(...pair[i]), k);
@@ -37,7 +37,7 @@ const TINT = {
     blend(a, TINT.morn, 0, ENV.morn); blend(b, TINT.morn, 1, ENV.morn);
     blend(a, TINT.gold, 0, ENV.gold); blend(b, TINT.gold, 1, ENV.gold);
     blend(a, TINT.set, 0, ENV.set); blend(b, TINT.set, 1, ENV.set);
-    TINT.canopy += (clamp(TINT.acc / 3, 0, 1) - TINT.canopy) * 0.03;
+    TINT.canopy += (clamp(TINT.acc / TINT.accN, 0, 1) - TINT.canopy) * 0.03;
     const cn = TINT.canopy;
     b.lerp(t.set(...TINT.leaves), 0.75 * cn * (1 - 0.5 * ENV.set));
     a.multiplyScalar(1 / lum(a)); b.multiplyScalar((TINT.lift + TINT.liftCover * cn) / lum(b));

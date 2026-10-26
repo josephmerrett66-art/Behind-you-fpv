@@ -11,7 +11,11 @@
 //     without the bright things going garish
 //   - far off goes blue (the sky low down, 90-main) and a stand's haze is blue-green (92-forest), set against the warm light
 //   - nearer, the greens themselves vary: each tree a little yellower or bluer than the next, a crown's sunlit top warmer
-//     than its depths (11-trees), and the turf and the grass a fresher green (00-core, 12-grass)
+//     than its depths, and looking up into a crown the daylight glows green through it (11-trees); the turf and the grass
+//     a fresher green, the open ground further off reading as turf, not bare earth (00-core, 12-grass)
+//   - in under the trees the eye opens up a little, and the shade there is a warm green, so the browns stay rich
+//   - the outlines are a deep dark of each thing's own colour (07-ink), and the soft pools of shadow a deep blue (10-world),
+//     not flat black
 const TINT = {
   // [sun, shade] for each part of the day, each kept to the same brightness (the shade a touch lifted, as if by bounced light)
   day: [[1.03, 1.0, 0.95], [0.89, 0.98, 1.11]], morn: [[1.04, 1.0, 0.93], [0.9, 0.98, 1.1]],
@@ -19,7 +23,7 @@ const TINT = {
   // in under a canopy the shade is lit by light come through the leaves, a warm green, so a trunk or the leaf litter in
   // the shade stays a rich brown rather than going grey under a cold blue
   leaves: [0.98, 1.05, 0.78],
-  lift: 1.06, liftCover: 0.2, vib: 0.35,
+  lift: 1.06, liftCover: 0.2, vib: 0.6,
   expo: 0.22,   // in under the trees the eye opens up: everything a little brighter, the closer the crowns overhead
   canopy: 0, acc: 0, accN: 4,   // how much crown is over and round you (the trees gathered in near you, 10-world), eased
 };

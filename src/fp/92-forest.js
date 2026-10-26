@@ -10,7 +10,7 @@
 // On Fast the shafts are left out; the haze and the motes cost next to nothing.
 
 // ---- the haze ----
-const FOREST = { cover: 0 };
+const FOREST = { cover: 0, hz: [0.00045, 0.00055] };   // hz: the haze's density in the open, and how much more in a close stand
 { const wl = weatherLight; weatherLight = function () {
     wl.apply(this, arguments);
     const D = S && S.p, H = LU.haze.value;
@@ -20,7 +20,7 @@ const FOREST = { cover: 0 };
     for (let k = 0; k < 4; k++) c += landCover(p.x + Math.cos(k * 1.57) * 160, p.y + Math.sin(k * 1.57) * 160) * 0.15;
     FOREST.cover += (c - FOREST.cover) * 0.02;
     const cv = FOREST.cover, f = WXV.fog, r = WXV.rain;
-    H.set((0.00045 + 0.00055 * cv) * (1 + 0.6 * f + 0.3 * r), 55 + 25 * f, 1.3 * LU.sunK.value, isoP() ? 0.4 : 1);
+    H.set((FOREST.hz[0] + FOREST.hz[1] * cv) * (1 + 0.6 * f + 0.3 * r), 55 + 25 * f, 1.3 * LU.sunK.value, isoP() ? 0.4 : 1);
     // the air is the sky's own colour at the horizon, dimmer in under the trees where less light reaches it, and a cool
     // blue-green there (93-colour): against the warm light it gives the depth, where a grey haze only dulled everything
     const g = cv * (1 - 0.6 * Math.max(f, r));
@@ -29,7 +29,7 @@ const FOREST = { cover: 0 };
 const _hzT = new V3();
 
 // ---- the shafts ----
-const SHAFT = { rt: null, scene: new THREE.Scene(), max: 320 };
+const SHAFT = { rt: null, scene: new THREE.Scene(), max: 320, k: [0.2, 0.22, 0.12] };   // k: how strong in the open, the more in a close stand, the more with the sun low
 SHAFT.mat = new THREE.ShaderMaterial({
   uniforms: { tDep: { value: null }, shMap: LU.shMap, shM: LU.shM, shP: LU.shP, camPos: LU.camPos, sunDir: LU.sunDir,
     projInv: { value: new M4() }, camWorld: { value: new M4() }, maxD: { value: SHAFT.max } },
@@ -66,7 +66,7 @@ function shaftsRender(on) {
   renderer.setRenderTarget(SHAFT.rt); renderer.render(SHAFT.scene, INK.cam);
   // warm, and stronger, with the sun low; more of it in a close stand, where there's shade for the beams to stand out against
   const sk = LU.sunK.value, low = 1 - clamp((LU.sunDir.value.y - 0.25) / 0.5, 0, 1), a = LU.amb.value;
-  const k = (0.2 + 0.22 * FOREST.cover + 0.12 * low) * Math.min(1, sk * 1.5) * (1 + 0.8 * WXV.fog) * (1 - 0.7 * WXV.rain);
+  const k = (SHAFT.k[0] + SHAFT.k[1] * FOREST.cover + SHAFT.k[2] * low) * Math.min(1, sk * 1.5) * (1 + 0.8 * WXV.fog) * (1 - 0.7 * WXV.rain);
   U.shaftCol.value.set(a.x * k * (1 + 0.15 * low), a.y * k, a.z * k * (1 - 0.25 * low));
   U.tShaft.value = SHAFT.rt.texture; U.shaftPx.value.set(1 / w, 1 / h);
 }

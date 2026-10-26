@@ -12,9 +12,16 @@ function propMats(sway, cullR) {
   const m = new THREE.ShaderMaterial({ uniforms: uni(), vertexShader: treeMat.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeMat.fragmentShader.replace('void main() {', cut) });
   // Thin leaves receive light on both faces. Use a gentle upward normal only for
   // living foliage; rocks, logs and other solid props keep their original lighting.
-  if (sway > 0) m.fragmentShader = m.fragmentShader
-    .replace('smoothstep(-0.5, 0.9, N.y)', 'smoothstep(-0.5, 0.9, abs(N.y))')
-    .replace('lightAt(vW, N, 1.0)', 'lightAt(vW, normalize(vec3(N.x * 0.45, abs(N.y) * 0.4 + 0.65, N.z * 0.45)), 0.65)');
+  // The undergrowth's leaves are marked soft for the ink (07-ink), so a bush or a fern gets a fine dark-green edge to each
+  // leaf rather than a black one round every gap; and a bush's leaves are smaller than a tree's, and lit at their edges,
+  // paler where they catch the light than in their middles.
+  if (sway > 0) for (const [a, b] of [
+    ['smoothstep(-0.5, 0.9, N.y)', 'smoothstep(-0.5, 0.9, abs(N.y))'],
+    ['vec3 o = c * lightAtS(vW, N, 1.0, sh)', 'vec3 o = c * lightAtS(vW, leaf ? normalize(vec3(N.x * 0.45, abs(N.y) * 0.4 + 0.65, N.z * 0.45)) : N, leaf ? 0.65 : 1.0, sh)'],
+    ['frond ? 0.5 : leaf || needle ? 0.0 : 1.0', 'frond || leaf ? 0.5 : needle ? 0.0 : 1.0'],
+    ['vec4 f=foliageAt(vG,vTreeD,cut);', 'vec4 f=foliageAt(vG*1.8,vTreeD*1.8,cut);'],
+    ['c=vC*(.64+.43*up)*cluster*mix(.86,1.14,blade);', 'c=vC*(.7+.43*up)*cluster*mix(1.2,.9,smoothstep(.3,.62,f.r));'],
+  ]) { if (!m.fragmentShader.includes(a)) throw new Error('propMats: the tree shader changed'); m.fragmentShader = m.fragmentShader.replace(a, b); }
   const e = new THREE.ShaderMaterial({ uniforms: uni(), side: THREE.BackSide, vertexShader: treeEdge.vertexShader.replace('max(0.0, position.y - 24.0) / 90.0', sw), fragmentShader: treeEdge.fragmentShader.replace('void main() {', cut) });
   return { m, e };
 }
@@ -24,13 +31,17 @@ function propMat(k) {
   return PROP_MAT[k];
 }
 
-// a boulder: a rounder, lumpier stone than the little faceted ones, flat underneath where it sits in the ground
+// a boulder: chunky stone, as if split off along a few planes into broad flat faces with sharp edges between them, the rest
+// of it knocked about, and flat underneath where it sits in the ground
 const P_BOULDER = (k = 0) => prim('boulder' + k, () => {
-  const g = new THREE.IcosahedronGeometry(0.5, 1), p = g.attributes.position, v = new V3();
+  const g = new THREE.IcosahedronGeometry(0.5, 2), p = g.attributes.position, v = new V3(), cuts = [];
+  let s = 7 + k * 1013; const R = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 10; i++) { const y = R() * 1.2 - 0.35, a = R() * 6.283, r = Math.sqrt(1 - y * y); cuts.push([new V3(Math.cos(a) * r, y, Math.sin(a) * r), 0.34 + R() * 0.1]); }
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i);
-    const h = 0.86 + 0.24 * hash(Math.round(v.x * 11) + k * 3.7, Math.round(v.y * 9) * 1.3 + Math.round(v.z * 10) * 0.7);
-    v.multiplyScalar(h); if (v.y < -0.18) v.y = -0.18 + (v.y + 0.18) * 0.2;
+    v.multiplyScalar(0.92 + 0.14 * hash(Math.round(v.x * 13) + k * 3.7, Math.round(v.y * 11) * 1.3 + Math.round(v.z * 12) * 0.7));
+    for (const [n, d] of cuts) { const o = v.dot(n) - d; if (o > 0) v.addScaledVector(n, -o); }
+    if (v.y < -0.18) v.y = -0.18 + (v.y + 0.18) * 0.2;
     p.setXYZ(i, v.x, v.y, v.z);
   }
   g.computeVertexNormals(); return g;
@@ -76,31 +87,35 @@ function bushKit(K, R, vi, dark, mid, light, tall) {
   for (let j = 0; j < 3; j++) { const a = j * 2.1 + vi; K.rod(P_CYL(4), Math.cos(a) * 3, 0, Math.sin(a) * 3, Math.cos(a) * 9, 4.5, Math.sin(a) * 9, 0.7, hex('#4a3826')); }
   K.mt = null;
 }
-// a fern frond, one piece: a stalk rising from the middle and arching over, with pairs of leaflets all along it, longest
-// near the middle and shrinking to the tip, each lifted a little and swept forward. Length 1 along +z, faced both ways.
+// a fern frond, one piece: a stalk rising from the middle and arching over, and either side of it a band that drops away
+// a little from the stalk, as a frond does. The leaflets themselves are cut out of the band where it's drawn (11-trees):
+// the band carries, in gu, how far along the frond each point is (in leaflets) and how far out from the stalk (0 to 1),
+// so each leaflet comes out crisp at any size, swept forward and lobed along its edges, without a face for every lobe.
+// Length 1 along +z, faced both ways.
+const FROND_N = 14;   // leaflets up each side
 const P_FROND = (k = 0) => prim('frond' + k, () => {
-  const N = 10, pos = [], arch = 0.62 + 0.1 * k, droop = 0.18 - 0.1 * k;
+  const N = 10, pos = [], fuv = [], arch = 0.62 + 0.1 * k, droop = 0.18 - 0.1 * k;
   const sp = t => { const u = 1 - t; return [0, 2 * u * t * arch + t * t * droop, 2 * u * t * 0.3 + t * t]; };   // a curve: up steeply, then over
-  const tri = (a, b, c) => pos.push(...a, ...b, ...c, ...a, ...c, ...b);
-  for (let i = 0; i < N; i++) {
-    const t0 = i / N, t1 = (i + 1) / N, a = sp(t0), b = sp(t1), tm = (t0 + t1) / 2, m = sp(tm);
-    tri([-0.012, a[1], a[2]], [0.012, a[1], a[2]], [0, b[1], b[2]]);   // the stalk
-    if (t0 < 0.12) continue;                                                      // bare at the foot
-    const w = 0.34 * Math.sin(Math.PI * Math.min(1, (tm - 0.08) / 0.95)) + 0.03, dz = b[2] - a[2], dy = b[1] - a[1];
-    for (const sd of [-1, 1]) {   // a leaflet each side: from the stalk, out and a touch forward, its tip lifted
-      const tip = [sd * w, m[1] + w * 0.22, m[2] + dz * 0.9 + w * 0.25], mid = [sd * w * 0.5, m[1] + w * 0.16 + dy * 0.5, m[2] + dz * 0.65 + w * 0.12];
-      tri(a, mid, tip); tri(a, tip, [sd * w * 0.45, m[1] + dy * 0.2 + w * 0.05, m[2] + dz * 0.2]); tri(b, mid, tip);
-    }
-  }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g;
+  const W = t => 0.36 * Math.sin(Math.PI * clamp((t - 0.06) / 0.97, 0, 1)) + 0.035;   // longest leaflets near the middle, shrinking to the tip
+  const row = t => { const c = sp(t), w = W(t), r = [];   // across the frond: out from the stalk, dropping away a little at the edges, swept forward
+    for (const v of [-1, -0.5, 0, 0.5, 1]) { const a = Math.abs(v); r.push([[v * w, c[1] + w * (0.1 * a - 0.32 * a * a), c[2] + w * 0.3 * a], [t * FROND_N, v]]); } return r; };
+  const quad = (a, b, c, d) => { for (const [p, q, r] of [[a, b, c], [c, b, d]]) { pos.push(...p[0], ...q[0], ...r[0], ...p[0], ...r[0], ...q[0]); fuv.push(...p[1], ...q[1], ...r[1], ...p[1], ...r[1], ...q[1]); } };
+  for (let i = 0; i < N; i++) { const t0 = 0.04 + 0.96 * i / N, t1 = 0.04 + 0.96 * (i + 1) / N, A = row(t0), B = row(t1); for (let j = 0; j < 4; j++) quad(A[j], A[j + 1], B[j], B[j + 1]); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('fuv', new THREE.Float32BufferAttribute(fuv, 2)); g.computeVertexNormals(); return g;
 });
+// put a frond in, its band carrying where each point sits on the frond (above), coloured from its foot to its top
+function frondAdd(K, k, bot, top, pow, ...at) {
+  const g = P_FROND(k), f = g.attributes.fuv, first = K.gu.length, m = K.mt; K.mt = 9;
+  kitGrad(K, () => K.add(g, ...at), bot, top, pow); K.mt = m;
+  for (let i = 0; i < f.count; i++) { K.gu[first + i * 3] = f.getX(i); K.gu[first + i * 3 + 1] = f.getY(i); K.gu[first + i * 3 + 2] = 0; }
+}
 const P_BLADE = () => prim('blade', () => { const g = new THREE.ConeGeometry(0.5, 1, 4, 1); g.scale(1, 1, 0.25); g.translate(0, 0.5, 0); return g; });
 
 // the models, foot at the origin, in the pictures' own units (each is drawn at the scale its picture was)
 const PETAL = { flowerY: '#f2cf34', flowerB: '#8796ee', flowerR: '#e43c34', flowerW: '#f4f1e6', flowerV: '#9644cc' };
 const PROP_KIND = {
   rock: { n: 3, mat: 'still', edge: true, shadow: true }, rockIron: { n: 3, mat: 'still', edge: true, shadow: true }, post: { n: 2, mat: 'still', edge: true, shadow: true },
-  bush: { n: 3, mat: 'plant', edge: false, shadow: true }, fern: { n: 3, mat: 'plant', edge: true, shadow: false },
+  bush: { n: 3, mat: 'plant', edge: false, shadow: true }, fern: { n: 3, mat: 'plant', edge: false, shadow: false },   // (a frond's outline would be its band's, not its leaflets')
   grass: { n: 3, mat: 'grass', edge: false, shadow: false }, pebbles: { n: 3, mat: 'still', edge: true, shadow: false },
   shrooms: { n: 2, mat: 'still', edge: true, shadow: false },
 };
@@ -114,18 +129,19 @@ PROP_KIND.sapling = { n: 3, mat: 'sap', edge: true, shadow: true };
 function propModel(kind, vi) {
   let s = 4211 + vi * 337 + kind.length * 59; const R = () => (s = (s * 16807) % 2147483647) / 2147483647, K = new Kit();
   const pick = (list, j) => hex(list[((j % list.length) + list.length) % list.length]);
+  const stoneHex = (list, j) => paintHex(list[j % list.length], 0.72);   // a boulder's grey as it's written, a little darker (paintHex, 00-core): a stone, not a dark lump
   // Seat separate stones independently; a small side stone must not define the main boulder's foot.
   const seat = (start, inset = 0.35) => {
     let bottom=Infinity;for(let i=start+1;i<K.pos.length;i+=3)bottom=Math.min(bottom,K.pos[i]);
     const dy=-bottom-inset;for(let i=start+1;i<K.pos.length;i+=3)K.pos[i]+=dy;return dy;
   };
-  if (kind === 'rock' || kind === 'rockIron') {   // a big dark boulder (36 wide, 26 high as drawn) with a stone or two leaning on it
+  if (kind === 'rock' || kind === 'rockIron') {   // a big boulder (36 wide, 26 high as drawn) with a stone or two leaning on it
     const iron = kind === 'rockIron';   // out past where iron is found: warmer, rust-streaked stone studded with orange lumps of ore
     K.mt = 'stone';
-    K.add(P_BOULDER(vi), 0, 9, 0, 32, 24, 26, pick(iron ? ['#6a5850', '#725e54', '#64534b'] : ['#5c5e63', '#65676c', '#56585d'], vi), R() * 6.28, (R() - 0.5) * 0.2, (R() - 0.5) * 0.2, 0, 0.55);
+    K.add(P_BOULDER(vi), 0, 9, 0, 32, 24, 26, stoneHex(iron ? ['#7a665a', '#82695c', '#735f54'] : ['#6c6d6a', '#767772', '#666866'], vi), R() * 6.28, (R() - 0.5) * 0.2, (R() - 0.5) * 0.2, 0, 0.55);
     const rockY = seat(0, 0.6);
     const n = 1 + vi % 2;
-    for (let i = 0; i < n; i++) { const a = R() * 6.28, d = 15 + R() * 4, r = 7 + R() * 5, start=K.pos.length; K.add(P_BOULDER(vi + 3 + i), Math.cos(a) * d, r * 0.3, Math.sin(a) * d, r * 1.3, r, r * 1.1, pick(iron ? ['#76625a', '#6a5a52'] : ['#6a6c70', '#5e6064'], i), R() * 6.28, 0, 0, 0, 0.45); seat(start); }
+    for (let i = 0; i < n; i++) { const a = R() * 6.28, d = 15 + R() * 4, r = 7 + R() * 5, start=K.pos.length; K.add(P_BOULDER(vi + 3 + i), Math.cos(a) * d, r * 0.3, Math.sin(a) * d, r * 1.3, r, r * 1.1, stoneHex(iron ? ['#857066', '#7a665c'] : ['#7a7b76', '#6e706c'], i), R() * 6.28, 0, 0, 0, 0.45); seat(start); }
     K.mt = null;
     if (iron) for (let i = 0; i < 9; i++) {   // the ore: rusty knobs breaking the surface all round, a few with a bright glint
       const a = i * 2.4 + vi, e = 0.15 + (i % 3) * 0.38, cx = Math.cos(a) * Math.cos(e), cz = Math.sin(a) * Math.cos(e), sz = 4.2 + (i % 4) * 1.1;
@@ -136,17 +152,17 @@ function propModel(kind, vi) {
     K.add(P_CONE(6), 0, 38, 0, 8, 2.5, 8, hex('#6e4e36'), 0.3 * vi, 0, 0, 0, 0.4); K.mt = null;
     K.mt = 'cloth'; K.add(P_CYL(8), 0, 27, 0, 9.2, 2.2, 9.2, hex('#b08654'), 0, 0, 0.18, 0, 0.3); K.mt = null;
   } else if (kind === 'bush') {   // a low leafy mound (28 wide, 20 high): deep green in its heart, sunlit yellow-green on top
-    bushKit(K, R, vi, hex('#1f3d1c'), hex('#3a6a2e'), hex('#6fa24a'), 1);
+    bushKit(K, R, vi, hex('#4a7a3a'), hex('#3a6a2e'), hex('#6fa24a'), 1);   // (a heart lit enough to show leaves through the gaps, not black)
   } else if (kind === 'fern') {   // a crown of fronds rising from one root and arching out over the ground (34 wide, 16 high)
-    const G = [['#1f4a1c', '#5d9a40'], ['#244f1f', '#6aa646'], ['#1c4419', '#4f8c36']], fronds = 8 + vi;
-    K.mt = 'plant'; K.add(P_KNOB(vi), 0, 0.5, 0, 4.5, 2.5, 4.5, hex('#2a3a1c'), 0, 0, 0, 0, 0.3);
+    const G = [['#2a5a22', '#6aa646'], ['#2f6126', '#78b250'], ['#27541f', '#5e9a3e']], fronds = 8 + vi;
+    K.mt = 'plant'; K.add(P_KNOB(vi), 0, 0.5, 0, 4.5, 2.5, 4.5, hex('#33461f'), 0, 0, 0, 0, 0.3);
     for (let i = 0; i < fronds; i++) {
       const a = i * 2.39996 + vi + R() * 0.3, L = 15 + R() * 6, c = G[(i + vi) % 3];
-      kitGrad(K, () => K.add(P_FROND(i % 2), Math.cos(a) * 0.8, 0.5, Math.sin(a) * 0.8, L, L * (0.9 + R() * 0.35), L, hex(c[1]), -a + Math.PI / 2, -0.05 + R() * 0.15, (R() - 0.5) * 0.3, 0, 0.25), hex(c[0]), hex(c[1]), 0.7);
+      frondAdd(K, i % 2, hex(c[0]), hex(c[1]), 0.7, Math.cos(a) * 0.8, 0.5, Math.sin(a) * 0.8, L, L * (0.9 + R() * 0.35), L, hex(c[1]), -a + Math.PI / 2, -0.05 + R() * 0.15, (R() - 0.5) * 0.3, 0, 0.25);
     }
-    for (let i = 0; i < 3; i++) {   // young fronds still standing up in the middle
+    for (let i = 0; i < 3; i++) {   // young fronds still standing up in the middle, a fresher green
       const a = i * 2.1 + vi, L = 7 + R() * 3;
-      kitGrad(K, () => K.add(P_FROND(1), 0, 0.5, 0, L * 0.8, L * 1.5, L * 0.5, hex('#7ab04e'), -a + Math.PI / 2, 0, 0, 0, 0.25), hex('#2c5a22'), hex('#8cbc58'), 0.8);
+      frondAdd(K, 1, hex('#3a6e2a'), hex('#9cc864'), 0.8, 0, 0.5, 0, L * 0.8, L * 1.5, L * 0.5, hex('#7ab04e'), -a + Math.PI / 2, 0, 0, 0, 0.25);
     }
     K.mt = null;
   } else if (kind === 'grass') {   // a tuft of curving blades springing from a dark base (16 wide, 13 high), green at the root, pale at the tips
@@ -184,13 +200,13 @@ function propModel(kind, vi) {
     }
     K.mt = null;
   } else if (kind === 'log') {   // a fallen log lying along the ground, sawn ends pale, a broken branch or two off it
-    const L = 38, r = 4.2, ux = L / 2, col = hex(vi % 2 ? '#4e4034' : '#5c4a3a');
+    const L = 38, r = 4.2, ux = L / 2, col = paintHex(vi % 2 ? '#4e4034' : '#5c4a3a', 0.85);   // (the trees' own bark, 11-trees)
     logRod(K, -ux, r * 0.8, 0, ux, r * 0.85, 0, r, col);
     for (let j = 0; j < 2; j++) { const t = j ? 0.3 : -0.2, bx = ux * t, ba = (j ? 1 : -1) * (0.8 + 0.4 * ((vi * 0.37 + j * 0.21) % 1)); K_BR(K, bx, r * 1.2, 0, bx + Math.cos(ba) * r * 2.2, r * 2.4, Math.sin(ba) * r * 2.2, r * 0.3); }
   } else if (kind === 'sapling') {   // a young tree come up where the light gets in: a little pine, a little spruce, or an oak whip in leaf
     if (vi < 2) {
       const H = 44 + vi * 10, tiers = 4 + vi, G = vi ? [['#1f4a36', '#4a8a66'], ['#245040', '#559674']] : [['#2a4f2c', '#62964f'], ['#30582f', '#70a258']];
-      K.mt = 'bark'; K.add(P_CONE(6), 0, 0, 0, 3.4, H, 3.4, hex('#5c4232'), 0, 0, 0, 0, 0.3);
+      K.mt = 'bark'; K.add(P_CONE(6), 0, 0, 0, 3.4, H, 3.4, paintHex('#5c4232', 0.85), 0, 0, 0, 0, 0.3);
       K.mt = 8;
       for (let i = 0; i < tiers; i++) {
         const f = i / (tiers - 1), y = 7 + f * (H - 18), r = (vi ? 22 : 27) * (1 - f * 0.72) * (0.92 + 0.16 * R()), h = 13 - f * 3, c = G[i % 2];
@@ -198,9 +214,9 @@ function propModel(kind, vi) {
       }
       K.add(P_CONE(6), 0, H - 9, 0, 4.5, 11, 4.5, hex(G[0][1]), 0, 0, 0, 0, 0.28);
     } else {
-      K.mt = 'bark'; K.rod(P_CYL(5), 0, 0, 0, 1.5, 40, -1, 1.5, hex('#4c3c2e'));
+      K.mt = 'bark'; K.rod(P_CYL(5), 0, 0, 0, 1.5, 40, -1, 1.5, paintHex('#4c3c2e', 0.85));
       const tips = [[0, 46, 0]];
-      for (let i = 0; i < 3; i++) { const a = i * 2.1 + 0.4, y0 = 18 + i * 7, L = 11 + R() * 4, t = [Math.cos(a) * L, y0 + 9, Math.sin(a) * L]; K.rod(P_CYL(4), 0.5, y0, 0, t[0], t[1], t[2], 0.8, hex('#4c3c2e')); tips.push(t); }
+      for (let i = 0; i < 3; i++) { const a = i * 2.1 + 0.4, y0 = 18 + i * 7, L = 11 + R() * 4, t = [Math.cos(a) * L, y0 + 9, Math.sin(a) * L]; K.rod(P_CYL(4), 0.5, y0, 0, t[0], t[1], t[2], 0.8, paintHex('#4c3c2e', 0.85)); tips.push(t); }
       K.mt = 'plant';
       const G = ['#36622a', '#447434', '#528440'];
       tips.forEach(([x, y, z], i) => kitGrad(K, () => K.add(P_KNOB(i % 5), x, y, z, 15 - i, 12 - i * 0.8, 15 - i, hex(G[i % 3]), R() * 6.28, 0, 0, 0, 0.3), hex('#24451c'), hex(G[i % 3]), 0.8));
@@ -224,7 +240,7 @@ function propModel(kind, vi) {
       for (let f = 0; f < 4; f++) { const q = a * 3 + f * 1.6; K.add(P_PEA(5, 3), x + Math.cos(q) * 1.9, h + 1.55, y + Math.sin(q) * 1.9, 1, 0.5, 1, hex('#f2ead8')); } K.mt = null;
     }
   } else if (kind === 'bbush') {   // a berry bush: rounder and a cooler, glossier blue-green than the woods' bushes, so you know one even picked bare
-    bushKit(K, R, vi, hex('#173a2e'), hex('#2c6a50'), hex('#5aa27a'), 1.12);
+    bushKit(K, R, vi, hex('#3a6e5a'), hex('#2c6a50'), hex('#5aa27a'), 1.12);
   } else if (kind === 'nberries') {   // bunches of fat red berries all over the outside of a berry bush
     for (let c = 0; c < 9; c++) {
       const a = c * 2.1 + vi * 0.7, e = 0.1 + (c % 3) * 0.4, rr = 15.5 - (c % 3) * 2.5, cx = Math.cos(a) * Math.cos(e) * rr, cz = Math.sin(a) * Math.cos(e) * rr, cy = 7 + Math.sin(e) * 13;
@@ -238,9 +254,10 @@ function propModel(kind, vi) {
     const key=Math.round(p.getX(i)*2)+','+Math.round(p.getZ(i)*2);
     if(!seen.has(key)){seen.add(key);points.push(new V3().fromBufferAttribute(p,i));}
   }
-  // Cover the footprint with a small fixed set, computed once per reusable model.
-  const contacts=[];if(points.length)contacts.push(points.shift());
-  while(points.length&&contacts.length<12){let best=0,dist=-1;for(let i=0;i<points.length;i++){
+  // Cover the footprint with a small fixed set, computed once per reusable model. A boulder's broad flat foot (P_BOULDER)
+  // needs more of them, or a stretch of it between two could stand off a hollow in the ground.
+  const contacts=[],most=kind==='rock'||kind==='rockIron'?40:12;if(points.length)contacts.push(points.shift());
+  while(points.length&&contacts.length<most){let best=0,dist=-1;for(let i=0;i<points.length;i++){
     let d=Infinity;for(const q of contacts)d=Math.min(d,(q.x-points[i].x)**2+(q.z-points[i].z)**2);
     if(d>dist){dist=d;best=i;}
   }contacts.push(points.splice(best,1)[0]);}

@@ -39,9 +39,14 @@ INK.mat = new THREE.ShaderMaterial({
       // a tree's leaves (drawn with no alpha, 11-trees) are full of little gaps, each with its edge: beyond the nearest trees
       // their lines fade sooner, or a crown further off would be more line than leaf
       ink *= 1.0 - (1.0 - c4.a) * 0.7 * smoothstep(fz - 100.0, fz + 160.0, z);
+      // the undergrowth's leaves (alpha a half: a fern's leaflets, a bush's leaves, 14-props) get a fine dark-green edge, not
+      // a black one round every leaflet, so a fern reads as fronds and a bush as leaves; a crown's own leaves keep a firmer
+      // line, but a deep green one, so the roof of leaves over a close stand isn't black
+      float soft = 1.0 - min(abs(c4.a - 0.5) * 2.0, 1.0), leafy = 1.0 - smoothstep(0.0, 0.25, c4.a);
+      ink *= 1.0 - 0.5 * soft - 0.15 * leafy;
       // the line is a deep dark of the thing's own colour, not a flat black: a crown's lines a dark green, a trunk's a dark brown,
       // so a tree full of little edges keeps its colour (93-colour)
-      gl_FragColor = vec4(mix(c, mix(vec3(0.03, 0.025, 0.02), c * inkTint.x, inkTint.y), ink) + air, 1.0);
+      gl_FragColor = vec4(mix(c, mix(vec3(0.03, 0.025, 0.02), c * mix(mix(inkTint.x, 0.4, soft), 0.32, leafy), mix(mix(inkTint.y, 0.85, soft), 0.55, leafy)), ink) + air, 1.0);
     }`,
   depthTest: false, depthWrite: false,
 });

@@ -30,7 +30,7 @@ const SUN = (() => {
         float k=max(0.0,transformed.y-24.0)/90.0,ph=im[3].x*0.013+im[3].z*0.017;k*=k*(1.0+1.4*gustAt(im[3].xz,gustC.xz,leafT));
         wpos.x+=(sin(leafT*0.9+ph)*0.6+sin(leafT*2.3+ph*3.0)*0.25+sin(leafT*4.1+ph*5.0)*0.08)*k*6.0;wpos.z+=sin(leafT*0.7+ph*1.7)*k*3.0; }
       wpos.y+=terrH(wpos.xz);`);
-      sh.fragmentShader=FOLIAGE_CUT_GLSL+'varying vec3 vCanopyG;varying float vCanopyM;\n'+sh.fragmentShader.replace('void main() {','void main() {if(((vCanopyM>4.5&&vCanopyM<5.5)||vCanopyM>7.5)&&foliageGap(foliageField(vCanopyG)))discard;');
+      sh.fragmentShader=FOLIAGE_CUT_GLSL+'varying vec3 vCanopyG;varying float vCanopyM;\n'+sh.fragmentShader.replace('void main() {','void main() {if(((vCanopyM>4.5&&vCanopyM<5.5)||(vCanopyM>7.5&&vCanopyM<8.5))&&foliageGap(foliageField(vCanopyG)))discard;');
     }
   };
   // Distinct cache keys: the opaque depth-only program must not acquire foliage cutouts.

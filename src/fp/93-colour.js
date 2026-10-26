@@ -23,8 +23,8 @@ const TINT = {
   // in under a canopy the shade is lit by light come through the leaves, a warm green, so a trunk or the leaf litter in
   // the shade stays a rich brown rather than going grey under a cold blue
   leaves: [0.98, 1.05, 0.78],
-  lift: 1.06, liftCover: 0.2, vib: 0.6,
-  expo: 0.22,   // in under the trees the eye opens up: everything a little brighter, the closer the crowns overhead
+  lift: 1.06, liftCover: 0.38, vib: 0.6,
+  expo: 0.32,   // in under the trees the eye opens up: everything a little brighter, the closer the crowns overhead
   canopy: 0, acc: 0, accN: 4,   // how much crown is over and round you (the trees gathered in near you, 10-world), eased
 };
 // the crowns round you, counted as the trees near you are gathered in, each by how close it stands

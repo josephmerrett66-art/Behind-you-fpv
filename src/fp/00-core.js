@@ -10,6 +10,9 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, k) => a + (b - a) * k;
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const hex = (h, k = 1) => { const c = new THREE.Color(h); return [c.r * k, c.g * k, c.b * k]; };
+// a colour just as it's written, for the bark of the trees and the logs: hex() turns a colour into the linear light that
+// three.js lights in, which squares a dark brown down to near black in the shade under the trees
+const paintHex = (h, k = 1) => { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255 * k, (n >> 8 & 255) / 255 * k, (n & 255) / 255 * k]; };
 function rng(seed) { let a = seed >>> 0; return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 // ---------------- settings ----------------
@@ -84,7 +87,7 @@ const LU = {
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(840, VIEW) },
   leafRange:{value:new THREE.Vector2(260,420)},
   haze: { value: new V4(0, 0, 0, 0) }, hazeCol: { value: new V3(0.8, 0.82, 0.8) },   // the forest air (92-forest): density, how low it lies, the sun's glow in it, on · its colour
-  sunT: { value: new V3(1, 1, 1) }, shadeT: { value: new V3(1, 1, 1) }, vib: { value: 0 }, leafUnder: { value: 0.5 },   // the colour of the light (93-colour): warm in the sun, cool in the shade; and how much a dull colour is lifted
+  sunT: { value: new V3(1, 1, 1) }, shadeT: { value: new V3(1, 1, 1) }, vib: { value: 0 }, leafUnder: { value: 0.7 },   // the colour of the light (93-colour): warm in the sun, cool in the shade; and how much a dull colour is lifted
   landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `

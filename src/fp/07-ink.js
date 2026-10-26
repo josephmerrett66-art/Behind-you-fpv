@@ -7,13 +7,18 @@
 const INK = { rt: null, scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 INK.mat = new THREE.ShaderMaterial({
   uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) },
-    inkOn: { value: 1 }, inkTint: { value: new THREE.Vector2(0.32, 0.6) }, tShaft: { value: null }, shaftPx: { value: new THREE.Vector2(1, 1) }, shaftCol: { value: new THREE.Vector3() } },
+    inkOn: { value: 1 }, inkTint: { value: new THREE.Vector2(0.22, 0.3) }, sharpK: { value: 0.6 }, tShaft: { value: null }, shaftPx: { value: new THREE.Vector2(1, 1) }, shaftCol: { value: new THREE.Vector3() } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `#include <packing>
-    uniform sampler2D tCol, tDep, tShaft; uniform vec2 px, shaftPx; uniform float rad, near, far, fz, inkOn; uniform vec2 inkTint; uniform vec2 fr; uniform vec3 shaftCol; varying vec2 vUv;
+    uniform sampler2D tCol, tDep, tShaft; uniform vec2 px, shaftPx; uniform float rad, near, far, fz, inkOn, sharpK; uniform vec2 inkTint; uniform vec2 fr; uniform vec3 shaftCol; varying vec2 vUv;
     float W(vec2 o) { float d = texture2D(tDep, vUv + o * px * rad).x; return 1.0 / max(1e-3, -perspectiveDepthToViewZ(d, near, far)); }
     void main() {
       vec4 c4 = texture2D(tCol, vUv); vec3 c = c4.rgb;
+      // crisped: each pixel pushed away from the four round it, a little and no more, so fine detail (bark, leaves, grass, the
+      // far trees through the haze) stands out without a bright fringe along every edge (Joe: "we have lost a lot of the sharpness")
+      vec3 nb = (texture2D(tCol, vUv + vec2(px.x, 0.0)).rgb + texture2D(tCol, vUv - vec2(px.x, 0.0)).rgb
+               + texture2D(tCol, vUv + vec2(0.0, px.y)).rgb + texture2D(tCol, vUv - vec2(0.0, px.y)).rgb) * 0.25;
+      c = max(c + sharpK * clamp(c - nb, -0.07, 0.07), 0.0);
       // the sun's light caught in the air (92-forest), worked out at a quarter of the size and softened here
       vec3 air = vec3(0.0);
       if (shaftCol.r > 0.0) { float a = texture2D(tShaft, vUv).r * 0.4;

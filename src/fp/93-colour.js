@@ -14,7 +14,7 @@
 //     than its depths (11-trees), and the turf and the grass a fresher green (00-core, 12-grass)
 const TINT = {
   // [sun, shade] for each part of the day, each kept to the same brightness (the shade a touch lifted, as if by bounced light)
-  day: [[1.03, 1.0, 0.95], [0.86, 0.97, 1.16]], morn: [[1.03, 1.0, 0.95], [0.87, 0.97, 1.15]],
+  day: [[1.03, 1.0, 0.95], [0.89, 0.98, 1.11]], morn: [[1.04, 1.0, 0.93], [0.9, 0.98, 1.1]],
   gold: [[1.13, 0.98, 0.74], [0.84, 0.92, 1.26]], set: [[1.16, 0.95, 0.7], [0.86, 0.88, 1.28]],
   // in under a canopy the shade is lit by light come through the leaves, a warm green, so a trunk or the leaf litter in
   // the shade stays a rich brown rather than going grey under a cold blue

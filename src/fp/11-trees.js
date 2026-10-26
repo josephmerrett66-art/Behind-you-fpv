@@ -12,7 +12,7 @@ const TREE_R3D = 1e9, TREE_NV = 3;   // every tree solid, near or far
 // are blended, the cut raised to keep the share of sky the same (its dip in the middle of the blend measured offline).
 // The leaves stir: the pattern wavers a little, a different way across each part of a crown, so the gaps flicker as
 // leaves move in the breeze, and the flecks of sun they let through onto the ground flicker with them (13-sun).
-const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;uniform float leafT;
+const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;uniform float leafT,leafUnder;
 vec3 leafStir(vec3 g){return g+vec3(.24*sin(leafT*2.3+g.y*.83+g.x*.21)+.1*sin(leafT*5.1+g.x*1.7),.2*sin(leafT*1.9+g.x*.71-g.y*.33)+.08*sin(leafT*4.3+g.y*1.9),0.0);}
 vec4 foliageField(vec3 g){return texture2D(foliageT,leafStir(g).xy/18.0);}
 bool foliageGap(vec4 f){return max(f.r,f.g)<.25;}
@@ -110,6 +110,9 @@ const treeMat = new THREE.ShaderMaterial({
       if (leaf || needle) {   // the sun through the leaves: with it behind them they glow, most at a crown's edge where it has the fewest to get through
         float tr = pow(max(dot(normalize(camPos - vW), -sunDir), 0.0), 4.0) * sunK * sh * (0.35 + 0.65 * (1.0 - abs(dot(N, normalize(camPos - vW)))));
         o += vC * amb * tr * (leaf ? vec3(1.1, 1.2, 0.65) : vec3(0.8, 0.95, 0.55));
+        // and from underneath, looking up into a crown, the daylight comes through them: a glowing green, not a black mass (93-colour)
+        float under = max(-normalize(camPos - vW).y, 0.0);
+        o += vC * amb * sunK * under * under * (0.55 + 0.45 * sh) * leafUnder * (leaf ? vec3(0.95, 1.15, 0.55) : vec3(0.75, 0.95, 0.55));
       }
       gl_FragColor = vec4(fogged(grey(o), vW), leaf || needle ? 0.0 : 1.0);   // (alpha: leaves, for the ink, 07-ink)
     }`,

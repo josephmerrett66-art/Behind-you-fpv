@@ -84,7 +84,7 @@ const LU = {
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(840, VIEW) },
   leafRange:{value:new THREE.Vector2(260,420)},
   haze: { value: new V4(0, 0, 0, 0) }, hazeCol: { value: new V3(0.8, 0.82, 0.8) },   // the forest air (92-forest): density, how low it lies, the sun's glow in it, on · its colour
-  sunT: { value: new V3(1, 1, 1) }, shadeT: { value: new V3(1, 1, 1) }, vib: { value: 0 },   // the colour of the light (93-colour): warm in the sun, cool in the shade; and how much a dull colour is lifted
+  sunT: { value: new V3(1, 1, 1) }, shadeT: { value: new V3(1, 1, 1) }, vib: { value: 0 }, leafUnder: { value: 0.5 },   // the colour of the light (93-colour): warm in the sun, cool in the shade; and how much a dull colour is lifted
   landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
@@ -129,8 +129,9 @@ vec3 lightAtS(vec3 p, vec3 n, float useN, float sh) {
 vec3 lightAt(vec3 p, vec3 n, float useN) { return lightAtS(p, n, useN, sunShade(p + n * 0.6)); }
 float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
 // (and vib: a dull colour is lifted toward its own hue, one already strong left as it is, 93-colour)
+// The darks most of all, so a shadow is a rich dark of its own colour rather than going grey
 vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)), mx = max(c.r, max(c.g, c.b)), s = 1.0 - (mx - min(c.r, min(c.g, c.b))) / max(mx, 1e-4);
-  return max(mix(vec3(g), c, colourK * (1.0 + vib * s * s)), 0.0); }
+  return max(mix(vec3(g), c, colourK * (1.0 + vib * s * s * (1.5 - smoothstep(0.0, 0.4, g)))), 0.0); }
 // the forest air first (92-forest): a light haze that thickens with distance, lying low among the trunks and thinning
 // up into the crowns, glowing where you look toward the sun; then the haze at the edge of what you can see
 vec3 fogged(vec3 c, vec3 p) {

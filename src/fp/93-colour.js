@@ -17,7 +17,8 @@ const TINT = {
   day: [[1.05, 1.0, 0.9], [0.86, 0.97, 1.16]], morn: [[1.03, 1.0, 0.95], [0.87, 0.97, 1.15]],
   gold: [[1.13, 0.98, 0.74], [0.84, 0.92, 1.26]], set: [[1.16, 0.95, 0.7], [0.86, 0.88, 1.28]],
   leaves: [0.84, 1.04, 0.98],    // the shade under a canopy
-  lift: 1.06, vib: 0.35,
+  lift: 1.06, liftCover: 0.2, vib: 0.35,
+  expo: 0.22,   // in under the trees the eye opens up: everything a little brighter, as the stand closes in (FOREST.cover)
 };
 {
   const lum = v => v.x * 0.3 + v.y * 0.55 + v.z * 0.15, a = new V3(), b = new V3(), t = new V3();
@@ -31,10 +32,11 @@ const TINT = {
     blend(a, TINT.gold, 0, ENV.gold); blend(b, TINT.gold, 1, ENV.gold);
     blend(a, TINT.set, 0, ENV.set); blend(b, TINT.set, 1, ENV.set);
     b.lerp(t.set(...TINT.leaves), 0.6 * FOREST.cover * (1 - ENV.set));
-    a.multiplyScalar(1 / lum(a)); b.multiplyScalar(TINT.lift / lum(b));
+    a.multiplyScalar(1 / lum(a)); b.multiplyScalar((TINT.lift + TINT.liftCover * FOREST.cover) / lum(b));
     // overcast or dark, the light comes from all round: no split
     const k = clamp((LU.sunK.value - 0.05) / 0.35, 0, 1) * (1 - 0.85 * Math.max(WXV.fog, WXV.rain));
     sun.set(1, 1, 1).lerp(a, k); sh.set(1, 1, 1).lerp(b, k);
+    LU.amb.value.multiplyScalar(1 + TINT.expo * FOREST.cover * clamp(LU.sunK.value / 0.4, 0, 1));
     LU.vib.value = TINT.vib * (0.45 + 0.55 * clamp(LU.sunK.value / 0.5, 0, 1));   // by night, colour fades as it does to the eye
   };
 }

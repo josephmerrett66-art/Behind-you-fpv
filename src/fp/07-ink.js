@@ -7,10 +7,10 @@
 const INK = { rt: null, scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 INK.mat = new THREE.ShaderMaterial({
   uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) },
-    inkOn: { value: 1 }, tShaft: { value: null }, shaftPx: { value: new THREE.Vector2(1, 1) }, shaftCol: { value: new THREE.Vector3() } },
+    inkOn: { value: 1 }, inkTint: { value: new THREE.Vector2(0.32, 0.6) }, tShaft: { value: null }, shaftPx: { value: new THREE.Vector2(1, 1) }, shaftCol: { value: new THREE.Vector3() } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `#include <packing>
-    uniform sampler2D tCol, tDep, tShaft; uniform vec2 px, shaftPx; uniform float rad, near, far, fz, inkOn; uniform vec2 fr; uniform vec3 shaftCol; varying vec2 vUv;
+    uniform sampler2D tCol, tDep, tShaft; uniform vec2 px, shaftPx; uniform float rad, near, far, fz, inkOn; uniform vec2 inkTint; uniform vec2 fr; uniform vec3 shaftCol; varying vec2 vUv;
     float W(vec2 o) { float d = texture2D(tDep, vUv + o * px * rad).x; return 1.0 / max(1e-3, -perspectiveDepthToViewZ(d, near, far)); }
     void main() {
       vec4 c4 = texture2D(tCol, vUv); vec3 c = c4.rgb;
@@ -34,7 +34,9 @@ INK.mat = new THREE.ShaderMaterial({
       // a tree's leaves (drawn with no alpha, 11-trees) are full of little gaps, each with its edge: beyond the nearest trees
       // their lines fade sooner, or a crown further off would be more line than leaf
       ink *= 1.0 - (1.0 - c4.a) * 0.7 * smoothstep(fz - 100.0, fz + 160.0, z);
-      gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink) + air, 1.0);
+      // the line is a deep dark of the thing's own colour, not a flat black: a crown's lines a dark green, a trunk's a dark brown,
+      // so a tree full of little edges keeps its colour (93-colour)
+      gl_FragColor = vec4(mix(c, mix(vec3(0.03, 0.025, 0.02), c * inkTint.x, inkTint.y), ink) + air, 1.0);
     }`,
   depthTest: false, depthWrite: false,
 });

@@ -12,7 +12,7 @@ const TREE_R3D = 1e9, TREE_NV = 3;   // every tree solid, near or far
 // are blended, the cut raised to keep the share of sky the same (its dip in the middle of the blend measured offline).
 // The leaves stir: the pattern wavers a little, a different way across each part of a crown, so the gaps flicker as
 // leaves move in the breeze, and the flecks of sun they let through onto the ground flicker with them (13-sun).
-const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;uniform float leafT;
+const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;uniform float leafT,leafUnder;
 vec3 leafStir(vec3 g){return g+vec3(.24*sin(leafT*2.3+g.y*.83+g.x*.21)+.1*sin(leafT*5.1+g.x*1.7),.2*sin(leafT*1.9+g.x*.71-g.y*.33)+.08*sin(leafT*4.3+g.y*1.9),0.0);}
 vec4 foliageField(vec3 g){return texture2D(foliageT,leafStir(g).xy/18.0);}
 bool foliageGap(vec4 f){return max(f.r,f.g)<.25;}
@@ -34,7 +34,7 @@ const treeMat = new THREE.ShaderMaterial({
       #ifdef USE_INSTANCING
         attribute float baseHeight;
       #endif
-      varying float vTreeD; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
+      varying float vTreeD, vTn; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
     void main() {
       mat4 im = modelMatrix;
       #ifdef USE_INSTANCING
@@ -52,10 +52,10 @@ const treeMat = new THREE.ShaderMaterial({
       #else
         w.y += terrH(im[3].xz);
       #endif
-      vTreeD = distance(im[3].xz, fogC.xz); vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
+      vTreeD = distance(im[3].xz, fogC.xz); vTn = fract(sin(dot(im[3].xz, vec2(12.9898, 78.233))) * 43758.5453); vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
-  fragmentShader: LIGHT_GLSL + PAINT_GLSL + FOLIAGE_CUT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM, vTreeD;
+  fragmentShader: LIGHT_GLSL + PAINT_GLSL + FOLIAGE_CUT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM, vTreeD, vTn;
     uniform vec4 occ;
     float occluding(vec3 p) {   // from above: on the line between the camera and you, a tree thins away
       if (occ.w < 0.5 || p.y < occ.y - 4.0) return 0.0;
@@ -90,6 +90,10 @@ const treeMat = new THREE.ShaderMaterial({
           c=vC*(.69+.38*up)*cluster*mix(.87,1.12,spray);
           c+=vec3(.035,.065,.035)*spray*up+vC*back*.035;
         }
+        // greens of their own (93-colour): one tree a little yellower than the next, another bluer, and each crown warmer on its
+        // sunlit top than down in its depths (the blossom keeps its pink)
+        float gw = clamp((vC.g - max(vC.r, vC.b)) * 6.0, 0.0, 1.0);
+        c *= mix(vec3(1.0), mix(vec3(0.93, 0.99, 1.09), vec3(1.09, 1.04, 0.8), vTn) * mix(vec3(0.94, 0.98, 1.08), vec3(1.06, 1.02, 0.86), smoothstep(0.15, 0.7, up)), gw);
       } else {
         paintH = vL.y; c = paint(vC, vM, vG, vW, N);
         if (vM > 6.5 && vM < 7.5) {   // bark: moss up the foot of the trunk, over the roots and along the tops of the limbs, most on the shady side; pale lichen higher up
@@ -106,6 +110,9 @@ const treeMat = new THREE.ShaderMaterial({
       if (leaf || needle) {   // the sun through the leaves: with it behind them they glow, most at a crown's edge where it has the fewest to get through
         float tr = pow(max(dot(normalize(camPos - vW), -sunDir), 0.0), 4.0) * sunK * sh * (0.35 + 0.65 * (1.0 - abs(dot(N, normalize(camPos - vW)))));
         o += vC * amb * tr * (leaf ? vec3(1.1, 1.2, 0.65) : vec3(0.8, 0.95, 0.55));
+        // and from underneath, looking up into a crown, the daylight comes through them: a glowing green, not a black mass (93-colour)
+        float under = max(-normalize(camPos - vW).y, 0.0);
+        o += vC * amb * sunK * under * under * (0.55 + 0.45 * sh) * leafUnder * (leaf ? vec3(0.95, 1.15, 0.55) : vec3(0.75, 0.95, 0.55));
       }
       gl_FragColor = vec4(fogged(grey(o), vW), leaf || needle ? 0.0 : 1.0);   // (alpha: leaves, for the ink, 07-ink)
     }`,

@@ -46,9 +46,9 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
 const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; uniform float rainW; varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
   void main() {
     vec3 g = texture2D(gmap, vW.xz / 128.0).rgb;
-    vec3 lo = vec3(0.27, 0.39, 0.19), hi = vec3(0.57, 0.66, 0.34);                // a short, slightly dry green...
+    vec3 lo = vec3(0.25, 0.4, 0.15), hi = vec3(0.6, 0.71, 0.29);                  // a short green, fresh at the tips (93-colour)...
     lo = mix(lo, vec3(0.43, 0.43, 0.23), vS.x); hi = mix(hi, vec3(0.69, 0.65, 0.38), vS.x);   // ...straw on dry ground
-    lo = mix(lo, vec3(0.22, 0.36, 0.19), vS.y); hi = mix(hi, vec3(0.46, 0.61, 0.29), vS.y);   // ...deep green on loam
+    lo = mix(lo, vec3(0.18, 0.36, 0.14), vS.y); hi = mix(hi, vec3(0.42, 0.63, 0.24), vS.y);   // ...deep green on loam
     lo = mix(lo, vec3(0.42, 0.42, 0.2), vS.z * 0.6); hi = mix(hi, vec3(0.6, 0.56, 0.3), vS.z * 0.6);   // ...olive on clay
     vec3 turf = mix(lo, hi, vTone) * (0.85 + 0.3 * g.r);
     vec3 c = mix(turf * 0.76, turf * 1.12, smoothstep(0.0, 0.8, vUp));

@@ -6525,10 +6525,11 @@ const LU = {
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(840, VIEW) },
   leafRange:{value:new THREE.Vector2(260,420)},
   haze: { value: new V4(0, 0, 0, 0) }, hazeCol: { value: new V3(0.8, 0.82, 0.8) },   // the forest air (92-forest): density, how low it lies, the sun's glow in it, on · its colour
+  sunT: { value: new V3(1, 1, 1) }, shadeT: { value: new V3(1, 1, 1) }, vib: { value: 0 }, leafUnder: { value: 0.5 },   // the colour of the light (93-colour): warm in the sun, cool in the shade; and how much a dull colour is lifted
   landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
-uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC, hazeCol; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK; uniform vec4 haze;
+uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC, hazeCol, sunT, shadeT; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK, vib; uniform vec4 haze;
 uniform vec4 pl[${NL}]; uniform vec3 plc[${NL}];
 uniform sampler2D shMap; uniform mat4 shM; uniform vec4 shP, shC;
 // the sun's shadow (13-sun.js): 1 in the open, down toward shP.x's share in the shade of whatever stands between here and the sun
@@ -6551,7 +6552,10 @@ float sunShade(vec3 p) {
 // sh: how much of the sun reaches here (sunShade), for a shader that wants it for something else too (the trees' leaves)
 vec3 lightAtS(vec3 p, vec3 n, float useN, float sh) {
   float sun = mix(1.0, 0.7 + 0.45 * max(dot(n, sunDir), 0.0), useN * sunK);
-  vec3 c = amb * sun * sh;
+  // the sun's own light is warm, the shade is lit by the sky and the leaves, cool (93-colour)
+  float lit = shP.x < 0.005 ? 1.0 : clamp((sh - 1.0 + shP.x) / shP.x, 0.0, 1.0);
+  lit *= mix(1.0, smoothstep(-0.05, 0.45, dot(n, sunDir)), useN);
+  vec3 c = amb * sun * sh * mix(shadeT, sunT, lit);
   // With the torch off, skip its cone and falloff work for every shaded pixel.
   if (dot(tCol,tCol)>0.0) {
     vec3 L = p - tPos; float d = length(L); vec3 l = L / max(d, 0.001);
@@ -6565,7 +6569,10 @@ vec3 lightAtS(vec3 p, vec3 n, float useN, float sh) {
 }
 vec3 lightAt(vec3 p, vec3 n, float useN) { return lightAtS(p, n, useN, sunShade(p + n * 0.6)); }
 float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
-vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)); return mix(vec3(g), c, colourK); }
+// (and vib: a dull colour is lifted toward its own hue, one already strong left as it is, 93-colour)
+// The darks most of all, so a shadow is a rich dark of its own colour rather than going grey
+vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)), mx = max(c.r, max(c.g, c.b)), s = 1.0 - (mx - min(c.r, min(c.g, c.b))) / max(mx, 1e-4);
+  return max(mix(vec3(g), c, colourK * (1.0 + vib * s * s * (1.5 - smoothstep(0.0, 0.4, g)))), 0.0); }
 // the forest air first (92-forest): a light haze that thickens with distance, lying low among the trunks and thinning
 // up into the crowns, glowing where you look toward the sun; then the haze at the edge of what you can see
 vec3 fogged(vec3 c, vec3 p) {
@@ -6816,13 +6823,14 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
         float mossPatch=smoothstep(.32,.60,raw.g*.65+detail.b*.35);
         float gm=texture2D(mask,(vW.xz-mo)/ms).r;
         vec3 earth=mix(vec3(.37,.255,.15),vec3(.55,.395,.23),grain);
-        earth=mix(earth,vec3(.56,.46,.28)*(.8+.4*grain),s.x*.7);
+        earth=mix(earth,vec3(.6,.45,.25)*(.8+.4*grain),s.x*.7);   // dry ground an ochre, not a khaki (93-colour)
         earth=mix(earth,earth*vec3(.78,.84,.83),s.y*.55);
         earth=mix(earth,vec3(.43,.255,.17)*(.8+.4*grain),s.z*.55);
-        vec3 moss=mix(vec3(.22,.365,.16),vec3(.40,.52,.245),detail.b);
+        vec3 moss=mix(vec3(.23,.38,.13),vec3(.44,.56,.2),detail.b);   // turf and moss: a fresh, slightly yellow green (93-colour)
         float wear=(1.0-smoothstep(.025,.055,abs(raw.r-raw.g)))*smoothstep(.38,.62,raw.b);
         float green=smoothstep(.22,.8,gm)*(1.0-s.w*.75)*(1.0-s.x*.65);
-        vec3 t=mix(earth,moss*(.88+.24*grain),green*mix(.25,1.0,mossPatch)*(1.0-fl*.6)*(1.0-wear*.45));
+        float far=smoothstep(150.0,600.0,distance(vW.xz,fogC.xz));   // further off, the grass blades run together into one green
+        vec3 t=mix(earth,moss*(.88+.24*grain),green*mix(mix(.5,1.0,mossPatch),1.0,far*.7)*(1.0-fl*.6)*(1.0-wear*.45));
         vec3 litter=mix(vec3(.34,.255,.155),vec3(.54,.39,.22),grain);
         litter=mix(litter,vec3(.58,.405,.205)*(.85+.25*grain),leaf*.65);
         litter=mix(litter,litter*.7,needle*.35);
@@ -7006,10 +7014,10 @@ function tpTorchTongue() {
 const INK = { rt: null, scene: new THREE.Scene(), cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1) };
 INK.mat = new THREE.ShaderMaterial({
   uniforms: { tCol: { value: null }, tDep: { value: null }, px: { value: new THREE.Vector2(1, 1) }, rad: { value: 1.5 }, near: { value: 2 }, far: { value: 1400 }, fz: { value: 220 }, fr: { value: new THREE.Vector2(400, 900) },
-    inkOn: { value: 1 }, tShaft: { value: null }, shaftPx: { value: new THREE.Vector2(1, 1) }, shaftCol: { value: new THREE.Vector3() } },
+    inkOn: { value: 1 }, inkTint: { value: new THREE.Vector2(0.32, 0.6) }, tShaft: { value: null }, shaftPx: { value: new THREE.Vector2(1, 1) }, shaftCol: { value: new THREE.Vector3() } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
   fragmentShader: `#include <packing>
-    uniform sampler2D tCol, tDep, tShaft; uniform vec2 px, shaftPx; uniform float rad, near, far, fz, inkOn; uniform vec2 fr; uniform vec3 shaftCol; varying vec2 vUv;
+    uniform sampler2D tCol, tDep, tShaft; uniform vec2 px, shaftPx; uniform float rad, near, far, fz, inkOn; uniform vec2 inkTint; uniform vec2 fr; uniform vec3 shaftCol; varying vec2 vUv;
     float W(vec2 o) { float d = texture2D(tDep, vUv + o * px * rad).x; return 1.0 / max(1e-3, -perspectiveDepthToViewZ(d, near, far)); }
     void main() {
       vec4 c4 = texture2D(tCol, vUv); vec3 c = c4.rgb;
@@ -7033,7 +7041,9 @@ INK.mat = new THREE.ShaderMaterial({
       // a tree's leaves (drawn with no alpha, 11-trees) are full of little gaps, each with its edge: beyond the nearest trees
       // their lines fade sooner, or a crown further off would be more line than leaf
       ink *= 1.0 - (1.0 - c4.a) * 0.7 * smoothstep(fz - 100.0, fz + 160.0, z);
-      gl_FragColor = vec4(mix(c, vec3(0.03, 0.025, 0.02), ink) + air, 1.0);
+      // the line is a deep dark of the thing's own colour, not a flat black: a crown's lines a dark green, a trunk's a dark brown,
+      // so a tree full of little edges keeps its colour (93-colour)
+      gl_FragColor = vec4(mix(c, mix(vec3(0.03, 0.025, 0.02), c * inkTint.x, inkTint.y), ink) + air, 1.0);
     }`,
   depthTest: false, depthWrite: false,
 });
@@ -7624,7 +7634,7 @@ const shDat = new Float32Array(MAXSH * 4); { const b = new THREE.InstancedBuffer
 shGeo.instanceCount = 0;
 const shMat = new THREE.ShaderMaterial({ uniforms: Object.assign({ k: { value: 0.3 }, lean: { value: new THREE.Vector2(0.3, 0.3) } }, LU), transparent: true, depthWrite: false,
   vertexShader: TERR_GLSL + `attribute vec4 sd; uniform vec2 lean; uniform vec4 shC; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { vQ = position.xz; float r = sd.z, len = abs(sd.w); vK = sd.w < 0.0 ? 1.0 : 0.0; vec3 w = vec3(sd.x + position.x * r + lean.x * len * (position.z * 0.5 + 0.5), 0.0, sd.y + position.z * r * 0.75 + lean.y * len * (position.z * 0.5 + 0.5)); w.y = terrH(w.xz) + 0.25; vW = w; gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0); }`,
-  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * (1.0 - vK * shadowCoverage(vW)) * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, fogC.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.0, 0.0, 0.0, a); }` });
+  fragmentShader: LIGHT_GLSL + `uniform float k; varying vec2 vQ; varying vec3 vW; varying float vK; void main() { float r = dot(vQ, vQ); float dap = sin(vW.x * 0.21 + sin(vW.z * 0.13) * 2.0) * sin(vW.z * 0.19 + sin(vW.x * 0.11) * 2.0); float a = k * (1.0 - vK * shadowCoverage(vW)) * (0.85 + 0.3 * dap) * (1.0 - smoothstep(0.35, 1.0, r)) * (1.0 - smoothstep(fogR.x, fogR.y, distance(vW.xz, fogC.xz))); if (a < 0.004) discard; gl_FragColor = vec4(0.02, 0.035, 0.07, a); }   // (a shadow is a deep blue, not black: 93-colour)` });
 const shMesh = new THREE.Mesh(shGeo, shMat); shMesh.frustumCulled = false; shMesh.renderOrder = 2; scene.add(shMesh);
 let shN = 0, shBase = 0;
 function shadow(x, y, r, len = 0) { if (shN >= MAXSH) return; const i = shN++ * 4; shDat[i] = x; shDat[i + 1] = y; shDat[i + 2] = r; shDat[i + 3] = len; }
@@ -7701,7 +7711,7 @@ const TREE_R3D = 1e9, TREE_NV = 3;   // every tree solid, near or far
 // are blended, the cut raised to keep the share of sky the same (its dip in the middle of the blend measured offline).
 // The leaves stir: the pattern wavers a little, a different way across each part of a crown, so the gaps flicker as
 // leaves move in the breeze, and the flecks of sun they let through onto the ground flicker with them (13-sun).
-const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;uniform float leafT;
+const FOLIAGE_CUT_GLSL=`uniform sampler2D foliageT;uniform vec2 leafRange;uniform float leafT,leafUnder;
 vec3 leafStir(vec3 g){return g+vec3(.24*sin(leafT*2.3+g.y*.83+g.x*.21)+.1*sin(leafT*5.1+g.x*1.7),.2*sin(leafT*1.9+g.x*.71-g.y*.33)+.08*sin(leafT*4.3+g.y*1.9),0.0);}
 vec4 foliageField(vec3 g){return texture2D(foliageT,leafStir(g).xy/18.0);}
 bool foliageGap(vec4 f){return max(f.r,f.g)<.25;}
@@ -7723,7 +7733,7 @@ const treeMat = new THREE.ShaderMaterial({
       #ifdef USE_INSTANCING
         attribute float baseHeight;
       #endif
-      varying float vTreeD; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
+      varying float vTreeD, vTn; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
     void main() {
       mat4 im = modelMatrix;
       #ifdef USE_INSTANCING
@@ -7741,10 +7751,10 @@ const treeMat = new THREE.ShaderMaterial({
       #else
         w.y += terrH(im[3].xz);
       #endif
-      vTreeD = distance(im[3].xz, fogC.xz); vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
+      vTreeD = distance(im[3].xz, fogC.xz); vTn = fract(sin(dot(im[3].xz, vec2(12.9898, 78.233))) * 43758.5453); vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
-  fragmentShader: LIGHT_GLSL + PAINT_GLSL + FOLIAGE_CUT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM, vTreeD;
+  fragmentShader: LIGHT_GLSL + PAINT_GLSL + FOLIAGE_CUT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM, vTreeD, vTn;
     uniform vec4 occ;
     float occluding(vec3 p) {   // from above: on the line between the camera and you, a tree thins away
       if (occ.w < 0.5 || p.y < occ.y - 4.0) return 0.0;
@@ -7779,6 +7789,10 @@ const treeMat = new THREE.ShaderMaterial({
           c=vC*(.69+.38*up)*cluster*mix(.87,1.12,spray);
           c+=vec3(.035,.065,.035)*spray*up+vC*back*.035;
         }
+        // greens of their own (93-colour): one tree a little yellower than the next, another bluer, and each crown warmer on its
+        // sunlit top than down in its depths (the blossom keeps its pink)
+        float gw = clamp((vC.g - max(vC.r, vC.b)) * 6.0, 0.0, 1.0);
+        c *= mix(vec3(1.0), mix(vec3(0.93, 0.99, 1.09), vec3(1.09, 1.04, 0.8), vTn) * mix(vec3(0.94, 0.98, 1.08), vec3(1.06, 1.02, 0.86), smoothstep(0.15, 0.7, up)), gw);
       } else {
         paintH = vL.y; c = paint(vC, vM, vG, vW, N);
         if (vM > 6.5 && vM < 7.5) {   // bark: moss up the foot of the trunk, over the roots and along the tops of the limbs, most on the shady side; pale lichen higher up
@@ -7795,6 +7809,9 @@ const treeMat = new THREE.ShaderMaterial({
       if (leaf || needle) {   // the sun through the leaves: with it behind them they glow, most at a crown's edge where it has the fewest to get through
         float tr = pow(max(dot(normalize(camPos - vW), -sunDir), 0.0), 4.0) * sunK * sh * (0.35 + 0.65 * (1.0 - abs(dot(N, normalize(camPos - vW)))));
         o += vC * amb * tr * (leaf ? vec3(1.1, 1.2, 0.65) : vec3(0.8, 0.95, 0.55));
+        // and from underneath, looking up into a crown, the daylight comes through them: a glowing green, not a black mass (93-colour)
+        float under = max(-normalize(camPos - vW).y, 0.0);
+        o += vC * amb * sunK * under * under * (0.55 + 0.45 * sh) * leafUnder * (leaf ? vec3(0.95, 1.15, 0.55) : vec3(0.75, 0.95, 0.55));
       }
       gl_FragColor = vec4(fogged(grey(o), vW), leaf || needle ? 0.0 : 1.0);   // (alpha: leaves, for the ink, 07-ink)
     }`,
@@ -8199,9 +8216,9 @@ const GRASS_V = TERR_GLSL + SOIL_GLSL + `attribute vec4 bd; uniform vec3 camPos;
 const GRASS_F = LIGHT_GLSL + `uniform sampler2D gmap; uniform float rainW; varying vec3 vW, vTN; varying vec4 vS; varying float vUp, vTone, vRoot;
   void main() {
     vec3 g = texture2D(gmap, vW.xz / 128.0).rgb;
-    vec3 lo = vec3(0.27, 0.39, 0.19), hi = vec3(0.57, 0.66, 0.34);                // a short, slightly dry green...
+    vec3 lo = vec3(0.25, 0.4, 0.15), hi = vec3(0.6, 0.71, 0.29);                  // a short green, fresh at the tips (93-colour)...
     lo = mix(lo, vec3(0.43, 0.43, 0.23), vS.x); hi = mix(hi, vec3(0.69, 0.65, 0.38), vS.x);   // ...straw on dry ground
-    lo = mix(lo, vec3(0.22, 0.36, 0.19), vS.y); hi = mix(hi, vec3(0.46, 0.61, 0.29), vS.y);   // ...deep green on loam
+    lo = mix(lo, vec3(0.18, 0.36, 0.14), vS.y); hi = mix(hi, vec3(0.42, 0.63, 0.24), vS.y);   // ...deep green on loam
     lo = mix(lo, vec3(0.42, 0.42, 0.2), vS.z * 0.6); hi = mix(hi, vec3(0.6, 0.56, 0.3), vS.z * 0.6);   // ...olive on clay
     vec3 turf = mix(lo, hi, vTone) * (0.85 + 0.3 * g.r);
     vec3 c = mix(turf * 0.76, turf * 1.12, smoothstep(0.0, 0.8, vUp));
@@ -22015,19 +22032,20 @@ $('sBob').addEventListener('click', () => { SET.bob = !SET.bob; saveSet(); syncS
 // ---------------- the sky through the day ----------------
 // Daylight's clock (dayLight: 1 in full sun, 0 at the dead of night) sets everything: where the sun is, how warm the light,
 // the sky, the haze, and how far you can see once it's dark and only your torch and your fires are left.
-const ENV = { lt: 1 };
+const ENV = { lt: 1, gold: 0, morn: 0, set: 0 };
 const mix3 = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
 function envFrame() {
   const lt = S && S.day ? dayLight() : 1, f = S && S.day ? dayT() : 0.2, set = lt < 1 && lt > 0 ? Math.sin(Math.PI * lt) : 0;
   ENV.lt = lt;
   // the hours have their own light: a cool clear morning, white noon, the afternoon warming toward gold before the dusk
   const gold = lt >= 1 ? 0.85 * _sst(0.4, NIGHT_IN, f) : 0, morn = lt >= 1 ? 1 - _sst(0.0, 0.14, f) : 0;
+  ENV.gold = gold; ENV.morn = morn; ENV.set = set;
   const dayAmb = mix3(mix3([1.06, 1.0, 0.88], [1.12, 0.9, 0.66], gold), [0.96, 0.98, 1.0], morn * 0.8), duskAmb = [1.0, 0.68, 0.5], nightAmb = [0.075, 0.085, 0.125];
   LU.amb.value.set(...mix3(nightAmb, mix3(dayAmb, duskAmb, set * 0.85), Math.pow(lt, 0.8)));
   LU.sunK.value = lt;
   const sa = clamp(f / (NIGHT_IN + DUSK), 0, 1) * Math.PI, el = Math.max(0.12, Math.sin(sa)) * 0.95;
   LU.sunDir.value.set(Math.cos(sa) * 0.9, el, -0.45).normalize();
-  const dTop = mix3(mix3([0.42, 0.6, 0.84], [0.4, 0.52, 0.76], gold), [0.46, 0.64, 0.86], morn), dHor = mix3(mix3([0.8, 0.83, 0.82], [0.94, 0.8, 0.6], gold), [0.82, 0.86, 0.9], morn);
+  const dTop = mix3(mix3([0.42, 0.6, 0.84], [0.4, 0.52, 0.76], gold), [0.46, 0.64, 0.86], morn), dHor = mix3(mix3([0.76, 0.84, 0.9], [0.94, 0.8, 0.6], gold), [0.8, 0.86, 0.92], morn);   // a clear pale blue low down: far off goes blue, not grey
   const top = mix3([0.02, 0.025, 0.05], mix3(dTop, [0.35, 0.3, 0.5], set), lt);
   const hor = mix3([0.035, 0.04, 0.06], mix3(dHor, [0.95, 0.56, 0.32], set), lt);
   SKY.top.set(...top); SKY.hor.set(...hor); SKY.set.value = set;
@@ -22439,9 +22457,10 @@ const FOREST = { cover: 0 };
     FOREST.cover += (c - FOREST.cover) * 0.02;
     const cv = FOREST.cover, f = WXV.fog, r = WXV.rain;
     H.set((0.00045 + 0.00055 * cv) * (1 + 0.6 * f + 0.3 * r), 55 + 25 * f, 1.3 * LU.sunK.value, isoP() ? 0.4 : 1);
-    // the air is the sky's own colour at the horizon, greener and dimmer in under the trees, where less light reaches it
+    // the air is the sky's own colour at the horizon, dimmer in under the trees where less light reaches it, and a cool
+    // blue-green there (93-colour): against the warm light it gives the depth, where a grey haze only dulled everything
     const g = cv * (1 - 0.6 * Math.max(f, r));
-    LU.hazeCol.value.copy(LU.fogCol.value).multiply(_hzT.set(1 - 0.4 * g, 1 - 0.27 * g, 1 - 0.37 * g));
+    LU.hazeCol.value.copy(LU.fogCol.value).multiply(_hzT.set(1 - 0.43 * g, 1 - 0.26 * g, 1 - 0.25 * g));
   }; }
 const _hzT = new V3();
 
@@ -22517,6 +22536,62 @@ const MOTE = { N: TOUCH ? 200 : 420, B: 70 };
   MOTE.pts = new THREE.Points(g, MOTE.mat); MOTE.pts.frustumCulled = false; MOTE.pts.renderOrder = 6; scene.add(MOTE.pts);
 }
 { const lf = lifeFrame; lifeFrame = function (rdt) { lf.apply(this, arguments); MOTE.pts.visible = !caveIn() && LU.sunK.value > 0.05; }; }
+
+;
+// ================= colour: warm light, cool shade, the dull colours lifted =================
+// Joe: "one thing that's happened with all the passes is we have lost some of the nice colours for dull colours, I think we
+// need to now do a pass on colour making it all a bit nicer using colour theory to make it look great". Most of the dulling
+// was in the light, not the paint: the shade was only ever a darker copy of the same colour, and the forest haze was grey.
+// So, as a painter would have it:
+//   - the sun's light is warm and the shade is cool. Where the sun lands it's gold; in the shade it's the blue of the sky
+//     lighting it, and in under the trees the green of the light through the leaves (lightAtS, 00-core)
+//   - the split follows the hours: gentle at noon, widest at golden hour and sunset (an orange sun, violet shade), cooler in
+//     the morning, and gone under rain or fog and at night, when the light comes from everywhere at once
+//   - a dull colour is lifted toward its own hue, and a strong one left as it is (grey, 00-core), so the paint reads again
+//     without the bright things going garish
+//   - far off goes blue (the sky low down, 90-main) and a stand's haze is blue-green (92-forest), set against the warm light
+//   - nearer, the greens themselves vary: each tree a little yellower or bluer than the next, a crown's sunlit top warmer
+//     than its depths, and looking up into a crown the daylight glows green through it (11-trees); the turf and the grass
+//     a fresher green, the open ground further off reading as turf, not bare earth (00-core, 12-grass)
+//   - in under the trees the eye opens up a little, and the shade there is a warm green, so the browns stay rich
+//   - the outlines are a deep dark of each thing's own colour (07-ink), and the soft pools of shadow a deep blue (10-world),
+//     not flat black
+const TINT = {
+  // [sun, shade] for each part of the day, each kept to the same brightness (the shade a touch lifted, as if by bounced light)
+  day: [[1.03, 1.0, 0.95], [0.89, 0.98, 1.11]], morn: [[1.04, 1.0, 0.93], [0.9, 0.98, 1.1]],
+  gold: [[1.13, 0.98, 0.74], [0.84, 0.92, 1.26]], set: [[1.16, 0.95, 0.7], [0.86, 0.88, 1.28]],
+  // in under a canopy the shade is lit by light come through the leaves, a warm green, so a trunk or the leaf litter in
+  // the shade stays a rich brown rather than going grey under a cold blue
+  leaves: [0.98, 1.05, 0.78],
+  lift: 1.06, liftCover: 0.2, vib: 0.6,
+  expo: 0.22,   // in under the trees the eye opens up: everything a little brighter, the closer the crowns overhead
+  canopy: 0, acc: 0, accN: 4,   // how much crown is over and round you (the trees gathered in near you, 10-world), eased
+};
+// the crowns round you, counted as the trees near you are gathered in, each by how close it stands
+{ const tb = treesBegin; treesBegin = function () { TINT.acc = 0; return tb.apply(this, arguments); }; }
+{ const ta = treeAdd; treeAdd = function (o, kind, d) { if (d < 160 && kind !== 'dead') TINT.acc += (1 - d / 160) * (1 - d / 160); return ta.apply(this, arguments); }; }
+{
+  const lum = v => v.x * 0.3 + v.y * 0.55 + v.z * 0.15, a = new V3(), b = new V3(), t = new V3();
+  const blend = (v, pair, i, k) => v.lerp(t.set(...pair[i]), k);
+  const wl = weatherLight; weatherLight = function () {
+    wl.apply(this, arguments);
+    const sun = LU.sunT.value, sh = LU.shadeT.value;
+    if (!S || !S.p || caveIn()) { sun.set(1, 1, 1); sh.set(1, 1, 1); LU.vib.value = 0.2; return; }
+    a.set(...TINT.day[0]); b.set(...TINT.day[1]);
+    blend(a, TINT.morn, 0, ENV.morn); blend(b, TINT.morn, 1, ENV.morn);
+    blend(a, TINT.gold, 0, ENV.gold); blend(b, TINT.gold, 1, ENV.gold);
+    blend(a, TINT.set, 0, ENV.set); blend(b, TINT.set, 1, ENV.set);
+    TINT.canopy += (clamp(TINT.acc / TINT.accN, 0, 1) - TINT.canopy) * 0.03;
+    const cn = TINT.canopy;
+    b.lerp(t.set(...TINT.leaves), 0.75 * cn * (1 - 0.5 * ENV.set));
+    a.multiplyScalar(1 / lum(a)); b.multiplyScalar((TINT.lift + TINT.liftCover * cn) / lum(b));
+    // overcast or dark, the light comes from all round: no split
+    const k = clamp((LU.sunK.value - 0.05) / 0.35, 0, 1) * (1 - 0.85 * Math.max(WXV.fog, WXV.rain));
+    sun.set(1, 1, 1).lerp(a, k); sh.set(1, 1, 1).lerp(b, k);
+    LU.amb.value.multiplyScalar(1 + TINT.expo * cn * clamp(LU.sunK.value / 0.4, 0, 1));
+    LU.vib.value = TINT.vib * (0.45 + 0.55 * clamp(LU.sunK.value / 0.5, 0, 1));   // by night, colour fades as it does to the eye
+  };
+}
 </script>
 </body>
 </html>

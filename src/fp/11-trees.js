@@ -34,7 +34,7 @@ const treeMat = new THREE.ShaderMaterial({
       #ifdef USE_INSTANCING
         attribute float baseHeight;
       #endif
-      varying float vTreeD; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
+      varying float vTreeD, vTn; varying vec3 vC, vW, vN, vG, vL; varying float vE, vM;
     void main() {
       mat4 im = modelMatrix;
       #ifdef USE_INSTANCING
@@ -52,10 +52,10 @@ const treeMat = new THREE.ShaderMaterial({
       #else
         w.y += terrH(im[3].xz);
       #endif
-      vTreeD = distance(im[3].xz, fogC.xz); vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
+      vTreeD = distance(im[3].xz, fogC.xz); vTn = fract(sin(dot(im[3].xz, vec2(12.9898, 78.233))) * 43758.5453); vW = w.xyz; vL = position; vN = normalize(mat3(im) * normal); vC = color; vE = em; vG = gu; vM = mt;
       gl_Position = projectionMatrix * viewMatrix * w;
     }`,
-  fragmentShader: LIGHT_GLSL + PAINT_GLSL + FOLIAGE_CUT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM, vTreeD;
+  fragmentShader: LIGHT_GLSL + PAINT_GLSL + FOLIAGE_CUT_GLSL + `varying vec3 vC, vW, vN, vG, vL; varying float vE, vM, vTreeD, vTn;
     uniform vec4 occ;
     float occluding(vec3 p) {   // from above: on the line between the camera and you, a tree thins away
       if (occ.w < 0.5 || p.y < occ.y - 4.0) return 0.0;
@@ -90,6 +90,10 @@ const treeMat = new THREE.ShaderMaterial({
           c=vC*(.69+.38*up)*cluster*mix(.87,1.12,spray);
           c+=vec3(.035,.065,.035)*spray*up+vC*back*.035;
         }
+        // greens of their own (93-colour): one tree a little yellower than the next, another bluer, and each crown warmer on its
+        // sunlit top than down in its depths (the blossom keeps its pink)
+        float gw = clamp((vC.g - max(vC.r, vC.b)) * 6.0, 0.0, 1.0);
+        c *= mix(vec3(1.0), mix(vec3(0.93, 0.99, 1.09), vec3(1.09, 1.04, 0.8), vTn) * mix(vec3(0.94, 0.98, 1.08), vec3(1.06, 1.02, 0.86), smoothstep(0.15, 0.7, up)), gw);
       } else {
         paintH = vL.y; c = paint(vC, vM, vG, vW, N);
         if (vM > 6.5 && vM < 7.5) {   // bark: moss up the foot of the trunk, over the roots and along the tops of the limbs, most on the shady side; pale lichen higher up

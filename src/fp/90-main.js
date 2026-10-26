@@ -3,19 +3,20 @@
 // ---------------- the sky through the day ----------------
 // Daylight's clock (dayLight: 1 in full sun, 0 at the dead of night) sets everything: where the sun is, how warm the light,
 // the sky, the haze, and how far you can see once it's dark and only your torch and your fires are left.
-const ENV = { lt: 1 };
+const ENV = { lt: 1, gold: 0, morn: 0, set: 0 };
 const mix3 = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k), lerp(a[2], b[2], k)];
 function envFrame() {
   const lt = S && S.day ? dayLight() : 1, f = S && S.day ? dayT() : 0.2, set = lt < 1 && lt > 0 ? Math.sin(Math.PI * lt) : 0;
   ENV.lt = lt;
   // the hours have their own light: a cool clear morning, white noon, the afternoon warming toward gold before the dusk
   const gold = lt >= 1 ? 0.85 * _sst(0.4, NIGHT_IN, f) : 0, morn = lt >= 1 ? 1 - _sst(0.0, 0.14, f) : 0;
+  ENV.gold = gold; ENV.morn = morn; ENV.set = set;
   const dayAmb = mix3(mix3([1.06, 1.0, 0.88], [1.12, 0.9, 0.66], gold), [0.96, 0.98, 1.0], morn * 0.8), duskAmb = [1.0, 0.68, 0.5], nightAmb = [0.075, 0.085, 0.125];
   LU.amb.value.set(...mix3(nightAmb, mix3(dayAmb, duskAmb, set * 0.85), Math.pow(lt, 0.8)));
   LU.sunK.value = lt;
   const sa = clamp(f / (NIGHT_IN + DUSK), 0, 1) * Math.PI, el = Math.max(0.12, Math.sin(sa)) * 0.95;
   LU.sunDir.value.set(Math.cos(sa) * 0.9, el, -0.45).normalize();
-  const dTop = mix3(mix3([0.42, 0.6, 0.84], [0.4, 0.52, 0.76], gold), [0.46, 0.64, 0.86], morn), dHor = mix3(mix3([0.8, 0.83, 0.82], [0.94, 0.8, 0.6], gold), [0.82, 0.86, 0.9], morn);
+  const dTop = mix3(mix3([0.42, 0.6, 0.84], [0.4, 0.52, 0.76], gold), [0.46, 0.64, 0.86], morn), dHor = mix3(mix3([0.76, 0.84, 0.9], [0.94, 0.8, 0.6], gold), [0.8, 0.86, 0.92], morn);   // a clear pale blue low down: far off goes blue, not grey
   const top = mix3([0.02, 0.025, 0.05], mix3(dTop, [0.35, 0.3, 0.5], set), lt);
   const hor = mix3([0.035, 0.04, 0.06], mix3(dHor, [0.95, 0.56, 0.32], set), lt);
   SKY.top.set(...top); SKY.hor.set(...hor); SKY.set.value = set;

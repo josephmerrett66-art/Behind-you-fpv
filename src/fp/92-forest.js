@@ -21,9 +21,10 @@ const FOREST = { cover: 0 };
     FOREST.cover += (c - FOREST.cover) * 0.02;
     const cv = FOREST.cover, f = WXV.fog, r = WXV.rain;
     H.set((0.00045 + 0.00055 * cv) * (1 + 0.6 * f + 0.3 * r), 55 + 25 * f, 1.3 * LU.sunK.value, isoP() ? 0.4 : 1);
-    // the air is the sky's own colour at the horizon, greener and dimmer in under the trees, where less light reaches it
+    // the air is the sky's own colour at the horizon, dimmer in under the trees where less light reaches it, and a cool
+    // blue-green there (93-colour): against the warm light it gives the depth, where a grey haze only dulled everything
     const g = cv * (1 - 0.6 * Math.max(f, r));
-    LU.hazeCol.value.copy(LU.fogCol.value).multiply(_hzT.set(1 - 0.4 * g, 1 - 0.27 * g, 1 - 0.37 * g));
+    LU.hazeCol.value.copy(LU.fogCol.value).multiply(_hzT.set(1 - 0.43 * g, 1 - 0.26 * g, 1 - 0.25 * g));
   }; }
 const _hzT = new V3();
 

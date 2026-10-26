@@ -84,10 +84,11 @@ const LU = {
   fogCol: { value: new V3(0.8, 0.82, 0.8) }, fogR: { value: new THREE.Vector2(840, VIEW) },
   leafRange:{value:new THREE.Vector2(260,420)},
   haze: { value: new V4(0, 0, 0, 0) }, hazeCol: { value: new V3(0.8, 0.82, 0.8) },   // the forest air (92-forest): density, how low it lies, the sun's glow in it, on · its colour
+  sunT: { value: new V3(1, 1, 1) }, shadeT: { value: new V3(1, 1, 1) }, vib: { value: 0 },   // the colour of the light (93-colour): warm in the sun, cool in the shade; and how much a dull colour is lifted
   landT: { value: AREA.tex }, standT: { value: AREA.standTex }, time: { value: 0 }, camPos: { value: new V3() }, fogC: { value: new V3() }, camRight: { value: new V3(1, 0, 0) }, colourK: { value: 1 },
 };
 const LIGHT_GLSL = `
-uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC, hazeCol; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK; uniform vec4 haze;
+uniform vec3 tPos, tDir, tCol, amb, sunDir, fogCol, camPos, fogC, hazeCol, sunT, shadeT; uniform vec2 tCone, fogR; uniform float tRange, sunK, plN, colourK, vib; uniform vec4 haze;
 uniform vec4 pl[${NL}]; uniform vec3 plc[${NL}];
 uniform sampler2D shMap; uniform mat4 shM; uniform vec4 shP, shC;
 // the sun's shadow (13-sun.js): 1 in the open, down toward shP.x's share in the shade of whatever stands between here and the sun
@@ -110,7 +111,10 @@ float sunShade(vec3 p) {
 // sh: how much of the sun reaches here (sunShade), for a shader that wants it for something else too (the trees' leaves)
 vec3 lightAtS(vec3 p, vec3 n, float useN, float sh) {
   float sun = mix(1.0, 0.7 + 0.45 * max(dot(n, sunDir), 0.0), useN * sunK);
-  vec3 c = amb * sun * sh;
+  // the sun's own light is warm, the shade is lit by the sky and the leaves, cool (93-colour)
+  float lit = shP.x < 0.005 ? 1.0 : clamp((sh - 1.0 + shP.x) / shP.x, 0.0, 1.0);
+  lit *= mix(1.0, smoothstep(-0.05, 0.45, dot(n, sunDir)), useN);
+  vec3 c = amb * sun * sh * mix(shadeT, sunT, lit);
   // With the torch off, skip its cone and falloff work for every shaded pixel.
   if (dot(tCol,tCol)>0.0) {
     vec3 L = p - tPos; float d = length(L); vec3 l = L / max(d, 0.001);
@@ -124,7 +128,9 @@ vec3 lightAtS(vec3 p, vec3 n, float useN, float sh) {
 }
 vec3 lightAt(vec3 p, vec3 n, float useN) { return lightAtS(p, n, useN, sunShade(p + n * 0.6)); }
 float slopeLit(vec3 n) { return 1.0 + (dot(n, sunDir) - sunDir.y) * (0.25 + 1.15 * sunK) + (n.y - 1.0) * 0.6; }
-vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)); return mix(vec3(g), c, colourK); }
+// (and vib: a dull colour is lifted toward its own hue, one already strong left as it is, 93-colour)
+vec3 grey(vec3 c) { float g = dot(c, vec3(0.3, 0.55, 0.15)), mx = max(c.r, max(c.g, c.b)), s = 1.0 - (mx - min(c.r, min(c.g, c.b))) / max(mx, 1e-4);
+  return max(mix(vec3(g), c, colourK * (1.0 + vib * s * s)), 0.0); }
 // the forest air first (92-forest): a light haze that thickens with distance, lying low among the trunks and thinning
 // up into the crowns, glowing where you look toward the sun; then the haze at the edge of what you can see
 vec3 fogged(vec3 c, vec3 p) {
@@ -378,10 +384,11 @@ const SKY = { top: new V3(), hor: new V3(), cover: { value: 0.42 }, set: { value
         earth=mix(earth,vec3(.56,.46,.28)*(.8+.4*grain),s.x*.7);
         earth=mix(earth,earth*vec3(.78,.84,.83),s.y*.55);
         earth=mix(earth,vec3(.43,.255,.17)*(.8+.4*grain),s.z*.55);
-        vec3 moss=mix(vec3(.22,.365,.16),vec3(.40,.52,.245),detail.b);
+        vec3 moss=mix(vec3(.23,.38,.13),vec3(.44,.56,.2),detail.b);   // turf and moss: a fresh, slightly yellow green (93-colour)
         float wear=(1.0-smoothstep(.025,.055,abs(raw.r-raw.g)))*smoothstep(.38,.62,raw.b);
         float green=smoothstep(.22,.8,gm)*(1.0-s.w*.75)*(1.0-s.x*.65);
-        vec3 t=mix(earth,moss*(.88+.24*grain),green*mix(.25,1.0,mossPatch)*(1.0-fl*.6)*(1.0-wear*.45));
+        float far=smoothstep(150.0,600.0,distance(vW.xz,fogC.xz));   // further off, the grass blades run together into one green
+        vec3 t=mix(earth,moss*(.88+.24*grain),green*mix(mix(.5,1.0,mossPatch),1.0,far*.7)*(1.0-fl*.6)*(1.0-wear*.45));
         vec3 litter=mix(vec3(.34,.255,.155),vec3(.54,.39,.22),grain);
         litter=mix(litter,vec3(.58,.405,.205)*(.85+.25*grain),leaf*.65);
         litter=mix(litter,litter*.7,needle*.35);

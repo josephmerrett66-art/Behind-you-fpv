@@ -37,3 +37,15 @@ The "after" numbers come from the test build just before the last small changes:
 ## Tuning
 
 All the numbers are in `TINT` at the top of 93-colour.js: the sun and shade tints for each part of the day, the canopy shade colour, the shade lift, `vib` (how much dull colours are lifted), `expo` (how much the light opens up under a canopy) and `accN` (how much crown counts as a full canopy). `INK.mat.uniforms.inkTint` sets how much an outline takes its thing's own colour (x is how dark, y is how much; `(0, 0)` gives the old black).
+
+## Sharpness (version 151)
+
+Joe: "I like it but feel like we have lost a lot of the sharpness?" Sharpness was measured on captures of the glade, thicket and meadow from versions 147 to 150, with the film grain hidden. It was scored as the mean Laplacian for fine detail and the luma spread for contrast. Fine detail had gone up with the leaf gaps. What had gone was contrast in the open: the forest haze took it from 45 to 40 in the glade and from 48 to 41 in the meadow. Turning the haze or the shafts off showed the haze was the cause; the shafts barely mattered.
+
+- The haze is now light in the open and as thick as before in a close stand (`FOREST.hz`, 92-forest). The open-air shafts are weaker too (`SHAFT.k`).
+- The final composite sharpens slightly (07-ink, `sharpK`). Each pixel is pushed away from the four round it, capped so edges get no bright fringe.
+- Outlines are near-black again, with only a trace of each thing's own colour (`inkTint` 0.22, 0.3).
+
+After the change, contrast is 43 in the glade and 45 in the meadow. Fine detail is about 35% above version 150.
+
+Resolution is a separate cause that shader changes can't fix. On the Auto setting the game lowers its resolution when frames drop (`autoQuality`, 90-main), down to 0.55x. Show FPS in the settings displays the current scale after the "x".

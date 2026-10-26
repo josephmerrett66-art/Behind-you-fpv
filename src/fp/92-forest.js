@@ -10,7 +10,9 @@
 // On Fast the shafts are left out; the haze and the motes cost next to nothing.
 
 // ---- the haze ----
-const FOREST = { cover: 0, hz: [0.00045, 0.00055] };   // hz: the haze's density in the open, and how much more in a close stand
+// hz: the haze's density in the open, and how much more in a close stand. Light in the open (Joe: "we have lost a lot of the
+// sharpness": out in a meadow it took a sixth of the contrast off everything), thick in among the trunks, where it gives the depth
+const FOREST = { cover: 0, hz: [0.00018, 0.00082] };
 { const wl = weatherLight; weatherLight = function () {
     wl.apply(this, arguments);
     const D = S && S.p, H = LU.haze.value;
@@ -29,7 +31,7 @@ const FOREST = { cover: 0, hz: [0.00045, 0.00055] };   // hz: the haze's density
 const _hzT = new V3();
 
 // ---- the shafts ----
-const SHAFT = { rt: null, scene: new THREE.Scene(), max: 320, k: [0.2, 0.22, 0.12] };   // k: how strong in the open, the more in a close stand, the more with the sun low
+const SHAFT = { rt: null, scene: new THREE.Scene(), max: 320, k: [0.08, 0.34, 0.12] };   // k: how strong in the open, the more in a close stand, the more with the sun low
 SHAFT.mat = new THREE.ShaderMaterial({
   uniforms: { tDep: { value: null }, shMap: LU.shMap, shM: LU.shM, shP: LU.shP, camPos: LU.camPos, sunDir: LU.sunDir,
     projInv: { value: new M4() }, camWorld: { value: new M4() }, maxD: { value: SHAFT.max } },
